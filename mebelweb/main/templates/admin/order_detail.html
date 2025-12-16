@@ -1,0 +1,308 @@
+{% extends "admin/abase.html" %}
+
+{% block content %}
+
+<style>
+    /* Page Header */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text);
+    }
+
+    .back-btn {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px rgba(236, 194, 153, 0.3);
+    }
+
+    .back-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(236, 194, 153, 0.4);
+    }
+
+    /* Info Cards */
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+
+    .info-card {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 20px;
+        padding: 24px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .dark-mode .info-card {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: var(--primary);
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(236, 194, 153, 0.1);
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        color: var(--text);
+        opacity: 0.7;
+    }
+
+    .info-value {
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    /* Status Badge */
+    .status-badge {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .status-pending {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white;
+    }
+
+    .status-processing {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+    }
+
+    .status-completed {
+        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        color: white;
+    }
+
+    .status-cancelled {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+    }
+
+    /* Items Table */
+    .items-card {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 20px;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        margin-bottom: 24px;
+    }
+
+    .dark-mode .items-card {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .items-table thead {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    }
+
+    .items-table th {
+        padding: 16px;
+        text-align: left;
+        color: white;
+        font-weight: 700;
+        font-size: 0.9375rem;
+    }
+
+    .items-table td {
+        padding: 16px;
+        border-top: 1px solid rgba(236, 194, 153, 0.15);
+        color: var(--text);
+    }
+
+    /* Status Form */
+    .status-form {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 20px;
+        padding: 24px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .dark-mode .status-form {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .status-select {
+        width: 100%;
+        padding: 12px 20px;
+        border-radius: 12px;
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        background: rgba(236, 194, 153, 0.08);
+        color: var(--text);
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 16px;
+    }
+
+    .update-btn {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+    }
+
+    .update-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(46, 204, 113, 0.4);
+    }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">Buyurtma #{{ order.id }}</h1>
+    <a href="{% url 'orders' %}" class="back-btn">
+        <i class="fas fa-arrow-left"></i> Orqaga
+    </a>
+</div>
+
+<!-- Order Info Grid -->
+<div class="info-grid">
+    <!-- Order Info -->
+    <div class="info-card">
+        <h2 class="card-title">Buyurtma ma'lumotlari</h2>
+        <div class="info-row">
+            <span class="info-label">Buyurtma raqami:</span>
+            <span class="info-value">#{{ order.id }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Sana:</span>
+            <span class="info-value">{{ order.created_at|date:"d.m.Y H:i" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Holat:</span>
+            <span class="status-badge status-{{ order.status }}">{{ order.get_status_display }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Jami summa:</span>
+            <span class="info-value" style="font-size: 1.25rem; color: var(--primary);">
+                {{ order.total_price|floatformat:0 }} so'm
+            </span>
+        </div>
+    </div>
+
+    <!-- User Info -->
+    <div class="info-card">
+        <h2 class="card-title">Mijoz ma'lumotlari</h2>
+        <div class="info-row">
+            <span class="info-label">Ism:</span>
+            <span class="info-value">{{ order.user.first_name|default:"-" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Username:</span>
+            <span class="info-value">{{ order.user.username }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Telefon:</span>
+            <span class="info-value">{{ order.user.phone|default:"-" }}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Telegram ID:</span>
+            <span class="info-value">{{ order.user.tg_id|default:"-" }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Order Items -->
+<div class="items-card">
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Mahsulot</th>
+                <th>Material</th>
+                <th>O'lchami (m)</th>
+                <th>Soni</th>
+                <th>Narxi</th>
+                <th>Jami</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order.items.all %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td><strong>{{ item.product.name_uz }}</strong></td>
+                <td>{{ item.variant.name }}</td>
+                <td>{{ item.width }}×{{ item.height }}×{{ item.depth }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.price|floatformat:0 }} so'm</td>
+                <td><strong>{% widthratio item.price 1 item.quantity %} so'm</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Status Update Form -->
+<div class="status-form">
+    <h2 class="card-title">Holat o'zgartirish</h2>
+    <form method="POST" action="{% url 'order_update_status' order.id %}">
+        {% csrf_token %}
+        <select name="status" class="status-select" required>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if value==order.status %}selected{% endif %}>
+                {{ label }}
+            </option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="update-btn">
+            <i class="fas fa-save"></i> Holatni yangilash
+        </button>
+    </form>
+</div>
+
+{% endblock %}

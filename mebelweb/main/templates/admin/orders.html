@@ -1,0 +1,627 @@
+{% extends "admin/abase.html" %}
+
+{% block content %}
+
+<style>
+    /* Page Header */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text);
+    }
+
+    /* Filter */
+    .filter-select {
+        padding: 12px 20px;
+        border-radius: 12px;
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        background: rgba(236, 194, 153, 0.08);
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .filter-select:hover {
+        border-color: var(--primary);
+    }
+
+    .dark-mode .filter-select {
+        background: rgba(236, 194, 153, 0.15);
+        color: #fff;
+        border-color: rgba(236, 194, 153, 0.3);
+    }
+
+    .dark-mode .filter-select option {
+        background: #2c2c2c;
+        color: #fff;
+    }
+
+    /* Table Container */
+    .table-container {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 20px;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .dark-mode .table-container {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Table */
+    .orders-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .orders-table thead {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    }
+
+    .orders-table th {
+        padding: 16px;
+        text-align: left;
+        color: white;
+        font-weight: 700;
+        font-size: 0.9375rem;
+    }
+
+    .orders-table td {
+        padding: 16px;
+        border-top: 1px solid rgba(236, 194, 153, 0.15);
+        color: var(--text);
+    }
+
+    .orders-table tbody tr {
+        transition: all 0.3s;
+    }
+
+    .orders-table tbody tr:hover {
+        background: rgba(236, 194, 153, 0.05);
+    }
+
+    /* Status Badge */
+    .status-badge {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+    }
+
+    .status-pending,
+    .status-new {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white;
+    }
+
+    .status-processing {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+    }
+
+    .status-completed,
+    .status-sent {
+        background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        color: white;
+    }
+
+    .status-cancelled {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+    }
+
+    /* Action Link */
+    .action-link {
+        color: var(--secondary);
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.3s;
+    }
+
+    .action-link:hover {
+        color: var(--primary);
+    }
+
+    /* Empty State */
+    .empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: var(--text);
+        opacity: 0.6;
+        font-size: 1.125rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .table-container {
+            background: transparent;
+            box-shadow: none;
+            border: none;
+            overflow: visible;
+        }
+
+        .orders-table {
+            display: block;
+            min-width: 0;
+        }
+
+        .orders-table thead {
+            display: none;
+        }
+
+        .orders-table tbody {
+            display: grid;
+            gap: 16px;
+        }
+
+        .orders-table tr {
+            display: block;
+            background: var(--bg);
+            border: 2px solid rgba(236, 194, 153, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-mode .orders-table tr {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(236, 194, 153, 0.15);
+        }
+
+        .orders-table td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border: none;
+            text-align: right;
+        }
+
+        .orders-table td::before {
+            content: attr(data-label);
+            font-weight: 600;
+            color: var(--text);
+            opacity: 0.7;
+            text-align: left;
+            margin-right: 16px;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+        }
+    }
+</style>
+
+<!-- Hidden CSRF token for modal -->
+{% csrf_token %}
+
+<!-- Modal -->
+<div id="orderModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Buyurtma #<span id="orderId"></span></h2>
+            <span class="close">&times;</span>
+        </div>
+        <div id="modalBody" class="modal-body">
+            <div class="loader">Yuklanmoqda...</div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        overflow-y: auto;
+        animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    .modal-content {
+        background: var(--bg);
+        margin: 40px auto;
+        max-width: 900px;
+        border-radius: 24px;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s;
+        border: 2px solid rgba(236, 194, 153, 0.2);
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 24px 32px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        border-radius: 24px 24px 0 0;
+    }
+
+    .modal-header h2 {
+        color: white;
+        margin: 0;
+        font-size: 1.5rem;
+    }
+
+    .close {
+        color: white;
+        font-size: 2rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+    }
+
+    .close:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: rotate(90deg);
+    }
+
+    .modal-body {
+        padding: 32px;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+        color: var(--text);
+    }
+
+    .loader {
+        text-align: center;
+        padding: 40px;
+        color: var(--text);
+        opacity: 0.6;
+    }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">Buyurtmalar</h1>
+    <select class="filter-select" onchange="filterOrders(this.value)">
+        <option value="">Barchasi</option>
+        <option value="pending">Yangi</option>
+        <option value="processing">Tayyorlanmoqda</option>
+        <option value="completed">Yuborilgan</option>
+        <option value="cancelled">Bekor qilindi</option>
+    </select>
+</div>
+
+<div class="table-container">
+    <table class="orders-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Mijoz</th>
+                <th>Mahsulot</th>
+                <th>Sana</th>
+                <th>Summa</th>
+                <th>Holati</th>
+                <th>Amal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr data-status="{{ order.status }}" id="order-row-{{ order.id }}">
+                <td data-label="ID"><strong>#{{ order.id }}</strong></td>
+                <td data-label="Mijoz">{{ order.user.first_name|default:order.user.username }}</td>
+                <td data-label="Mahsulot">
+                    {% if order.items.exists %}
+                    {{ order.items.first.product.name_uz }}
+                    {% if order.items.count > 1 %}
+                    va yana...
+                    {% endif %}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td data-label="Sana">{{ order.created_at|date:"d.m.Y H:i" }}</td>
+                <td data-label="Summa"><strong>{{ order.total_price|floatformat:0 }} so'm</strong></td>
+                <td data-label="Holat">
+                    <span class="status-badge status-{{ order.status }}">
+                        {{ order.get_status_display }}
+                    </span>
+                </td>
+                <td data-label="Soni">
+                    <strong>{{ order.items.count }}</strong> ta mahsulot
+                </td>
+                <td data-label="Amallar">
+                    <button onclick="openOrderModal({{ order.id }})" class="action-link"
+                        style="background:none;border:none;cursor:pointer;">
+                        <i class="fas fa-eye"></i> Batafsil
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="empty-state">
+                    <i class="fas fa-inbox" style="font-size: 3rem; opacity: 0.3; margin-bottom: 16px;"></i>
+                    <br>
+                    Hozircha buyurtma yo'q
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function filterOrders(status) {
+        const rows = document.querySelectorAll('.orders-table tbody tr[data-status]');
+        rows.forEach(row => {
+            if (!status || row.dataset.status === status) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    // Modal functionality
+    const modal = document.getElementById('orderModal');
+    const span = document.getElementsByClassName('close')[0];
+
+    // Close modal when clicking X
+    span.onclick = function () {
+        modal.style.display = 'none';
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function (event) {
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    // Open modal with order details
+    function openOrderModal(orderId) {
+        modal.style.display = 'block';
+        document.getElementById('orderId').textContent = orderId;
+        document.getElementById('modalBody').innerHTML = '<div class="loader">Yuklanmoqda...</div>';
+
+        // Fetch order details as JSON
+        fetch(`/order/${orderId}/json/`)
+            .then(response => response.json())
+            .then(data => {
+                // Build HTML from JSON
+                let html = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                        <!-- Order Info -->
+                        <div style="background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%); border: 2px solid rgba(236, 194, 153, 0.2); border-radius: 16px; padding: 20px;">
+                            <h3 style="color: var(--primary); margin-bottom: 16px;">Buyurtma ma'lumotlari</h3>
+                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(236, 194, 153, 0.1);">
+                                <span style="opacity: 0.7;">Buyurtma raqami:</span>
+                                <strong style="float: right;">#${data.order_id}</strong>
+                            </div>
+                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(236, 194, 153, 0.1);">
+                                <span style="opacity: 0.7;">Sana:</span>
+                                <strong style="float: right;">${data.created_at}</strong>
+                            </div>
+                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(236, 194, 153, 0.1);">
+                                <span style="opacity: 0.7;">Holat:</span>
+                                <span class="status-badge status-${data.status}" style="float: right;">${data.status_display}</span>
+                            </div>
+                            <div style="padding: 10px 0;">
+                                <span style="opacity: 0.7;">Jami summa:</span>
+                                <strong style="float: right; font-size: 1.25rem; color: var(--primary);">${data.total_price.toLocaleString()} so'm</strong>
+                            </div>
+                        </div>
+
+                        <!-- User Info -->
+                        <div style="background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%); border: 2px solid rgba(236, 194, 153, 0.2); border-radius: 16px; padding: 20px;">
+                            <h3 style="color: var(--primary); margin-bottom: 16px;">Mijoz ma'lumotlari</h3>
+                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(236, 194, 153, 0.1);">
+                                <span style="opacity: 0.7;">Ism:</span>
+                                <strong style="float: right;">${data.user.first_name}</strong>
+                            </div>
+                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(236, 194, 153, 0.1);">
+                                <span style="opacity: 0.7;">Username:</span>
+                                <strong style="float: right;">${data.user.username}</strong>
+                            </div>
+                            <div style="padding: 10px 0; border-bottom: 1px solid rgba(236, 194, 153, 0.1);">
+                                <span style="opacity: 0.7;">Telefon:</span>
+                                <strong style="float: right;">${data.user.phone}</strong>
+                            </div>
+                            <div style="padding: 10px 0;">
+                                <span style="opacity: 0.7;">Telegram ID:</span>
+                                <strong style="float: right;">${data.user.tg_id}</strong>
+                            </div>
+                        </div>
+
+                        <!-- Customer History -->
+                        <div style="background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%); border: 2px solid rgba(236, 194, 153, 0.2); border-radius: 16px; padding: 20px;">
+                            <h3 style="color: var(--primary); margin-bottom: 16px;">Mijoz tarixi</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <div style="text-align: center;">
+                                    <span style="font-size: 1.5rem; font-weight: 700; color: var(--text);">${data.user_stats.total_orders}</span>
+                                    <div style="font-size: 0.75rem; opacity: 0.7;">Jami</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <span style="font-size: 1.5rem; font-weight: 700; color: #27ae60;">${data.user_stats.completed_orders}</span>
+                                    <div style="font-size: 0.75rem; opacity: 0.7;">Yopilgan</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <span style="font-size: 1.5rem; font-weight: 700; color: #e74c3c;">${data.user_stats.cancelled_orders}</span>
+                                    <div style="font-size: 0.75rem; opacity: 0.7;">Bekor</div>
+                                </div>
+                            </div>
+                            
+                            <div style="padding-top: 15px; border-top: 1px solid rgba(236, 194, 153, 0.1);">
+                                <span style="opacity: 0.7;">Ishonch reytingi:</span>
+                                <span style="float: right; padding: 4px 10px; border-radius: 10px; font-weight: 700; font-size: 0.875rem; color: white; background: ${data.user_stats.trust_score >= 80 ? '#27ae60' : (data.user_stats.trust_score >= 50 ? '#f39c12' : '#e74c3c')};">
+                                    ${data.user_stats.trust_score}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Items Table -->
+                    <div style="background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%); border: 2px solid rgba(236, 194, 153, 0.2); border-radius: 16px; overflow: hidden; margin-bottom: 24px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);">
+                                <tr>
+                                    <th style="padding: 12px; color: white; text-align: left;">#</th>
+                                    <th style="padding: 12px; color: white; text-align: left;">Mahsulot</th>
+                                    <th style="padding: 12px; color: white; text-align: left;">Material</th>
+                                    <th style="padding: 12px; color: white; text-align: left;">O'lchami (m)</th>
+                                    <th style="padding: 12px; color: white; text-align: left;">Soni</th>
+                                    <th style="padding: 12px; color: white; text-align: left;">Narxi</th>
+                                    <th style="padding: 12px; color: white; text-align: left;">Jami</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                data.items.forEach((item, index) => {
+                    html += `
+                        <tr>
+                            <td style="padding: 12px; border-top: 1px solid rgba(236, 194, 153, 0.15);">${index + 1}</td>
+                            <td style="padding: 12px; border-top: 1px solid rgba(236, 194, 153, 0.15);"><strong>${item.product_name}</strong></td>
+                            <td style="padding: 12px; border-top: 1px solid rgba(236, 194, 153, 0.15);">${item.variant_name}</td>
+                            <td style="padding: 12px; border-top: 1px solid rgba(236, 194, 153, 0.15);">${item.width}×${item.height}×${item.depth}</td>
+                            <td style="padding: 12px; border-top: 1px solid rgba(236, 194, 153, 0.15);">${item.quantity}</td>
+                            <td style="padding: 12px; border-top: 1px solid rgba(236, 194, 153, 0.15);">${item.price.toLocaleString()} so'm</td>
+                            <td style="padding: 12px; border-top: 1px solid rgba(236, 194, 153, 0.15);"><strong>${item.total.toLocaleString()} so'm</strong></td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Status Form -->
+                    <div style="background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%); border: 2px solid rgba(236, 194, 153, 0.2); border-radius: 16px; padding: 20px;">
+                        <h3 style="color: var(--primary); margin-bottom: 16px;">Holat o'zgartirish</h3>
+                        <form onsubmit="submitStatusUpdate(event, ${orderId})">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${document.querySelector('[name=csrfmiddlewaretoken]').value}">
+                            <select name="status" style="width: 100%; padding: 12px 20px; border-radius: 12px; border: 2px solid rgba(236, 194, 153, 0.3); background: rgba(236, 194, 153, 0.15); color: #fff; font-weight: 600; margin-bottom: 16px; font-size: 1rem;" required>
+                `;
+
+                data.status_choices.forEach(choice => {
+                    const selected = choice.value === data.status ? 'selected' : '';
+                    html += `<option value="${choice.value}" ${selected} style="background: #2c2c2c; color: #fff; padding: 12px;">${choice.label}</option>`;
+                });
+
+                html += `
+                            </select>
+                            <button type="submit" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white; border: none; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s; box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);">
+                                <i class="fas fa-save"></i> Holatni yangilash
+                            </button>
+                        </form>
+                    </div>
+                `;
+
+                document.getElementById('modalBody').innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('modalBody').innerHTML = '<p style="text-align:center;padding:40px;color:#e74c3c;">Xatolik yuz berdi</p>';
+            });
+    }
+
+    function submitStatusUpdate(event, orderId) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saqlanmoqda...';
+
+        fetch(`/order/${orderId}/update-status/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update modal status
+                    const badge = document.querySelector('#modalBody .status-badge');
+                    if (badge) {
+                        badge.className = `status-badge status-${data.new_status}`;
+                        badge.textContent = data.new_status_display;
+                    }
+
+                    // Update table row
+                    const row = document.getElementById(`order-row-${orderId}`);
+                    if (row) {
+                        row.setAttribute('data-status', data.new_status);
+                        const rowBadge = row.querySelector('.status-badge');
+                        if (rowBadge) {
+                            rowBadge.className = `status-badge status-${data.new_status}`;
+                            rowBadge.textContent = data.new_status_display;
+                        }
+                    }
+
+                    alert('✅ ' + data.message);
+
+                } else {
+                    alert('❌ Xato: ' + data.error);
+                }
+
+                // there we must close modal
+                modal.style.display = 'none';
+
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Xatolik yuz berdi');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            });
+    }
+</script>
+
+{% endblock %}

@@ -1,0 +1,212 @@
+{% extends "admin/abase.html" %}
+
+{% block content %}
+
+<style>
+    /* Page Header */
+    .page-header {
+        margin-bottom: 40px;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 8px;
+    }
+
+    /* Charts Grid */
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(1, 1fr);
+        gap: 32px;
+    }
+
+    @media (min-width: 1024px) {
+        .charts-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    /* Chart Container */
+    .chart-container {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 20px;
+        padding: 28px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        height: 400px;
+    }
+
+    .dark-mode .chart-container {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .chart-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text);
+    }
+
+    .chart-subtitle {
+        font-size: 0.875rem;
+        color: var(--text);
+        opacity: 0.6;
+    }
+
+    canvas {
+        max-height: 320px;
+    }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">Statistika</h1>
+    <p class="page-subtitle" style="color: var(--text); opacity: 0.7;">
+        <i class="fas fa-info-circle"></i> Tahlillar faqat <strong>"Yuborilgan"</strong> statusidagi buyurtmalar asosida
+        hisoblanadi
+    </p>
+</div>
+
+<div class="charts-grid">
+    <!-- Kunlik Sotuvlar -->
+    <div class="chart-container">
+        <div class="chart-header">
+            <h2 class="chart-title">Kunlik sotuvlar</h2>
+            <span class="chart-subtitle">{{ current_month }}</span>
+        </div>
+        <canvas id="salesChart"></canvas>
+    </div>
+
+    <!-- Top Mahsulotlar -->
+    <div class="chart-container">
+        <div class="chart-header">
+            <h2 class="chart-title">Top mahsulotlar</h2>
+            <span class="chart-subtitle">So'nggi 30 kun</span>
+        </div>
+        <canvas id="topProductsChart"></canvas>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+<script>
+    // Dark mode detection
+    const isDark = document.body.classList.contains('dark-mode');
+    const textColor = isDark ? '#eaeaea' : '#2c3e50';
+    const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+
+    // 1. Sales Chart
+    new Chart(document.getElementById('salesChart'), {
+        type: 'line',
+        data: {
+            labels: {{ sales_dates| safe }},
+        datasets: [{
+            label: 'Sotuvlar',
+            data: {{ sales_amounts| safe }},
+        borderColor: '#3498db',
+        backgroundColor: 'rgba(52, 152, 219, 0.15)',
+        borderWidth: 3,
+        pointBackgroundColor: '#3498db',
+        pointRadius: 6,
+        pointHoverRadius: 10,
+        tension: 0.4,
+        fill: true
+        }]
+    },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: isDark ? '#2c2c36' : '#ffffff',
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: 'rgba(236, 194, 153, 0.2)',
+                borderWidth: 1,
+                callbacks: {
+                    label: ctx => `${ctx.parsed.y.toLocaleString()} so'm`
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                grid: { color: gridColor },
+                ticks: {
+                    color: textColor,
+                    callback: val => val.toLocaleString() + ' so`m'
+                }
+            },
+            x: {
+                grid: { color: gridColor },
+                ticks: { color: textColor }
+            }
+        }
+    }
+});
+
+    // 2. Top Products Chart
+    new Chart(document.getElementById('topProductsChart'), {
+        type: 'doughnut',
+        data: {
+            labels: {{ top_products_names| safe }},
+        datasets: [{
+            data: {{ top_products_sales| safe }},
+        backgroundColor: [
+            '#3498db', '#e74c3c', '#2ecc71', '#f1c40f',
+            '#9b59b6', '#1abc9c', '#e67e22', '#34495e'
+        ],
+        borderColor: isDark ? '#1a1a24' : '#ffffff',
+        borderWidth: 3,
+        hoverOffset: 15
+        }]
+    },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: {
+                    color: textColor,
+                    font: { size: 13 },
+                    padding: 15
+                }
+            },
+            tooltip: {
+                backgroundColor: isDark ? '#2c2c36' : '#ffffff',
+                titleColor: textColor,
+                bodyColor: textColor,
+                borderColor: 'rgba(236, 194, 153, 0.2)',
+                borderWidth: 1,
+                callbacks: {
+                    label: ctx => `${ctx.label}: ${ctx.parsed} ta`
+                }
+            },
+            datalabels: {
+                color: '#ffffff',
+                font: { weight: 'bold', size: 14 },
+                formatter: val => val
+            }
+        }
+    },
+        plugins: [ChartDataLabels]
+});
+</script>
+
+{% endblock %}

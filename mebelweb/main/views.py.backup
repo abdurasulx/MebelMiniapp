@@ -1,0 +1,241 @@
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from .models import Category, Product, Variant, VariantImage
+import json
+from django.utils import timezone
+from datetime import timedelta
+from django.contrib.auth.decorators import login_required
+from .models import Order, OrderItem
+from django.db import models
+from .forms import ProductForm, VariantFormSet, CategoryForm
+from django.contrib import messages
+from django.db.models import Count
+
+# import models
+
+
+# Session savat
+def get_cart(request):
+    cart = request.session.get('cart', {})
+    return cart
+
+def save_cart(request, cart):
+    request.session['cart'] = cart
+    request.session.modified = True
+
+# 1. Bosh sahifa
+def index(request):
+    if request.user.is_authenticated:
+        total_products = Product.objects.count()
+        total_categories = Category.objects.count()
+        total_variants = Variant.objects.count()
+        today_orders = 0
+        context={'total_products': total_products,
+                 'total_categories': total_categories,
+                 'total_variants': total_variants,
+                 'today_orders': today_orders}
+        return render(request, 'admin/dashboard.html', context)
+    
+    categories = Category.objects.all()
+    return render(request, 'index.html', {'categories': categories})
+
+# 2. Kategoriya
+def category_view(request, cat_id):
+    category = get_object_or_404(Category, id=cat_id)
+    products = Product.objects.filter(category=category)
+    return render(request, 'category.html', {'category': category, 'products': products})
+    variant_id = data['variant_id']
+    width = float(data['width'])
+    height = float(data['height'])
+    depth = float(data['depth'])
+    quantity = int(data['quantity'])
+
+    variant = get_object_or_404(Variant, id=variant_id)
+    volume = width * height * depth
+    price = variant.base_price * volume
+
+    cart = get_cart(request)
+    key = f"{variant_id}_{width}_{height}_{depth}"
+    if key in cart:
+        cart[key]['quantity'] += quantity
+    else:
+        cart[key] = {
+            'variant_id': variant_id,
+            'material': variant.get_material_display(),
+            'product_name': variant.product.name_uz,
+            'image': variant.images.first().image.url if variant.images.exists() else variant.product.image.url,
+            'width': width,
+            'height': height,
+            'depth': depth,
+            'price': float(price),
+            'quantity': quantity,
+        }
+    save_cart(request, cart)
+    return JsonResponse({'success': True, 'cart_count': sum(item['quantity'] for item in cart.values())})
+
+# 6. Savatcha
+def cart_view(request):
+    cart = get_cart(request)
+    items = []
+    total = 0
+    for key, item in cart.items():
+        item_total = item['price'] * item['quantity']
+        total += item_total
+        items.append({**item, 'total': item_total, 'key': key})
+    return render(request, 'cart.html', {'items': items, 'total': total})
+
+# 7. Savatchani yangilash
+@require_POST
+def update_cart(request):
+    data = json.loads(request.body)
+    action = data['action']
+    key = data['key']
+    cart = get_cart(request)
+
+    if action == 'remove':
+        cart.pop(key, None)
+    elif action == 'quantity':
+        qty = int(data['quantity'])
+        if qty <= 0:
+            cart.pop(key, None)
+        else:
+            cart[key]['quantity'] = qty
+
+    save_cart(request, cart)
+    return JsonResponse({'success': True})
+
+
+def orders_view(request):
+    # Bu yerda buyurtmalarni ko'rsatish logikasini qo'shing
+    return render(request, 'admin/orders.html')
+def admin_stats(request):
+    today = timezone.now().date()
+    
+    # 1. Kunlik sotuvlar (so‘nggi 14 kun)
+    sales_data = []
+    dates = []
+    for i in range(13, -1, -1):
+        date = today - timedelta(days=i)
+        total = Order.objects.filter(
+            created_at__date=date,
+            status='completed'
+        ).aggregate(total=models.Sum('total_price'))['total'] or 0
+        sales_data.append(total)
+        dates.append(date.strftime("%d.%m"))
+
+    # 2. Eng ko‘p sotilgan mahsulotlar (so‘nggi 30 kun)
+    top_products = OrderItem.objects.filter(
+        order__created_at__gte=today - timedelta(days=30),
+        order__status='completed'
+    ).values('product__name_uz').annotate(count=models.Count('id')).order_by('-count')[:8]
+
+    top_names = [item['product__name_uz'] for item in top_products]
+    top_sales = [item['count'] for item in top_products]
+
+    context = {
+        'current_month': today.strftime("%B %Y"),
+        
+        'sales_dates': dates,           # ['01.04', '02.04', ...]
+        'sales_amounts': sales_data,    # [1250000, 3400000, ...]
+        
+        'top_products_names': top_names,
+        'top_products_sales': top_sales,
+    }
+    
+    return render(request, 'admin/stats.html', context)
+@login_required
+def admin_products(request):
+    products = Product.objects.select_related('category').prefetch_related('variants').all()
+    return render(request, 'admin/products.html', {'products': products})
+
+@login_required
+def admin_product_add(request):
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES)
+        formset = VariantFormSet(request.POST, instance=Product())
+        if form.is_valid() and formset.is_valid():
+            product = form.save()
+            formset.instance = product
+            formset.save()
+            messages.success(request, 'Mahsulot muvaffaqiyatli qo‘shildi!')
+            return redirect('admin_products')
+    else:
+        form = ProductForm()
+        formset = VariantFormSet(queryset=Variant.objects.none())
+
+    return render(request, 'admin/product_form.html', {
+        'form': form,
+        'variant_formset': formset
+    })
+
+@login_required
+def admin_product_edit(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES, instance=product)
+        formset = VariantFormSet(request.POST, instance=product)
+        if form.is_valid() and formset.is_valid():
+            form.save()
+            formset.save()
+            messages.success(request, 'Mahsulot yangilandi!')
+            return redirect('admin_products')
+    else:
+        form = ProductForm(instance=product)
+        formset = VariantFormSet(instance=product)
+
+    return render(request, 'admin/product_form.html', {
+        'form': form,
+        'variant_formset': formset
+    })
+
+@login_required
+def admin_product_delete(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    if request.method == 'POST':
+        product.delete()
+        messages.success(request, 'Mahsulot o‘chirildi')
+    return redirect('admin_products')
+
+# views.py
+
+@login_required
+def admin_categories(request):
+    categories = Category.objects.annotate(
+    product_count=Count('products')
+    ).order_by('-id')
+    return render(request, 'admin/categories.html', {'categories': categories})
+
+@login_required
+def admin_category_add(request):
+    if request.method == 'POST':
+        form = CategoryForm(request.POST, request.FILES)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Kategoriya qo‘shildi!')
+            return redirect('admin_categories')
+    else:
+        form = CategoryForm()
+    return render(request, 'admin/category_form.html', {'form': form})
+
+@login_required
+def admin_category_edit(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == 'POST':
+        form = CategoryForm(request.POST, request.FILES, instance=category)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Kategoriya yangilandi!')
+            return redirect('admin_categories')
+    else:
+        form = CategoryForm(instance=category)
+    return render(request, 'admin/category_form.html', {'form': form})
+
+@login_required
+def admin_category_delete(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == 'POST':
+        category.delete()
+        messages.success(request, 'Kategoriya o‘chirildi')
+        return redirect('admin_categories')
+    return redirect('admin_categories')

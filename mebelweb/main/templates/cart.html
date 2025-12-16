@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block title %}Savat - Mebel olami{% endblock %}
+
+{% block content %}
+<h2 class="page-title">
+    <i class="fas fa-shopping-cart icon-cart"></i>
+    Savatcha
+</h2>
+
+
+<style>
+    /* Page Title */
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--text);
+    }
+
+    .icon-cart {
+        color: var(--primary);
+        animation: cartBounce 2s ease-in-out infinite;
+    }
+
+    @keyframes cartBounce {
+
+        0%,
+        100% {
+            transform: translateX(0);
+        }
+
+        50% {
+            transform: translateX(5px);
+        }
+    }
+
+
+    /* Cart Item */
+    .cart-item {
+        position: relative;
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        padding: 16px;
+        margin: 12px 0;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+    }
+
+    .dark-mode .cart-item {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .cart-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px rgba(236, 194, 153, 0.15);
+    }
+
+    /* Checkbox */
+    .cart-item input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+
+    /* Item image */
+    .cart-item img {
+        width: 70px;
+        height: 70px;
+        object-fit: cover;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Item text */
+    .cart-info {
+        flex: 1;
+        font-size: 0.9rem;
+        line-height: 1.4rem;
+        color: var(--text);
+    }
+
+    .cart-info strong {
+        font-size: 1rem;
+        color: var(--text);
+    }
+
+    /* Quantity controls */
+    .qty-controls {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        min-width: 60px;
+    }
+
+    .qty-controls button {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        border: none;
+        color: #fff;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(236, 194, 153, 0.3);
+    }
+
+    .qty-controls button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(236, 194, 153, 0.4);
+    }
+
+    .qty-controls span {
+        font-size: 1.1rem;
+        font-weight: 700;
+        padding: 4px 8px;
+        color: var(--text);
+    }
+
+    /* Remove button */
+    .remove-btn {
+        color: #ef4444;
+        font-size: 1.6rem;
+        cursor: pointer;
+        background: rgba(239, 68, 68, 0.1);
+        border: none;
+        border-radius: 8px;
+        padding: 4px 8px;
+        transition: all 0.3s ease;
+    }
+
+    .remove-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+        transform: scale(1.1);
+    }
+
+    /* Bottom bar */
+    .bottom-bar {
+        position: fixed;
+        bottom: 56px;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.95) 0%, rgba(52, 152, 219, 0.95) 100%);
+        backdrop-filter: blur(12px);
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+        z-index: 100;
+    }
+
+    .dark-mode .bottom-bar {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.95) 0%, rgba(80, 163, 211, 0.95) 100%);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .bottom-bar p {
+        margin: 0;
+        font-size: 1.125rem;
+        color: white;
+        flex: 1;
+    }
+
+    #order-btn {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        color: white;
+        border: none;
+        padding: 14px 28px;
+        font-size: 1.125rem;
+        font-weight: 700;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 16px rgba(46, 204, 113, 0.3);
+    }
+
+    #order-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    #order-btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    #order-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px rgba(46, 204, 113, 0.4);
+    }
+
+    #order-btn:disabled {
+        background: linear-gradient(135deg, #94a3b8 0%, #cbd5e1 100%);
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    /* Responsive design */
+    @media (min-width: 600px) {
+        .cart-item img {
+            width: 90px;
+            height: 90px;
+        }
+
+        .cart-info {
+            font-size: 1rem;
+        }
+    }
+
+    @media (min-width: 900px) {
+        #cart-items {
+            max-width: 800px;
+            margin: auto;
+        }
+
+        .bottom-bar {
+            max-width: 800px;
+            margin: auto;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: env(safe-area-inset-bottom);
+        }
+    }
+</style>
+
+<div id="cart-items">
+    {% for item in items %}
+    <div class="cart-item" data-key="{{ item.key }}">
+        <input type="checkbox" class="item-checkbox" checked data-key="{{ item.key }}">
+
+        <img src="{{ item.image }}" alt="{{ item.product_name }}">
+
+        <div class="cart-info">
+            <strong>{{ item.product_name }}</strong><br>
+            {{ item.material }} | {{ item.width }}×{{ item.height }}×{{ item.depth }} m<br>
+            {{ item.price }} so'm × {{ item.quantity }} →
+            <strong>{{ item.total }} so'm</strong>
+        </div>
+
+        <div class="qty-controls">
+            <button type="button" class="qty-btn-plus" data-key="{{ item.key }}">+</button>
+            <span class="qty-display">{{ item.quantity }}</span>
+            <button type="button" class="qty-btn-minus" data-key="{{ item.key }}">−</button>
+            <button type="button" class="remove-btn" data-key="{{ item.key }}">×</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="bottom-bar">
+    <p><strong>Jami: <span id="total-price">{{ total }}</span> so'm</strong></p>
+    <button id="order-btn" disabled>Buyurtma berish</button>
+</div>
+
+<script>
+    const CSRF_TOKEN = '{{ csrf_token }}';
+    const UPDATE_URL = "{% url 'update_cart' %}";
+
+    // Simple checked items tracking
+    let checkedItems = new Set();
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('=== Cart initialized ===');
+
+        // Setup checkboxes
+        document.querySelectorAll('.item-checkbox').forEach(cb => {
+            if (cb.checked) {
+                checkedItems.add(cb.dataset.key);
+            }
+            cb.addEventListener('change', handleCheckboxChange);
+        });
+
+        // Setup quantity buttons
+        document.querySelectorAll('.qty-btn-plus').forEach(btn => {
+            btn.addEventListener('click', () => changeQuantity(btn.dataset.key, 1));
+        });
+
+        document.querySelectorAll('.qty-btn-minus').forEach(btn => {
+            btn.addEventListener('click', () => changeQuantity(btn.dataset.key, -1));
+        });
+
+        // Setup remove buttons
+        document.querySelectorAll('.remove-btn').forEach(btn => {
+            btn.addEventListener('click', () => removeFromCart(btn.dataset.key));
+        });
+
+        updateOrderButton();
+        console.log('Checked items:', Array.from(checkedItems));
+    });
+
+    function handleCheckboxChange(event) {
+        const key = event.target.dataset.key;
+        if (event.target.checked) {
+            checkedItems.add(key);
+        } else {
+            checkedItems.delete(key);
+        }
+        console.log('Checkbox changed, checked items:', Array.from(checkedItems));
+        updateOrderButton();
+    }
+
+    function updateOrderButton() {
+        const btn = document.getElementById('order-btn');
+        btn.disabled = checkedItems.size === 0;
+        console.log('Button disabled:', btn.disabled, 'Checked count:', checkedItems.size);
+    }
+
+    function changeQuantity(key, delta) {
+        const item = document.querySelector(`[data-key="${key}"]`);
+        const qtySpan = item.querySelector('.qty-display');
+        const newQty = parseInt(qtySpan.textContent) + delta;
+
+        if (newQty <= 0) {
+            removeFromCart(key);
+            return;
+        }
+
+        fetch(UPDATE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({
+                action: 'quantity',
+                key: key,
+                quantity: newQty
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Xato: ' + (data.error || 'Noma\'lum xato'));
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Xato yuz berdi');
+            });
+    }
+
+    function removeFromCart(key) {
+        if (!confirm('Savatdan o\'chirilsinmi?')) return;
+
+        fetch(UPDATE_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({
+                action: 'remove',
+                key: key
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Xato: ' + (data.error || 'Noma\'lum xato'));
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Xato yuz berdi');
+            });
+    }
+
+    document.getElementById('order-btn').addEventListener('click', placeOrder);
+
+    function placeOrder() {
+        if (checkedItems.size === 0) {
+            alert('Hech narsa tanlanmagan!');
+            return;
+        }
+
+        // Get selected item IDs
+        const selectedItemIds = Array.from(checkedItems);
+
+        console.log('Placing order with items:', selectedItemIds);
+
+        fetch("{% url 'place_order' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({
+                selected_items: selectedItemIds
+            })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`✅ ${data.message}\n\nBuyurtma raqami: #${data.order_id}\nJami: ${data.total.toLocaleString()} so'm`);
+                    window.location.reload();
+                } else {
+                    alert('❌ Xato: ' + (data.error || 'Noma\'lum xato'));
+                }
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('❌ Xato yuz berdi');
+            });
+    }
+</script>
+{% endblock %}
+```

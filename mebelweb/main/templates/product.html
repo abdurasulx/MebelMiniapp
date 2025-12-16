@@ -1,0 +1,510 @@
+﻿{% extends "base.html" %}
+{% load widget_tweaks %}
+
+{% block title %}
+{% if form.instance.id %}Tahrirlash{% else %}Yangi mahsulot{% endif %}
+{% endblock %}
+{% load static %}
+{% block content %}
+<div class="product-container">
+
+    <!-- Sarlavha va Kategoriya -->
+    <div class="product-header">
+        <h1 class="product-title">{{ product.name_uz }}</h1>
+        {% if product.category %}
+        <a href="{% url 'category' product.category.id %}" class="category-link">
+            <i class="fas fa-tag"></i>
+            {{ product.category.name_uz }}
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Asosiy Kontent -->
+    <div class="product-card">
+        <div class="product-grid">
+
+            <!-- RASIM VA VIDEO -->
+            <div class="product-image-wrapper">
+                <!-- Rasm -->
+                <div id="media-image" class="media-content active">
+                    {% if product.image %}
+                    <img src="{{ product.image.url }}" alt="{{ product.name_uz }}" class="product-image">
+                    {% else %}
+                    <div class="image-placeholder">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    {% endif %}
+                    <div class="image-overlay"></div>
+                </div>
+
+                <!-- Video Button -->
+                {% if product.video_url %}
+                <button id="media-toggle" class="media-toggle-btn" onclick="toggleMedia('{{ product.video_url }}')">
+                    <i class="fas fa-play"></i> <span>Videoni ko'rish</span>
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- MA'LUMOTLAR -->
+            <div class="product-info">
+
+                <!-- Variantlar -->
+                {% if product.variants.all %}
+                <div class="variants-section">
+                    <h3 class="variants-title">Mavjud Variantlar</h3>
+                    <div class="variants-list">
+                        {% for var in product.variants.all %}
+                        <a href="{% url 'variant' product.id var.id %}" class="variant-btn">
+                            {{ var.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="no-variants">Variantlar mavjud emas.</p>
+                {% endif %}
+
+                <!-- Orqaga -->
+                <div class="back-button-wrapper">
+                    <a href="{% url 'category' product.category.id %}" class="back-button">
+                        <div class="back-icon">
+                            <i class="fas fa-arrow-left"></i>
+                        </div>
+                        Orqaga qaytish
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tavsif -->
+    {% if product.description_uz %}
+    <div class="description-card">
+        <h3 class="description-title">Tavsif</h3>
+        <p class="description-text">{{ product.description_uz }}</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    /* Container */
+    .product-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px 15px;
+    }
+
+    /* Header */
+    .product-header {
+        margin-bottom: 24px;
+    }
+
+    .product-title {
+        font-size: 1.75rem;
+        font-weight: bold;
+        margin-bottom: 12px;
+        color: var(--text);
+    }
+
+    .category-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.875rem;
+        color: var(--secondary);
+        text-decoration: none;
+        transition: opacity 0.25s;
+    }
+
+    .category-link:hover {
+        opacity: 0.8;
+    }
+
+    /* Product Card */
+    .product-card {
+        background: var(--bg);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .product-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    /* Image & Video Wrapper */
+    .product-image-wrapper {
+        position: relative;
+        height: 280px;
+        background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+        overflow: hidden;
+    }
+
+    .dark-mode .product-image-wrapper {
+        background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+    }
+
+    .media-content {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s;
+        z-index: 1;
+    }
+
+    .media-content.active {
+        opacity: 1;
+        visibility: visible;
+        z-index: 2;
+    }
+
+    .product-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.7s;
+    }
+
+    .product-image:hover {
+        transform: scale(1.05);
+    }
+
+    .image-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent);
+        opacity: 0;
+        transition: opacity 0.5s;
+    }
+
+    .product-image-wrapper:hover .image-overlay {
+        opacity: 1;
+    }
+
+    .image-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #9ca3af;
+        font-size: 3rem;
+    }
+
+    /* Media Toggle Button */
+    .media-toggle-btn {
+        position: absolute;
+        bottom: 15px;
+        right: 15px;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        backdrop-filter: blur(4px);
+        transition: all 0.2s;
+    }
+
+    .media-toggle-btn:hover {
+        background: rgba(0, 0, 0, 0.8);
+        transform: scale(1.05);
+    }
+
+    /* Product Info */
+    .product-info {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    /* Variants */
+    .variants-section {
+        flex: 1;
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border-radius: 16px;
+        padding: 20px;
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        backdrop-filter: blur(10px);
+        margin-bottom: 16px;
+    }
+
+    .dark-mode .variants-section {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+    }
+
+    .variants-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .variants-title::before {
+        content: '⚡';
+        font-size: 1.25rem;
+    }
+
+    .variants-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .variant-btn {
+        display: inline-block;
+        padding: 12px 20px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        color: #fff;
+        text-decoration: none;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.9375rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(236, 194, 153, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .variant-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .variant-btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    .variant-btn:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(236, 194, 153, 0.4);
+    }
+
+    .no-variants {
+        color: #9ca3af;
+        font-style: italic;
+        font-size: 0.875rem;
+    }
+
+    /* Back Button */
+    .back-button-wrapper {
+        margin-top: auto;
+    }
+
+    .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        color: var(--secondary);
+        text-decoration: none;
+        transition: opacity 0.25s;
+    }
+
+    .back-button:hover {
+        opacity: 0.8;
+    }
+
+    .back-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(52, 152, 219, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+    }
+
+    /* Description */
+    .description-card {
+        margin-top: 24px;
+        background: var(--bg);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 20px;
+    }
+
+    .description-title {
+        font-size: 1.125rem;
+        font-weight: bold;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+        color: var(--text);
+    }
+
+    .description-text {
+        font-size: 0.9375rem;
+        line-height: 1.6;
+        color: var(--text);
+        opacity: 0.8;
+    }
+
+    /* Responsive - Tablet */
+    @media (min-width: 640px) {
+        .product-container {
+            padding: 24px 20px;
+        }
+
+        .product-title {
+            font-size: 2rem;
+        }
+
+        .product-image-wrapper {
+            height: 320px;
+        }
+
+        .product-info {
+            padding: 32px;
+        }
+
+        .description-card {
+            padding: 24px;
+        }
+    }
+
+    /* Responsive - Desktop */
+    @media (min-width: 768px) {
+        .product-title {
+            font-size: 2.25rem;
+        }
+
+        .product-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .product-image-wrapper {
+            height: 360px;
+        }
+    }
+
+    /* Responsive - Large Desktop */
+    @media (min-width: 1024px) {
+        .product-image-wrapper {
+            height: 400px;
+        }
+    }
+</style>
+<style>
+    /* ZIGZAGNI 100 % O‘CHIRISH UCHUN "ATOM BOMBA" */
+    .product-header,
+    .product-title,
+    h1,
+    h2,
+    h3 {
+        background-image: none !important;
+        border-image: none !important;
+        position: relative !important;
+    }
+
+    .product-header::before,
+    .product-header::after,
+    .product-title::before,
+    .product-title::after,
+    h1::before,
+    h1::after {
+        content: none !important;
+        display: none !important;
+        background: none !important;
+        background-image: none !important;
+        border: none !important;
+        height: 0 !important;
+        width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+</style>
+
+<script>
+    // Media Toggle Logic - Video ochish
+    function toggleMedia(videoUrl) {
+        if (videoUrl) {
+            let urlToOpen = videoUrl;
+
+            // YouTube
+            if (videoUrl.includes('youtube.com/watch?v=')) {
+                const videoId = videoUrl.split('v=')[1].split('&')[0];
+                urlToOpen = `https://www.youtube.com/watch?v=${videoId}`;
+            } else if (videoUrl.includes('youtu.be/')) {
+                const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+                urlToOpen = `https://www.youtube.com/watch?v=${videoId}`;
+            }
+            // Instagram
+            else if (videoUrl.includes('instagram.com')) {
+                let cleanUrl = videoUrl.split('?')[0];
+                if (!cleanUrl.endsWith('/')) cleanUrl += '/';
+                urlToOpen = cleanUrl;
+            }
+            // TikTok
+            else if (videoUrl.includes('tiktok.com')) {
+                let cleanUrl = videoUrl.split('?')[0];
+                urlToOpen = cleanUrl;
+            }
+
+            console.log('Opening video URL:', urlToOpen);
+
+            // Telegram Mini App ichida ochish
+            if (typeof Telegram !== 'undefined' && Telegram.WebApp && Telegram.WebApp.openLink) {
+                console.log('Using Telegram.WebApp.openLink');
+                Telegram.WebApp.openLink(urlToOpen);
+            } else {
+                // Fallback - oddiy brauzerda ochish
+                console.log('Telegram WebApp not available, using window.open');
+                window.open(urlToOpen, '_blank');
+            }
+        }
+    }
+</script>
+<style>
+    /* ZIGZAG CHIZIQNI BUTUNLAY O‘CHIRISH */
+    .product-header::after,
+    .product-header::before,
+    .product-title::after,
+    .product-title::before,
+    h1::after,
+    h1::before,
+    .category-link::after,
+    .category-link::before {
+        content: none !important;
+        display: none !important;
+        background: none !important;
+        height: 0 !important;
+    }
+
+    /* Agar boshqa joyda ham shunga o‘xshash chiziq bo‘lsa */
+    .product-header,
+    .product-title {
+        position: relative;
+    }
+
+    .product-header::after {
+        display: none !important;
+    }
+</style>
+{% endblock %}

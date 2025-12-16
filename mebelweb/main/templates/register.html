@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+
+{% block title %}Royxatdan otish{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1 class="auth-title">Royxatdan otish</h1>
+            <!-- Toggle Switch -->
+            <label class="switch">
+                <input type="checkbox" id="themeToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="POST" class="auth-form">
+            {% csrf_token %}
+
+            <!-- Telegram ID (hidden) -->
+            <input 
+                type="hidden" 
+                id="tg_id" 
+                name="tg_id" 
+                value="{{ tg_id }}">
+
+            <!-- Ism -->
+            <div class="form-group">
+                <label for="first_name" class="form-label">Ism</label>
+                <input 
+                    type="text" 
+                    id="first_name" 
+                    name="first_name" 
+                    class="form-control" 
+                    placeholder="Masalan: Akbar"
+                    required>
+            </div>
+
+            <!-- Telefon -->
+            <div class="form-group">
+                <label for="phone" class="form-label">Telefon raqami</label>
+                <input 
+                    type="tel" 
+                    id="phone" 
+                    name="phone" 
+                    class="form-control" 
+                    placeholder="+998 XX XXX XX XX"
+                    required>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" class="btn btn-primary btn-block">
+                Royxatdan otish
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Allaqachon akkauntingiz bor? <a href="{% url 'login' %}">Kirish</a></p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .auth-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+        background: var(--bg);
+    }
+
+    .auth-card {
+        background: var(--bg);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 40px;
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .auth-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+    }
+
+    .auth-title {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--text);
+        margin: 0;
+    }
+
+    .auth-header .switch {
+        width: 55px;
+        height: 28px;
+    }
+
+    .messages {
+        margin-bottom: 24px;
+    }
+
+    .alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        font-size: 0.875rem;
+    }
+
+    .alert-error {
+        background: #fee;
+        color: #c00;
+        border: 1px solid #fcc;
+    }
+
+    .alert-info {
+        background: #eef;
+        color: #00c;
+        border: 1px solid #ccf;
+    }
+
+    .alert-success {
+        background: #efe;
+        color: #0c0;
+        border: 1px solid #cfc;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text);
+        font-size: 0.9375rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 1rem;
+        background: var(--bg);
+        color: var(--text);
+        transition: border-color 0.25s;
+    }
+
+    .dark-mode .form-control {
+        border-color: #555;
+        background: #1a1a1a;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(236, 194, 153, 0.1);
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.75rem;
+        color: #999;
+    }
+
+    .btn {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.25s;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: var(--secondary);
+        transform: translateY(-2px);
+    }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 24px;
+        font-size: 0.875rem;
+        color: #666;
+    }
+
+    .auth-footer a {
+        color: var(--secondary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+
+    @media (max-width: 640px) {
+        .auth-card {
+            padding: 24px;
+        }
+
+        .auth-title {
+            font-size: 1.5rem;
+        }
+
+        .auth-header {
+            margin-bottom: 24px;
+        }
+    }
+</style>
+
+<script>
+    (function () {
+        const themeToggle = document.getElementById('themeToggle');
+        const phoneInput = document.getElementById('phone');
+
+        // Tema qismi (o'zgarmadi)
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeToggle.checked = true;
+            } else {
+                document.body.classList.remove('dark-mode');
+                themeToggle.checked = false;
+            }
+        }
+
+        const stored = localStorage.getItem('theme');
+        if (stored) {
+            applyTheme(stored);
+        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            applyTheme('dark');
+        }
+
+        themeToggle.addEventListener('change', function () {
+            const mode = this.checked ? 'dark' : 'light';
+            applyTheme(mode);
+            localStorage.setItem('theme', mode);
+        });
+
+        // === PROFESSIONAL UZBEKISTAN PHONE MASK (+998 XX XXX XX XX) ===
+        const phoneMask = (value) => {
+            // Faqat raqamlarni qoldiramiz
+            const digits = value.replace(/\D/g, '');
+
+            // +998 dan keyin maksimal 9 ta raqam bo'lishi kerak
+            const uzbekDigits = digits.startsWith('998') ? digits.slice(3, 12) : digits.slice(0, 9);
+            if (uzbekDigits.length === 0) return '';
+
+            // Format: +998 XX XXX XX XX
+            let formatted = '+998';
+            if (uzbekDigits.length > 0) formatted += ' ' + uzbekDigits.substring(0, 2);
+            if (uzbekDigits.length > 2) formatted += ' ' + uzbekDigits.substring(2, 5);
+            if (uzbekDigits.length > 5) formatted += ' ' + uzbekDigits.substring(5, 7);
+            if (uzbekDigits.length > 7) formatted += ' ' + uzbekDigits.substring(7, 9);
+
+            return formatted.trim();
+        };
+
+        // Input event — har bir o‘zgarishda formatlaymiz
+        phoneInput.addEventListener('input', function (e) {
+            const cursorPos = this.selectionStart;
+            const oldValue = this.value;
+            const newFormatted = phoneMask(this.value);
+
+            this.value = newFormatted;
+
+            // Kursor pozitsiyasini to'g'ri saqlash (eng muhim qism!)
+            if (newFormatted.length < oldValue.length) {
+                // Agar o'chirilgan bo'lsa — kursor oxiriga emas, to'g'ri joyga qo'yamiz
+                this.setSelectionRange(cursorPos, cursorPos);
+            } else {
+                // Yangi belgi qo'shilganda kursor raqamdan keyin tursin
+                const diff = newFormatted.length - oldValue.length;
+                this.setSelectionRange(cursorPos + diff, cursorPos + diff);
+            }
+        });
+
+        // Paste (yopishtirish) uchun ham ishlaydi
+        phoneInput.addEventListener('paste', function () {
+            setTimeout(() => {
+                this.value = phoneMask(this.value);
+            }, 0);
+        });
+
+        // Form submit bo'lganda faqat 9 ta raqamni backendga yuborish uchun
+        const form = phoneInput.closest('form');
+        if (form) {
+            form.addEventListener('submit', function () {
+                const cleanPhone = phoneInput.value.replace(/\D/g, '').slice(-9); // oxirgi 9 ta raqam
+                phoneInput.value = cleanPhone; // yoki hidden inputga yozishingiz mumkin
+                // Agar backend +998 bilan saqlamoqchi bo'lsangiz:
+                // phoneInput.value = '998' + cleanPhone;
+            });
+        }
+
+        // Boshida placeholder qo'yish
+        phoneInput.placeholder = '+998 XX XXX XX XX';
+    })();
+</script>
+{% endblock %}

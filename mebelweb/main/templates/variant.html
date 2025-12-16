@@ -1,0 +1,909 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ product.name_uz }} - {{ variant.name }} - Mebel olami{% endblock %}
+
+{% block content %}
+<div class="product-container">
+
+    <!-- Sarlavha va Kategoriya -->
+    <div class="product-header">
+        <h1 class="product-title">{{ product.name_uz }} <span class="text-secondary text-2xl">- {{ variant.name }}
+            </span></h1>
+        {% if product.category %}
+        <a href="{% url 'category' product.category.id %}" class="category-link">
+            <i class="fas fa-tag"></i>
+            {{ product.category.name_uz }}
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Asosiy Kontent -->
+    <div class="product-card">
+        <div class="product-grid">
+
+            <!-- RASIM VA VIDEO -->
+            <div class="product-image-wrapper">
+                <!-- Rasm -->
+                <div id="media-image" class="media-content active">
+                    {% if images %}
+                    <img src="{{ images.0.image.url }}" alt="{{ variant.name }}" class="product-image">
+                    {% elif product.image %}
+                    <img src="{{ product.image.url }}" alt="{{ product.name_uz }}" class="product-image">
+                    {% else %}
+                    <div class="image-placeholder">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    {% endif %}
+                    <div class="image-overlay"></div>
+                </div>
+
+                <!-- Video Button -->
+                {% if product.video_url %}
+                <button id="media-toggle" class="media-toggle-btn" onclick="toggleMedia('{{ product.video_url }}')">
+                    <i class="fas fa-play"></i> <span>Videoni ko'rish</span>
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- MA'LUMOTLAR -->
+            <div class="product-info">
+
+                <!-- Narx va O'lchamlar Kalkulyatori -->
+                <div class="calculator-section">
+                    <div class="calculator-header">
+                        <i class="fas fa-calculator"></i>
+                        <h3>O'lchamlarni tanlang</h3>
+                    </div>
+
+                    <div class="dimensions-grid">
+                        <div class="dimension-input-group">
+                            <label for="width">
+                                <i class="fas fa-arrows-alt-h"></i>
+                                <span>Eni</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="number" id="width" value="{{ variant.width }}" step="0.01" min="0.1"
+                                    oninput="calculatePrice()">
+                                <span class="unit">m</span>
+                            </div>
+                        </div>
+                        <div class="dimension-input-group">
+                            <label for="height">
+                                <i class="fas fa-arrows-alt-v"></i>
+                                <span>Bo'yi</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="number" id="height" value="{{ variant.height }}" step="0.01" min="0.1"
+                                    oninput="calculatePrice()">
+                                <span class="unit">m</span>
+                            </div>
+                        </div>
+                        <div class="dimension-input-group">
+                            <label for="depth">
+                                <i class="fas fa-ruler"></i>
+                                <span>Chuqurlik</span>
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="number" id="depth" value="{{ variant.depth }}" step="0.01" min="0.1"
+                                    oninput="calculatePrice()">
+                                <span class="unit">m</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="price-display">
+                        <div class="price-label">
+                            <i class="fas fa-tag"></i>
+                            <span>Tahminiy narx</span>
+                        </div>
+                        <div class="price-value">
+                            <span id="total-price" class="price-amount">0</span>
+                            <span class="price-currency">so'm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Savatga qo'shish -->
+                <button onclick="addToCart()" class="add-to-cart-btn">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Savatga qo'shish</span>
+                </button>
+
+                <!-- Boshqa Variantlar -->
+                {% if product.variants.all %}
+                <div class="variants-section">
+                    <h3 class="variants-title">Boshqa Variantlar</h3>
+                    <div class="variants-list">
+                        {% for var in product.variants.all %}
+                        <a href="{% url 'variant' product.id var.id %}"
+                            class="variant-btn {% if var.id == variant.id %}active{% endif %}">
+                            {{ var.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Orqaga -->
+                <div class="back-button-wrapper mt-auto">
+                    <a href="{% url 'product' product.id %}" class="back-button">
+                        <div class="back-icon">
+                            <i class="fas fa-arrow-left"></i>
+                        </div>
+                        Mahsulotga qaytish
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tavsif -->
+    {% if product.description_uz %}
+    <div class="description-card">
+        <h3 class="description-title">Tavsif</h3>
+        <p class="description-text">{{ product.description_uz }}</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    /* Container */
+    .product-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px 15px;
+    }
+
+    /* Header */
+    .product-header {
+        margin-bottom: 24px;
+    }
+
+    .product-title {
+        font-size: 1.75rem;
+        font-weight: bold;
+        margin-bottom: 12px;
+        color: var(--text);
+    }
+
+    .category-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.875rem;
+        color: var(--secondary);
+        text-decoration: none;
+        transition: opacity 0.25s;
+    }
+
+    .category-link:hover {
+        opacity: 0.8;
+    }
+
+    /* Product Card */
+    .product-card {
+        background: var(--bg);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+    }
+
+    .product-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    /* Image & Video Wrapper */
+    .product-image-wrapper {
+        position: relative;
+        height: 280px;
+        background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+        overflow: hidden;
+    }
+
+    .dark-mode .product-image-wrapper {
+        background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+    }
+
+    .media-content {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s;
+        z-index: 1;
+    }
+
+    .media-content.active {
+        opacity: 1;
+        visibility: visible;
+        z-index: 2;
+    }
+
+    .product-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.7s;
+    }
+
+    .product-image:hover {
+        transform: scale(1.05);
+    }
+
+    .image-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent);
+        opacity: 0;
+        transition: opacity 0.5s;
+    }
+
+    .product-image-wrapper:hover .image-overlay {
+        opacity: 1;
+    }
+
+    .image-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #9ca3af;
+        font-size: 3rem;
+    }
+
+    /* Media Toggle Button */
+    .media-toggle-btn {
+        position: absolute;
+        bottom: 15px;
+        right: 15px;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        backdrop-filter: blur(4px);
+        transition: all 0.2s;
+    }
+
+    .media-toggle-btn:hover {
+        background: rgba(0, 0, 0, 0.8);
+        transform: scale(1.05);
+    }
+
+    /* Product Info */
+    .product-info {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    /* === MODERNIZED CALCULATOR SECTION === */
+    .calculator-section {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border-radius: 16px;
+        padding: 16px;
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+    }
+
+    @media (min-width: 640px) {
+        .calculator-section {
+            padding: 20px;
+            border-radius: 18px;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .calculator-section {
+            padding: 24px;
+            border-radius: 20px;
+        }
+    }
+
+    .dark-mode .calculator-section {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .calculator-section:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
+    }
+
+    .calculator-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid rgba(236, 194, 153, 0.3);
+    }
+
+    .calculator-header i {
+        font-size: 1.5rem;
+        color: var(--primary);
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .calculator-header h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text);
+        margin: 0;
+    }
+
+    @keyframes pulse {
+
+        0%,
+        100% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.1);
+        }
+    }
+
+    .dimensions-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    @media (min-width: 480px) {
+        .dimensions-grid {
+            gap: 18px;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .dimensions-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+    }
+
+    .dimension-input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .dimension-input-group label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text);
+        opacity: 0.8;
+    }
+
+    .dimension-input-group label i {
+        color: var(--secondary);
+        font-size: 1rem;
+    }
+
+    .input-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .input-wrapper input {
+        flex: 1;
+        padding: 12px 44px 12px 16px;
+        border: 2px solid rgba(236, 194, 153, 0.3);
+        border-radius: 12px;
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: var(--text);
+        background: var(--bg);
+        transition: all 0.3s ease;
+        outline: none;
+    }
+
+    .dark-mode .input-wrapper input {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(236, 194, 153, 0.2);
+    }
+
+    .input-wrapper input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(236, 194, 153, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .input-wrapper input:hover {
+        border-color: var(--primary);
+    }
+
+    .input-wrapper .unit {
+        position: absolute;
+        right: 16px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--secondary);
+        pointer-events: none;
+    }
+
+    .price-display {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        border-radius: 12px;
+        margin-top: 8px;
+        box-shadow: 0 4px 20px rgba(236, 194, 153, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+
+    @media (min-width: 480px) {
+        .price-display {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px;
+            border-radius: 14px;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .price-display {
+            padding: 20px;
+            border-radius: 16px;
+        }
+    }
+
+    .price-display::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        animation: shimmer 3s linear infinite;
+    }
+
+    @keyframes shimmer {
+        0% {
+            transform: translate(-100%, -100%) rotate(0deg);
+        }
+
+        100% {
+            transform: translate(100%, 100%) rotate(360deg);
+        }
+    }
+
+    .price-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        z-index: 1;
+    }
+
+    @media (min-width: 480px) {
+        .price-label {
+            gap: 10px;
+            font-size: 1rem;
+        }
+    }
+
+    .price-label i {
+        font-size: 1.25rem;
+        animation: rotate 4s linear infinite;
+    }
+
+    @keyframes rotate {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .price-value {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        z-index: 1;
+    }
+
+    @media (min-width: 480px) {
+        .price-value {
+            gap: 8px;
+        }
+    }
+
+    .price-amount {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #fff;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        animation: priceUpdate 0.5s ease;
+    }
+
+    @media (min-width: 480px) {
+        .price-amount {
+            font-size: 1.75rem;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .price-amount {
+            font-size: 2rem;
+        }
+    }
+
+    @keyframes priceUpdate {
+        0% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.05);
+        }
+
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    .price-currency {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    @media (min-width: 480px) {
+        .price-currency {
+            font-size: 0.9375rem;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .price-currency {
+            font-size: 1rem;
+        }
+    }
+
+    /* === ADD TO CART BUTTON === */
+    .add-to-cart-btn {
+        width: 100%;
+        padding: 16px 24px;
+        margin-bottom: 24px;
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        color: #fff;
+        border: none;
+        border-radius: 16px;
+        font-size: 1.125rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        box-shadow: 0 8px 24px rgba(46, 204, 113, 0.3);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .add-to-cart-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+    }
+
+    .add-to-cart-btn:hover::before {
+        width: 300px;
+        height: 300px;
+    }
+
+    .add-to-cart-btn:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(46, 204, 113, 0.4);
+    }
+
+    .add-to-cart-btn:active {
+        transform: translateY(-2px);
+    }
+
+    .add-to-cart-btn i {
+        font-size: 1.25rem;
+        z-index: 1;
+    }
+
+    .add-to-cart-btn span {
+        z-index: 1;
+    }
+
+    /* Variants */
+    .variants-section {
+        flex: 1;
+    }
+
+    .variants-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: var(--text);
+    }
+
+    .variants-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .variant-btn {
+        display: inline-block;
+        padding: 10px 18px;
+        background: var(--primary);
+        color: #fff;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 0.9375rem;
+        transition: all 0.25s ease;
+        box-shadow: var(--shadow);
+        opacity: 0.7;
+    }
+
+    .variant-btn.active {
+        background: var(--secondary);
+        opacity: 1;
+        box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+    }
+
+    .variant-btn:hover {
+        background: var(--secondary);
+        opacity: 1;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Back Button */
+    .back-button-wrapper {
+        margin-top: auto;
+    }
+
+    .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        color: var(--secondary);
+        text-decoration: none;
+        transition: opacity 0.25s;
+    }
+
+    .back-button:hover {
+        opacity: 0.8;
+    }
+
+    .back-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(52, 152, 219, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+    }
+
+    /* Description */
+    .description-card {
+        margin-top: 24px;
+        background: var(--bg);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 20px;
+    }
+
+    .description-title {
+        font-size: 1.125rem;
+        font-weight: bold;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+        color: var(--text);
+    }
+
+    .description-text {
+        font-size: 0.9375rem;
+        line-height: 1.6;
+        color: var(--text);
+        opacity: 0.8;
+    }
+
+    /* Responsive - Tablet */
+    @media (min-width: 640px) {
+        .product-container {
+            padding: 24px 20px;
+        }
+
+        .product-title {
+            font-size: 2rem;
+        }
+
+        .product-image-wrapper {
+            height: 320px;
+        }
+
+        .product-info {
+            padding: 32px;
+        }
+
+        .description-card {
+            padding: 24px;
+        }
+    }
+
+    /* Responsive - Desktop */
+    @media (min-width: 768px) {
+        .product-title {
+            font-size: 2.25rem;
+        }
+
+        .product-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .product-image-wrapper {
+            height: 360px;
+        }
+    }
+
+    /* Responsive - Large Desktop */
+    @media (min-width: 1024px) {
+        .product-image-wrapper {
+            height: 400px;
+        }
+    }
+</style>
+
+<script>
+    // Media Toggle Logic - Video ochish
+    function toggleMedia(videoUrl) {
+        if (videoUrl) {
+            let urlToOpen = videoUrl;
+
+            // YouTube
+            if (videoUrl.includes('youtube.com/watch?v=')) {
+                const videoId = videoUrl.split('v=')[1].split('&')[0];
+                urlToOpen = `https://www.youtube.com/watch?v=${videoId}`;
+            } else if (videoUrl.includes('youtu.be/')) {
+                const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+                urlToOpen = `https://www.youtube.com/watch?v=${videoId}`;
+            }
+            // Instagram
+            else if (videoUrl.includes('instagram.com')) {
+                let cleanUrl = videoUrl.split('?')[0];
+                if (!cleanUrl.endsWith('/')) cleanUrl += '/';
+                urlToOpen = cleanUrl;
+            }
+            // TikTok
+            else if (videoUrl.includes('tiktok.com')) {
+                let cleanUrl = videoUrl.split('?')[0];
+                urlToOpen = cleanUrl;
+            }
+
+            console.log('Opening video URL:', urlToOpen);
+
+            // Telegram Mini App ichida ochish
+            if (typeof Telegram !== 'undefined' && Telegram.WebApp && Telegram.WebApp.openLink) {
+                console.log('Using Telegram.WebApp.openLink');
+                Telegram.WebApp.openLink(urlToOpen);
+            } else {
+                // Fallback - oddiy brauzerda ochish
+                console.log('Telegram WebApp not available, using window.open');
+                window.open(urlToOpen, '_blank');
+            }
+        }
+    }
+
+
+    // Price Calculation Logic
+    const basePrice = {{ variant.base_price }};
+
+    function calculatePrice() {
+        const w = parseFloat(document.getElementById('width').value) || 0;
+        const h = parseFloat(document.getElementById('height').value) || 0;
+        const d = parseFloat(document.getElementById('depth').value) || 0;
+
+        const volume = w * h * d;
+        const total = volume * basePrice;
+
+        const priceElement = document.getElementById('total-price');
+        priceElement.textContent = total.toLocaleString('uz-UZ', { maximumFractionDigits: 0 });
+
+        // Trigger animation
+        priceElement.style.animation = 'none';
+        setTimeout(() => {
+            priceElement.style.animation = 'priceUpdate 0.5s ease';
+        }, 10);
+    }
+
+    // Add to Cart Logic
+    function addToCart() {
+        const w = document.getElementById('width').value;
+        const h = document.getElementById('height').value;
+        const d = document.getElementById('depth').value;
+
+        fetch('{% url "add_to_cart" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                variant_id: {{ variant.id }},
+            width: parseFloat(w),
+            height: parseFloat(h),
+            depth: parseFloat(d),
+            quantity: 1
+            })
+        })
+        .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => Promise.reject(data));
+                }
+                return response.json();
+            })
+        .then(data => {
+            if (data.success) {
+                alert('Mahsulot savatga qo\'shildi!');
+                if (data.cart_count !== undefined) {
+                    // Update header cart count logic here if needed
+                }
+            } else {
+                alert('Xatolik: ' + (data.error || 'Noma\'lum xatolik'));
+            }
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Xatolik yuz berdi: ' + (error.error || error));
+        });
+    }
+
+    // Initial calculation
+    calculatePrice();
+</script>
+{% endblock %}

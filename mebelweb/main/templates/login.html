@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Kirish{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1 class="auth-title">Kirish</h1>
+            <!-- Toggle Switch -->
+            <label class="switch">
+                <input type="checkbox" id="themeToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+        
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="GET" action="{% url 'login' %}" class="auth-form">
+            <!-- Telegram ID -->
+            <div class="form-group">
+                <label for="tg_id" class="form-label">Telegram ID</label>
+                <input 
+                    type="text" 
+                    id="tg_id" 
+                    name="tg_id" 
+                    class="form-control" 
+                    placeholder="Masalan: 123456789"
+                    required>
+                <small class="form-text">Sizning Telegram ID raqamingiz</small>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" class="btn btn-primary btn-block">
+                Kirish
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Akkauntingiz yo'q? <a href="{% url 'register' %}">Royxatdan otish</a></p>
+        </div>
+    </div>
+</div>
+
+<style>
+    .auth-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+        background: var(--bg);
+    }
+
+    .auth-card {
+        background: var(--bg);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        padding: 40px;
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .auth-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+    }
+
+    .auth-title {
+        font-size: 2rem;
+        font-weight: bold;
+        color: var(--text);
+        margin: 0;
+    }
+
+    .auth-header .switch {
+        width: 55px;
+        height: 28px;
+    }
+
+    .messages {
+        margin-bottom: 24px;
+    }
+
+    .alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        font-size: 0.875rem;
+    }
+
+    .alert-error {
+        background: #fee;
+        color: #c00;
+        border: 1px solid #fcc;
+    }
+
+    .alert-info {
+        background: #eef;
+        color: #00c;
+        border: 1px solid #ccf;
+    }
+
+    .alert-success {
+        background: #efe;
+        color: #0c0;
+        border: 1px solid #cfc;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text);
+        font-size: 0.9375rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 1rem;
+        background: var(--bg);
+        color: var(--text);
+        transition: border-color 0.25s;
+    }
+
+    .dark-mode .form-control {
+        border-color: #555;
+        background: #1a1a1a;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(236, 194, 153, 0.1);
+    }
+
+    .form-text {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.75rem;
+        color: #999;
+    }
+
+    .btn {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.25s;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: var(--secondary);
+        transform: translateY(-2px);
+    }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 24px;
+        font-size: 0.875rem;
+        color: #666;
+    }
+
+    .auth-footer a {
+        color: var(--secondary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+
+    @media (max-width: 640px) {
+        .auth-card {
+            padding: 24px;
+        }
+
+        .auth-title {
+            font-size: 1.5rem;
+        }
+
+        .auth-header {
+            margin-bottom: 24px;
+        }
+    }
+</style>
+
+<script>
+    (function () {
+        const themeToggle = document.getElementById('themeToggle');
+
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeToggle.checked = true;
+            } else {
+                document.body.classList.remove('dark-mode');
+                themeToggle.checked = false;
+            }
+        }
+
+        // Initialize theme from localStorage or prefers-color-scheme
+        const stored = localStorage.getItem('theme');
+        if (stored) {
+            applyTheme(stored);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            applyTheme('dark');
+        }
+
+        themeToggle.addEventListener('change', function () {
+            const mode = this.checked ? 'dark' : 'light';
+            applyTheme(mode);
+            localStorage.setItem('theme', mode);
+        });
+    })();
+</script>
+{% endblock %}

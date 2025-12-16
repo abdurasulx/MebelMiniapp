@@ -1,0 +1,141 @@
+{% extends "admin/abase.html" %}
+
+{% block content %}
+
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .page-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 32px;
+    }
+
+    .form-card {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 20px;
+        padding: 32px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .dark-mode .form-card {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-label {
+        display: block;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 12px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 14px 18px;
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 12px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 1rem;
+        cursor: pointer;
+    }
+
+    .dark-mode .form-control {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 24px;
+    }
+
+    .btn {
+        flex: 1;
+        padding: 14px 24px;
+        border-radius: 12px;
+        font-weight: 700;
+        text-decoration: none;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(236, 194, 153, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(236, 194, 153, 0.4);
+    }
+
+    .btn-secondary {
+        background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        transform: translateY(-2px);
+    }
+
+    .variant-info {
+        background: rgba(236, 194, 153, 0.1);
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 24px;
+    }
+
+    .variant-info p {
+        margin: 0;
+        color: var(--text);
+        font-size: 0.9375rem;
+    }
+
+    .variant-info strong {
+        color: var(--primary);
+    }
+</style>
+
+<div class="form-container">
+    <h1 class="page-title">Variant uchun rasm qo'shish</h1>
+
+    <div class="form-card">
+        <div class="variant-info">
+            <p><strong>Mahsulot:</strong> {{ variant.product.name_uz }}</p>
+            <p><strong>Variant:</strong> {{ variant.name }}</p>
+        </div>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div>
+                <label class="form-label">Rasm <span style="color: #e74c3c;">*</span></label>
+                <input type="file" name="image" accept="image/*" required class="form-control">
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> Yuklash
+                </button>
+                <a href="javascript:window.close()" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Yopish
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

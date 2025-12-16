@@ -1,0 +1,238 @@
+{% extends "admin/abase.html" %}
+
+{% block content %}
+
+<style>
+    /* Page Header */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text);
+    }
+
+    /* Add Button */
+    .add-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 12px;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(236, 194, 153, 0.3);
+        transition: all 0.3s;
+    }
+
+    .add-btn:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(236, 194, 153, 0.4);
+    }
+
+    /* Categories Grid */
+    .categories-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+
+    @media (min-width: 640px) {
+        .categories-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .categories-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    @media (min-width: 1280px) {
+        .categories-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
+    }
+
+    /* Category Card */
+    .category-card {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 20px;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s;
+        position: relative;
+    }
+
+    .dark-mode .category-card {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .category-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 16px 40px rgba(236, 194, 153, 0.2);
+    }
+
+    .category-image {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+        transition: transform 0.5s;
+    }
+
+    .category-card:hover .category-image {
+        transform: scale(1.1);
+    }
+
+    .image-placeholder {
+        width: 100%;
+        height: 160px;
+        background: linear-gradient(135deg, rgba(52, 152, 219, 0.1) 0%, rgba(236, 194, 153, 0.1) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .image-placeholder i {
+        font-size: 3.5rem;
+        opacity: 0.2;
+        color: var(--text);
+    }
+
+    .category-info {
+        padding: 20px;
+        text-align: center;
+    }
+
+    .category-name {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 8px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .product-count {
+        font-size: 0.875rem;
+        color: var(--text);
+        opacity: 0.7;
+    }
+
+    /* Action Overlay */
+    .action-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .category-card:hover .action-overlay {
+        opacity: 1;
+    }
+
+    .action-btn-overlay {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .action-btn-overlay:hover {
+        transform: scale(1.1);
+    }
+
+    .edit-btn-overlay {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    }
+
+    .delete-btn-overlay {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    }
+
+    /* Empty State */
+    .empty-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 80px 20px;
+        color: var(--text);
+        opacity: 0.6;
+    }
+
+    .empty-state i {
+        font-size: 5rem;
+        margin-bottom: 20px;
+        opacity: 0.3;
+    }
+</style>
+
+<div class="page-header">
+    <h1 class="page-title">Kategoriyalar</h1>
+    <a href="{% url 'admin_category_add' %}" class="add-btn">
+        <i class="fas fa-plus"></i>
+        Yangi kategoriya
+    </a>
+</div>
+
+<div class="categories-grid">
+    {% for category in categories %}
+    <div class="category-card">
+        {% if category.image %}
+        <img src="{{ category.image.url }}" alt="{{ category.name_uz }}" class="category-image">
+        {% else %}
+        <div class="image-placeholder">
+            <i class="fas fa-folder-open"></i>
+        </div>
+        {% endif %}
+
+        <div class="category-info">
+            <h3 class="category-name">{{ category.name_uz }}</h3>
+            <p class="product-count">{{ category.product_count|default:0 }} ta mahsulot</p>
+        </div>
+
+        <div class="action-overlay">
+            <a href="{% url 'admin_category_edit' category.id %}" class="action-btn-overlay edit-btn-overlay">
+                <i class="fas fa-edit fa-lg"></i>
+            </a>
+            <a href="{% url 'admin_category_delete' category.id %}"
+                onclick="return confirm('{{ category.name_uz }} kategoriyasini o\\'chirasizmi? Barcha mahsulotlar ham o\\'chib ketadi!')"
+                class="action-btn-overlay delete-btn-overlay">
+                <i class="fas fa-trash fa-lg"></i>
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <i class="fas fa-folder-open"></i>
+        <p style="font-size: 1.25rem;">Hozircha kategoriya yo'q</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

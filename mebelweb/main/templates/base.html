@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mebel olami{% endblock %}</title>
+
+    <!-- Telegram WebApp -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <style>
+        /* === Root Colors === */
+        :root {
+            --primary: #ECC299;
+            --secondary: #3498db;
+            --bg: #ffffff;
+            --text: #2c3e50;
+            --shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .dark-mode {
+            --primary: #4C2C24;
+            --secondary: #50a3d3ff;
+            --bg: #0d0d15;
+            --text: #eaeaea;
+            --shadow: 0 2px 15px rgba(0, 0, 0, 0.6);
+        }
+
+        /* === Base === */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: 0.25s ease;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Segoe UI", sans-serif;
+            padding-bottom: 70px;
+        }
+
+        /* === Header === */
+        header {
+            background: var(--primary);
+            color: #fff;
+            padding: 14px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            margin: 0;
+            box-shadow: var(--shadow);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.4rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo i {
+            font-size: 1.4rem;
+        }
+
+        /* === Toggle Switch === */
+        .switch {
+            position: relative;
+            width: 55px;
+            height: 28px;
+        }
+
+        .switch input {
+            display: none;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #999;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            content: "";
+            position: absolute;
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: .4s;
+        }
+
+        input:checked+.slider {
+            background: var(--secondary);
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(27px);
+        }
+
+        /* === Desktop Navbar === */
+        .desktop-nav {
+            display: none;
+            background: var(--primary);
+            padding: 10px;
+            box-shadow: var(--shadow);
+        }
+
+        .desktop-nav ul {
+            display: flex;
+            list-style: none;
+            justify-content: center;
+            gap: 25px;
+        }
+
+        .desktop-nav a {
+            color: #fff;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+
+        /* === Badge === */
+        .badge {
+            position: absolute;
+            top: -5px;
+            right: -10px;
+            background: red;
+            color: white;
+            font-size: 0.75rem;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: bold;
+        }
+
+        .nav-item {
+            position: relative;
+            flex: 1;
+            text-align: center;
+            color: #fff;
+            padding: 5px;
+            text-decoration: none;
+        }
+
+        .desktop-nav a {
+            position: relative;
+        }
+
+        .desktop-nav a:hover,
+        .desktop-nav a.active {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* === Main === */
+        main {
+            max-width: 1200px;
+            margin: auto;
+            padding: 15px;
+            min-height: calc(100vh - 200px);
+        }
+
+        /* === Mobile Bottom Nav === */
+        .mobile-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--primary);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            z-index: 150;
+            box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-item i {
+            font-size: 1.4rem;
+            margin-bottom: 3px;
+        }
+
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+        }
+
+        @media (min-width: 768px) {
+            .desktop-nav {
+                display: block;
+            }
+
+            .mobile-nav {
+                display: none;
+            }
+
+            body {
+                padding-bottom: 0;
+            }
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+
+    {% if request.resolver_match.url_name not in "login register" %}
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <i class="fas fa-couch"></i> Mebel olami
+            </div>
+
+            <!-- Toggle Switch -->
+            <label class="switch">
+                <input type="checkbox" id="themeToggle">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </header>
+    {% endif %}
+
+    {% if request.resolver_match.url_name not in "login register" %}
+    <nav class="desktop-nav">
+        <ul>
+            <li><a href="{% url 'index' %}">🏬 Magazin</a></li>
+            <li>
+                <a href="{% url 'cart' %}">
+                    🛒 Savat
+                    {% if cart_count > 0 %}
+                    <span class="badge">{{ cart_count }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            <li><a href="{% url 'profile' %}">👤 Profil</a></li>
+            {% if user.is_authenticated %}
+            <li><a href="{% url 'logout' %}">🚪 Chiqish</a></li>
+            {% else %}
+            <li><a href="{% url 'login' %}">🔐 Kirish</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    {% if request.resolver_match.url_name not in "login register" %}
+    <nav class="mobile-nav">
+        <a href="{% url 'index' %}" class="nav-item"><i class="fas fa-store"></i><br>Magazin</a>
+        <a href="{% url 'cart' %}" class="nav-item">
+            <i class="fas fa-shopping-cart"></i>
+            {% if cart_count > 0 %}
+            <span class="badge" style="top: 2px; right: 25%;">{{ cart_count }}</span>
+            {% endif %}
+            <br>Savat
+        </a>
+        <a href="{% url 'profile' %}" class="nav-item"><i class="fas fa-user"></i><br>Profil</a>
+
+        {% comment %} {% if user.is_authenticated %}
+        <a href="{% url 'logout' %}" class="nav-item"><i class="fas fa-sign-out-alt"></i><br>Chiqish</a>
+        {% else %}
+        <a href="{% url 'login' %}" class="nav-item"><i class="fas fa-sign-in-alt"></i><br>Kirish</a>
+        {% endif %} {% endcomment %}
+    </nav>
+    {% endif %}
+
+    <script>
+        (function () {
+            const themeToggle = document.getElementById('themeToggle');
+
+            function applyTheme(theme) {
+                if (theme === 'dark') {
+                    document.body.classList.add('dark-mode');
+                    themeToggle.checked = true;
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    themeToggle.checked = false;
+                }
+            }
+
+            // Initialize theme from Django session, localStorage, or prefers-color-scheme
+            {% if request.session.theme %}
+            const sessionTheme = "{{ request.session.theme }}";
+            applyTheme(sessionTheme);
+            localStorage.setItem('theme', sessionTheme);
+            {% else %}
+            const stored = localStorage.getItem('theme');
+            if (stored) {
+                applyTheme(stored);
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                applyTheme('dark');
+            }
+            {% endif %}
+
+            themeToggle.addEventListener('change', function () {
+                const mode = this.checked ? 'dark' : 'light';
+                applyTheme(mode);
+                localStorage.setItem('theme', mode);
+            });
+
+            // Active menu highlighting
+            const currentUrl = window.location.pathname;
+
+            document.querySelectorAll('.nav-item, .desktop-nav a').forEach(item => {
+                const href = item.getAttribute('href') || '';
+
+                try {
+                    // Match: /product/pk/ or /product/pk/variant/pk/ -> highlight /
+                    if ((currentUrl.startsWith('/product/') || currentUrl.startsWith('/category/') || currentUrl.startsWith('/variant/')) && href === '/') {
+                        item.classList.add('active');
+                    }
+                    // Exact match
+                    else if (href === currentUrl) {
+                        item.classList.add('active');
+                    }
+                    // Home page exact match
+                    else if (href === '/' && currentUrl === '/') {
+                        item.classList.add('active');
+                    }
+                    // Prefix match for other URLs like /cart/, /profile/
+                    else if (href !== '/' && href !== '' && currentUrl.startsWith(href)) {
+                        item.classList.add('active');
+                    }
+                } catch (e) {
+                    // ignore malformed hrefs
+                }
+            });
+        })();
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+
+</body>
+
+</html>

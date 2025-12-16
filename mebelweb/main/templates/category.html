@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ category.name_uz }} - Mebel olami{% endblock %}
+
+{% block content %}
+
+<style>
+    /* Page Title */
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-top: env(safe-area-inset-top);
+        color: var(--text);
+    }
+
+    .page-title i {
+        color: var(--primary);
+        font-size: 1.75rem;
+        animation: iconBounce 2s ease-in-out infinite;
+    }
+
+    @keyframes iconBounce {
+
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(-5px);
+        }
+    }
+
+    @media (min-width: 768px) {
+        .page-title {
+            font-size: 1.75rem;
+        }
+
+        .page-title i {
+            font-size: 2rem;
+        }
+    }
+
+    /* Grid Layout */
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    @media (min-width: 480px) {
+        .products-grid {
+            gap: 18px;
+        }
+    }
+
+    @media (min-width: 640px) {
+        .products-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .products-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+    }
+
+    /* Modern Product Card */
+    .product-card {
+        position: relative;
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border-radius: 16px;
+        overflow: hidden;
+        text-decoration: none;
+        color: var(--text);
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .dark-mode .product-card {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .product-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 16px 40px rgba(236, 194, 153, 0.2);
+        border-color: var(--primary);
+    }
+
+    .product-card:active {
+        transform: translateY(-4px) scale(0.98);
+        opacity: 0.9;
+    }
+
+    /* Card Image Container */
+    .product-card-image-wrapper {
+        position: relative;
+        width: 100%;
+        height: 140px;
+        overflow: hidden;
+        background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+    }
+
+    .dark-mode .product-card-image-wrapper {
+        background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+    }
+
+    @media (min-width: 480px) {
+        .product-card-image-wrapper {
+            height: 160px;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .product-card-image-wrapper {
+            height: 180px;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .product-card-image-wrapper {
+            height: 200px;
+        }
+    }
+
+    .product-card-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+
+    .product-card:hover .product-card-image {
+        transform: scale(1.1);
+    }
+
+    /* Image Overlay */
+    .product-card-image-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0, 0, 0, 0.3), transparent);
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .product-card:hover .product-card-image-overlay {
+        opacity: 1;
+    }
+
+    /* Card Content */
+    .product-card-content {
+        padding: 14px;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .product-card-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text);
+        margin: 0;
+        text-align: center;
+    }
+
+    @media (min-width: 480px) {
+        .product-card-content {
+            padding: 16px;
+        }
+
+        .product-card-title {
+            font-size: 1rem;
+        }
+    }
+
+    /* Shimmer Effect */
+    .product-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: left 0.5s;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .product-card:hover::before {
+        left: 100%;
+    }
+
+    /* Back Button */
+    .back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 24px;
+        padding: 12px 20px;
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.1) 0%, rgba(52, 152, 219, 0.1) 100%);
+        color: var(--primary);
+        font-weight: 600;
+        text-decoration: none;
+        border-radius: 12px;
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        transition: all 0.3s ease;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .back-btn:hover {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.15) 0%, rgba(52, 152, 219, 0.15) 100%);
+        transform: translateX(-4px);
+        border-color: var(--primary);
+    }
+
+    .back-btn i {
+        font-size: 1rem;
+        transition: transform 0.3s;
+    }
+
+    .back-btn:hover i {
+        transform: translateX(-4px);
+    }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        color: var(--text);
+        opacity: 0.6;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 16px;
+        color: var(--primary);
+    }
+</style>
+
+<h2 class="page-title">
+    <i class="fas fa-folder-open"></i>
+    {{ category.name_uz }}
+</h2>
+
+<div class="products-grid">
+    {% for prod in products %}
+    <a href="{% url 'product' prod.id %}" class="product-card">
+        <div class="product-card-image-wrapper">
+            <img src="{{ prod.image.url }}" alt="{{ prod.name_uz }}" class="product-card-image">
+            <div class="product-card-image-overlay"></div>
+        </div>
+        <div class="product-card-content">
+            <h3 class="product-card-title">{{ prod.name_uz }}</h3>
+        </div>
+    </a>
+    {% empty %}
+    <div class="empty-state">
+        <i class="fas fa-box-open"></i>
+        <p>Hozircha mahsulotlar mavjud emas</p>
+    </div>
+    {% endfor %}
+</div>
+
+<a href="{% url 'index' %}" class="back-btn">
+    <i class="fas fa-arrow-left"></i>
+    Orqaga
+</a>
+
+{% endblock %}

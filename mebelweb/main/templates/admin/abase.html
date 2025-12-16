@@ -1,0 +1,414 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin • Mebel olami{% endblock %}</title>
+
+    <!-- Telegram WebApp -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <style>
+        /* === Root Colors === */
+        :root {
+            --primary: #ECC299;
+            --secondary: #3498db;
+            --bg: #f5f7fa;
+            --sidebar: #ffffff;
+            --text: #2c3e50;
+            --shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .dark-mode {
+            --primary: #4C2C24;
+            --secondary: #50a3d3ff;
+            --bg: #0d0d15;
+            --sidebar: #1a1a24;
+            --text: #eaeaea;
+            --shadow: 0 2px 15px rgba(0, 0, 0, 0.6);
+        }
+
+        /* === Base === */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: "Segoe UI", sans-serif;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        /* === Sidebar === */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+            backdrop-filter: blur(10px);
+            border-right: 2px solid rgba(236, 194, 153, 0.2);
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.05);
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .dark-mode .sidebar {
+            background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+            border-right-color: rgba(236, 194, 153, 0.15);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+        }
+
+        /* Sidebar Header */
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 2px solid rgba(236, 194, 153, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            position: relative;
+            width: 56px;
+            height: 28px;
+            background: rgba(236, 194, 153, 0.2);
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle.active {
+            background: var(--primary);
+        }
+
+        .theme-toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .theme-toggle.active::after {
+            transform: translateX(28px);
+        }
+
+        /* Menu */
+        .sidebar-menu {
+            padding: 16px;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            color: var(--text);
+            text-decoration: none;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .menu-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(236, 194, 153, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .menu-item:hover::before {
+            left: 100%;
+        }
+
+        .menu-item:hover {
+            background: rgba(236, 194, 153, 0.15);
+            transform: translateX(4px);
+        }
+
+        .menu-item.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(236, 194, 153, 0.3);
+        }
+
+        .menu-item i {
+            font-size: 1.125rem;
+            width: 24px;
+        }
+
+        .menu-divider {
+            height: 2px;
+            background: rgba(236, 194, 153, 0.2);
+            margin: 16px 0;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 280px;
+            min-height: 100vh;
+            padding: 32px;
+            transition: margin-left 0.3s;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                margin-left: 0;
+                padding-top: 80px;
+                /* Space for mobile menu button */
+            }
+        }
+
+        /* Mobile Menu Button */
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            z-index: 999;
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .mobile-menu-btn:hover {
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        }
+
+        /* Overlay */
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        /* Badge */
+        .badge {
+            margin-left: auto;
+            padding: 4px 10px;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Close Button (mobile) */
+        .close-btn {
+            display: none;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(239, 68, 68, 0.1);
+            border: none;
+            color: #ef4444;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.25rem;
+            transition: all 0.3s;
+        }
+
+        .close-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar.active .close-btn {
+                display: block;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Mobile Menu Button -->
+    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Overlay -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <button class="close-btn" onclick="toggleSidebar()">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <div class="sidebar-header">
+            <h2 class="sidebar-title">Admin Panel</h2>
+            <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()"></div>
+        </div>
+
+        <nav class="sidebar-menu">
+            <a href="{% url 'index' %}"
+                class="menu-item {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="{% url 'orders' %}"
+                class="menu-item {% if request.resolver_match.url_name == 'orders' %}active{% endif %}">
+                <i class="fas fa-shopping-bag"></i>
+                <span>Buyurtmalar</span>
+                {% if new_orders_count %}
+                <span class="badge">{{ new_orders_count }}</span>
+                {% endif %}
+            </a>
+
+            <a href="{% url 'statistics' %}"
+                class="menu-item {% if request.resolver_match.url_name == 'statistics' %}active{% endif %}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Statistika</span>
+            </a>
+
+            <div class="menu-divider"></div>
+
+            <a href="{% url 'admin_products' %}"
+                class="menu-item {% if 'admin_products' in request.resolver_match.url_name or 'admin_product' in request.resolver_match.url_name %}active{% endif %}">
+                <i class="fas fa-box"></i>
+                <span>Mahsulotlar</span>
+            </a>
+
+            <a href="{% url 'admin_categories' %}"
+                class="menu-item {% if 'admin_categor' in request.resolver_match.url_name %}active{% endif %}">
+                <i class="fas fa-folder"></i>
+                <span>Kategoriyalar</span>
+            </a>
+
+            <div class="menu-divider"></div>
+
+            <a href="{% url 'index' %}" class="menu-item">
+                <i class="fas fa-globe"></i>
+                <span>Saytga o'tish</span>
+            </a>
+
+            <a href="javascript:history.back()" class="menu-item">
+                <i class="fas fa-arrow-left"></i>
+                <span>Orqaga</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    {% block extra_js %}
+    {% endblock %}
+
+    <script>
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        // Theme toggle
+        function toggleTheme() {
+            const toggle = document.getElementById('themeToggle');
+            document.body.classList.toggle('dark-mode');
+            toggle.classList.toggle('active');
+
+            // Save to localStorage
+            if (document.body.classList.contains('dark-mode')) {
+                localStorage.setItem('admin-theme', 'dark');
+            } else {
+                localStorage.setItem('admin-theme', 'light');
+            }
+        }
+
+        // Load saved theme
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('admin-theme');
+            const toggle = document.getElementById('themeToggle');
+
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+                toggle.classList.add('active');
+            }
+        });
+
+        // Close sidebar on overlay click (mobile)
+        document.getElementById('overlay').addEventListener('click', toggleSidebar);
+
+        // Close sidebar when clicking a menu item on mobile
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    toggleSidebar();
+                }
+            });
+        });
+    </script>
+
+</body>
+
+</html>

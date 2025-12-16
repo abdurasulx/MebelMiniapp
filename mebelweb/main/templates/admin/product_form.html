@@ -1,0 +1,531 @@
+{% extends "admin/abase.html" %}
+
+{% block content %}
+
+<style>
+    /* Form Container */
+    .form-wrapper {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 32px;
+    }
+
+    /* Error Alert */
+    .error-alert {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%);
+        border: 2px solid rgba(239, 68, 68, 0.3);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+        color: var(--text);
+    }
+
+    .error-alert ul {
+        list-style: disc;
+        margin-left: 20px;
+        margin-top: 8px;
+    }
+
+    /* Grid Layout */
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(1, 1fr);
+        gap: 32px;
+        margin-bottom: 32px;
+    }
+
+    @media (min-width: 1024px) {
+        .form-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    /* Form Card */
+    .form-card {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.08) 0%, rgba(52, 152, 219, 0.08) 100%);
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 20px;
+        padding: 32px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    .dark-mode .form-card {
+        background: linear-gradient(135deg, rgba(76, 44, 36, 0.15) 0%, rgba(80, 163, 211, 0.15) 100%);
+        border-color: rgba(236, 194, 153, 0.15);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 24px;
+    }
+
+    /* Form Elements */
+    .form-group {
+        margin-bottom: 24px;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 12px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 14px 18px;
+        border: 2px solid rgba(236, 194, 153, 0.2);
+        border-radius: 12px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(236, 194, 153, 0.1);
+    }
+
+    .dark-mode .form-control {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text);
+    }
+
+    .dark-mode select.form-control {
+        background: rgba(236, 194, 153, 0.15);
+        color: #fff;
+        border-color: rgba(236, 194, 153, 0.3);
+    }
+
+    .dark-mode select.form-control option {
+        background: #2c2c2c;
+        color: #fff;
+    }
+
+    /* Image Preview */
+    .image-preview {
+        margin-top: 16px;
+        border-radius: 12px;
+        overflow: hidden;
+        max-width: 256px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .image-preview img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    /* Variant Container */
+    .variants-container {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .variant-card {
+        background: rgba(236, 194, 153, 0.05);
+        border: 2px dashed rgba(236, 194, 153, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+        transition: all 0.3s;
+    }
+
+    .variant-card:hover {
+        border-color: var(--primary);
+    }
+
+    .variant-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .variant-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary);
+    }
+
+    .delete-variant-btn {
+        color: #e74c3c;
+        font-weight: 600;
+        cursor: pointer;
+        background: none;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+
+    .delete-variant-btn:hover {
+        background: rgba(231, 76, 60, 0.1);
+    }
+
+    .variant-grid {
+        display: grid;
+        grid-template-columns: repeat(1, 1fr);
+        gap: 16px;
+    }
+
+    @media (min-width: 768px) {
+        .variant-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    /* Add Variant Button */
+    .add-variant-btn {
+        width: 100%;
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.15) 0%, rgba(52, 152, 219, 0.15) 100%);
+        border: 2px dashed var(--primary);
+        border-radius: 16px;
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 1.125rem;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 24px;
+    }
+
+    .add-variant-btn:hover {
+        background: linear-gradient(135deg, rgba(236, 194, 153, 0.25) 0%, rgba(52, 152, 219, 0.25) 100%);
+        transform: scale(1.02);
+    }
+
+    /* Action Buttons */
+    .form-actions {
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+        margin-top: 40px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 16px 48px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 1.125rem;
+        text-decoration: none;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        color: white;
+        box-shadow: 0 8px 24px rgba(236, 194, 153, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(236, 194, 153, 0.4);
+    }
+
+    .btn-secondary {
+        background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(149, 165, 166, 0.3);
+    }
+
+    .btn-secondary:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(149, 165, 166, 0.4);
+    }
+
+    /* Badge */
+    .badge {
+        display: inline-block;
+        padding: 6px 14px;
+        background: rgba(236, 194, 153, 0.2);
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--primary);
+    }
+
+    /* Image Management */
+    .variant-images {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+
+    @media (min-width: 768px) {
+        .variant-images {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    .variant-image-item {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .variant-image-item img {
+        width: 100%;
+        height: 96px;
+        object-fit: cover;
+        border: 2px solid rgba(236, 194, 153, 0.3);
+        border-radius: 8px;
+    }
+
+    .delete-image-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: rgba(231, 76, 60, 0.9);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .add-image-btn {
+        display: inline-block;
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.3s;
+    }
+
+    .add-image-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    }
+</style>
+
+<div class="form-wrapper">
+    <h1 class="page-title">
+        {% if form.instance.id %}
+        "{{ form.instance.name_uz }}"ni tahrirlash
+        {% else %}
+        Yangi mahsulot qo'shish
+        {% endif %}
+    </h1>
+
+    {% if form.errors or variant_formset.errors or variant_formset.non_form_errors %}
+    <div class="error-alert">
+        <p style="font-weight: 700; font-size: 1.125rem; margin-bottom: 12px;">⚠️ Xatoliklar:</p>
+        <ul>
+            {% for field, errors in form.errors.items %}
+            {% for error in errors %}
+            <li>{{ field|capfirst }}: {{ error }}</li>
+            {% endfor %}
+            {% endfor %}
+            {% for error in variant_formset.non_form_errors %}
+            <li>Variantlar: {{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-grid">
+            <!-- Main Information -->
+            <div class="form-card">
+                <h2 class="card-title">Asosiy ma'lumotlar</h2>
+
+                <div class="form-group">
+                    <label class="form-label">Nomi (O'zbekcha) <span style="color: #e74c3c;">*</span></label>
+                    {{ form.name_uz }}
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Nomi (Ruscha)</label>
+                    {{ form.name_ru }}
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Kategoriya <span style="color: #e74c3c;">*</span></label>
+                    {{ form.category }}
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Rasm <span style="color: #e74c3c;">*</span></label>
+                    {{ form.image }}
+                    {% if form.instance.image %}
+                    <div class="image-preview">
+                        <img src="{{ form.instance.image.url }}" alt="Preview">
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Video URL (YouTube, Instagram, TikTok)</label>
+                    {{ form.video_url }}
+                </div>
+            </div>
+
+            <!-- Variants -->
+            <div class="form-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                    <h2 class="card-title" style="margin: 0;">Variantlar</h2>
+                    <span class="badge">Kamida 1 ta kerak</span>
+                </div>
+
+                {{ variant_formset.management_form }}
+
+                <div class="variants-container" id="variant-container">
+                    {% for vform in variant_formset %}
+                    <div class="variant-card">
+                        <div class="variant-header">
+                            <h3 class="variant-title">Variant {{ forloop.counter }}</h3>
+                            {% if vform.instance.pk %}
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" name="{{ vform.prefix }}-DELETE"
+                                    style="width: 20px; height: 20px;">
+                                <span class="delete-variant-btn">O'chirish</span>
+                            </label>
+                            {% else %}
+                            <button type="button" class="delete-variant-btn remove-variant">O'chirish</button>
+                            {% endif %}
+                        </div>
+
+                        {{ vform.id }}
+                        <div class="variant-grid">
+                            <div class="form-group">
+                                <label class="form-label">Nomi <span style="color: #e74c3c;">*</span></label>
+                                {{ vform.name }}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Narxi (so'm) <span style="color: #e74c3c;">*</span></label>
+                                {{ vform.base_price }}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Eni (m)</label>
+                                {{ vform.width }}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Bo'yi (m)</label>
+                                {{ vform.height }}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Chuqurligi (m)</label>
+                                {{ vform.depth }}
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Variant rasmlari</label>
+                            {% if vform.instance.pk %}
+                            {% if vform.instance.images.all %}
+                            <div class="variant-images">
+                                {% for img in vform.instance.images.all %}
+                                <div class="variant-image-item">
+                                    <img src="{{ img.image.url }}" alt="">
+                                    <a href="{% url 'delete_variant_image' img.pk %}"
+                                        onclick="return confirm('Rasmni o\'chirasizmi?')" class="delete-image-btn">×</a>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p style="font-size: 0.875rem; color: var(--text); opacity: 0.6; margin-bottom: 12px;">
+                                Hozircha rasm yo'q</p>
+                            {% endif %}
+
+                            <!-- Inline image upload -->
+                            <div style="margin-top: 12px;">
+                                <input type="file" name="variant_{{ vform.instance.pk }}_images" accept="image/*"
+                                    multiple class="form-control" style="padding: 10px;">
+                                <p style="font-size: 0.8125rem; color: var(--text); opacity: 0.5; margin-top: 8px;">
+                                    <i class="fas fa-info-circle"></i> Bir nechta rasm tanlash mumkin
+                                </p>
+                            </div>
+                            {% else %}
+                            <p style="font-size: 0.875rem; color: var(--text); opacity: 0.6;">Variant saqlangandan keyin
+                                rasmlari qo'shing</p>
+                            {% endif %}
+                        </div>
+
+                        {{ vform.DELETE }}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <button type="button" id="add-variant" class="add-variant-btn">
+                    <i class="fas fa-plus"></i> Yana variant qo'shish
+                </button>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Saqlash
+            </button>
+            <a href="{% url 'admin_products' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Bekor qilish
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Apply form-control class to inputs
+    document.querySelectorAll('input[type="text"], input[type="number"], input[type="url"], input[type="file"], select, textarea').forEach(input => {
+        input.classList.add('form-control');
+    });
+
+    // Variant management
+    const totalForms = document.querySelector('#id_variants-TOTAL_FORMS');
+    const container = document.getElementById('variant-container');
+    const addButton = document.getElementById('add-variant');
+
+    function updateVariantNumbers() {
+        container.querySelectorAll('.variant-card').forEach((el, i) => {
+            const title = el.querySelector('.variant-title');
+            if (title && !title.textContent.includes("o'chiriladi")) {
+                title.textContent = `Variant ${i + 1}`;
+            }
+        });
+    }
+
+    // Remove variant
+    container.addEventListener('click', (e) => {
+        if (e.target.classList.contains('remove-variant')) {
+            const card = e.target.closest('.variant-card');
+            const deleteInput = card.querySelector('input[name$="-DELETE"]');
+            if (deleteInput) {
+                deleteInput.checked = true;
+                card.style.opacity = '0.5';
+                card.querySelector('.variant-title').textContent += " (o'chiriladi)";
+            } else {
+                card.remove();
+            }
+            updateVariantNumbers();
+        }
+    });
+
+    updateVariantNumbers();
+</script>
+
+{% endblock %}
