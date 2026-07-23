@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../auth_store.dart';
 import '../countries.dart';
@@ -45,6 +46,8 @@ class _AuthScreenState extends State<AuthScreen> {
   String get _fullPhone =>
       '${_country.dialCode}${_phoneController.text.trim()}';
 
+  bool get _phoneValid => _country.isValid(_phoneController.text.trim());
+
   Future<void> _sendCode() async {
     setState(() => _busy = true);
     final auth = context.read<AuthStore>();
@@ -85,7 +88,16 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
       ),
     );
-    if (selected != null) setState(() => _country = selected);
+    if (selected == null) return;
+    setState(() {
+      _country = selected;
+      if (_phoneController.text.length > selected.phoneLength) {
+        _phoneController.text = _phoneController.text.substring(
+          0,
+          selected.phoneLength,
+        );
+      }
+    });
   }
 
   @override
@@ -138,17 +150,24 @@ class _AuthScreenState extends State<AuthScreen> {
               TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(_country.phoneLength),
+                ],
                 decoration: InputDecoration(
                   labelText: loc.t('auth_phone_hint'),
                   prefixText: '${_country.dialCode} ',
                   border: const OutlineInputBorder(),
+                  helperText:
+                      '${_phoneController.text.length}/${_country.phoneLength}',
+                  errorText: _phoneController.text.isNotEmpty && !_phoneValid
+                      ? loc.t('auth_phone_invalid')
+                      : null,
                 ),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _busy || _phoneController.text.isEmpty
-                    ? null
-                    : _sendCode,
+                onPressed: _busy || !_phoneValid ? null : _sendCode,
                 child: _busy
                     ? const CircularProgressIndicator()
                     : Text(loc.t('auth_send_code')),
