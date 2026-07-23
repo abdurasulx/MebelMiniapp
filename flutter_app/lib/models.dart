@@ -57,6 +57,9 @@ class Variant {
   final String id;
   final String name;
   final String basePrice;
+  final String width;
+  final String height;
+  final String depth;
   final String? colorHex;
   final String? textureUrl;
 
@@ -64,16 +67,25 @@ class Variant {
     required this.id,
     required this.name,
     required this.basePrice,
+    this.width = '1',
+    this.height = '1',
+    this.depth = '1',
     this.colorHex,
     this.textureUrl,
   });
 
   double get basePriceValue => double.tryParse(basePrice) ?? 0;
+  double get widthValue => double.tryParse(width) ?? 1;
+  double get heightValue => double.tryParse(height) ?? 1;
+  double get depthValue => double.tryParse(depth) ?? 1;
 
   factory Variant.fromJson(Map<String, dynamic> j) => Variant(
     id: j['id'],
     name: j['name'],
     basePrice: j['base_price'].toString(),
+    width: (j['width'] ?? 1).toString(),
+    height: (j['height'] ?? 1).toString(),
+    depth: (j['depth'] ?? 1).toString(),
     colorHex: j['color_hex'],
     textureUrl: j['texture_url'],
   );

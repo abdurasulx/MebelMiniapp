@@ -82,12 +82,17 @@ endpointlar ishlatiladi:
   ustida; 3D model bo'lsa "3D ko'rish" tugmasi orqali alohida bottom-sheet
   oynada ochiladi (galereyaning o'ziga aralashmaydi).
 
+- **Savat va buyurtma berish**: `CartStore` (`lib/cart_store.dart`) qurilmada
+  saqlanadi (web `cart.js` bilan bir xil naqsh), "Savat" tabida checkout
+  formasi (telefon/manzil/izoh) bilan haqiqiy `Order` yaratiladi. Bitta
+  buyurtmada faqat bitta kompaniya bo'lishi mumkinligi sababli (backend
+  qoidasi), savatdagi mahsulotlar kompaniya bo'yicha guruhlanib, har biriga
+  alohida `/orders/` so'rovi yuboriladi — xuddi web `Cart.jsx`dagidek.
+
 ## Hozircha qamrovdan tashqarida (keyingi bosqich)
 
 - Rasm yuklab progress/complete qilish — hozircha faqat matnli izoh bilan
   ishlaydi (`image_picker` + Android kamera/fayl ruxsatlari kerak, alohida
   qo'shiladi).
-- Xaridor Android'dan buyurtma **bermaydi** (faqat narx/3D ko'radi va mavjud
-  buyurtmalar statusini kuzatadi) — spetsifikatsiyaga mos qamrov qarori.
 - Firma obuna/to'lov holati bo'yicha 3D-fayl cheklovi — hali qo'yilmagan
   (web/iOS bilan bir xil qaror: hozircha cheklovsiz).

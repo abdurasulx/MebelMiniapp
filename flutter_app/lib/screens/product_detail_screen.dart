@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../api_client.dart';
+import '../cart_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/like_button.dart';
@@ -128,6 +130,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                     const SizedBox(height: 18),
                     if (_selectedVariant != null) _priceCard(),
+                    if (_selectedVariant != null) ...[
+                      const SizedBox(height: 12),
+                      _addToCartButton(p),
+                    ],
                   ],
                 ],
               ),
@@ -404,6 +410,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
       ),
       child: content,
+    );
+  }
+
+  Widget _addToCartButton(Product p) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () {
+          context.read<CartStore>().addProduct(p, _selectedVariant!);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${p.nameUz} savatga qo\'shildi')),
+          );
+        },
+        icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
+        label: const Text('Savatga qo\'shish'),
+      ),
     );
   }
 

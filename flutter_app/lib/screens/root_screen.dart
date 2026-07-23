@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth_store.dart';
+import '../cart_store.dart';
+import 'cart_screen.dart';
 import 'catalog_screen.dart';
 import 'home_screen.dart';
 import 'likes_screen.dart';
@@ -8,8 +10,8 @@ import 'profile_screen.dart';
 import 'worker/worker_home_screen.dart';
 import 'worker/worker_orders_screen.dart';
 
-/// iOS'dagi `RootView` bilan **bir xil** tab tuzilishi: xaridor — Bosh sahifa /
-/// Katalog / Sevimlilar / Profil (buyurtmalar Profil ichida ko'rsatiladi);
+/// Xaridor — Bosh sahifa / Katalog / Sevimlilar / Savat / Profil (savat
+/// tabida checkout, buyurtma tarixi Profil ichida ko'rsatiladi);
 /// `appMode == worker` bo'lganda usta paneli tablariga almashadi.
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
@@ -26,9 +28,17 @@ class _RootScreenState extends State<RootScreen> {
     final isWorker =
         auth.appMode == AppMode.worker && auth.user?.company != null;
 
+    final cartCount = context.watch<CartStore>().count;
+
     final tabs = isWorker
         ? const [WorkerHomeScreen(), WorkerOrdersScreen(), ProfileScreen()]
-        : const [HomeScreen(), CatalogScreen(), LikesScreen(), ProfileScreen()];
+        : const [
+            HomeScreen(),
+            CatalogScreen(),
+            LikesScreen(),
+            CartScreen(),
+            ProfileScreen(),
+          ];
 
     final items = isWorker
         ? const [
@@ -42,20 +52,28 @@ class _RootScreenState extends State<RootScreen> {
             ),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
           ]
-        : const [
-            BottomNavigationBarItem(
+        : [
+            const BottomNavigationBarItem(
               icon: Icon(Icons.home_rounded),
               label: 'Bosh sahifa',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.grid_view_rounded),
               label: 'Katalog',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.favorite_rounded),
               label: 'Sevimlilar',
             ),
             BottomNavigationBarItem(
+              icon: Badge(
+                label: Text('$cartCount'),
+                isLabelVisible: cartCount > 0,
+                child: const Icon(Icons.shopping_basket_rounded),
+              ),
+              label: 'Savat',
+            ),
+            const BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),
               label: 'Profil',
             ),

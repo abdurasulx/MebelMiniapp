@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth_store.dart';
 import '../likes_store.dart';
+import '../screens/auth_screen.dart';
 
 /// Yurakcha tugmasi — bosilganda serverga saqlanadi (iOS'dagi `LikeButton`
-/// bilan bir xil vazifa). Tizimga kirilmagan bo'lsa hech narsa qilmaydi.
+/// bilan bir xil vazifa). Tizimga kirilmagan bo'lsa ham har doim ko'rinadi —
+/// bosilganda kirish ekraniga yo'naltiradi (avval faqat login qilinganda
+/// ko'rinar edi, shu sabab foydalanuvchi uni umuman topa olmagan edi).
 class LikeButton extends StatelessWidget {
   final String productId;
   final void Function(bool liked)? onToggled;
@@ -15,9 +18,14 @@ class LikeButton extends StatelessWidget {
     final likes = context.watch<LikesStore>();
     final isAuthenticated = context.watch<AuthStore>().isAuthenticated;
     final liked = likes.isLiked(productId);
-    if (!isAuthenticated) return const SizedBox.shrink();
     return GestureDetector(
       onTap: () async {
+        if (!isAuthenticated) {
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
+          return;
+        }
         await context.read<LikesStore>().toggle(productId);
         onToggled?.call(context.read<LikesStore>().isLiked(productId));
       },
