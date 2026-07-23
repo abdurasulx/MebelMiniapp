@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../auth_store.dart';
 import '../likes_store.dart';
+import '../locale_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/product_card.dart';
@@ -52,8 +53,9 @@ class _LikesScreenState extends State<LikesScreen> {
   @override
   Widget build(BuildContext context) {
     final isAuthenticated = context.watch<AuthStore>().isAuthenticated;
+    final loc = context.watch<LocaleStore>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Sevimlilar')),
+      appBar: AppBar(title: Text(loc.t('likes_title'))),
       body: !isAuthenticated
           ? _emptyState(
               icon: Icons.favorite_border_rounded,

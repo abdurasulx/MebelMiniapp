@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../auth_store.dart';
 import '../cart_store.dart';
+import '../locale_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import 'auth_screen.dart';
@@ -87,13 +88,14 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartStore>();
+    final loc = context.watch<LocaleStore>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Savat')),
-      body: cart.items.isEmpty ? _empty() : _content(cart),
+      appBar: AppBar(title: Text(loc.t('cart_title'))),
+      body: cart.items.isEmpty ? _empty(loc) : _content(cart, loc),
     );
   }
 
-  Widget _empty() {
+  Widget _empty(LocaleStore loc) {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -104,57 +106,50 @@ class _CartScreenState extends State<CartScreen> {
             color: Color(0xFF8A7357),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Savat bo\'sh',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+          Text(
+            loc.t('cart_empty_title'),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Katalogdan mahsulot tanlang',
-            style: TextStyle(color: Color(0xFF8A7357), fontSize: 12.5),
+          Text(
+            loc.t('cart_empty_subtitle'),
+            style: const TextStyle(color: Color(0xFF8A7357), fontSize: 12.5),
           ),
         ],
       ),
     );
   }
 
-  Widget _content(CartStore cart) {
+  Widget _content(CartStore cart, LocaleStore loc) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         for (int i = 0; i < cart.items.length; i++) _cartTile(cart, i),
-        const SizedBox(height: 8),
-        const Text(
-          'BUYURTMA MA\'LUMOTLARI',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 11.5,
-            letterSpacing: 0.6,
-            color: Color(0xFF8A7357),
-          ),
-        ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 16),
         TextField(
           controller: _phoneCtrl,
           keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(labelText: 'Telefon *'),
+          decoration: InputDecoration(labelText: loc.t('cart_phone')),
         ),
         const SizedBox(height: 10),
         TextField(
           controller: _addressCtrl,
-          decoration: const InputDecoration(labelText: 'Manzil *'),
+          decoration: InputDecoration(labelText: loc.t('cart_address')),
         ),
         const SizedBox(height: 10),
         TextField(
           controller: _noteCtrl,
           maxLines: 2,
-          decoration: const InputDecoration(labelText: 'Izoh (ixtiyoriy)'),
+          decoration: InputDecoration(labelText: loc.t('cart_note')),
         ),
         const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Jami', style: TextStyle(color: Color(0xFF8A7357))),
+            Text(
+              loc.t('cart_total'),
+              style: const TextStyle(color: Color(0xFF8A7357)),
+            ),
             Text(
               '${formatSom(cart.total.toStringAsFixed(0))} so\'m',
               style: const TextStyle(
@@ -172,7 +167,7 @@ class _CartScreenState extends State<CartScreen> {
         const SizedBox(height: 14),
         ElevatedButton(
           onPressed: _busy ? null : () => _checkout(cart),
-          child: Text(_busy ? 'Yuborilmoqda…' : 'Buyurtma berish'),
+          child: Text(_busy ? loc.t('cart_submitting') : loc.t('cart_submit')),
         ),
       ],
     );

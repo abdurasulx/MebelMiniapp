@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth_store.dart';
 import '../cart_store.dart';
+import '../locale_store.dart';
 import 'cart_screen.dart';
 import 'catalog_screen.dart';
 import 'home_screen.dart';
@@ -29,6 +30,7 @@ class _RootScreenState extends State<RootScreen> {
         auth.appMode == AppMode.worker && auth.user?.company != null;
 
     final cartCount = context.watch<CartStore>().count;
+    final loc = context.watch<LocaleStore>();
 
     final tabs = isWorker
         ? const [WorkerHomeScreen(), WorkerOrdersScreen(), ProfileScreen()]
@@ -53,17 +55,17 @@ class _RootScreenState extends State<RootScreen> {
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
           ]
         : [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              label: 'Bosh sahifa',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.home_rounded),
+              label: loc.t('nav_home'),
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view_rounded),
-              label: 'Katalog',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.grid_view_rounded),
+              label: loc.t('nav_catalog'),
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.favorite_rounded),
-              label: 'Sevimlilar',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.favorite_rounded),
+              label: loc.t('nav_likes'),
             ),
             BottomNavigationBarItem(
               icon: Badge(
@@ -71,11 +73,11 @@ class _RootScreenState extends State<RootScreen> {
                 isLabelVisible: cartCount > 0,
                 child: const Icon(Icons.shopping_basket_rounded),
               ),
-              label: 'Savat',
+              label: loc.t('nav_cart'),
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded),
-              label: 'Profil',
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.person_rounded),
+              label: loc.t('nav_profile'),
             ),
           ];
 

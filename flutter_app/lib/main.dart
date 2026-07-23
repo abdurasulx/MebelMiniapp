@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'auth_store.dart';
 import 'cart_store.dart';
 import 'likes_store.dart';
+import 'locale_store.dart';
 import 'location_store.dart';
 import 'screens/root_screen.dart';
 import 'theme.dart';
@@ -22,6 +23,7 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
   final _likes = LikesStore();
   final _location = LocationStore();
   final _cart = CartStore();
+  final _locale = LocaleStore();
   bool _ready = false;
 
   @override
@@ -33,6 +35,7 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
     });
     _location.init();
     _cart.load();
+    _locale.init();
   }
 
   @override
@@ -43,6 +46,7 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
         ChangeNotifierProvider.value(value: _likes),
         ChangeNotifierProvider.value(value: _location),
         ChangeNotifierProvider.value(value: _cart),
+        ChangeNotifierProvider.value(value: _locale),
       ],
       child: MaterialApp(
         title: 'Furniture Platform',

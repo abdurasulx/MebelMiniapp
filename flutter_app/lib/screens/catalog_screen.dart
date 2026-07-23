@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../likes_store.dart';
+import '../locale_store.dart';
 import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
@@ -116,15 +117,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Katalog')),
+      appBar: AppBar(title: Text(loc.t('catalog_title'))),
       body: RefreshIndicator(
         onRefresh: _load,
         child: CustomScrollView(
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              sliver: SliverToBoxAdapter(child: _searchBar()),
+              sliver: SliverToBoxAdapter(child: _searchBar(loc)),
             ),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -227,7 +229,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     );
   }
 
-  Widget _searchBar() {
+  Widget _searchBar(LocaleStore loc) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -236,11 +238,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
       ),
       child: TextField(
         onChanged: (v) => setState(() => _search = v),
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           border: InputBorder.none,
-          hintText: 'Mahsulot yoki firma qidirish…',
-          prefixIcon: Icon(Icons.search, color: Color(0xFF8A7357)),
-          contentPadding: EdgeInsets.symmetric(vertical: 14),
+          hintText: loc.t('catalog_search_hint'),
+          prefixIcon: const Icon(Icons.search, color: Color(0xFF8A7357)),
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
       ),
     );

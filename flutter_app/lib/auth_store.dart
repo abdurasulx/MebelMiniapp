@@ -42,51 +42,6 @@ class AuthStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String email, String password) async {
-    errorMessage = null;
-    try {
-      final tokens = await ApiClient.instance.post(
-        '/auth/token/',
-        (j) => TokenPair.fromJson(j),
-        body: {'email': email, 'password': password},
-        auth: false,
-      );
-      ApiClient.instance.setTokens(tokens);
-      await _persist(tokens);
-      await _loadMe();
-    } catch (e) {
-      errorMessage = e.toString();
-    }
-    notifyListeners();
-  }
-
-  Future<void> register(
-    String email,
-    String password,
-    String firstName,
-    String phone,
-  ) async {
-    errorMessage = null;
-    try {
-      await ApiClient.instance.post(
-        '/auth/register/',
-        (j) => j,
-        body: {
-          'email': email,
-          'password': password,
-          'first_name': firstName,
-          'phone': phone,
-          'role': 'customer',
-        },
-        auth: false,
-      );
-      await login(email, password);
-    } catch (e) {
-      errorMessage = e.toString();
-      notifyListeners();
-    }
-  }
-
   /// SMS-tasdiqlash: kod so'raladi. Hozircha SMS provayder ulanmagani uchun
   /// backend kodni javobda ham qaytaradi (`debug_code`) — ekranda shu
   /// ko'rsatiladi (web/iOS bilan bir xil dev-rejim yondashuvi).

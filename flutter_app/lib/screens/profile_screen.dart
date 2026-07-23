@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../auth_store.dart';
+import '../l10n/app_locale.dart';
+import '../locale_store.dart';
 import '../models.dart';
 import 'auth_screen.dart';
 
@@ -12,13 +14,39 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthStore>();
+    final loc = context.watch<LocaleStore>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Profil')),
+      appBar: AppBar(title: Text(loc.t('profile_title'))),
       body: auth.user == null
           ? const AuthScreen()
           : _ProfileBody(user: auth.user!),
     );
   }
+}
+
+Future<void> _pickLanguage(BuildContext context) async {
+  final loc = context.read<LocaleStore>();
+  final selected = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        children: supportedLocales
+            .map(
+              (l) => ListTile(
+                title: Text(l.nativeName),
+                trailing: loc.code == l.code
+                    ? const Icon(Icons.check, color: Color(0xFF4C2C24))
+                    : null,
+                onTap: () => Navigator.pop(ctx, l.code),
+              ),
+            )
+            .toList(),
+      ),
+    ),
+  );
+  if (selected != null) await loc.setLocale(selected);
 }
 
 class _ProfileBody extends StatefulWidget {
@@ -98,6 +126,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
   Widget build(BuildContext context) {
     final user = widget.user;
     final auth = context.watch<AuthStore>();
+    final loc = context.watch<LocaleStore>();
     final pendingInvitations = _invitations
         .where((i) => i.status == 'pending')
         .toList();
@@ -153,6 +182,21 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 20),
+
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.language_rounded),
+              title: Text(loc.t('profile_language')),
+              trailing: Text(
+                supportedLocales
+                    .firstWhere((l) => l.code == loc.code)
+                    .nativeName,
+                style: const TextStyle(color: Color(0xFF8A7357)),
+              ),
+              onTap: () => _pickLanguage(context),
+            ),
           ),
           const SizedBox(height: 20),
 
@@ -249,7 +293,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
           OutlinedButton(
             onPressed: () => context.read<AuthStore>().logout(),
             style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Chiqish'),
+            child: Text(loc.t('common_logout')),
           ),
           const SizedBox(height: 20),
 
