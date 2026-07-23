@@ -23,7 +23,9 @@ class AppUser {
   final String id;
   final String email;
   final String? firstName;
+  final String? lastName;
   final String? phone;
+  final String? dateOfBirth;
   final String role;
   final String? workerId;
   final CompanyRef? company;
@@ -33,7 +35,9 @@ class AppUser {
     required this.id,
     required this.email,
     this.firstName,
+    this.lastName,
     this.phone,
+    this.dateOfBirth,
     required this.role,
     this.workerId,
     this.company,
@@ -44,7 +48,9 @@ class AppUser {
     id: j['id'],
     email: j['email'],
     firstName: j['first_name'],
+    lastName: j['last_name'],
     phone: j['phone'],
+    dateOfBirth: j['date_of_birth'],
     role: j['role'],
     workerId: j['worker_id'],
     company: j['company'] != null ? CompanyRef.fromJson(j['company']) : null,

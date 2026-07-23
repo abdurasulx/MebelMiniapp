@@ -10,9 +10,16 @@ import 'models.dart';
 /// (iOS'dagi `AppMode` bilan bir xil naqsh).
 enum AppMode { customer, worker }
 
+class OTPRequestResult {
+  final String? debugCode;
+  final int resendAfter;
+  OTPRequestResult({this.debugCode, required this.resendAfter});
+}
+
 class AuthStore extends ChangeNotifier {
   AppUser? user;
   bool isAuthenticated = false;
+  bool isNewUser = false;
   String? errorMessage;
   AppMode appMode = AppMode.customer;
 
@@ -44,8 +51,10 @@ class AuthStore extends ChangeNotifier {
 
   /// SMS-tasdiqlash: kod so'raladi. Hozircha SMS provayder ulanmagani uchun
   /// backend kodni javobda ham qaytaradi (`debug_code`) — ekranda shu
-  /// ko'rsatiladi (web/iOS bilan bir xil dev-rejim yondashuvi).
-  Future<String?> requestOTP(String phone) async {
+  /// ko'rsatiladi (web/iOS bilan bir xil dev-rejim yondashuvi). Backend
+  /// qayta yuborishgacha eng kam kutish vaqtini ham qaytaradi
+  /// (`resend_after`) — countdown shu qiymatdan boshlanadi.
+  Future<OTPRequestResult?> requestOTP(String phone) async {
     errorMessage = null;
     try {
       final resp = await ApiClient.instance.post(
@@ -54,7 +63,10 @@ class AuthStore extends ChangeNotifier {
         body: {'phone': phone},
         auth: false,
       );
-      return resp['debug_code'] as String?;
+      return OTPRequestResult(
+        debugCode: resp['debug_code'] as String?,
+        resendAfter: resp['resend_after'] as int? ?? 60,
+      );
     } catch (e) {
       errorMessage = e.toString();
       notifyListeners();
@@ -62,22 +74,58 @@ class AuthStore extends ChangeNotifier {
     }
   }
 
-  Future<void> verifyOTP(String phone, String code) async {
+  /// Muvaffaqiyatli tasdiqlangach `isNewUser` yangilanadi — birinchi marta
+  /// kirgan foydalanuvchidan ism/familiya so'rash kerakligini bildiradi.
+  Future<bool> verifyOTP(String phone, String code) async {
     errorMessage = null;
+    var ok = false;
     try {
-      final tokens = await ApiClient.instance.post(
+      final resp = await ApiClient.instance.post(
         '/auth/otp/verify/',
-        (j) => TokenPair.fromJson(j),
+        (j) => j as Map<String, dynamic>,
         body: {'phone': phone, 'code': code},
         auth: false,
       );
+      final tokens = TokenPair.fromJson(resp);
+      isNewUser = resp['is_new_user'] == true;
       ApiClient.instance.setTokens(tokens);
       await _persist(tokens);
       await _loadMe();
+      ok = true;
     } catch (e) {
       errorMessage = e.toString();
     }
     notifyListeners();
+    return ok;
+  }
+
+  /// Birinchi marta kirgan foydalanuvchi ismini to'ldirishda ishlatiladi.
+  Future<bool> completeProfile({
+    required String firstName,
+    required String lastName,
+    String? dateOfBirth,
+  }) async {
+    errorMessage = null;
+    try {
+      final me = await ApiClient.instance.patch(
+        '/users/me/',
+        (j) => AppUser.fromJson(j),
+        body: {
+          'first_name': firstName,
+          'last_name': lastName,
+          if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
+        },
+        auth: true,
+      );
+      user = me;
+      isNewUser = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<void> logout() async {

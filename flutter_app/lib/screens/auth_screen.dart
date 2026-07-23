@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5,10 +6,13 @@ import '../auth_store.dart';
 import '../countries.dart';
 import '../locale_store.dart';
 import '../theme.dart';
+import '../widgets/otp_box_input.dart';
+
+enum _Step { phone, code, profile }
 
 /// Faqat telefon+SMS-OTP orqali kirish (email/parol olib tashlandi — bitta,
-/// oddiy oqim). Raqam kiritishdan oldin davlat (MDH) tanlanadi, tanlangan
-/// kod raqamga avtomatik qo'shiladi.
+/// oddiy oqim). Bosqichlar: davlat+raqam → 6-xonali kod (qayta yuborish
+/// countdown bilan) → (agar birinchi marta kirsa) ism/familiya so'raladi.
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
   @override
@@ -21,17 +25,20 @@ class _AuthScreenState extends State<AuthScreen> {
   CountryInfo _country = cisCountries.first;
   final _phoneController = TextEditingController();
   final _codeController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  DateTime? _dob;
   String? _debugCode;
-  bool _codeStep = false;
+  _Step _step = _Step.phone;
   bool _busy = false;
+  int _resendSeconds = 0;
+  Timer? _resendTimer;
 
   @override
   void initState() {
     super.initState();
-    // Tugmalar matn holatiga qarab yoqiladi (bo'sh bo'lmasa) — controller
-    // o'zgarishi build()ni avtomatik qayta chaqirmagani uchun qo'lda tinglaymiz.
     _phoneController.addListener(_onTextChanged);
-    _codeController.addListener(_onTextChanged);
+    _firstNameController.addListener(_onTextChanged);
   }
 
   void _onTextChanged() => setState(() {});
@@ -39,9 +46,12 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void dispose() {
     _phoneController.removeListener(_onTextChanged);
-    _codeController.removeListener(_onTextChanged);
+    _firstNameController.removeListener(_onTextChanged);
+    _resendTimer?.cancel();
     _phoneController.dispose();
     _codeController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     super.dispose();
   }
 
@@ -50,24 +60,59 @@ class _AuthScreenState extends State<AuthScreen> {
 
   bool get _phoneValid => _country.isValid(_phoneController.text.trim());
 
-  Future<void> _sendCode() async {
-    setState(() => _busy = true);
-    final auth = context.read<AuthStore>();
-    final code = await auth.requestOTP(_fullPhone);
-    setState(() {
-      _busy = false;
-      if (auth.errorMessage == null) {
-        _debugCode = code;
-        _codeStep = true;
+  void _startCountdown(int seconds) {
+    _resendTimer?.cancel();
+    setState(() => _resendSeconds = seconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_resendSeconds <= 1) {
+        t.cancel();
+        setState(() => _resendSeconds = 0);
+      } else {
+        setState(() => _resendSeconds--);
       }
     });
   }
 
-  Future<void> _verify() async {
+  Future<void> _sendCode() async {
     setState(() => _busy = true);
     final auth = context.read<AuthStore>();
-    await auth.verifyOTP(_fullPhone, _codeController.text.trim());
+    final result = await auth.requestOTP(_fullPhone);
+    setState(() {
+      _busy = false;
+      if (result != null) {
+        _debugCode = result.debugCode;
+        _step = _Step.code;
+        _codeController.clear();
+        _startCountdown(result.resendAfter);
+      }
+    });
+  }
+
+  Future<void> _verify(String code) async {
+    setState(() => _busy = true);
+    final auth = context.read<AuthStore>();
+    final ok = await auth.verifyOTP(_fullPhone, code);
     setState(() => _busy = false);
+    if (!ok) return;
+    if (auth.isNewUser) {
+      setState(() => _step = _Step.profile);
+    } else {
+      if (mounted) Navigator.of(context).maybePop();
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    setState(() => _busy = true);
+    final auth = context.read<AuthStore>();
+    final ok = await auth.completeProfile(
+      firstName: _firstNameController.text.trim(),
+      lastName: _lastNameController.text.trim(),
+      dateOfBirth: _dob != null
+          ? '${_dob!.year.toString().padLeft(4, '0')}-${_dob!.month.toString().padLeft(2, '0')}-${_dob!.day.toString().padLeft(2, '0')}'
+          : null,
+    );
+    setState(() => _busy = false);
+    if (ok && mounted) Navigator.of(context).maybePop();
   }
 
   Future<void> _pickCountry() async {
@@ -102,6 +147,17 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
+  Future<void> _pickDob() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 20),
+      firstDate: DateTime(now.year - 100),
+      lastDate: now,
+    );
+    if (picked != null) setState(() => _dob = picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthStore>();
@@ -113,105 +169,9 @@ class _AuthScreenState extends State<AuthScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (!_codeStep) ...[
-              Text(
-                loc.t('auth_select_country'),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12.5,
-                  color: Color(0xFF8A7357),
-                ),
-              ),
-              const SizedBox(height: 8),
-              InkWell(
-                onTap: _pickCountry,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.cardBorder),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(_country.flag, style: const TextStyle(fontSize: 20)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text('${_country.name} (${_country.dialCode})'),
-                      ),
-                      const Icon(Icons.expand_more_rounded),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(_country.phoneLength),
-                ],
-                decoration: InputDecoration(
-                  labelText: loc.t('auth_phone_hint'),
-                  prefixText: '${_country.dialCode} ',
-                  border: const OutlineInputBorder(),
-                  helperText:
-                      '${_phoneController.text.length}/${_country.phoneLength}',
-                  errorText: _phoneController.text.isNotEmpty && !_phoneValid
-                      ? loc.t('auth_phone_invalid')
-                      : null,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _busy || !_phoneValid ? null : _sendCode,
-                child: _busy
-                    ? const CircularProgressIndicator()
-                    : Text(loc.t('auth_send_code')),
-              ),
-            ] else ...[
-              // SMS provayder hali ulanmagan — dev rejimda kod shu yerda ko'rsatiladi.
-              Text(
-                _debugCode != null
-                    ? '${loc.t('auth_sms_sent')} ($_debugCode)'
-                    : loc.t('auth_sms_sent'),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _codeController,
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 22, letterSpacing: 10),
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(_otpLength),
-                ],
-                decoration: InputDecoration(
-                  labelText: loc.t('auth_code_hint'),
-                  border: const OutlineInputBorder(),
-                  helperText: '${_codeController.text.length}/$_otpLength',
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _busy || _codeController.text.length != _otpLength
-                    ? null
-                    : _verify,
-                child: _busy
-                    ? const CircularProgressIndicator()
-                    : Text(loc.t('auth_verify')),
-              ),
-              TextButton(
-                onPressed: () => setState(() => _codeStep = false),
-                child: Text(loc.t('auth_change_number')),
-              ),
-            ],
+            if (_step == _Step.phone) _phoneStep(loc),
+            if (_step == _Step.code) _codeStep(loc),
+            if (_step == _Step.profile) _profileStep(loc),
             if (auth.errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -222,6 +182,167 @@ class _AuthScreenState extends State<AuthScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _phoneStep(LocaleStore loc) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          loc.t('auth_select_country'),
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 12.5,
+            color: Color(0xFF8A7357),
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _pickCountry,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: Row(
+              children: [
+                Text(_country.flag, style: const TextStyle(fontSize: 20)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('${_country.name} (${_country.dialCode})'),
+                ),
+                const Icon(Icons.expand_more_rounded),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(_country.phoneLength),
+          ],
+          decoration: InputDecoration(
+            labelText: loc.t('auth_phone_hint'),
+            prefixText: '${_country.dialCode} ',
+            border: const OutlineInputBorder(),
+            helperText:
+                '${_phoneController.text.length}/${_country.phoneLength}',
+            errorText: _phoneController.text.isNotEmpty && !_phoneValid
+                ? loc.t('auth_phone_invalid')
+                : null,
+          ),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: _busy || !_phoneValid ? null : _sendCode,
+          child: _busy
+              ? const CircularProgressIndicator()
+              : Text(loc.t('auth_send_code')),
+        ),
+      ],
+    );
+  }
+
+  Widget _codeStep(LocaleStore loc) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // SMS provayder hali ulanmagan — dev rejimda kod shu yerda ko'rsatiladi.
+        Text(
+          _debugCode != null
+              ? '${loc.t('auth_sms_sent')} ($_debugCode)'
+              : loc.t('auth_sms_sent'),
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 16),
+        OtpBoxInput(
+          controller: _codeController,
+          length: _otpLength,
+          onCompleted: (code) {
+            if (!_busy) _verify(code);
+          },
+        ),
+        const SizedBox(height: 16),
+        if (_busy) const Center(child: CircularProgressIndicator()),
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: _resendSeconds > 0 || _busy ? null : _sendCode,
+            child: Text(
+              _resendSeconds > 0
+                  ? '${loc.t('auth_resend')} (${_resendSeconds}s)'
+                  : loc.t('auth_resend'),
+            ),
+          ),
+        ),
+        Center(
+          child: TextButton(
+            onPressed: () => setState(() => _step = _Step.phone),
+            child: Text(loc.t('auth_change_number')),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _profileStep(LocaleStore loc) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          loc.t('auth_profile_title'),
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _firstNameController,
+          decoration: InputDecoration(
+            labelText: loc.t('auth_first_name'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _lastNameController,
+          decoration: InputDecoration(
+            labelText: loc.t('auth_last_name'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        InkWell(
+          onTap: _pickDob,
+          borderRadius: BorderRadius.circular(12),
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: loc.t('auth_dob'),
+              border: const OutlineInputBorder(),
+            ),
+            child: Text(
+              _dob != null
+                  ? '${_dob!.year}-${_dob!.month.toString().padLeft(2, '0')}-${_dob!.day.toString().padLeft(2, '0')}'
+                  : '',
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: _busy || _firstNameController.text.trim().isEmpty
+              ? null
+              : _saveProfile,
+          child: _busy
+              ? const CircularProgressIndicator()
+              : Text(loc.t('auth_save')),
+        ),
+      ],
     );
   }
 }

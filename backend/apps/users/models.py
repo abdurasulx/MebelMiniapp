@@ -44,6 +44,7 @@ class User(AbstractUser):
     username = None
     email = models.EmailField("email", unique=True)
     phone = models.CharField(max_length=20, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.CUSTOMER)
     # Doimiy, kompaniyalararo qidiruvchi ID (kamida 10 raqam) — firma egasi xodimni
     # ishga shu ID orqali taklif qiladi (roadmap: "Worker ID" — profilda ko'rsatiladi).
@@ -76,13 +77,26 @@ class PhoneOTP(models.Model):
     SMS provayder hali ulanmagan (production oldidan sotib olinadi) — hozircha
     kod javobda `debug_code` sifatida qaytariladi, front bu qiymatni ekranda
     ko'rsatadi. Provayder ulanganda faqat shu joy (view) o'zgaradi.
+
+    Suiiste'moldan himoya: qayta yuborish uchun eng kam kutish vaqti
+    (`RESEND_COOLDOWN_SECONDS`), bir vaqt oynasidagi eng ko'p so'rovlar soni
+    (`OTPRequestView`da tekshiriladi) va noto'g'ri kod urinishlari soni
+    (`attempts`, `MAX_ATTEMPTS`dan oshsa kod bekor qilinadi).
     """
+
+    RESEND_COOLDOWN_SECONDS = 60
+    MAX_ATTEMPTS = 5
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     phone = models.CharField(max_length=20)
     code = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
+    attempts = models.PositiveSmallIntegerField(default=0)
 
     def is_valid(self):
-        return not self.is_used and timezone.now() - self.created_at < timedelta(minutes=5)
+        return (
+            not self.is_used
+            and self.attempts < self.MAX_ATTEMPTS
+            and timezone.now() - self.created_at < timedelta(minutes=5)
+        )

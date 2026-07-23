@@ -1,6 +1,8 @@
 import random
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -101,22 +103,58 @@ class CareerView(generics.ListAPIView):
 
 class OTPRequestView(APIView):
     """Telefon raqamga SMS kod yuborish (hozircha SMS provayder yo'q — kod
-    javobda `debug_code` sifatida qaytariladi)."""
+    javobda `debug_code` sifatida qaytariladi).
+
+    Suiiste'moldan himoya: bir raqamga ketma-ket so'rovlar orasida eng kam
+    `RESEND_COOLDOWN_SECONDS`, bir soatda esa ko'pi bilan `MAX_PER_HOUR` marta
+    so'rash mumkin — aks holda 429 (Throttled) qaytariladi.
+    """
 
     permission_classes = (permissions.AllowAny,)
+    MAX_PER_HOUR = 5
 
     def post(self, request):
         serializer = OTPRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone = serializer.validated_data["phone"].strip()
+
+        last = PhoneOTP.objects.filter(phone=phone).order_by("-created_at").first()
+        if last is not None:
+            elapsed = (timezone.now() - last.created_at).total_seconds()
+            if elapsed < PhoneOTP.RESEND_COOLDOWN_SECONDS:
+                wait = round(PhoneOTP.RESEND_COOLDOWN_SECONDS - elapsed)
+                raise ValidationError(
+                    f"Biroz kuting, {wait} soniyadan so'ng qayta urining"
+                )
+
+        recent_count = PhoneOTP.objects.filter(
+            phone=phone, created_at__gte=timezone.now() - timedelta(hours=1)
+        ).count()
+        if recent_count >= self.MAX_PER_HOUR:
+            raise ValidationError(
+                "Juda ko'p urinish. Bir soatdan so'ng qayta urinib ko'ring"
+            )
+
         code = "".join(random.choices("0123456789", k=6))
         PhoneOTP.objects.create(phone=phone, code=code)
-        return Response({"detail": "SMS yuborildi", "debug_code": code})
+        return Response(
+            {
+                "detail": "SMS yuborildi",
+                "debug_code": code,
+                "resend_after": PhoneOTP.RESEND_COOLDOWN_SECONDS,
+            }
+        )
 
 
 class OTPVerifyView(APIView):
     """Kodni tasdiqlab kiradi — foydalanuvchi mavjud bo'lmasa avtomatik
-    ro'yxatdan o'tkaziladi (customer sifatida)."""
+    ro'yxatdan o'tkaziladi (customer sifatida).
+
+    Har bir noto'g'ri urinish shu raqamning eng so'nggi faol kodiga
+    (`PhoneOTP.attempts`) yoziladi — `MAX_ATTEMPTS`dan oshsa kod bekor
+    qilinadi va foydalanuvchi yangi kod so'rashga majbur bo'ladi (brute-force
+    himoyasi: kod 6 xonali bo'lgani uchun cheklovsiz taxmin qilib bo'lmaydi).
+    """
 
     permission_classes = (permissions.AllowAny,)
 
@@ -127,20 +165,37 @@ class OTPVerifyView(APIView):
         code = serializer.validated_data["code"].strip()
 
         otp = (
-            PhoneOTP.objects.filter(phone=phone, code=code, is_used=False)
+            PhoneOTP.objects.filter(phone=phone, is_used=False)
             .order_by("-created_at")
             .first()
         )
-        if not otp or not otp.is_valid():
-            raise ValidationError("Kod noto'g'ri yoki muddati o'tgan")
+        if not otp or timezone.now() - otp.created_at >= timedelta(minutes=5):
+            raise ValidationError("Kod muddati o'tgan. Yangi kod so'rang")
+        if otp.attempts >= PhoneOTP.MAX_ATTEMPTS:
+            otp.is_used = True
+            otp.save(update_fields=["is_used"])
+            raise ValidationError("Juda ko'p urinish. Yangi kod so'rang")
+        if otp.code != code:
+            otp.attempts += 1
+            otp.save(update_fields=["attempts"])
+            remaining = PhoneOTP.MAX_ATTEMPTS - otp.attempts
+            raise ValidationError(f"Kod noto'g'ri. {remaining} ta urinish qoldi")
+
         otp.is_used = True
         otp.save(update_fields=["is_used"])
 
         user = User.objects.filter(phone=phone).exclude(phone="").first()
+        is_new_user = user is None
         if user is None:
             user = User(phone=phone, email=f"{phone}@phone.local", role=User.Role.CUSTOMER)
             user.set_unusable_password()
             user.save()
 
         refresh = RefreshToken.for_user(user)
-        return Response({"access": str(refresh.access_token), "refresh": str(refresh)})
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "is_new_user": is_new_user,
+            }
+        )
