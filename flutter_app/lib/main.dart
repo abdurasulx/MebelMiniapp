@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'auth_store.dart';
 import 'likes_store.dart';
+import 'location_store.dart';
 import 'screens/root_screen.dart';
 import 'theme.dart';
 
@@ -18,6 +19,7 @@ class FurniturePlatformApp extends StatefulWidget {
 class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
   final _auth = AuthStore();
   final _likes = LikesStore();
+  final _location = LocationStore();
   bool _ready = false;
 
   @override
@@ -27,6 +29,7 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
     _auth.addListener(() {
       if (!_auth.isAuthenticated) _likes.clear();
     });
+    _location.init();
   }
 
   @override
@@ -35,6 +38,7 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
       providers: [
         ChangeNotifierProvider.value(value: _auth),
         ChangeNotifierProvider.value(value: _likes),
+        ChangeNotifierProvider.value(value: _location),
       ],
       child: MaterialApp(
         title: 'Furniture Platform',

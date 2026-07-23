@@ -4,8 +4,14 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from .models import Company, Employee, EmployeeInvitation, Review
-from .serializers import CompanySerializer, EmployeeInvitationSerializer, EmployeeSerializer, ReviewSerializer
+from .models import Branch, Company, Employee, EmployeeInvitation, Review
+from .serializers import (
+    BranchSerializer,
+    CompanySerializer,
+    EmployeeInvitationSerializer,
+    EmployeeSerializer,
+    ReviewSerializer,
+)
 
 
 def user_company(user):
@@ -170,6 +176,54 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         invitation.responded_at = timezone.now()
         invitation.save(update_fields=["status", "responded_at"])
         return Response(EmployeeInvitationSerializer(invitation, context={"request": request}).data)
+
+
+class BranchViewSet(viewsets.ModelViewSet):
+    """Firma egasi o'z filiallarini (har biri bitta viloyatga tegishli)
+    boshqaradi — mahsulotlar shu filiallarga bog'lanadi va katalog
+    foydalanuvchi viloyatiga qarab filtrlanadi."""
+
+    serializer_class = BranchSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+
+    def get_queryset(self):
+        qs = Branch.objects.filter(is_deleted=False).select_related("company")
+        company_slug = self.request.query_params.get("company")
+        if company_slug:
+            qs = qs.filter(company__slug=company_slug)
+        return qs
+
+    def _own_company(self):
+        company = Company.objects.filter(owner=self.request.user, is_deleted=False).first()
+        if company is None:
+            raise PermissionDenied("Faqat kompaniya egasi filiallarni boshqaradi")
+        return company
+
+    def perform_create(self, serializer):
+        company = self._own_company()
+        is_main = serializer.validated_data.get("is_main", False)
+        if is_main or not company.branches.filter(is_deleted=False).exists():
+            Branch.objects.filter(company=company, is_deleted=False).update(is_main=False)
+            serializer.save(company=company, is_main=True)
+        else:
+            serializer.save(company=company)
+
+    def perform_update(self, serializer):
+        company = self._own_company()
+        if serializer.instance.company_id != company.id:
+            raise PermissionDenied("Bu filial sizga tegishli emas")
+        if serializer.validated_data.get("is_main"):
+            Branch.objects.filter(company=company, is_deleted=False).exclude(
+                pk=serializer.instance.pk
+            ).update(is_main=False)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        company = self._own_company()
+        if instance.company_id != company.id:
+            raise PermissionDenied("Bu filial sizga tegishli emas")
+        instance.is_deleted = True
+        instance.save(update_fields=["is_deleted"])
 
 
 class ReviewViewSet(viewsets.ModelViewSet):

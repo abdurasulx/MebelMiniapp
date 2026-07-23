@@ -3,9 +3,18 @@ from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
 
-from .models import Company, Employee, EmployeeInvitation, Review
+from .models import Branch, Company, Employee, EmployeeInvitation, Review
 
 User = get_user_model()
+
+
+class BranchSerializer(serializers.ModelSerializer):
+    viloyat_display = serializers.CharField(source="get_viloyat_display", read_only=True)
+
+    class Meta:
+        model = Branch
+        fields = ("id", "company", "viloyat", "viloyat_display", "address", "phone", "is_main")
+        read_only_fields = ("id", "company")
 
 
 class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
@@ -13,6 +22,7 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
     logo = serializers.ImageField(write_only=True, required=False, allow_null=True)
     logo_url = serializers.SerializerMethodField()
     tier = serializers.SerializerMethodField()
+    branches = BranchSerializer(many=True, read_only=True)
 
     def get_logo_url(self, obj):
         return visible_file_url(obj, "logo", self.context.get("request"))
@@ -34,6 +44,7 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
             "logo_url",
             "is_active",
             "tier",
+            "branches",
             "created_at",
         )
         read_only_fields = ("id", "owner", "slug", "created_at")

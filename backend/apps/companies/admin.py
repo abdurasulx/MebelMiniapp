@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Company, Employee, Review
+from .models import Branch, Company, Employee, Review
 
 
 @admin.register(Company)
@@ -8,6 +8,12 @@ class CompanyAdmin(admin.ModelAdmin):
     list_display = ("name", "owner", "is_active", "created_at")
     search_fields = ("name",)
     prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(Branch)
+class BranchAdmin(admin.ModelAdmin):
+    list_display = ("company", "viloyat", "is_main", "address")
+    list_filter = ("viloyat", "is_main")
 
 
 @admin.register(Employee)

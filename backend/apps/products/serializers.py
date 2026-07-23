@@ -58,6 +58,11 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     company_name = serializers.CharField(source="company.name", read_only=True)
     company_slug = serializers.CharField(source="company.slug", read_only=True)
+    branch_viloyat = serializers.CharField(source="branch.viloyat", read_only=True, default=None)
+    branch_viloyat_display = serializers.CharField(
+        source="branch.get_viloyat_display", read_only=True, default=None
+    )
+    branch_address = serializers.CharField(source="branch.address", read_only=True, default=None)
     is_liked = serializers.SerializerMethodField()
     model3d = serializers.SerializerMethodField()
 
@@ -68,6 +73,10 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
             "company",
             "company_name",
             "company_slug",
+            "branch",
+            "branch_viloyat",
+            "branch_viloyat_display",
+            "branch_address",
             "category",
             "name_uz",
             "name_ru",

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../likes_store.dart';
+import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../viloyat.dart';
 import '../widgets/product_card.dart';
 
 /// Katalog — qidiruv va to'liq mahsulot to'ri (iOS'dagi "Darix" uslubidagi
@@ -19,6 +21,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
   bool _loading = true;
   String? _error;
   String _search = '';
+  bool _topOnly = false;
+  String? _appliedViloyat;
 
   @override
   void initState() {
@@ -32,8 +36,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
       _error = null;
     });
     try {
+      _appliedViloyat = context.read<LocationStore>().viloyat;
+      final params = <String, String>{
+        if (_appliedViloyat != null) 'viloyat': _appliedViloyat!,
+        if (_topOnly) 'ordering': 'top',
+      };
+      final query = params.isEmpty
+          ? ''
+          : '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
       final page = await ApiClient.instance.get(
-        '/products/',
+        '/products/$query',
         (j) => Paginated<Product>.fromJson(j, Product.fromJson),
         auth: true,
       );
@@ -44,6 +56,50 @@ class _CatalogScreenState extends State<CatalogScreen> {
     } finally {
       setState(() => _loading = false);
     }
+  }
+
+  Future<void> _pickViloyat() async {
+    final location = context.read<LocationStore>();
+    final selected = await showModalBottomSheet<String?>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              title: const Text('Barchasi'),
+              trailing: location.viloyat == null
+                  ? const Icon(Icons.check, color: AppColors.deep)
+                  : null,
+              onTap: () => Navigator.pop(ctx, ''),
+            ),
+            ListTile(
+              leading: const Icon(Icons.my_location_rounded, size: 20),
+              title: const Text('GPS orqali aniqlash'),
+              onTap: () => Navigator.pop(ctx, '__gps__'),
+            ),
+            const Divider(height: 1),
+            ...viloyatlar.map(
+              (v) => ListTile(
+                title: Text(v.label),
+                trailing: location.viloyat == v.code
+                    ? const Icon(Icons.check, color: AppColors.deep)
+                    : null,
+                onTap: () => Navigator.pop(ctx, v.code),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null) return;
+    if (selected == '__gps__') {
+      await location.detectFromGps();
+    } else {
+      await location.setViloyat(selected.isEmpty ? null : selected);
+    }
+    _load();
   }
 
   List<Product> get _filtered {
@@ -69,6 +125,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               sliver: SliverToBoxAdapter(child: _searchBar()),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverToBoxAdapter(child: _filterChips()),
             ),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -126,6 +186,41 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChips() {
+    final location = context.watch<LocationStore>();
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            ActionChip(
+              avatar: location.status == LocationStatus.loading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.place_rounded, size: 16),
+              label: Text(location.viloyatLabelText),
+              onPressed: _pickViloyat,
+            ),
+            const SizedBox(width: 8),
+            ChoiceChip(
+              avatar: const Icon(Icons.trending_up_rounded, size: 16),
+              label: const Text('Top tovarlar'),
+              selected: _topOnly,
+              onSelected: (v) {
+                setState(() => _topOnly = v);
+                _load();
+              },
+            ),
           ],
         ),
       ),

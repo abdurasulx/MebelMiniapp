@@ -4,6 +4,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from apps.assets.views import Model3DViewerView, Model3DViewSet
 from apps.companies.views import (
+    BranchViewSet,
     CompanyViewSet,
     EmployeeInvitationViewSet,
     EmployeeViewSet,
@@ -42,6 +43,7 @@ router.register("tasks", ProductionTaskViewSet, basename="task")
 router.register("payslips", PayslipViewSet, basename="payslip")
 router.register("likes", LikeViewSet, basename="like")
 router.register("reviews", ReviewViewSet, basename="review")
+router.register("branches", BranchViewSet, basename="branch")
 router.register("workflow-instances", WorkflowStepInstanceViewSet, basename="workflow-instance")
 
 variant_list = VariantViewSet.as_view({"get": "list", "post": "create"})

@@ -79,6 +79,14 @@ class Variant {
   );
 }
 
+class ProductImage {
+  final String id;
+  final String? imageUrl;
+  ProductImage({required this.id, this.imageUrl});
+  factory ProductImage.fromJson(Map<String, dynamic> j) =>
+      ProductImage(id: j['id'], imageUrl: j['image_url']);
+}
+
 class Model3D {
   final String? glbUrl;
   final String? usdzUrl;
@@ -173,9 +181,13 @@ class Product {
   final String company;
   final String companyName;
   final String? companySlug;
+  final String? branchViloyat;
+  final String? branchViloyatDisplay;
+  final String? branchAddress;
   final String nameUz;
   final String? description;
   final String? imageUrl;
+  final List<ProductImage> images;
   final bool isPublished;
   final List<Variant> variants;
   final Model3D? model3d;
@@ -186,23 +198,39 @@ class Product {
     required this.company,
     required this.companyName,
     this.companySlug,
+    this.branchViloyat,
+    this.branchViloyatDisplay,
+    this.branchAddress,
     required this.nameUz,
     this.description,
     this.imageUrl,
+    this.images = const [],
     required this.isPublished,
     this.variants = const [],
     this.model3d,
     this.isLiked = false,
   });
 
+  /// Galereya: bosh rasm + qo'shimcha rasmlar, birortasi bo'lmasa bo'sh.
+  List<String> get galleryUrls => [
+    if (imageUrl != null) imageUrl!,
+    ...images.map((i) => i.imageUrl).whereType<String>(),
+  ];
+
   factory Product.fromJson(Map<String, dynamic> j) => Product(
     id: j['id'],
     company: j['company'],
     companyName: j['company_name'] ?? '',
     companySlug: j['company_slug'],
+    branchViloyat: j['branch_viloyat'],
+    branchViloyatDisplay: j['branch_viloyat_display'],
+    branchAddress: j['branch_address'],
     nameUz: j['name_uz'] ?? '',
     description: j['description'],
     imageUrl: j['image_url'],
+    images: (j['images'] as List? ?? [])
+        .map((e) => ProductImage.fromJson(e as Map<String, dynamic>))
+        .toList(),
     isPublished: j['is_published'] ?? false,
     variants: (j['variants'] as List? ?? [])
         .map((e) => Variant.fromJson(e as Map<String, dynamic>))

@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Count, Q
 from rest_framework import permissions, viewsets
 from rest_framework.exceptions import PermissionDenied
 
@@ -65,6 +65,15 @@ class ProductViewSet(viewsets.ModelViewSet):
         company_slug = self.request.query_params.get("company")
         if company_slug:
             qs = qs.filter(company__slug=company_slug)
+        # Bir nechta viloyatda filiali bor firmalar uchun: foydalanuvchi
+        # joylashgan viloyatga tegishli (yoki filialsiz, ya'ni hammaga umumiy)
+        # mahsulotlarnigina ko'rsatish.
+        viloyat = self.request.query_params.get("viloyat")
+        if viloyat:
+            qs = qs.filter(Q(branch__viloyat=viloyat) | Q(branch__isnull=True))
+        ordering = self.request.query_params.get("ordering")
+        if ordering == "top":
+            qs = qs.annotate(like_count=Count("liked_by")).order_by("-like_count", "-created_at")
         return qs
 
     def perform_create(self, serializer):

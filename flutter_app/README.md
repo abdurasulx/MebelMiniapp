@@ -30,7 +30,10 @@ shart emas** — `flutter pub get` va `flutter run` yetarli.
      `flutter run --dart-define=API_BASE_URL=http://<yangi-ip>:8000/api/v1`
    - Android **emulyator**da (Asus'ning o'zida) ham shu IP ishlaydi —
      `10.0.2.2` bu holatda kerak emas, chunki backend endi Asus'da emas.
-6. `flutter run` — tayyor.
+6. `flutter run` — tayyor. Birinchi ochilishda ilova viloyat filtri uchun
+   **lokatsiya ruxsati** so'raydi (`ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION`,
+   `AndroidManifest.xml`ga qo'shilgan) — rad etilsa yoki GPS o'chiq bo'lsa,
+   katalog shunchaki "Barchasi" holatida qoladi, ilova ishlashda davom etadi.
 
 ## Git haqida eslatma
 
@@ -66,6 +69,18 @@ endpointlar ishlatiladi:
   (`/products/?company=<slug>`), o'z firmasi buyurtmalarini boshqarish
   (status o'zgartirish + ishlab chiqarish bosqichlarini progress/complete
   qilish — `/workflow-instances/<id>/progress|complete/`).
+- **Viloyat bo'yicha filtr**: bir nechta viloyatda filiali bor firmalar uchun
+  — `LocationStore` (`lib/location_store.dart`) GPS orqali foydalanuvchi
+  joylashgan viloyatni aniqlaydi (`geolocator` paketi, taxminiy viloyat
+  markazlariga eng yaqinini tanlab — tashqi geocoding API kaliti kerak
+  emas), katalog `?viloyat=<kod>` parametri bilan filtrlanadi (backend
+  `Branch.viloyat`). Foydalanuvchi katalogdagi chip orqali qo'lda ham
+  boshqa viloyat tanlashi yoki "Barchasi"ni tanlashi mumkin. "Top tovarlar"
+  chipi `?ordering=top` (like soni bo'yicha) filtrini yoqadi.
+- **Mahsulot sahifasi**: rasmlar galereyasi (bir nechta rasm bo'lsa
+  PageView + nuqta indikator) tepada, layk/ulashish tugmalari galereya
+  ustida; 3D model bo'lsa "3D ko'rish" tugmasi orqali alohida bottom-sheet
+  oynada ochiladi (galereyaning o'ziga aralashmaydi).
 
 ## Hozircha qamrovdan tashqarida (keyingi bosqich)
 
