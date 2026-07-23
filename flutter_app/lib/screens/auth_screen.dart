@@ -16,6 +16,8 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+  static const _otpLength = 6; // backend OTPRequestView: 6 xonali kod
+
   CountryInfo _country = cisCountries.first;
   final _phoneController = TextEditingController();
   final _codeController = TextEditingController();
@@ -184,14 +186,21 @@ class _AuthScreenState extends State<AuthScreen> {
               TextField(
                 controller: _codeController,
                 keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 22, letterSpacing: 10),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(_otpLength),
+                ],
                 decoration: InputDecoration(
                   labelText: loc.t('auth_code_hint'),
                   border: const OutlineInputBorder(),
+                  helperText: '${_codeController.text.length}/$_otpLength',
                 ),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _busy || _codeController.text.isEmpty
+                onPressed: _busy || _codeController.text.length != _otpLength
                     ? null
                     : _verify,
                 child: _busy
