@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import '../api_client.dart';
 import '../models.dart';
+import '../theme.dart';
 import 'company_detail_screen.dart';
 
 /// Mahsulot tafsiloti — Android'da faqat ko'rish uchun: narx va 3D model
@@ -49,81 +50,48 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ? Center(
               child: _error != null
                   ? Text(_error!, style: const TextStyle(color: Colors.red))
-                  : const CircularProgressIndicator(),
+                  : const CircularProgressIndicator(color: AppColors.deep),
             )
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                if (p.model3d?.glbUrl != null)
-                  SizedBox(
-                    height: 280,
-                    child: ModelViewer(
-                      src: p.model3d!.glbUrl!,
-                      alt: p.nameUz,
-                      autoRotate: true,
-                      cameraControls: true,
-                    ),
-                  )
-                else if (p.imageUrl != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.network(
-                      p.imageUrl!,
-                      height: 240,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
+                _media(p),
+                const SizedBox(height: 18),
+                Text(
+                  p.nameUz,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
                   ),
-                const SizedBox(height: 16),
-                if (p.companySlug != null)
-                  InkWell(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CompanyDetailScreen(companySlug: p.companySlug!),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.storefront,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.secondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          p.companyName,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.secondary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                        const Icon(Icons.chevron_right, size: 16),
-                      ],
-                    ),
-                  )
-                else
-                  Text(
-                    p.companyName,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                ),
+                const SizedBox(height: 8),
+                _companyLink(context, p),
                 if (p.description?.isNotEmpty == true) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Text(
                     p.description!,
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF6B5A48),
+                      height: 1.4,
+                    ),
                   ),
                 ],
-                const SizedBox(height: 8),
+                const SizedBox(height: 20),
                 if (p.variants.isNotEmpty) ...[
                   const Text(
-                    'Variant (material/rang)',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    'VARIANT (MATERIAL/RANG)',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11.5,
+                      letterSpacing: 0.6,
+                      color: Color(0xFF8A7357),
+                    ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: p.variants.map((v) {
                       final selected = _selectedVariant?.id == v.id;
                       return ChoiceChip(
@@ -133,36 +101,133 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 12),
-                  if (_selectedVariant != null)
-                    Card(
-                      color: Colors.brown.shade50,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Narx (1 m³)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.black54,
-                              ),
-                            ),
-                            Text(
-                              '${formatSom(_selectedVariant!.basePriceValue.toStringAsFixed(0))} so\'m',
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  const SizedBox(height: 18),
+                  if (_selectedVariant != null) _priceCard(),
                 ],
               ],
             ),
+    );
+  }
+
+  Widget _media(Product p) {
+    return Container(
+      height: 280,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: AppColors.primary.withOpacity(0.25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: p.model3d?.glbUrl != null
+          ? ModelViewer(
+              src: p.model3d!.glbUrl!,
+              alt: p.nameUz,
+              autoRotate: true,
+              cameraControls: true,
+              backgroundColor: Colors.transparent,
+            )
+          : p.imageUrl != null
+          ? Image.network(
+              p.imageUrl!,
+              fit: BoxFit.cover,
+              width: double.infinity,
+            )
+          : const Center(
+              child: Icon(Icons.chair_rounded, size: 64, color: AppColors.deep),
+            ),
+    );
+  }
+
+  Widget _companyLink(BuildContext context, Product p) {
+    final content = Row(
+      children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: const Icon(
+            Icons.storefront_rounded,
+            size: 16,
+            color: AppColors.deep,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            p.companyName,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13.5,
+              color: AppColors.secondary,
+            ),
+          ),
+        ),
+        if (p.companySlug != null)
+          const Icon(
+            Icons.chevron_right_rounded,
+            size: 18,
+            color: AppColors.secondary,
+          ),
+      ],
+    );
+    if (p.companySlug == null) return content;
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CompanyDetailScreen(companySlug: p.companySlug!),
+        ),
+      ),
+      child: content,
+    );
+  }
+
+  Widget _priceCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primary.withOpacity(0.55),
+            AppColors.primary.withOpacity(0.25),
+          ],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'NARX (1 M³)',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.6,
+              color: Color(0xFF8A7357),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${formatSom(_selectedVariant!.basePriceValue.toStringAsFixed(0))} so\'m',
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: AppColors.deep,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
