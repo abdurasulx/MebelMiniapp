@@ -94,10 +94,39 @@ struct Model3D: Codable {
     let statusDisplay: String
 }
 
+struct CompanyTier: Codable {
+    let key: String
+    let label: String
+    let color: String
+    let completedOrders: Int
+    let rating: Double?
+    let reviewCount: Int
+}
+
+struct Company: Codable, Identifiable {
+    let id: String
+    let name: String
+    let slug: String
+    let description: String?
+    let phone: String?
+    let address: String?
+    let logoUrl: String?
+    let tier: CompanyTier?
+}
+
+struct Review: Codable, Identifiable {
+    let id: String
+    let customerName: String?
+    let rating: Int
+    let comment: String?
+    let createdAt: String
+}
+
 struct Product: Codable, Identifiable {
     let id: String
     let company: String
     let companyName: String
+    let companySlug: String?
     let category: String?
     let nameUz: String
     let nameRu: String?

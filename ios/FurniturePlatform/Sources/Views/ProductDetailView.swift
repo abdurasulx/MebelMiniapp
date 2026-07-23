@@ -42,7 +42,17 @@ struct ProductDetailView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(product.nameUz).font(.title2).bold()
-                        Text("🏭 \(product.companyName)").foregroundStyle(.secondary)
+                        if let companySlug = product.companySlug {
+                            NavigationLink(destination: CompanyShopView(companySlug: companySlug)) {
+                                HStack(spacing: 4) {
+                                    Text("🏭 \(product.companyName)")
+                                    Image(systemName: "chevron.right").font(.caption2)
+                                }
+                                .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Text("🏭 \(product.companyName)").foregroundStyle(.secondary)
+                        }
                         if let description = product.description, !description.isEmpty {
                             Text(description).font(.subheadline).padding(.top, 4)
                         }

@@ -87,12 +87,94 @@ class Model3D {
       Model3D(glbUrl: j['glb_url'], usdzUrl: j['usdz_url']);
 }
 
+class CompanyTier {
+  final String key;
+  final String label;
+  final String color;
+  final int completedOrders;
+  final double? rating;
+  final int reviewCount;
+
+  CompanyTier({
+    required this.key,
+    required this.label,
+    required this.color,
+    required this.completedOrders,
+    this.rating,
+    required this.reviewCount,
+  });
+
+  factory CompanyTier.fromJson(Map<String, dynamic> j) => CompanyTier(
+    key: j['key'],
+    label: j['label'],
+    color: j['color'],
+    completedOrders: j['completed_orders'] ?? 0,
+    rating: (j['rating'] as num?)?.toDouble(),
+    reviewCount: j['review_count'] ?? 0,
+  );
+}
+
+class Company {
+  final String id;
+  final String name;
+  final String slug;
+  final String? description;
+  final String? address;
+  final String? logoUrl;
+  final CompanyTier? tier;
+
+  Company({
+    required this.id,
+    required this.name,
+    required this.slug,
+    this.description,
+    this.address,
+    this.logoUrl,
+    this.tier,
+  });
+
+  factory Company.fromJson(Map<String, dynamic> j) => Company(
+    id: j['id'],
+    name: j['name'],
+    slug: j['slug'],
+    description: j['description'],
+    address: j['address'],
+    logoUrl: j['logo_url'],
+    tier: j['tier'] != null ? CompanyTier.fromJson(j['tier']) : null,
+  );
+}
+
+class Review {
+  final String id;
+  final String? customerName;
+  final int rating;
+  final String? comment;
+  final String createdAt;
+
+  Review({
+    required this.id,
+    this.customerName,
+    required this.rating,
+    this.comment,
+    required this.createdAt,
+  });
+
+  factory Review.fromJson(Map<String, dynamic> j) => Review(
+    id: j['id'],
+    customerName: j['customer_name'],
+    rating: j['rating'],
+    comment: j['comment'],
+    createdAt: j['created_at'] ?? '',
+  );
+}
+
 class Product {
   final String id;
   final String company;
   final String companyName;
   final String? companySlug;
   final String nameUz;
+  final String? description;
   final String? imageUrl;
   final bool isPublished;
   final List<Variant> variants;
@@ -104,6 +186,7 @@ class Product {
     required this.companyName,
     this.companySlug,
     required this.nameUz,
+    this.description,
     this.imageUrl,
     required this.isPublished,
     this.variants = const [],
@@ -116,6 +199,7 @@ class Product {
     companyName: j['company_name'] ?? '',
     companySlug: j['company_slug'],
     nameUz: j['name_uz'] ?? '',
+    description: j['description'],
     imageUrl: j['image_url'],
     isPublished: j['is_published'] ?? false,
     variants: (j['variants'] as List? ?? [])

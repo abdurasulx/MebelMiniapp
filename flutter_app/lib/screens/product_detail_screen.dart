@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import '../api_client.dart';
 import '../models.dart';
+import 'company_detail_screen.dart';
 
 /// Mahsulot tafsiloti — Android'da faqat ko'rish uchun: narx va 3D model
 /// (aylantirib ko'rish, AR joylashtirish emas — bu web/iOS'da bor).
@@ -74,10 +75,46 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                 const SizedBox(height: 16),
-                Text(
-                  p.companyName,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                if (p.companySlug != null)
+                  InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CompanyDetailScreen(companySlug: p.companySlug!),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.storefront,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          p.companyName,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.secondary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const Icon(Icons.chevron_right, size: 16),
+                      ],
+                    ),
+                  )
+                else
+                  Text(
+                    p.companyName,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                if (p.description?.isNotEmpty == true) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    p.description!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
                 const SizedBox(height: 8),
                 if (p.variants.isNotEmpty) ...[
                   const Text(
