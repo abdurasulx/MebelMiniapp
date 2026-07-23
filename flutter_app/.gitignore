@@ -5,7 +5,14 @@ build/
 .flutter-plugins-dependencies
 *.iml
 .idea/
-android/
+# android/ ATAYIN git'ga QO'SHILADI (ignore qilinmaydi) — cleartext-traffic
+# tuzatishi kabi qo'lda qilingan sozlamalar `flutter create .` qayta ishga
+# tushirilganda yo'qolib ketmasligi uchun. Faqat mahalliy build keshini
+# (android/.gradle, android/app/build) e'tiborsiz qoldiramiz — pastda.
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
 ios/
 macos/
 linux/

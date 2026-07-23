@@ -1,21 +1,16 @@
 # Furniture Platform — Android (Flutter)
 
-Bu papka **shu Mac'da Flutter SDK o'rnatilmagani** (joy tanqisligi) sababli
-faqat `lib/` (Dart kodi) va `pubspec.yaml` bilan tayyorlandi — Android/iOS
-platforma qatlamlari (`android/`, `ios/` papkalar) hali generatsiya
-qilinmagan. Bularni **Asus noutbukingizda** generatsiya qilasiz.
+`android/` papkasi endi **git'ga commit qilingan** (birinchi marta Asus
+noutbukda `flutter create .` bilan generatsiya qilinib, kerakli tuzatishlar
+— masalan cleartext-traffic ruxsati — qo'lda kiritilgan holda saqlangan).
+Bu degani: `git clone`dan keyin **`flutter create .` qayta ishga tushirish
+shart emas** — `flutter pub get` va `flutter run` yetarli.
 
 ## Birinchi marta sozlash (Asus noutbuk)
 
 1. Flutter SDK va Android Studio o'rnating: https://docs.flutter.dev/get-started/install
 2. `flutter doctor` orqali sozlamani tekshiring.
-3. Shu papkaga kiring:
-   ```
-   cd flutter_app
-   flutter create --org uz.furnitureplatform --project-name furniture_platform_mobile .
-   ```
-   Bu **mavjud** `lib/` va `pubspec.yaml`ni buzmaydi — faqat yetishmayotgan
-   `android/`, native fayllarni qo'shadi (standart Flutter xatti-harakati).
+3. `cd flutter_app`
 4. `flutter pub get`
 5. **Backend Asus'da qayta ishga tushirilmaydi** — Mac'dagi backend'ga Wi-Fi
    orqali ulanadi (`lib/api_client.dart` — `ApiConfig.baseUrl`, standart
@@ -35,12 +30,16 @@ qilinmagan. Bularni **Asus noutbukingizda** generatsiya qilasiz.
 
 ## Git haqida eslatma
 
-`.gitignore`da hozircha `android/`, `ios/` va h.k. papkalar **e'tiborsiz
-qoldirilgan** — chunki ular hali generatsiya qilinmagan va shu Mac'da
-tekshirib bo'lmadi. `flutter create .` bilan generatsiya qilib, ilova ishga
-tushganidan keyin, agar shu native papkalarni ham git'ga qo'shmoqchi bo'lsangiz
-(odatiy amaliyot — CI/CD yoki custom native sozlamalar bo'lsa kerak bo'ladi),
-`.gitignore`dan o'sha qatorlarni olib tashlang va commit qiling.
+`android/` qo'lda commit qilingan (build keshi — `android/.gradle`,
+`android/app/build` — bundan mustasno, ular `.gitignore`da qoladi).
+`ios/`, `macos/`, `linux/`, `windows/`, `web/` esa ishlatilmagani uchun
+hamon e'tiborsiz qoldirilgan (native iOS ilova alohida — `ios/` papka
+repo ildizida, `flutter_app/` ichida emas).
+
+**Agar `AndroidManifest.xml`ga yana qo'lda tuzatish kiritsangiz** (masalan
+yangi ruxsat), uni commit qilib push qilishni unutmang — aks holda faqat
+sizning mahalliy nusxangizda qoladi va boshqa joyda `git clone` qilinganda
+yo'qoladi.
 
 ## Arxitektura (backend bilan bir xil)
 
