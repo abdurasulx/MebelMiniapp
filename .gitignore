@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+db.sqlite3
+media/
+staticfiles/
+logs/
+.DS_Store
+
+# Sinov uchun tashlangan xom 3D fayllar (FBX/OBJ/BLEND) — repo'ga kerak emas,
+# konvertatsiya qilingan GLB/USDZ backend media/ orqali saqlanadi.
+*.fbx
+*.FBX
+*.blend
+*.blend1

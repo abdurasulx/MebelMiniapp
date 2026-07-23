@@ -1,0 +1,168 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'models.dart';
+
+class ApiException implements Exception {
+  final String message;
+  ApiException(this.message);
+  @override
+  String toString() => message;
+}
+
+/// Android emulyatorda Mac/PC'ning localhost'i `10.0.2.2` orqali ko'rinadi;
+/// haqiqiy qurilma esa kompyuterning LAN IP manziliga ulanadi (backend shu
+/// tarmoqda ishlab turishi kerak — xuddi iOS'dagi `APIConfig` bilan bir xil qoida).
+class ApiConfig {
+  // TODO: haqiqiy qurilmada sinaganda kompyuteringizning LAN IP'siga almashtiring
+  // (masalan "http://192.168.1.50:8000/api/v1") — emulyatorda shart emas.
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:8000/api/v1',
+  );
+}
+
+class ApiClient {
+  ApiClient._();
+  static final ApiClient instance = ApiClient._();
+
+  String? _accessToken;
+  String? _refreshToken;
+  void Function(TokenPair)? onTokensRotated;
+
+  void setTokens(TokenPair? tokens) {
+    _accessToken = tokens?.access;
+    _refreshToken = tokens?.refresh;
+  }
+
+  Future<T> get<T>(
+    String path,
+    T Function(dynamic json) fromJson, {
+    bool auth = false,
+  }) => _send('GET', path, null, fromJson, auth: auth);
+
+  Future<T> post<T>(
+    String path,
+    T Function(dynamic json) fromJson, {
+    Map<String, dynamic>? body,
+    bool auth = true,
+  }) => _send('POST', path, body, fromJson, auth: auth);
+
+  Future<T> patch<T>(
+    String path,
+    T Function(dynamic json) fromJson, {
+    Map<String, dynamic>? body,
+    bool auth = true,
+  }) => _send('PATCH', path, body, fromJson, auth: auth);
+
+  /// `multipart/form-data` — rasm yuklash kerak bo'lgan amallar uchun
+  /// (workflow progress/complete, variant tekstura va h.k.).
+  Future<T> postMultipart<T>(
+    String path,
+    T Function(dynamic json) fromJson, {
+    Map<String, String> fields = const {},
+    String? imageFieldName,
+    String? imagePath,
+    bool auth = true,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}$path');
+    final request = http.MultipartRequest('POST', uri);
+    request.fields.addAll(fields);
+    if (auth && _accessToken != null) {
+      request.headers['Authorization'] = 'Bearer $_accessToken';
+    }
+    if (imageFieldName != null && imagePath != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(imageFieldName, imagePath),
+      );
+    }
+    final streamed = await request.send();
+    final resp = await http.Response.fromStream(streamed);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw ApiException(_extractError(resp.body, resp.statusCode));
+    }
+    return fromJson(jsonDecode(resp.body));
+  }
+
+  Future<T> _send<T>(
+    String method,
+    String path,
+    Map<String, dynamic>? body,
+    T Function(dynamic json) fromJson, {
+    required bool auth,
+    bool isRetry = false,
+  }) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}$path');
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (auth && _accessToken != null) {
+      headers['Authorization'] = 'Bearer $_accessToken';
+    }
+
+    late http.Response resp;
+    final encoded = body != null ? jsonEncode(body) : null;
+    switch (method) {
+      case 'GET':
+        resp = await http.get(uri, headers: headers);
+        break;
+      case 'POST':
+        resp = await http.post(uri, headers: headers, body: encoded);
+        break;
+      case 'PATCH':
+        resp = await http.patch(uri, headers: headers, body: encoded);
+        break;
+      default:
+        throw ApiException('Noma\'lum HTTP metod: $method');
+    }
+
+    if (resp.statusCode == 401 &&
+        auth &&
+        !isRetry &&
+        await _refreshAccessToken()) {
+      return _send(method, path, body, fromJson, auth: auth, isRetry: true);
+    }
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw ApiException(_extractError(resp.body, resp.statusCode));
+    }
+    if (resp.body.isEmpty) return fromJson(null);
+    return fromJson(jsonDecode(resp.body));
+  }
+
+  String _extractError(String body, int statusCode) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map && decoded['detail'] != null)
+        return decoded['detail'].toString();
+      if (decoded is List && decoded.isNotEmpty)
+        return decoded.first.toString();
+      if (decoded is Map) {
+        return decoded.entries.map((e) => '${e.key}: ${e.value}').join('; ');
+      }
+    } catch (_) {}
+    return 'Xatolik ($statusCode)';
+  }
+
+  Future<bool> _refreshAccessToken() async {
+    if (_refreshToken == null) return false;
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/auth/token/refresh/');
+      final resp = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh': _refreshToken}),
+      );
+      if (resp.statusCode != 200) return false;
+      final decoded = jsonDecode(resp.body);
+      _accessToken = decoded['access'];
+      // ROTATE_REFRESH_TOKENS=True bo'lgani uchun javobda yangi refresh ham kelishi mumkin.
+      if (decoded['refresh'] != null) {
+        _refreshToken = decoded['refresh'];
+        onTokensRotated?.call(
+          TokenPair(access: _accessToken!, refresh: _refreshToken!),
+        );
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}

@@ -1,0 +1,99 @@
+from django.db import models
+from django.utils.text import slugify
+
+from apps.companies.models import Company
+from common.models import BaseModel, StoredFileMixin
+
+
+class Category(BaseModel, StoredFileMixin):
+    """Global katalog kategoriyasi (techdocs/06 §8). Nomlar uz/ru — eski loyihadan."""
+
+    parent = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="children"
+    )
+    name_uz = models.CharField(max_length=100)
+    name_ru = models.CharField(max_length=100, blank=True)
+    slug = models.SlugField(max_length=120, unique=True)
+    image = models.ImageField(upload_to="categories/", blank=True, null=True)
+
+    class Meta:
+        verbose_name_plural = "categories"
+        ordering = ("name_uz",)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name_uz)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name_uz
+
+
+class Product(BaseModel, StoredFileMixin):
+    """Kompaniyaga tegishli mahsulot (techdocs/06 §9)."""
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="products")
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products")
+    name_uz = models.CharField(max_length=200)
+    name_ru = models.CharField(max_length=200, blank=True)
+    slug = models.SlugField(max_length=220)
+    description = models.TextField(blank=True)
+    image = models.ImageField(upload_to="products/", blank=True, null=True)
+    video_url = models.URLField(max_length=500, blank=True)
+    is_published = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ("-created_at",)
+        unique_together = ("company", "slug")
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name_uz)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name_uz
+
+
+class ProductImage(BaseModel, StoredFileMixin):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="products/gallery/")
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("sort_order",)
+
+    def __str__(self):
+        return f"Image for {self.product}"
+
+
+class Variant(BaseModel, StoredFileMixin):
+    """Material/rang varianti. Narx 1 m³ uchun, o'lcham metrda (eski loyiha domeni,
+    techdocs/06 §10).
+
+    3D model geometriyasi mahsulot darajasida bitta marta yuklanadi (Product.model3d) —
+    har rang uchun alohida render/eksport shart emas. Variant faqat shu bitta modelga
+    runtime'da qo'llanadigan material ma'lumotini olib yuradi: `color_hex` (oddiy rang
+    tint — bo'yalgan mebel uchun) yoki `texture` (yog'och naqshi surati — tabiiy tusli
+    materiallar uchun, masalan jiyda/yong'oq). Ikkalasi ham web (`model-viewer` material
+    API) va iOS (RealityKit material) tomonida bir xil tarzda qo'llanadi.
+    """
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
+    name = models.CharField(max_length=100)  # masalan: "Yong'oq", "MDF", "Tolda"
+    base_price = models.DecimalField(max_digits=12, decimal_places=2)  # 1 m³ narxi
+    width = models.DecimalField(max_digits=6, decimal_places=2, default=1)
+    height = models.DecimalField(max_digits=6, decimal_places=2, default=1)
+    depth = models.DecimalField(max_digits=6, decimal_places=2, default=1)
+    color_hex = models.CharField(max_length=7, blank=True)  # masalan "#8B5A2B"
+    texture = models.ImageField(upload_to="variants/textures/", blank=True, null=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def price_for(self, width, height, depth):
+        """Berilgan o'lcham (m) uchun narx — hajmga proporsional."""
+        return self.base_price * width * height * depth
+
+    def __str__(self):
+        return f"{self.product} — {self.name}"

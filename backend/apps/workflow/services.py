@@ -1,0 +1,51 @@
+from django.utils import timezone
+
+from .models import StepStatus, WorkflowStepInstance
+
+
+def create_workflow_instances(order, product):
+    """Mahsulotning workflow shablonini buyurtmaga nusxalaydi (Order Workflow).
+
+    Bitta buyurtmada bir nechta mahsulot bo'lishi mumkin bo'lsa-da, MVP'da
+    ishlab chiqarish jarayoni birinchi banddagi mahsulotning shabloniga
+    asoslanadi (odatiy holat — buyurtma bitta mebelga tegishli).
+    Bog'liqliksiz (depends_on bo'sh) bosqichlar darhol "Bajarilmoqda"
+    holatida boshlanadi — qolganlari ular tugagach avtomatik ochiladi.
+    """
+    template_steps = list(product.workflow_steps.filter(is_deleted=False).order_by("order_index"))
+    if not template_steps:
+        return []
+
+    now = timezone.now()
+    instance_by_template_id = {}
+    instances = []
+    for step in template_steps:
+        instance = WorkflowStepInstance.objects.create(
+            order=order,
+            template_step=step,
+            order_index=step.order_index,
+            name=step.name,
+            role=step.role,
+            employee=step.employee,
+            estimated_hours=step.estimated_hours,
+            cost=step.cost,
+            required_materials=step.required_materials,
+            photo_requirement=step.photo_requirement,
+        )
+        instance_by_template_id[step.id] = instance
+        instances.append(instance)
+
+    for step in template_steps:
+        instance = instance_by_template_id[step.id]
+        dep_ids = list(step.depends_on.values_list("id", flat=True))
+        deps = [instance_by_template_id[d] for d in dep_ids if d in instance_by_template_id]
+        if deps:
+            instance.depends_on.set(deps)
+
+    for instance in instances:
+        if instance.is_available:
+            instance.status = StepStatus.IN_PROGRESS
+            instance.started_at = now
+            instance.save(update_fields=["status", "started_at"])
+
+    return instances

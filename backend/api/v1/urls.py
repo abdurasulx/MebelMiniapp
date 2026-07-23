@@ -1,0 +1,78 @@
+from django.urls import path
+from rest_framework.routers import DefaultRouter
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from apps.assets.views import Model3DViewerView, Model3DViewSet
+from apps.companies.views import (
+    CompanyViewSet,
+    EmployeeInvitationViewSet,
+    EmployeeViewSet,
+    ReviewViewSet,
+)
+from apps.crm.views import LeadViewSet
+from apps.likes.views import LikeViewSet
+from apps.orders.views import OrderViewSet
+from apps.production.views import PayslipViewSet, ProductionTaskViewSet
+from apps.products.views import CategoryViewSet, ProductViewSet, VariantViewSet
+from apps.users.views import (
+    AdminStatsView,
+    AdminUserListView,
+    CareerView,
+    MeView,
+    OTPRequestView,
+    OTPVerifyView,
+    RegisterView,
+)
+from apps.workflow.views import (
+    WorkflowStatsView,
+    WorkflowStepInstanceViewSet,
+    WorkflowStepViewSet,
+)
+
+router = DefaultRouter()
+router.register("companies", CompanyViewSet, basename="company")
+router.register("employees", EmployeeViewSet, basename="employee")
+router.register("employee-invitations", EmployeeInvitationViewSet, basename="employee-invitation")
+router.register("orders", OrderViewSet, basename="order")
+router.register("categories", CategoryViewSet, basename="category")
+router.register("products", ProductViewSet, basename="product")
+router.register("models3d", Model3DViewSet, basename="model3d")
+router.register("leads", LeadViewSet, basename="lead")
+router.register("tasks", ProductionTaskViewSet, basename="task")
+router.register("payslips", PayslipViewSet, basename="payslip")
+router.register("likes", LikeViewSet, basename="like")
+router.register("reviews", ReviewViewSet, basename="review")
+router.register("workflow-instances", WorkflowStepInstanceViewSet, basename="workflow-instance")
+
+variant_list = VariantViewSet.as_view({"get": "list", "post": "create"})
+variant_detail = VariantViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
+)
+workflow_step_list = WorkflowStepViewSet.as_view({"get": "list", "post": "create"})
+workflow_step_detail = WorkflowStepViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
+)
+
+urlpatterns = [
+    path("auth/register/", RegisterView.as_view(), name="register"),
+    path("auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("users/me/", MeView.as_view(), name="me"),
+    path("users/me/career/", CareerView.as_view(), name="career"),
+    path("auth/otp/request/", OTPRequestView.as_view(), name="otp-request"),
+    path("auth/otp/verify/", OTPVerifyView.as_view(), name="otp-verify"),
+    path("admin/stats/", AdminStatsView.as_view(), name="admin-stats"),
+    path("admin/users/", AdminUserListView.as_view(), name="admin-users"),
+    path("products/<uuid:product_pk>/variants/", variant_list, name="variant-list"),
+    path("products/<uuid:product_pk>/variants/<uuid:pk>/", variant_detail, name="variant-detail"),
+    path("products/<uuid:product_pk>/workflow-steps/", workflow_step_list, name="workflow-step-list"),
+    path(
+        "products/<uuid:product_pk>/workflow-steps/<uuid:pk>/",
+        workflow_step_detail,
+        name="workflow-step-detail",
+    ),
+    path("workflow-stats/", WorkflowStatsView.as_view(), name="workflow-stats"),
+    path("viewer/<uuid:token>/", Model3DViewerView.as_view(), name="model3d-viewer"),
+]
+
+urlpatterns += router.urls

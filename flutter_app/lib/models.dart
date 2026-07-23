@@ -1,0 +1,315 @@
+// Backend DRF javoblari snake_case — bu yerda shu ko'rinishda o'qiladi
+// (iOS'dagi `convertFromSnakeCase`ga mos vazifa, lekin Dart'da qo'lda).
+
+class TokenPair {
+  final String access;
+  final String refresh;
+  TokenPair({required this.access, required this.refresh});
+  factory TokenPair.fromJson(Map<String, dynamic> j) =>
+      TokenPair(access: j['access'], refresh: j['refresh']);
+  Map<String, dynamic> toJson() => {'access': access, 'refresh': refresh};
+}
+
+class CompanyRef {
+  final String id;
+  final String slug;
+  final String name;
+  CompanyRef({required this.id, required this.slug, required this.name});
+  factory CompanyRef.fromJson(Map<String, dynamic> j) =>
+      CompanyRef(id: j['id'], slug: j['slug'], name: j['name']);
+}
+
+class AppUser {
+  final String id;
+  final String email;
+  final String? firstName;
+  final String? phone;
+  final String role;
+  final String? workerId;
+  final CompanyRef? company;
+  final List<String> positions;
+
+  AppUser({
+    required this.id,
+    required this.email,
+    this.firstName,
+    this.phone,
+    required this.role,
+    this.workerId,
+    this.company,
+    this.positions = const [],
+  });
+
+  factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
+    id: j['id'],
+    email: j['email'],
+    firstName: j['first_name'],
+    phone: j['phone'],
+    role: j['role'],
+    workerId: j['worker_id'],
+    company: j['company'] != null ? CompanyRef.fromJson(j['company']) : null,
+    positions:
+        (j['positions'] as List?)?.map((e) => e.toString()).toList() ?? [],
+  );
+}
+
+class Variant {
+  final String id;
+  final String name;
+  final String basePrice;
+  final String? colorHex;
+  final String? textureUrl;
+
+  Variant({
+    required this.id,
+    required this.name,
+    required this.basePrice,
+    this.colorHex,
+    this.textureUrl,
+  });
+
+  double get basePriceValue => double.tryParse(basePrice) ?? 0;
+
+  factory Variant.fromJson(Map<String, dynamic> j) => Variant(
+    id: j['id'],
+    name: j['name'],
+    basePrice: j['base_price'].toString(),
+    colorHex: j['color_hex'],
+    textureUrl: j['texture_url'],
+  );
+}
+
+class Model3D {
+  final String? glbUrl;
+  final String? usdzUrl;
+  Model3D({this.glbUrl, this.usdzUrl});
+  factory Model3D.fromJson(Map<String, dynamic> j) =>
+      Model3D(glbUrl: j['glb_url'], usdzUrl: j['usdz_url']);
+}
+
+class Product {
+  final String id;
+  final String company;
+  final String companyName;
+  final String? companySlug;
+  final String nameUz;
+  final String? imageUrl;
+  final bool isPublished;
+  final List<Variant> variants;
+  final Model3D? model3d;
+
+  Product({
+    required this.id,
+    required this.company,
+    required this.companyName,
+    this.companySlug,
+    required this.nameUz,
+    this.imageUrl,
+    required this.isPublished,
+    this.variants = const [],
+    this.model3d,
+  });
+
+  factory Product.fromJson(Map<String, dynamic> j) => Product(
+    id: j['id'],
+    company: j['company'],
+    companyName: j['company_name'] ?? '',
+    companySlug: j['company_slug'],
+    nameUz: j['name_uz'] ?? '',
+    imageUrl: j['image_url'],
+    isPublished: j['is_published'] ?? false,
+    variants: (j['variants'] as List? ?? [])
+        .map((e) => Variant.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
+  );
+}
+
+class OrderItemSummary {
+  final String productName;
+  final String variantName;
+  final int quantity;
+  final String subtotal;
+  OrderItemSummary({
+    required this.productName,
+    required this.variantName,
+    required this.quantity,
+    required this.subtotal,
+  });
+  factory OrderItemSummary.fromJson(Map<String, dynamic> j) => OrderItemSummary(
+    productName: j['product_name'] ?? '',
+    variantName: j['variant_name'] ?? '',
+    quantity: j['quantity'] ?? 1,
+    subtotal: j['subtotal'].toString(),
+  );
+}
+
+class WorkflowStepInstance {
+  final String id;
+  final String name;
+  final String? roleDisplay;
+  final String status;
+  final String statusDisplay;
+  final bool isAvailable;
+  final String photoRequirement;
+
+  WorkflowStepInstance({
+    required this.id,
+    required this.name,
+    this.roleDisplay,
+    required this.status,
+    required this.statusDisplay,
+    required this.isAvailable,
+    required this.photoRequirement,
+  });
+
+  factory WorkflowStepInstance.fromJson(Map<String, dynamic> j) =>
+      WorkflowStepInstance(
+        id: j['id'],
+        name: j['name'],
+        roleDisplay: j['role_display'],
+        status: j['status'],
+        statusDisplay: j['status_display'],
+        isAvailable: j['is_available'] ?? false,
+        photoRequirement: j['photo_requirement'] ?? 'optional',
+      );
+}
+
+class Order {
+  final String id;
+  final String companyName;
+  final String status;
+  final String statusDisplay;
+  final String totalPrice;
+  final String phone;
+  final String address;
+  final List<OrderItemSummary> items;
+  final List<WorkflowStepInstance> workflowSteps;
+  final int? progressPercent;
+
+  Order({
+    required this.id,
+    required this.companyName,
+    required this.status,
+    required this.statusDisplay,
+    required this.totalPrice,
+    required this.phone,
+    required this.address,
+    this.items = const [],
+    this.workflowSteps = const [],
+    this.progressPercent,
+  });
+
+  factory Order.fromJson(Map<String, dynamic> j) => Order(
+    id: j['id'],
+    companyName: j['company_name'] ?? '',
+    status: j['status'] ?? '',
+    statusDisplay: j['status_display'] ?? '',
+    totalPrice: j['total_price'].toString(),
+    phone: j['phone'] ?? '',
+    address: j['address'] ?? '',
+    items: (j['items'] as List? ?? [])
+        .map((e) => OrderItemSummary.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    workflowSteps: (j['workflow_steps'] as List? ?? [])
+        .map((e) => WorkflowStepInstance.fromJson(e as Map<String, dynamic>))
+        .toList(),
+    progressPercent: j['progress_percent'],
+  );
+}
+
+// kompaniya tomonidagi keyingi mumkin status o'tishlari (web orderStatus.js bilan bir xil)
+const Map<String, List<String>> nextOrderStatus = {
+  'new': ['accepted', 'cancelled'],
+  'accepted': ['in_production', 'cancelled'],
+  'in_production': ['ready'],
+  'ready': ['delivering', 'completed'],
+  'delivering': ['completed'],
+};
+
+const Map<String, String> orderStatusLabel = {
+  'new': 'Kutilmoqda',
+  'accepted': 'Qabul qilindi',
+  'in_production': 'Ishlab chiqarilmoqda',
+  'ready': 'Tayyor',
+  'delivering': 'Yetkazilmoqda',
+  'completed': 'Yakunlandi',
+  'cancelled': 'Bekor qilindi',
+};
+
+class EmployeeInvitation {
+  final String id;
+  final String companyName;
+  final List<String> positions;
+  final String status;
+  final String statusDisplay;
+
+  EmployeeInvitation({
+    required this.id,
+    required this.companyName,
+    required this.positions,
+    required this.status,
+    required this.statusDisplay,
+  });
+
+  factory EmployeeInvitation.fromJson(Map<String, dynamic> j) =>
+      EmployeeInvitation(
+        id: j['id'],
+        companyName: j['company_name'] ?? '',
+        positions: (j['positions'] as List? ?? [])
+            .map((e) => e.toString())
+            .toList(),
+        status: j['status'],
+        statusDisplay: j['status_display'],
+      );
+}
+
+class CareerEntry {
+  final String companyName;
+  final List<String> positions;
+  final bool isActive;
+
+  CareerEntry({
+    required this.companyName,
+    required this.positions,
+    required this.isActive,
+  });
+
+  factory CareerEntry.fromJson(Map<String, dynamic> j) => CareerEntry(
+    companyName: j['company_name'] ?? '',
+    positions: (j['positions'] as List? ?? [])
+        .map((e) => e.toString())
+        .toList(),
+    isActive: j['is_active'] ?? false,
+  );
+}
+
+class Paginated<T> {
+  final int count;
+  final List<T> results;
+  Paginated({required this.count, required this.results});
+  factory Paginated.fromJson(
+    Map<String, dynamic> j,
+    T Function(Map<String, dynamic>) fromJson,
+  ) {
+    return Paginated(
+      count: j['count'] ?? 0,
+      results: (j['results'] as List? ?? [])
+          .map((e) => fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+/// "1500000.00" -> "1 500 000"
+String formatSom(String raw) {
+  final value = double.tryParse(raw);
+  if (value == null) return raw;
+  final s = value.round().toString();
+  final buffer = StringBuffer();
+  for (int i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) buffer.write(' ');
+    buffer.write(s[i]);
+  }
+  return buffer.toString();
+}

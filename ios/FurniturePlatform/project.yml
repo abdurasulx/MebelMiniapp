@@ -1,0 +1,63 @@
+name: FurniturePlatform
+options:
+  bundleIdPrefix: uz.furnitureplatform
+  deploymentTarget:
+    iOS: "18.0"
+configs:
+  Debug: debug
+  Release: release
+targets:
+  FurniturePlatform:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    resources:
+      - path: Resources/Assets.xcassets
+    info:
+      path: Resources/Info.plist
+      properties:
+        UILaunchScreen: {}
+        NSCameraUsageDescription: "Mebelni AR orqali xonangizda ko'rish uchun kamera kerak."
+        CFBundleDisplayName: "Furniture Platform"
+        ITSAppUsesNonExemptEncryption: false
+        # Faqat lokal dev backend uchun (Mac'ning LAN IP'si, haqiqiy qurilma shu orqali ulanadi).
+        # Prodda domen.uz HTTPS bo'lgani uchun kerak emas.
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            127.0.0.1:
+              NSExceptionAllowsInsecureHTTPLoads: true
+            localhost:
+              NSExceptionAllowsInsecureHTTPLoads: true
+            192.168.100.185:
+              NSExceptionAllowsInsecureHTTPLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: uz.furnitureplatform.app
+        SWIFT_VERSION: 5.0
+        TARGETED_DEVICE_FAMILY: "1"
+        DEVELOPMENT_TEAM: "B3D558FP56"
+        CODE_SIGN_STYLE: Automatic
+  FurniturePlatformUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: uz.furnitureplatform.uitests
+        SWIFT_VERSION: 5.0
+        DEVELOPMENT_TEAM: "B3D558FP56"
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: FurniturePlatform
+schemes:
+  FurniturePlatform:
+    build:
+      targets:
+        FurniturePlatform: all
+        FurniturePlatformUITests: [test]
+    test:
+      targets:
+        - FurniturePlatformUITests
