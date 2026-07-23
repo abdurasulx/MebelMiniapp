@@ -22,6 +22,26 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _codeStep = false;
   bool _busy = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Tugmalar matn holatiga qarab yoqiladi (bo'sh bo'lmasa) — controller
+    // o'zgarishi build()ni avtomatik qayta chaqirmagani uchun qo'lda tinglaymiz.
+    _phoneController.addListener(_onTextChanged);
+    _codeController.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    _phoneController.removeListener(_onTextChanged);
+    _codeController.removeListener(_onTextChanged);
+    _phoneController.dispose();
+    _codeController.dispose();
+    super.dispose();
+  }
+
   String get _fullPhone =>
       '${_country.dialCode}${_phoneController.text.trim()}';
 
