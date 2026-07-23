@@ -3,6 +3,7 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 import '../api_client.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/like_button.dart';
 import 'company_detail_screen.dart';
 
 /// Mahsulot tafsiloti — Android'da faqat ko'rish uchun: narx va 3D model
@@ -110,37 +111,47 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Widget _media(Product p) {
-    return Container(
-      height: 280,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: AppColors.primary.withOpacity(0.25),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+    return Stack(
+      children: [
+        Container(
+          height: 280,
+          width: double.infinity,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: AppColors.primary.withOpacity(0.25),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: p.model3d?.glbUrl != null
-          ? ModelViewer(
-              src: p.model3d!.glbUrl!,
-              alt: p.nameUz,
-              autoRotate: true,
-              cameraControls: true,
-              backgroundColor: Colors.transparent,
-            )
-          : p.imageUrl != null
-          ? Image.network(
-              p.imageUrl!,
-              fit: BoxFit.cover,
-              width: double.infinity,
-            )
-          : const Center(
-              child: Icon(Icons.chair_rounded, size: 64, color: AppColors.deep),
-            ),
+          child: p.model3d?.glbUrl != null
+              ? ModelViewer(
+                  src: p.model3d!.glbUrl!,
+                  alt: p.nameUz,
+                  autoRotate: true,
+                  cameraControls: true,
+                  backgroundColor: Colors.transparent,
+                )
+              : p.imageUrl != null
+              ? Image.network(
+                  p.imageUrl!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                )
+              : const Center(
+                  child: Icon(
+                    Icons.chair_rounded,
+                    size: 64,
+                    color: AppColors.deep,
+                  ),
+                ),
+        ),
+        Positioned(top: 12, right: 12, child: LikeButton(productId: p.id)),
+      ],
     );
   }
 

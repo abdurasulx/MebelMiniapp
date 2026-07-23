@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'auth_store.dart';
+import 'likes_store.dart';
 import 'screens/root_screen.dart';
 import 'theme.dart';
 
@@ -16,18 +17,25 @@ class FurniturePlatformApp extends StatefulWidget {
 
 class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
   final _auth = AuthStore();
+  final _likes = LikesStore();
   bool _ready = false;
 
   @override
   void initState() {
     super.initState();
     _auth.bootstrap().then((_) => setState(() => _ready = true));
+    _auth.addListener(() {
+      if (!_auth.isAuthenticated) _likes.clear();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: _auth,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: _auth),
+        ChangeNotifierProvider.value(value: _likes),
+      ],
       child: MaterialApp(
         title: 'Furniture Platform',
         debugShowCheckedModeBanner: false,

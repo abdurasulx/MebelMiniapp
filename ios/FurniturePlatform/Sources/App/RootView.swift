@@ -12,6 +12,9 @@ struct RootView: View {
             if auth.appMode == .worker && auth.user?.company != nil {
                 WorkerHomeView()
                     .tabItem { Label("Usta paneli", systemImage: "hammer.fill") }
+
+                WorkerOrdersView()
+                    .tabItem { Label("Buyurtmalar", systemImage: "list.bullet.clipboard.fill") }
             } else {
                 HomeView()
                     .tabItem { Label("Bosh sahifa", systemImage: "house.fill") }

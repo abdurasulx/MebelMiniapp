@@ -179,6 +179,7 @@ class Product {
   final bool isPublished;
   final List<Variant> variants;
   final Model3D? model3d;
+  final bool isLiked;
 
   Product({
     required this.id,
@@ -191,6 +192,7 @@ class Product {
     required this.isPublished,
     this.variants = const [],
     this.model3d,
+    this.isLiked = false,
   });
 
   factory Product.fromJson(Map<String, dynamic> j) => Product(
@@ -206,6 +208,21 @@ class Product {
         .map((e) => Variant.fromJson(e as Map<String, dynamic>))
         .toList(),
     model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
+    isLiked: j['is_liked'] ?? false,
+  );
+}
+
+class Like {
+  final String id;
+  final String product;
+  final Product productDetail;
+
+  Like({required this.id, required this.product, required this.productDetail});
+
+  factory Like.fromJson(Map<String, dynamic> j) => Like(
+    id: j['id'],
+    product: j['product'],
+    productDetail: Product.fromJson(j['product_detail']),
   );
 }
 

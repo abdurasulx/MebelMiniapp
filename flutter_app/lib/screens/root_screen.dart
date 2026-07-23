@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth_store.dart';
 import 'catalog_screen.dart';
-import 'orders_screen.dart';
+import 'home_screen.dart';
+import 'likes_screen.dart';
 import 'profile_screen.dart';
 import 'worker/worker_home_screen.dart';
 import 'worker/worker_orders_screen.dart';
 
-/// Web'dagi portal ajratish va iOS'dagi `RootView`ning Android'dagi mos
-/// keladigan varianti: `appMode == worker` bo'lganda xaridor tablari o'rniga
-/// usta paneli tablari ko'rsatiladi.
+/// iOS'dagi `RootView` bilan **bir xil** tab tuzilishi: xaridor — Bosh sahifa /
+/// Katalog / Sevimlilar / Profil (buyurtmalar Profil ichida ko'rsatiladi);
+/// `appMode == worker` bo'lganda usta paneli tablariga almashadi.
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
   @override
@@ -27,7 +28,7 @@ class _RootScreenState extends State<RootScreen> {
 
     final tabs = isWorker
         ? const [WorkerHomeScreen(), WorkerOrdersScreen(), ProfileScreen()]
-        : const [CatalogScreen(), OrdersScreen(), ProfileScreen()];
+        : const [HomeScreen(), CatalogScreen(), LikesScreen(), ProfileScreen()];
 
     final items = isWorker
         ? const [
@@ -43,14 +44,21 @@ class _RootScreenState extends State<RootScreen> {
           ]
         : const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view),
+              icon: Icon(Icons.home_rounded),
+              label: 'Bosh sahifa',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.grid_view_rounded),
               label: 'Katalog',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long),
-              label: 'Buyurtmalarim',
+              icon: Icon(Icons.favorite_rounded),
+              label: 'Sevimlilar',
             ),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_rounded),
+              label: 'Profil',
+            ),
           ];
 
     final safeIndex = _index < tabs.length ? _index : 0;
@@ -61,7 +69,6 @@ class _RootScreenState extends State<RootScreen> {
         currentIndex: safeIndex,
         onTap: (i) => setState(() => _index = i),
         items: items,
-        selectedItemColor: const Color(0xFF4C2C24),
       ),
     );
   }

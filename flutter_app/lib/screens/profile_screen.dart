@@ -32,6 +32,7 @@ class _ProfileBody extends StatefulWidget {
 class _ProfileBodyState extends State<_ProfileBody> {
   List<EmployeeInvitation> _invitations = [];
   List<CareerEntry> _career = [];
+  List<Order> _orders = [];
   bool _loading = true;
   String? _busyInvitationId;
 
@@ -57,9 +58,15 @@ class _ProfileBodyState extends State<_ProfileBody> {
         (j) => Paginated<CareerEntry>.fromJson(j, CareerEntry.fromJson),
         auth: true,
       );
+      final ordersPage = await ApiClient.instance.get(
+        '/orders/',
+        (j) => Paginated<Order>.fromJson(j, Order.fromJson),
+        auth: true,
+      );
       setState(() {
         _invitations = invPage.results;
         _career = careerPage.results;
+        _orders = ordersPage.results;
       });
     } catch (_) {
       // jim turamiz — profil baribir ko'rinadi
@@ -244,6 +251,70 @@ class _ProfileBodyState extends State<_ProfileBody> {
             style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Chiqish'),
           ),
+          const SizedBox(height: 20),
+
+          const Text(
+            'So\'nggi buyurtmalar',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          if (_orders.isEmpty)
+            const Text(
+              'Hali buyurtma yo\'q',
+              style: TextStyle(color: Color(0xFF8A7357)),
+            )
+          else ...[
+            // Ro'yxat cheklanadi: firma egasi uchun barcha buyurtmalar ko'p
+            // bo'lishi mumkin — bu yerda faqat so'nggilari ko'rsatiladi.
+            ..._orders
+                .take(5)
+                .map(
+                  (o) => Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            o.companyName,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            '${formatSom(o.totalPrice)} so\'m',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECC299).withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              o.statusDisplay,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            if (_orders.length > 5)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'va yana ${_orders.length - 5} ta buyurtma',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF8A7357),
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );

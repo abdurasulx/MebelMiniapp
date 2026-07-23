@@ -150,6 +150,59 @@ struct Like: Codable, Identifiable {
     let createdAt: String
 }
 
+struct OrderItemSummary: Codable, Identifiable {
+    let id: String
+    let productName: String
+    let variantName: String
+    let quantity: Int
+    let subtotal: String
+
+    var subtotalValue: Double { Double(subtotal) ?? 0 }
+}
+
+struct WorkflowStepInstance: Codable, Identifiable {
+    let id: String
+    let name: String
+    let roleDisplay: String?
+    let status: String
+    let statusDisplay: String
+    let isAvailable: Bool
+    let photoRequirement: String
+}
+
+/// Buyurtma statusi bo'yicha kompaniya tomonidan ruxsat etilgan keyingi
+/// o'tishlar (backend `Order.TRANSITIONS` bilan bir xil, web `orderStatus.jsx`ga mos).
+let nextOrderStatus: [String: [String]] = [
+    "new": ["accepted", "cancelled"],
+    "accepted": ["in_production", "cancelled"],
+    "in_production": ["ready"],
+    "ready": ["delivering", "completed"],
+    "delivering": ["completed"],
+]
+
+let orderStatusLabel: [String: String] = [
+    "new": "Kutilmoqda",
+    "accepted": "Qabul qilindi",
+    "in_production": "Ishlab chiqarilmoqda",
+    "ready": "Tayyor",
+    "delivering": "Yetkazilmoqda",
+    "completed": "Yakunlandi",
+    "cancelled": "Bekor qilindi",
+]
+
+struct Order: Codable, Identifiable {
+    let id: String
+    let companyName: String
+    let status: String
+    let statusDisplay: String
+    let totalPrice: String
+    let phone: String
+    let address: String
+    let items: [OrderItemSummary]
+    let workflowSteps: [WorkflowStepInstance]
+    let progressPercent: Int?
+}
+
 struct Paginated<T: Codable>: Codable {
     let count: Int
     let next: String?
