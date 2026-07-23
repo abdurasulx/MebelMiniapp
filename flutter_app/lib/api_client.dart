@@ -9,15 +9,19 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// Android emulyatorda Mac/PC'ning localhost'i `10.0.2.2` orqali ko'rinadi;
-/// haqiqiy qurilma esa kompyuterning LAN IP manziliga ulanadi (backend shu
-/// tarmoqda ishlab turishi kerak — xuddi iOS'dagi `APIConfig` bilan bir xil qoida).
+/// Backend Mac'da ishlab turadi (Asus noutbukda alohida backend ishga
+/// tushirish shart emas) — Flutter ilova (Asus'dagi emulyator yoki haqiqiy
+/// Android qurilma) shu Wi-Fi tarmoqdagi Mac'ning LAN IP manziliga ulanadi.
+/// Mac va Asus **bir xil Wi-Fi tarmog'ida** bo'lishi shart.
+///
+/// Mac qayta Wi-Fi'ga ulansa IP o'zgarishi mumkin — shunday holatda Mac'da
+/// `ipconfig getifaddr en0` bilan yangi IP'ni tekshirib, pastdagi qiymatni
+/// yangilang (yoki qayta kompilyatsiyasiz:
+/// `flutter run --dart-define=API_BASE_URL=http://<yangi-ip>:8000/api/v1`).
 class ApiConfig {
-  // TODO: haqiqiy qurilmada sinaganda kompyuteringizning LAN IP'siga almashtiring
-  // (masalan "http://192.168.1.50:8000/api/v1") — emulyatorda shart emas.
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:8000/api/v1',
+    defaultValue: 'http://192.168.100.185:8000/api/v1',
   );
 }
 

@@ -17,10 +17,20 @@ qilinmagan. Bularni **Asus noutbukingizda** generatsiya qilasiz.
    Bu **mavjud** `lib/` va `pubspec.yaml`ni buzmaydi — faqat yetishmayotgan
    `android/`, native fayllarni qo'shadi (standart Flutter xatti-harakati).
 4. `flutter pub get`
-5. Backend manzilini tekshiring (`lib/api_client.dart` — `ApiConfig.baseUrl`):
-   - Android **emulyator**da ishlatsangiz — `10.0.2.2` (hozirgi standart qiymat) to'g'ri, chunki emulyatordan Mac/Windows'ning localhost'i shu manzil orqali ko'rinadi.
-   - Haqiqiy Android **qurilma**da (USB/WiFi orqali) sinasangiz — kompyuteringizning LAN IP manziliga almashtiring (masalan `http://192.168.1.50:8000/api/v1`), va Django backend `runserver 0.0.0.0:8000` bilan ishga tushirilgan bo'lishi kerak (faqat `127.0.0.1` emas).
-   - Buni qayta kompilyatsiyasiz almashtirish uchun: `flutter run --dart-define=API_BASE_URL=http://192.168.1.50:8000/api/v1`
+5. **Backend Asus'da qayta ishga tushirilmaydi** — Mac'dagi backend'ga Wi-Fi
+   orqali ulanadi (`lib/api_client.dart` — `ApiConfig.baseUrl`, standart
+   qiymat allaqachon Mac'ning joriy Wi-Fi IP'siga sozlangan:
+   `http://192.168.100.185:8000/api/v1`). Buning uchun:
+   - **Mac va Asus bir xil Wi-Fi tarmog'ida** bo'lishi shart.
+   - Mac'da backend `0.0.0.0:8000`ga bog'langan holda ishlab turishi kerak
+     (`.claude/launch.json`dagi "backend" konfiguratsiyasi shunday
+     sozlangan — faqat `127.0.0.1` bo'lsa, tashqi qurilmalar ulana olmaydi).
+   - Mac'ning IP'si Wi-Fi qayta ulanganda o'zgarishi mumkin — Mac'da
+     `ipconfig getifaddr en0` bilan tekshirib, kerak bo'lsa
+     `lib/api_client.dart`dagi qiymatni yangilang, yoki qayta
+     kompilyatsiyasiz: `flutter run --dart-define=API_BASE_URL=http://<yangi-ip>:8000/api/v1`
+   - Android **emulyator**da (Asus'ning o'zida) ham shu IP ishlaydi —
+     `10.0.2.2` bu holatda kerak emas, chunki backend endi Asus'da emas.
 6. `flutter run` — tayyor.
 
 ## Git haqida eslatma
