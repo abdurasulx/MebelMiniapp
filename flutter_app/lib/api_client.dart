@@ -11,17 +11,20 @@ class ApiException implements Exception {
 
 /// Backend Mac'da ishlab turadi (Asus noutbukda alohida backend ishga
 /// tushirish shart emas) — Flutter ilova (Asus'dagi emulyator yoki haqiqiy
-/// Android qurilma) shu Wi-Fi tarmoqdagi Mac'ning LAN IP manziliga ulanadi.
-/// Mac va Asus **bir xil Wi-Fi tarmog'ida** bo'lishi shart.
+/// Android qurilma) Mac'ga **Tailscale VPN tarmog'i** orqali ulanadi (LAN
+/// Wi-Fi emas — telefon boshqa tarmoqda/AP-izolyatsiyada bo'lsa ham ishlaydi).
+/// Mac va Android qurilma ikkalasida ham Tailscale ilovasi o'rnatilgan va
+/// bir xil hisobga kirgan (signed in) holda, doim ishga tushirilgan bo'lishi
+/// shart.
 ///
-/// Mac qayta Wi-Fi'ga ulansa IP o'zgarishi mumkin — shunday holatda Mac'da
-/// `ipconfig getifaddr en0` bilan yangi IP'ni tekshirib, pastdagi qiymatni
-/// yangilang (yoki qayta kompilyatsiyasiz:
+/// Mac'ning Tailscale IP'si o'zgarsa (kamdan-kam holat), Mac'da
+/// `tailscale ip` bilan yangi IP'ni tekshirib, pastdagi qiymatni yangilang
+/// (yoki qayta kompilyatsiyasiz:
 /// `flutter run --dart-define=API_BASE_URL=http://<yangi-ip>:8000/api/v1`).
 class ApiConfig {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.100.185:8000/api/v1',
+    defaultValue: 'http://100.69.182.71:8000/api/v1',
   );
 }
 

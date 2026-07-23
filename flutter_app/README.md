@@ -12,18 +12,22 @@ shart emas** — `flutter pub get` va `flutter run` yetarli.
 2. `flutter doctor` orqali sozlamani tekshiring.
 3. `cd flutter_app`
 4. `flutter pub get`
-5. **Backend Asus'da qayta ishga tushirilmaydi** — Mac'dagi backend'ga Wi-Fi
-   orqali ulanadi (`lib/api_client.dart` — `ApiConfig.baseUrl`, standart
-   qiymat allaqachon Mac'ning joriy Wi-Fi IP'siga sozlangan:
-   `http://192.168.100.185:8000/api/v1`). Buning uchun:
-   - **Mac va Asus bir xil Wi-Fi tarmog'ida** bo'lishi shart.
+5. **Backend Asus'da qayta ishga tushirilmaydi** — Mac'dagi backend'ga
+   **Tailscale VPN** orqali ulanadi (`lib/api_client.dart` —
+   `ApiConfig.baseUrl`, standart qiymat Mac'ning Tailscale IP'siga
+   sozlangan: `http://100.69.182.71:8000/api/v1`). Oddiy LAN Wi-Fi IP
+   ishlatilmaydi, chunki ba'zi Wi-Fi tarmoqlarida (AP-izolyatsiya va h.k.)
+   telefon Mac'ga to'g'ridan-to'g'ri ulana olmasligi aniqlandi. Buning uchun:
+   - **Mac'da ham, Android qurilmada ham Tailscale ilovasi o'rnatilgan va
+     bir xil hisobga kirgan (signed in), doim ishlab turgan** bo'lishi shart
+     (https://tailscale.com/download).
    - Mac'da backend `0.0.0.0:8000`ga bog'langan holda ishlab turishi kerak
      (`.claude/launch.json`dagi "backend" konfiguratsiyasi shunday
      sozlangan — faqat `127.0.0.1` bo'lsa, tashqi qurilmalar ulana olmaydi).
-   - Mac'ning IP'si Wi-Fi qayta ulanganda o'zgarishi mumkin — Mac'da
-     `ipconfig getifaddr en0` bilan tekshirib, kerak bo'lsa
-     `lib/api_client.dart`dagi qiymatni yangilang, yoki qayta
-     kompilyatsiyasiz: `flutter run --dart-define=API_BASE_URL=http://<yangi-ip>:8000/api/v1`
+   - Mac'ning Tailscale IP'si kamdan-kam o'zgaradi — Mac'da `tailscale ip`
+     bilan tekshirib, kerak bo'lsa `lib/api_client.dart`dagi qiymatni
+     yangilang, yoki qayta kompilyatsiyasiz:
+     `flutter run --dart-define=API_BASE_URL=http://<yangi-ip>:8000/api/v1`
    - Android **emulyator**da (Asus'ning o'zida) ham shu IP ishlaydi —
      `10.0.2.2` bu holatda kerak emas, chunki backend endi Asus'da emas.
 6. `flutter run` — tayyor.
