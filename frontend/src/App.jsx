@@ -24,7 +24,10 @@ import FirmaProducts from "./pages/firma/FirmaProducts";
 import FirmaSettings from "./pages/firma/FirmaSettings";
 import Login from "./pages/Login";
 import MyOrders from "./pages/MyOrders";
+import MyProjects from "./pages/MyProjects";
 import ProductDetail from "./pages/ProductDetail";
+import ProjectComposer from "./pages/ProjectComposer";
+import ProjectViewer from "./pages/ProjectViewer";
 import Register from "./pages/Register";
 import Shop from "./pages/Shop";
 import Viewer from "./pages/Viewer";
@@ -46,6 +49,7 @@ import {
   Construction,
   ShoppingBasket,
   Heart,
+  FolderKanban,
 } from "lucide-react";
 
 const ADMIN_MENU = [
@@ -155,6 +159,9 @@ function MarketLayout({ children }) {
               <Link to="/liked" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition hover:bg-black/10">
                 <Heart size={16} /> Sevimlilar
               </Link>
+              <Link to="/projects" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition hover:bg-black/10">
+                <FolderKanban size={16} /> Loyihalarim
+              </Link>
               <Link to="/orders" className="rounded-lg px-3 py-1.5 transition hover:bg-black/10">
                 Buyurtmalarim
               </Link>
@@ -194,6 +201,7 @@ export default function App() {
   if (location.pathname.startsWith("/viewer/")) {
     return (
       <Routes>
+        <Route path="/viewer/project/:token" element={<ProjectViewer />} />
         <Route path="/viewer/:token" element={<Viewer />} />
       </Routes>
     );
@@ -266,6 +274,22 @@ export default function App() {
           element={
             <Protected>
               <MyOrders />
+            </Protected>
+          }
+        />
+        <Route
+          path="/projects"
+          element={
+            <Protected>
+              <MyProjects />
+            </Protected>
+          }
+        />
+        <Route
+          path="/projects/:id"
+          element={
+            <Protected>
+              <ProjectComposer />
             </Protected>
           }
         />
