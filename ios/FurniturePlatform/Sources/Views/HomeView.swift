@@ -145,13 +145,8 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
 
-                        HStack(spacing: 6) {
-                            if product.model3d?.glbUrl != nil {
-                                ARBadge()
-                            }
-                            LikeButton(productId: product.id)
-                        }
-                        .padding(6)
+                        LikeButton(productId: product.id)
+                            .padding(6)
                     }
                 }
             }

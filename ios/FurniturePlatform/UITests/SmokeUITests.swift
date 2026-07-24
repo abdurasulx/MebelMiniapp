@@ -181,28 +181,27 @@ final class SmokeUITests: XCTestCase {
 
     func testARButtonReactsToVariantSelection() throws {
         // Bitta 3D model butun mahsulotga tegishli (Product.model3d) — shuning uchun
-        // AR tugmasi HAR IKKI variantda ham ko'rinadi, faqat tugma labelidagi variant
-        // nomi almashadi (rang/material tanlangan variantga qarab AR ichida qo'llanadi).
+        // AR tugmasi HAR IKKI variantda ham ko'rinadi va matni doim sodda ("AR'da
+        // sinash", variant nomisiz) — lekin tanlangan variantga qarab qaysi AR
+        // sahnasi ochilishi `accessibilityIdentifier`da (arButton-<variantId>) aks
+        // etadi, shuni tekshiramiz.
         let app = freshApp()
 
         let card = app.staticTexts["Oshxona garnituri"]
         XCTAssertTrue(card.waitForExistence(timeout: 10))
         card.tap()
 
-        let arButtonPredicate = NSPredicate(format: "label CONTAINS 'sinash'")
-
-        // "Oq" standart tanlangan — mahsulot 3D modeliga ega, tugma darhol ko'rinadi
-        let arButton = app.buttons.matching(arButtonPredicate).firstMatch
+        let arButton = app.buttons["AR'da sinash"]
         XCTAssertTrue(arButton.waitForExistence(timeout: 10), "AR tugmasi chiqmadi")
-        XCTAssertTrue(arButton.label.contains("Oq"), "AR tugmasi tanlangan variant nomini ko'rsatmadi")
+        let firstIdentifier = arButton.identifier
 
         // "Yong'oq" variantiga o'tamiz — bitta model bo'lgani uchun AR tugmasi
-        // yo'qolmaydi, faqat labeldagi variant nomi yangilanadi.
-        let yongoqSegment = app.buttons["Yong'oq — 🧊 AR"]
+        // yo'qolmaydi, faqat identifikatori (qaysi variant AR sahnasi) yangilanadi.
+        let yongoqSegment = app.buttons["Yong'oq"]
         XCTAssertTrue(yongoqSegment.waitForExistence(timeout: 5), "Yong'oq variant segmentda topilmadi")
         yongoqSegment.tap()
-        let arButtonAfter = app.buttons.matching(arButtonPredicate).firstMatch
+        let arButtonAfter = app.buttons["AR'da sinash"]
         XCTAssertTrue(arButtonAfter.waitForExistence(timeout: 5), "Yong'oq variantda AR tugmasi yo'qolib qoldi")
-        XCTAssertTrue(arButtonAfter.label.contains("Yong'oq"), "AR tugmasi 'Yong'oq' nomini ko'rsatmadi")
+        XCTAssertNotEqual(firstIdentifier, arButtonAfter.identifier, "Variant almashganda AR tugmasi yangilanmadi")
     }
 }

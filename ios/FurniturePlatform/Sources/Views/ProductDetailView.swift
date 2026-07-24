@@ -98,25 +98,29 @@ struct ProductDetailView: View {
                             Text("Variant (material/rang)").font(.caption).foregroundStyle(.secondary)
                             Picker("Variant", selection: $selectedVariant) {
                                 ForEach(product.variants) { v in
-                                    Text(product.model3d?.usdzUrl != nil ? "\(v.name) — 🧊 AR" : v.name)
+                                    Text(v.name)
                                         .tag(Optional(v))
                                 }
                             }
                             .pickerStyle(.segmented)
 
                             // 2) Bitta model butun mahsulotga tegishli — faqat rang/naqsh
-                            // tanlangan variantga qarab AR'da runtime'da almashadi.
+                            // tanlangan variantga qarab AR'da runtime'da almashadi. Tugma
+                            // matni ATAYIN variant nomini o'z ichiga olmaydi (sodda va
+                            // barqaror matn) — variant almashgani `.id()` orqali sahna
+                            // qayta yaratilishida aks etadi.
                             if let usdz = product.model3d?.usdzUrl {
                                 Button {
                                     showAR = true
                                 } label: {
-                                    Label("\(selectedVariant?.name ?? "") — AR'da sinash", systemImage: "arkit")
+                                    Label("AR'da sinash", systemImage: "arkit")
                                         .frame(maxWidth: .infinity)
                                         .padding()
                                         .background(Color.brandDeep)
                                         .foregroundStyle(Color.brandPrimary)
                                         .clipShape(RoundedRectangle(cornerRadius: 12))
                                 }
+                                .accessibilityIdentifier("arButton-\(selectedVariant?.id ?? "")")
                                 .id("\(usdz)-\(selectedVariant?.id ?? "")") // variant almashsa tugma qayta yaratiladi
                             } else if product.model3d?.glbUrl != nil {
                                 Text("🧊 3D model mavjud (AR uchun iOS'da USDZ kerak)")
