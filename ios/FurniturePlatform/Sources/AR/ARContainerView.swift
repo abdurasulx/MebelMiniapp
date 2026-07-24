@@ -32,10 +32,15 @@ struct ARContainerView: UIViewControllerRepresentable {
     /// runtime'da qo'llanadi, xuddi web'dagi `ModelViewer`ning material API'si kabi.
     let colorHex: String?
     let textureURL: URL?
+    /// Mahsulot sahifasida kiritilgan o'lchamning variant standart o'lchamiga
+    /// nisbati — joylashtirilganda modelga shu nisbatda qo'llaniladi.
+    var scaleFactors: SIMD3<Float> = [1, 1, 1]
     @ObservedObject var bridge: ARBridge
 
     func makeUIViewController(context: Context) -> ARPlacementViewController {
-        let controller = ARPlacementViewController(modelFileURL: modelFileURL, colorHex: colorHex, textureURL: textureURL)
+        let controller = ARPlacementViewController(
+            modelFileURL: modelFileURL, colorHex: colorHex, textureURL: textureURL, scaleFactors: scaleFactors
+        )
         controller.onSelectionChange = { [weak bridge] selected in
             bridge?.hasSelection = selected
         }
@@ -56,6 +61,7 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     private let modelFileURL: URL
     private let colorHex: String?
     private let textureURL: URL?
+    private let scaleFactors: SIMD3<Float>
     private var arView: ARView!
     private var coachingOverlay: ARCoachingOverlayView!
     private var modelTemplate: ModelEntity?
@@ -75,10 +81,11 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
 
     private static let moveStep: Float = 0.08 // metr — tugma bosilganda siljish qadami
 
-    init(modelFileURL: URL, colorHex: String?, textureURL: URL?) {
+    init(modelFileURL: URL, colorHex: String?, textureURL: URL?, scaleFactors: SIMD3<Float> = [1, 1, 1]) {
         self.modelFileURL = modelFileURL
         self.colorHex = colorHex
         self.textureURL = textureURL
+        self.scaleFactors = scaleFactors
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -209,6 +216,10 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
 
         let anchor = AnchorEntity(world: result.worldTransform)
         let entity = template.clone(recursive: true)
+        // Mahsulot sahifasida kiritilgan o'lcham variant standartidan farq qilsa,
+        // AR'dagi model ham shu nisbatda kattalashadi/kichrayadi — shunda narx
+        // hisoblangan o'lcham bilan AR'da ko'ringan o'lcham mos keladi.
+        entity.transform.scale = scaleFactors
         entity.generateCollisionShapes(recursive: true)
         anchor.addChild(entity)
         arView.scene.addAnchor(anchor)

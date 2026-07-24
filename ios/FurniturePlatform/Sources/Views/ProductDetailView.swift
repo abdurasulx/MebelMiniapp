@@ -1,3 +1,4 @@
+import simd
 import SwiftUI
 
 struct ProductDetailView: View {
@@ -21,6 +22,21 @@ struct ProductDetailView: View {
               let w = Double(width), let h = Double(height), let d = Double(depth),
               w > 0, h > 0, d > 0 else { return nil }
         return variant.basePriceValue * w * h * d * Double(quantity)
+    }
+
+    /// Kiritilgan eni/bo'yi/chuqurlikning variant standart o'lchamiga nisbati —
+    /// AR'da modelga shu nisbatda qo'llaniladi, shunda AR'da ko'rilgan buyum
+    /// sahifadagi narxga mos o'lchamda ko'rinadi (aks holda AR har doim faylning
+    /// standart o'lchamini ko'rsatardi, kiritilgan o'lchamdan qat'iy nazar).
+    private var arScaleFactors: SIMD3<Float> {
+        guard let variant = selectedVariant,
+              let w = Double(width), let h = Double(height), let d = Double(depth),
+              w > 0, h > 0, d > 0 else { return [1, 1, 1] }
+        return [
+            Float(w / variant.widthValue),
+            Float(h / variant.heightValue),
+            Float(d / variant.depthValue),
+        ]
     }
 
     var body: some View {
@@ -182,7 +198,8 @@ struct ProductDetailView: View {
                     usdzURL: url,
                     title: "\(product?.nameUz ?? "") — \(selectedVariant?.name ?? "")",
                     colorHex: selectedVariant?.colorHex,
-                    textureURL: selectedVariant?.textureUrl.flatMap(URL.init(string:))
+                    textureURL: selectedVariant?.textureUrl.flatMap(URL.init(string:)),
+                    scaleFactors: arScaleFactors
                 )
             }
         }

@@ -1,3 +1,4 @@
+import simd
 import SwiftUI
 
 /// Mahsulotni AR orqali xonaga joylashtirish ekrani (roadmap Phase 4 — Customer AR:
@@ -10,6 +11,10 @@ struct ARPlacementView: View {
     let title: String
     var colorHex: String? = nil
     var textureURL: URL? = nil
+    /// Mahsulot sahifasida kiritilgan eni/bo'yi/chuqurligining variant standart
+    /// o'lchamiga nisbati — AR'da modelni shu nisbatda masshtablaydi, shunda
+    /// AR'da ko'rilgan buyum sahifadagi narxga mos o'lchamda ko'rinadi.
+    var scaleFactors: SIMD3<Float> = [1, 1, 1]
 
     @Environment(\.dismiss) private var dismiss
     @State private var localFileURL: URL?
@@ -20,8 +25,11 @@ struct ARPlacementView: View {
     var body: some View {
         ZStack(alignment: .top) {
             if let localFileURL {
-                ARContainerView(modelFileURL: localFileURL, colorHex: colorHex, textureURL: textureURL, bridge: bridge)
-                    .ignoresSafeArea()
+                ARContainerView(
+                    modelFileURL: localFileURL, colorHex: colorHex, textureURL: textureURL,
+                    scaleFactors: scaleFactors, bridge: bridge
+                )
+                .ignoresSafeArea()
 
                 VStack {
                     Spacer()
