@@ -245,7 +245,16 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
 
     func rotateSelected(radians: Float) {
         guard let entity = placed else { return }
-        entity.transform.rotation *= simd_quatf(angle: radians, axis: [0, 1, 0])
+        // `entity.transform.rotation *=` ob'ektning O'ZINING lokal o'qi bo'yicha
+        // qo'shadi — agar modelning ichki yo'nalishi picha og'ma bo'lsa (USDZ
+        // eksport konvensiyasi), bu tepaga/pastga egilib ketayotgandek ko'rinadi.
+        // Shuning uchun dunyoning haqiqiy vertikal o'qi (world Y, gravitatsiyaga
+        // qarshi) bo'yicha, world-space'da qo'shamiz — bu har doim sof
+        // "chapga-o'ngga" aylanishni kafolatlaydi, model qanday eksport
+        // qilinganidan qat'iy nazar.
+        let delta = simd_quatf(angle: radians, axis: [0, 1, 0])
+        let currentWorldOrientation = entity.orientation(relativeTo: nil)
+        entity.setOrientation(delta * currentWorldOrientation, relativeTo: nil)
     }
 
     func removeSelected() {
