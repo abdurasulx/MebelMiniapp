@@ -24,18 +24,22 @@ struct ARPlacementView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            if let localFileURL {
-                ARContainerView(
-                    modelFileURL: localFileURL, colorHex: colorHex, textureURL: textureURL,
-                    scaleFactors: scaleFactors, bridge: bridge
-                )
-                .ignoresSafeArea()
+            // Kamera (ARKit sessiyasi) ekran ochilishi bilanoq ishga tushadi —
+            // model fayli hali yuklanmagan bo'lsa ham `localFileURL` `nil` holda
+            // uzatiladi, qora ekran yoki statik splash bo'lmaydi.
+            ARContainerView(
+                modelFileURL: localFileURL, colorHex: colorHex, textureURL: textureURL,
+                scaleFactors: scaleFactors, bridge: bridge
+            )
+            .ignoresSafeArea()
 
+            if bridge.isModelReady {
                 VStack {
                     Spacer()
                     if bridge.hasSelection {
                         ARBottomControlUnit(bridge: bridge)
                             .padding(.bottom, 24)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     } else {
                         Text("Tekislikni toping, so'ng bosib mebelni joylashtiring.\nBir vaqtda faqat bitta buyum qo'yiladi — boshqa joyga bossangiz, o'sha yerga ko'chadi.")
                             .font(.caption)
@@ -44,31 +48,20 @@ struct ARPlacementView: View {
                             .background(.ultraThinMaterial)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                             .padding(.bottom, 32)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-            } else if let errorMessage {
-                VStack(spacing: 12) {
-                    Text("3D modelni yuklab bo'lmadi").bold()
-                    Text(errorMessage).font(.caption).foregroundStyle(.secondary)
-                }
-                .padding()
+                .animation(.spring(response: 0.45, dampingFraction: 0.8), value: bridge.hasSelection)
             } else {
-                VStack(spacing: 12) {
-                    ProgressView(value: progress)
-                        .progressViewStyle(.linear)
-                        .frame(width: 160)
-                        .tint(.white)
-                    Text(progress > 0 ? "3D model yuklanmoqda… \(Int(progress * 100))%" : "3D model yuklanmoqda…")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.8))
-                }
+                ARLoadingOverlay(progress: progress, errorMessage: errorMessage)
+                    .transition(.scale(scale: 1.5).combined(with: .opacity))
             }
 
             ARHeader(title: title, subtitle: bridge.hasSelection ? "Aylantirish va siljitish uchun pastki paneldan foydalaning" : nil) {
                 dismiss()
             }
         }
-        .background(Color.black)
+        .animation(.easeOut(duration: 0.5), value: bridge.isModelReady)
         .task { await downloadModel() }
     }
 
@@ -83,6 +76,115 @@ struct ARPlacementView: View {
             localFileURL = try await downloader.download(from: usdzURL)
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Yuklanish overlay'i
+
+/// Kamera tasviri ustidan mayin "muzlagan shisha" (frosted glass) parda +
+/// markazda ikki qavatli neon-nurli dumaloq loader + aylanib turuvchi qisqa
+/// matn. Model tayyor bo'lgach (`bridge.isModelReady`) `ARPlacementView`
+/// buni `.opacity` bilan silliq yo'qotadi (fade-out).
+private struct ARLoadingOverlay: View {
+    let progress: Double
+    let errorMessage: String?
+
+    private static let phrases = [
+        "Kamera muhiti tayyorlanmoqda…",
+        "AR fazosi shakllanmoqda…",
+        "3D model yuklanmoqda…",
+    ]
+
+    @State private var phraseIndex = 0
+    private let timer = Timer.publish(every: 1.8, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .opacity(0.55)
+                .ignoresSafeArea()
+
+            if let errorMessage {
+                VStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                    Text("3D modelni yuklab bo'lmadi").bold().foregroundStyle(.white)
+                    Text(errorMessage)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(24)
+            } else {
+                VStack(spacing: 14) {
+                    OrbitingLoader()
+                    VStack(spacing: 4) {
+                        Text(Self.phrases[phraseIndex])
+                            .id(phraseIndex)
+                            .transition(.opacity)
+                        if progress > 0, progress < 1 {
+                            Text("\(Int(progress * 100))%")
+                                .foregroundStyle(.white.opacity(0.55))
+                        }
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                }
+            }
+        }
+        .onReceive(timer) { _ in
+            withAnimation(.easeInOut(duration: 0.35)) {
+                phraseIndex = (phraseIndex + 1) % Self.phrases.count
+            }
+        }
+    }
+}
+
+/// Ikki qavatli dumaloq loader: orqada ingichka shaffof statik halqa, uning
+/// ustida bilyard to'pining silliq harakatini eslatuvchi, orbitada aylanib
+/// nurlanib turuvchi gradient nuqta (qisqa "quyruq" iziy bilan).
+private struct OrbitingLoader: View {
+    @State private var rotation: Double = 0
+
+    private let size: CGFloat = 64
+    private let dotSize: CGFloat = 10
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(.white.opacity(0.22), lineWidth: 2)
+                .frame(width: size, height: size)
+
+            Circle()
+                .trim(from: 0, to: 0.22)
+                .stroke(
+                    AngularGradient(
+                        colors: [.clear, Color(red: 0.55, green: 0.85, blue: 1.0)],
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                )
+                .frame(width: size, height: size)
+                .rotationEffect(.degrees(rotation))
+
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color(red: 0.65, green: 0.9, blue: 1.0), .white.opacity(0)],
+                        center: .center, startRadius: 0, endRadius: dotSize
+                    )
+                )
+                .frame(width: dotSize, height: dotSize)
+                .offset(x: size / 2)
+                .rotationEffect(.degrees(rotation))
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
+                rotation = 360
+            }
         }
     }
 }

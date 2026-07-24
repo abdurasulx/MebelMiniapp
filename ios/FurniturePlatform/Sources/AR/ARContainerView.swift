@@ -6,6 +6,11 @@ import SwiftUI
 /// SwiftUI tugmalari (o'ng/chap/oldinga/orqaga) bilan AR kontroller o'rtasidagi ko'prik.
 final class ARBridge: ObservableObject {
     @Published var hasSelection = false
+    /// Kamera darhol ishga tushadi, lekin 3D model fon rejimida yuklanadi —
+    /// shu bayroq model butunlay tayyor (yuklab olingan + RealityKit shabloni
+    /// tuzilgan) bo'lganda `true` bo'ladi, shundan keyingina yuklash overlay'i
+    /// yashiriladi.
+    @Published var isModelReady = false
     weak var controller: ARPlacementViewController?
 
     func nudge(right: Float = 0, forward: Float = 0) {
@@ -26,8 +31,13 @@ final class ARBridge: ObservableObject {
 }
 
 /// RealityKit ARView'ni SwiftUI'ga bog'laydi. Tepadagi ARPlacementView undan foydalanadi.
+///
+/// `modelFileURL` ATAYIN ixtiyoriy — kamera (ARKit sessiyasi) `modelFileURL`
+/// hali `nil` bo'lsa ham darhol ishga tushadi (`makeUIViewController`da fayl
+/// kutilmaydi); 3D model background'da yuklab olinib, tayyor bo'lgach
+/// `updateUIViewController` uni controllerga topshiradi.
 struct ARContainerView: UIViewControllerRepresentable {
-    let modelFileURL: URL
+    var modelFileURL: URL?
     /// Tanlangan variantning rang/naqsh tint'i — bitta geometriyaga (Product.model3d)
     /// runtime'da qo'llanadi, xuddi web'dagi `ModelViewer`ning material API'si kabi.
     let colorHex: String?
@@ -38,17 +48,25 @@ struct ARContainerView: UIViewControllerRepresentable {
     @ObservedObject var bridge: ARBridge
 
     func makeUIViewController(context: Context) -> ARPlacementViewController {
-        let controller = ARPlacementViewController(
-            modelFileURL: modelFileURL, colorHex: colorHex, textureURL: textureURL, scaleFactors: scaleFactors
-        )
+        let controller = ARPlacementViewController(colorHex: colorHex, textureURL: textureURL, scaleFactors: scaleFactors)
         controller.onSelectionChange = { [weak bridge] selected in
             bridge?.hasSelection = selected
         }
+        controller.onModelReady = { [weak bridge] in
+            withAnimation { bridge?.isModelReady = true }
+        }
         bridge.controller = controller
+        if let modelFileURL {
+            controller.setModelFileURL(modelFileURL)
+        }
         return controller
     }
 
-    func updateUIViewController(_ uiViewController: ARPlacementViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: ARPlacementViewController, context: Context) {
+        if let modelFileURL {
+            uiViewController.setModelFileURL(modelFileURL)
+        }
+    }
 }
 
 /// Xonaga mebel joylashtirish — **MVP: faqat bitta obyekt**:
@@ -58,13 +76,14 @@ struct ARContainerView: UIViewControllerRepresentable {
 /// — barmoq bilan surish/aylantirish/kattalashtirish RealityKit'ning tayyor
 ///   gesture tizimi orqali ham ishlayveradi, qo'shimcha SwiftUI tugmalari bilan ham.
 final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCoachingOverlayViewDelegate {
-    private let modelFileURL: URL
+    private var modelFileURL: URL?
     private let colorHex: String?
     private let textureURL: URL?
     private let scaleFactors: SIMD3<Float>
     private var arView: ARView!
     private var coachingOverlay: ARCoachingOverlayView!
     private var modelTemplate: ModelEntity?
+    private var isLoadingTemplate = false
     private var placed: ModelEntity? {
         didSet { onSelectionChange?(placed != nil) }
     }
@@ -78,15 +97,26 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     private var lockedForwardAxis: SIMD3<Float> = [0, 0, -1]
 
     var onSelectionChange: ((Bool) -> Void)?
+    /// 3D model to'liq yuklab olinib, RealityKit shabloni tuzilganda chaqiriladi
+    /// (kamera esa bundan mustaqil, ekran ochilishi bilanoq ishlab turadi).
+    var onModelReady: (() -> Void)?
 
     private static let moveStep: Float = 0.08 // metr — tugma bosilganda siljish qadami
 
-    init(modelFileURL: URL, colorHex: String?, textureURL: URL?, scaleFactors: SIMD3<Float> = [1, 1, 1]) {
-        self.modelFileURL = modelFileURL
+    init(colorHex: String?, textureURL: URL?, scaleFactors: SIMD3<Float> = [1, 1, 1]) {
         self.colorHex = colorHex
         self.textureURL = textureURL
         self.scaleFactors = scaleFactors
         super.init(nibName: nil, bundle: nil)
+    }
+
+    /// SwiftUI'dan model fayli tayyor bo'lgach (`ARContainerView.updateUIViewController`)
+    /// chaqiriladi — kamera bundan oldin allaqachon ishga tushgan bo'ladi.
+    func setModelFileURL(_ url: URL) {
+        guard modelFileURL == nil, !isLoadingTemplate else { return }
+        modelFileURL = url
+        isLoadingTemplate = true
+        Task { await loadTemplate() }
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) yo'q") }
@@ -125,7 +155,10 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         arView.addGestureRecognizer(tap)
 
-        Task { await loadTemplate() }
+        if modelFileURL != nil, !isLoadingTemplate {
+            isLoadingTemplate = true
+            Task { await loadTemplate() }
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -139,11 +172,13 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     }
 
     private func loadTemplate() async {
+        guard let modelFileURL else { return }
         do {
             let entity = try await ModelEntity(contentsOf: modelFileURL)
             entity.generateCollisionShapes(recursive: true)
             await applyVariantMaterial(to: entity)
             self.modelTemplate = entity
+            onModelReady?()
         } catch {
             print("USDZ yuklanmadi: \(error)")
         }
