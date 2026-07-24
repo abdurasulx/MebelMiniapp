@@ -16,13 +16,16 @@ enum APIError: LocalizedError {
 
 /// Simulatorda Mac'ning localhost'i to'g'ridan-to'g'ri ko'rinadi, lekin haqiqiy
 /// qurilma (masalan USB orqali ulangan iPhone) o'zining tarmog'ida ishlaydi —
-/// shuning uchun Mac'ning LAN IP manziliga ulanadi (backend shu tarmoqda ishlab turishi kerak).
+/// shuning uchun Mac'ning **Tailscale** IP manziliga ulanadi (Flutter/Android
+/// bilan bir xil sabab: oddiy LAN Wi-Fi IP ba'zi tarmoqlarda — AP-izolyatsiya
+/// va h.k. — sekin/beqaror bo'lib chiqdi, Tailscale VPN orqali bundan qat'iy
+/// nazar barqaror ulanadi). Backend shu tarmoqda ishlab turishi kerak.
 enum APIConfig {
     static let baseURL: URL = {
         #if targetEnvironment(simulator)
         return URL(string: "http://127.0.0.1:8000/api/v1")!
         #else
-        return URL(string: "http://192.168.100.185:8000/api/v1")!
+        return URL(string: "http://100.69.182.71:8000/api/v1")!
         #endif
     }()
 }

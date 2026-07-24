@@ -22,8 +22,8 @@ targets:
         NSLocationWhenInUseUsageDescription: "Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak."
         CFBundleDisplayName: "Furniture Platform"
         ITSAppUsesNonExemptEncryption: false
-        # Faqat lokal dev backend uchun (Mac'ning LAN IP'si, haqiqiy qurilma shu orqali ulanadi).
-        # Prodda domen.uz HTTPS bo'lgani uchun kerak emas.
+        # Faqat lokal dev backend uchun (Mac'ning LAN/Tailscale IP'si, haqiqiy
+        # qurilma shu orqali ulanadi). Prodda domen.uz HTTPS bo'lgani uchun kerak emas.
         NSAppTransportSecurity:
           NSExceptionDomains:
             127.0.0.1:
@@ -31,6 +31,8 @@ targets:
             localhost:
               NSExceptionAllowsInsecureHTTPLoads: true
             192.168.100.185:
+              NSExceptionAllowsInsecureHTTPLoads: true
+            100.69.182.71:
               NSExceptionAllowsInsecureHTTPLoads: true
     settings:
       base:
