@@ -6,7 +6,12 @@ struct AccountView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let user = auth.user {
+                // `isNewUser` true bo'lsa, tokenlar allaqachon olingan bo'lsa ham
+                // `AuthFormView` ko'rsatishda davom etadi — u ism/familiya
+                // so'raydigan profil bosqichini ko'rsatishi kerak (aks holda
+                // `auth.user` mavjud bo'lishi bilanoq ProfileView'ga o'tib,
+                // bu bosqich hech qachon ko'rinmay qoladi).
+                if let user = auth.user, !auth.isNewUser {
                     ProfileView(user: user)
                 } else {
                     AuthFormView()
@@ -20,11 +25,13 @@ struct AccountView: View {
 private struct ProfileView: View {
     let user: User
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var locale: LocaleStore
     @State private var orders: [OrderSummary] = []
     @State private var invitations: [EmployeeInvitation] = []
     @State private var career: [CareerEntry] = []
     @State private var isLoading = false
     @State private var busyInvitationId: String?
+    @State private var showLanguagePicker = false
 
     var body: some View {
         List {
@@ -48,6 +55,25 @@ private struct ProfileView: View {
                             }
                         }
                     }
+                }
+            }
+
+            Section {
+                Button {
+                    showLanguagePicker = true
+                } label: {
+                    HStack {
+                        Label(locale.t("profile_language"), systemImage: "globe")
+                        Spacer()
+                        Text(appLocales.first { $0.code == locale.code }?.nativeName ?? "")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
+            .confirmationDialog(locale.t("profile_language"), isPresented: $showLanguagePicker) {
+                ForEach(appLocales, id: \.code) { l in
+                    Button(l.nativeName) { locale.setLocale(l.code) }
                 }
             }
 
@@ -170,147 +196,225 @@ private struct ProfileView: View {
     }
 }
 
+/// Faqat telefon+SMS-OTP orqali kirish (email/parol olib tashlandi — bitta,
+/// oddiy oqim). Bosqichlar: davlat+raqam → 6-xonali kod (qayta yuborish
+/// countdown bilan) → (agar birinchi marta kirsa) ism/familiya so'raladi.
+/// Flutter'dagi `lib/screens/auth_screen.dart` bilan bir xil oqim.
 private struct AuthFormView: View {
     @EnvironmentObject private var auth: AuthStore
-    @State private var loginKind: LoginKind = .phone
-    @State private var mode: Mode = .login
-    @State private var email = ""
-    @State private var password = ""
-    @State private var firstName = ""
+    @EnvironmentObject private var locale: LocaleStore
+
+    private static let otpLength = 6 // backend OTPRequestView: 6 xonali kod
+
+    @State private var country = cisCountries[0]
+    @State private var showCountryPicker = false
     @State private var phone = ""
     @State private var otpCode = ""
+    @State private var firstName = ""
+    @State private var lastName = ""
+    @State private var dob: Date?
+    @State private var showDobPicker = false
     @State private var debugCode: String?
-    @State private var otpStep: OTPStep = .enterPhone
+    @State private var step: Step = .phone
     @State private var busy = false
+    @State private var resendSeconds = 0
+    @State private var resendTimer: Timer?
 
-    enum Mode { case login, register }
-    enum LoginKind { case phone, email }
-    enum OTPStep { case enterPhone, enterCode }
+    enum Step { case phone, code, profile }
+
+    private var phoneValid: Bool { country.isValid(phone) }
 
     var body: some View {
         Form {
-            Section {
-                Picker("", selection: $loginKind) {
-                    Text("Telefon (SMS)").tag(LoginKind.phone)
-                    Text("Email").tag(LoginKind.email)
-                }
-                .pickerStyle(.segmented)
-                .listRowInsets(EdgeInsets())
-                .padding(.vertical, 4)
-            }
-
-            if loginKind == .phone {
-                phoneSection
-            } else {
-                emailSection
+            switch step {
+            case .phone: phoneSection
+            case .code: codeSection
+            case .profile: profileSection
             }
 
             if let error = auth.errorMessage {
                 Section { Text(error).foregroundStyle(.red) }
             }
         }
+        .confirmationDialog(locale.t("auth_select_country"), isPresented: $showCountryPicker) {
+            ForEach(cisCountries) { c in
+                Button("\(c.flag) \(c.name) (\(c.dialCode))") {
+                    country = c
+                    if phone.count > c.phoneLength { phone = String(phone.prefix(c.phoneLength)) }
+                }
+            }
+        }
+        .onDisappear { resendTimer?.invalidate() }
     }
 
     @ViewBuilder
     private var phoneSection: some View {
-        if otpStep == .enterPhone {
-            Section {
-                TextField("Telefon (+998…)", text: $phone).keyboardType(.phonePad)
-            }
-            Section {
-                Button(action: sendOTP) {
-                    if busy { ProgressView() } else { Text("Kod yuborish").bold() }
+        Section {
+            Button {
+                showCountryPicker = true
+            } label: {
+                HStack {
+                    Text("\(country.flag) \(country.name) (\(country.dialCode))")
+                    Spacer()
+                    Image(systemName: "chevron.down").font(.caption)
                 }
-                .disabled(phone.isEmpty || busy)
-                .frame(maxWidth: .infinity)
-                .listRowBackground(Color.brandDeep)
-                .foregroundStyle(Color.brandPrimary)
             }
-        } else {
-            Section {
-                // SMS provayder hali ulanmagan — dev rejimda kod shu yerda ko'rsatiladi.
-                Text(debugCode != nil ? "SMS yuborildi (\(debugCode!))" : "SMS yuborildi")
-                    .font(.caption).foregroundStyle(.secondary)
-                TextField("Kod (6 raqam)", text: $otpCode).keyboardType(.numberPad)
+            .foregroundStyle(.primary)
+
+            HStack {
+                Text(country.dialCode).foregroundStyle(.secondary)
+                TextField(locale.t("auth_phone_hint"), text: $phone)
+                    .keyboardType(.numberPad)
+                    .accessibilityIdentifier("authPhoneField")
+                    .onChange(of: phone) { _, newValue in
+                        let digits = newValue.filter(\.isNumber)
+                        phone = String(digits.prefix(country.phoneLength))
+                    }
             }
-            Section {
-                Button(action: verifyOTP) {
-                    if busy { ProgressView() } else { Text("Kirish").bold() }
-                }
-                .accessibilityIdentifier("authSubmitButton")
-                .disabled(otpCode.isEmpty || busy)
-                .frame(maxWidth: .infinity)
-                .listRowBackground(Color.brandDeep)
-                .foregroundStyle(Color.brandPrimary)
-                Button("Raqamni o'zgartirish") { otpStep = .enterPhone }
-                    .font(.caption)
+            if !phone.isEmpty && !phoneValid {
+                Text(locale.t("auth_phone_invalid")).font(.caption).foregroundStyle(.red)
             }
         }
-    }
-
-    @ViewBuilder
-    private var emailSection: some View {
         Section {
-            Picker("", selection: $mode) {
-                Text("Kirish").tag(Mode.login)
-                Text("Ro'yxatdan o'tish").tag(Mode.register)
+            Button(action: sendOTP) {
+                if busy { ProgressView() } else { Text(locale.t("auth_send_code")).bold() }
             }
-            .pickerStyle(.segmented)
-            .listRowInsets(EdgeInsets())
-            .padding(.vertical, 4)
-        }
-
-        if mode == .register {
-            Section {
-                TextField("Ism", text: $firstName)
-                TextField("Telefon (+998…)", text: $phone).keyboardType(.phonePad)
-            }
-        }
-
-        Section {
-            TextField("Email", text: $email)
-                .textInputAutocapitalization(.never)
-                .keyboardType(.emailAddress)
-            SecureField("Parol", text: $password)
-        }
-
-        Section {
-            Button(action: submitEmail) {
-                if busy { ProgressView() } else { Text(mode == .login ? "Kirish" : "Ro'yxatdan o'tish").bold() }
-            }
-            .accessibilityIdentifier("authSubmitButton")
-            .disabled(email.isEmpty || password.isEmpty || busy)
+            .accessibilityIdentifier("authSendCodeButton")
+            .disabled(!phoneValid || busy)
             .frame(maxWidth: .infinity)
             .listRowBackground(Color.brandDeep)
             .foregroundStyle(Color.brandPrimary)
         }
     }
 
+    @ViewBuilder
+    private var codeSection: some View {
+        Section {
+            // SMS provayder hali ulanmagan — dev rejimda kod shu yerda ko'rsatiladi.
+            Text(debugCode != nil ? "\(locale.t("auth_sms_sent")) (\(debugCode!))" : locale.t("auth_sms_sent"))
+                .font(.caption).foregroundStyle(.secondary)
+                .accessibilityIdentifier("authDebugCodeLabel")
+            OtpBoxInput(code: $otpCode, length: Self.otpLength) { code in
+                if !busy { verifyOTP(code) }
+            }
+            .frame(maxWidth: .infinity)
+            .listRowInsets(EdgeInsets())
+            .padding(.vertical, 6)
+            if busy {
+                ProgressView().frame(maxWidth: .infinity)
+            }
+        }
+        Section {
+            Button {
+                if resendSeconds == 0 { sendOTP() }
+            } label: {
+                Text(resendSeconds > 0 ? "\(locale.t("auth_resend")) (\(resendSeconds)s)" : locale.t("auth_resend"))
+            }
+            .disabled(resendSeconds > 0 || busy)
+            Button(locale.t("auth_change_number")) { step = .phone }
+                .font(.caption)
+        }
+    }
+
+    @ViewBuilder
+    private var profileSection: some View {
+        Section(locale.t("auth_profile_title")) {
+            TextField(locale.t("auth_first_name"), text: $firstName)
+            TextField(locale.t("auth_last_name"), text: $lastName)
+            Button {
+                showDobPicker = true
+            } label: {
+                HStack {
+                    Text(locale.t("auth_dob"))
+                    Spacer()
+                    if let dob {
+                        Text(dob.formatted(date: .numeric, time: .omitted)).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .foregroundStyle(.primary)
+            .sheet(isPresented: $showDobPicker) {
+                NavigationStack {
+                    DatePicker(
+                        locale.t("auth_dob"), selection: Binding(get: { dob ?? Date() }, set: { dob = $0 }),
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.wheel)
+                    .navigationTitle(locale.t("auth_dob"))
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("OK") { showDobPicker = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
+            }
+        }
+        Section {
+            Button(action: saveProfile) {
+                if busy { ProgressView() } else { Text(locale.t("auth_save")).bold() }
+            }
+            .disabled(firstName.trimmingCharacters(in: .whitespaces).isEmpty || busy)
+            .frame(maxWidth: .infinity)
+            .listRowBackground(Color.brandDeep)
+            .foregroundStyle(Color.brandPrimary)
+        }
+    }
+
+    private func startCountdown(_ seconds: Int) {
+        resendTimer?.invalidate()
+        resendSeconds = seconds
+        resendTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            Task { @MainActor in
+                if resendSeconds <= 1 {
+                    resendTimer?.invalidate()
+                    resendSeconds = 0
+                } else {
+                    resendSeconds -= 1
+                }
+            }
+        }
+    }
+
     private func sendOTP() {
         busy = true
         Task {
-            debugCode = await auth.requestOTP(phone: phone)
-            if auth.errorMessage == nil { otpStep = .enterCode }
+            let result = await auth.requestOTP(phone: "\(country.dialCode)\(phone)")
             busy = false
-        }
-    }
-
-    private func verifyOTP() {
-        busy = true
-        Task {
-            await auth.verifyOTP(phone: phone, code: otpCode)
-            busy = false
-        }
-    }
-
-    private func submitEmail() {
-        busy = true
-        Task {
-            if mode == .login {
-                await auth.login(email: email, password: password)
-            } else {
-                await auth.register(email: email, password: password, firstName: firstName, phone: phone)
+            if let result {
+                debugCode = result.debugCode
+                otpCode = ""
+                step = .code
+                startCountdown(result.resendAfter)
             }
+        }
+    }
+
+    private func verifyOTP(_ code: String) {
+        busy = true
+        Task {
+            let ok = await auth.verifyOTP(phone: "\(country.dialCode)\(phone)", code: code)
+            busy = false
+            if ok && auth.isNewUser {
+                step = .profile
+            }
+        }
+    }
+
+    private func saveProfile() {
+        busy = true
+        let dobString: String? = dob.map {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd"
+            return f.string(from: $0)
+        }
+        Task {
+            await auth.completeProfile(
+                firstName: firstName.trimmingCharacters(in: .whitespaces),
+                lastName: lastName.trimmingCharacters(in: .whitespaces),
+                dateOfBirth: dobString
+            )
             busy = false
         }
     }

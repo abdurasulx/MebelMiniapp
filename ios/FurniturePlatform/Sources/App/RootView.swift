@@ -6,6 +6,7 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var likes: LikesStore
+    @EnvironmentObject private var cart: CartStore
 
     var body: some View {
         TabView {
@@ -26,6 +27,10 @@ struct RootView: View {
 
                 LikesView()
                     .tabItem { Label("Sevimlilar", systemImage: "heart.fill") }
+
+                CartView()
+                    .tabItem { Label("Savat", systemImage: "cart.fill") }
+                    .badge(cart.count)
             }
 
             AccountView()

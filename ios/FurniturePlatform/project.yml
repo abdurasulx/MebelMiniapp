@@ -19,6 +19,7 @@ targets:
       properties:
         UILaunchScreen: {}
         NSCameraUsageDescription: "Mebelni AR orqali xonangizda ko'rish uchun kamera kerak."
+        NSLocationWhenInUseUsageDescription: "Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak."
         CFBundleDisplayName: "Furniture Platform"
         ITSAppUsesNonExemptEncryption: false
         # Faqat lokal dev backend uchun (Mac'ning LAN IP'si, haqiqiy qurilma shu orqali ulanadi).

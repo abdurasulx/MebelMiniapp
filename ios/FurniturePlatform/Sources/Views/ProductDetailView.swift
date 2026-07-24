@@ -4,7 +4,9 @@ struct ProductDetailView: View {
     let productId: String
 
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var cart: CartStore
     @State private var product: Product?
+    @State private var addedToCart = false
     @State private var selectedVariant: Variant?
     @State private var width: String = ""
     @State private var height: String = ""
@@ -26,17 +28,19 @@ struct ProductDetailView: View {
             if let product {
                 VStack(alignment: .leading, spacing: 16) {
                     ZStack(alignment: .topTrailing) {
-                        AsyncImage(url: URL(string: product.imageUrl ?? "")) { phase in
-                            if let image = phase.image {
-                                image.resizable().aspectRatio(contentMode: .fill)
-                            } else {
-                                Color.brandPrimary.opacity(0.3)
+                        gallery(product)
+
+                        HStack(spacing: 8) {
+                            LikeButton(productId: product.id, compact: false)
+                            ShareLink(
+                                item: "\(product.nameUz) — \(product.companyName)\nFurniture Platform ilovasida ko'ring."
+                            ) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .padding(8)
+                                    .background(.white, in: Circle())
                             }
                         }
-                        .frame(height: 240)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-
-                        LikeButton(productId: product.id, compact: false).padding(12)
+                        .padding(12)
                     }
                     .padding(.horizontal)
 
@@ -52,6 +56,19 @@ struct ProductDetailView: View {
                             }
                         } else {
                             Text("🏭 \(product.companyName)").foregroundStyle(.secondary)
+                        }
+                        if product.branchViloyatDisplay != nil || (product.branchAddress?.isEmpty == false) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "mappin.and.ellipse").font(.caption2)
+                                Text(
+                                    [product.branchViloyatDisplay, product.branchAddress]
+                                        .compactMap { $0 }
+                                        .filter { !$0.isEmpty }
+                                        .joined(separator: ", ")
+                                )
+                                .font(.caption)
+                            }
+                            .foregroundStyle(.secondary)
                         }
                         if let description = product.description, !description.isEmpty {
                             Text(description).font(.subheadline).padding(.top, 4)
@@ -126,6 +143,18 @@ struct ProductDetailView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                             .disabled(price == nil)
+
+                            Button {
+                                guard let variant = selectedVariant else { return }
+                                cart.addProduct(product, variant: variant)
+                                addedToCart = true
+                            } label: {
+                                Label("Savatga qo'shish", systemImage: "cart.badge.plus")
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandDeep, lineWidth: 1.5))
+                                    .foregroundStyle(Color.brandDeep)
+                            }
                         }
                         .padding(.horizontal)
                     }
@@ -138,6 +167,9 @@ struct ProductDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .alert("Savatga qo'shildi", isPresented: $addedToCart) {
+            Button("OK") {}
+        }
         .onChange(of: selectedVariant?.id) { _, _ in
             guard let v = selectedVariant else { return }
             width = v.width
@@ -164,6 +196,38 @@ struct ProductDetailView: View {
                     total: price ?? 0
                 )
             }
+        }
+    }
+
+    @ViewBuilder
+    private func gallery(_ product: Product) -> some View {
+        let urls = product.galleryUrls
+        if urls.count > 1 {
+            TabView {
+                ForEach(urls, id: \.self) { url in
+                    AsyncImage(url: URL(string: url)) { phase in
+                        if let image = phase.image {
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } else {
+                            Color.brandPrimary.opacity(0.3)
+                        }
+                    }
+                    .clipped()
+                }
+            }
+            .tabViewStyle(.page)
+            .frame(height: 240)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        } else {
+            AsyncImage(url: URL(string: urls.first ?? "")) { phase in
+                if let image = phase.image {
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } else {
+                    Color.brandPrimary.opacity(0.3)
+                }
+            }
+            .frame(height: 240)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
     }
 

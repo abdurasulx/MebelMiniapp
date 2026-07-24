@@ -5,25 +5,50 @@ import XCTest
 /// testdan qolgan login sessiyasi tozalanib, testlar bir-biriga bog'liq bo'lmaydi
 /// (AuthStore.swift shu argumentni o'qib UserDefaults'dagi tokenni tozalaydi).
 final class SmokeUITests: XCTestCase {
-    /// Login'dan keyin iOS "Save Password?" tizim so'rovi chiqishi mumkin — avtomatik yopamiz.
-    private func addSavePasswordInterruptionMonitor() {
-        addUIInterruptionMonitor(withDescription: "Save Password") { alert in
-            for label in ["Not Now", "Not Now, Thanks", "Cancel"] {
-                let button = alert.buttons[label]
-                if button.exists {
-                    button.tap()
-                    return true
-                }
-            }
-            return false
-        }
-    }
-
     private func freshApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-uiTestingResetState"]
         app.launch()
         return app
+    }
+
+    /// Telefon+SMS-OTP orqali kirish (email/parol olib tashlangan — endi
+    /// yagona login yo'li). Har chaqiriqda tasodifiy raqam ishlatiladi — shu
+    /// orqali har safar yangi (birinchi marta kirgan) foydalanuvchi hosil
+    /// bo'ladi, backend debug rejimda kodni ekranda ko'rsatadi.
+    @discardableResult
+    private func loginViaOTP(_ app: XCUIApplication) -> String {
+        app.tabBars.buttons["Profil"].tap()
+
+        let phone = "90\(Int.random(in: 1_000_000...9_999_999))"
+        let phoneField = app.textFields["authPhoneField"]
+        XCTAssertTrue(phoneField.waitForExistence(timeout: 5), "Telefon maydoni yo'q")
+        phoneField.tap()
+        phoneField.typeText(phone)
+
+        app.buttons["authSendCodeButton"].tap()
+
+        let debugLabel = app.staticTexts["authDebugCodeLabel"]
+        XCTAssertTrue(debugLabel.waitForExistence(timeout: 10), "Debug kod ko'rsatilmadi")
+        let match = debugLabel.label.range(of: #"\d{6}"#, options: .regularExpression)
+        XCTAssertNotNil(match, "SMS matnida 6 xonali kod topilmadi: \(debugLabel.label)")
+        let code = String(debugLabel.label[match!])
+
+        let codeField = app.textFields["otpCodeField"]
+        XCTAssertTrue(codeField.waitForExistence(timeout: 5), "Kod maydoni yo'q")
+        codeField.tap()
+        codeField.typeText(code)
+
+        // Yangi foydalanuvchi bo'lgani uchun ism/familiya so'raladi.
+        let firstNameField = app.textFields["Ism"]
+        if firstNameField.waitForExistence(timeout: 10) {
+            firstNameField.tap()
+            firstNameField.typeText("Test")
+            app.textFields["Familiya"].tap()
+            app.textFields["Familiya"].typeText("Foydalanuvchi")
+            app.buttons["Saqlash"].tap()
+        }
+        return phone
     }
 
     func testHomeShowsHeroAndFeaturedProducts() throws {
@@ -70,21 +95,7 @@ final class SmokeUITests: XCTestCase {
 
     func testLoginFlow() throws {
         let app = freshApp()
-
-        app.tabBars.buttons["Profil"].tap()
-
-        let emailField = app.textFields["Email"]
-        XCTAssertTrue(emailField.waitForExistence(timeout: 5))
-        emailField.tap()
-        emailField.typeText("owner@test.uz")
-
-        let passwordField = app.secureTextFields["Parol"]
-        passwordField.tap()
-        passwordField.typeText("test12345")
-
-        addSavePasswordInterruptionMonitor()
-        app.buttons["authSubmitButton"].tap()
-        app.swipeUp() // interruption monitor'ni ishga tushirish uchun
+        loginViaOTP(app)
 
         let logoutButton = app.buttons["Chiqish"]
         XCTAssertTrue(logoutButton.waitForExistence(timeout: 10), "Login muvaffaqiyatsiz — profil ekrani ochilmadi")
@@ -94,15 +105,7 @@ final class SmokeUITests: XCTestCase {
         let app = freshApp()
 
         // Mijoz sifatida kirish
-        app.tabBars.buttons["Profil"].tap()
-        let emailField = app.textFields["Email"]
-        XCTAssertTrue(emailField.waitForExistence(timeout: 5))
-        emailField.tap()
-        emailField.typeText("mijoz2@test.uz")
-        app.secureTextFields["Parol"].tap()
-        app.secureTextFields["Parol"].typeText("test12345")
-        addSavePasswordInterruptionMonitor()
-        app.buttons["authSubmitButton"].tap()
+        loginViaOTP(app)
         XCTAssertTrue(app.buttons["Chiqish"].waitForExistence(timeout: 10))
 
         // Token UserDefaults'ga saqlanadi — ilovani (reset argumentisiz) qayta
@@ -141,15 +144,7 @@ final class SmokeUITests: XCTestCase {
         let app = freshApp()
 
         // Mijoz sifatida kirish
-        app.tabBars.buttons["Profil"].tap()
-        let emailField = app.textFields["Email"]
-        XCTAssertTrue(emailField.waitForExistence(timeout: 5))
-        emailField.tap()
-        emailField.typeText("mijoz2@test.uz")
-        app.secureTextFields["Parol"].tap()
-        app.secureTextFields["Parol"].typeText("test12345")
-        addSavePasswordInterruptionMonitor()
-        app.buttons["authSubmitButton"].tap()
+        loginViaOTP(app)
         XCTAssertTrue(app.buttons["Chiqish"].waitForExistence(timeout: 10))
 
         // Token saqlanadi — tab bar login'dan keyin darhol "hittable" bo'lmasligi

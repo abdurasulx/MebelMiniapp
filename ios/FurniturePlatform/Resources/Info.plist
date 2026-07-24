@@ -45,6 +45,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Mebelni AR orqali xonangizda ko'rish uchun kamera kerak.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

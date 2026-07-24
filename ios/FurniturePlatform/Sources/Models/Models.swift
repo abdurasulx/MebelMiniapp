@@ -20,6 +20,7 @@ struct User: Codable {
     let firstName: String?
     let lastName: String?
     let phone: String?
+    let dateOfBirth: String?
     let role: String
     // Doimiy, kompaniyalararo qidiruvchi ID — firma egasi shu orqali ishga taklif
     // qiladi (profilda ko'rsatiladi, boshqa kompaniyaga ham amal qiladi).
@@ -103,6 +104,18 @@ struct CompanyTier: Codable {
     let reviewCount: Int
 }
 
+/// Bir firma nomi ostida bir nechta viloyatda ishlaydigan filial — mahsulot
+/// muayyan filialga bog'lanadi, katalog foydalanuvchi joylashgan viloyatga
+/// qarab shu orqali filtrlanadi (backend `Branch` modeli).
+struct Branch: Codable, Identifiable {
+    let id: String
+    let viloyat: String
+    let viloyatDisplay: String
+    let address: String?
+    let phone: String?
+    let isMain: Bool
+}
+
 struct Company: Codable, Identifiable {
     let id: String
     let name: String
@@ -112,6 +125,7 @@ struct Company: Codable, Identifiable {
     let address: String?
     let logoUrl: String?
     let tier: CompanyTier?
+    let branches: [Branch]?
 }
 
 struct Review: Codable, Identifiable {
@@ -127,6 +141,10 @@ struct Product: Codable, Identifiable {
     let company: String
     let companyName: String
     let companySlug: String?
+    let branch: String?
+    let branchViloyat: String?
+    let branchViloyatDisplay: String?
+    let branchAddress: String?
     let category: String?
     let nameUz: String
     let nameRu: String?
@@ -141,6 +159,14 @@ struct Product: Codable, Identifiable {
     let model3d: Model3D?
 
     var liked: Bool { isLiked ?? false }
+
+    /// Galereya: bosh rasm + qo'shimcha rasmlar.
+    var galleryUrls: [String] {
+        var urls: [String] = []
+        if let imageUrl { urls.append(imageUrl) }
+        urls.append(contentsOf: images.compactMap(\.imageUrl))
+        return urls
+    }
 }
 
 struct Like: Codable, Identifiable {

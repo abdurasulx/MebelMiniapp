@@ -2,6 +2,7 @@ import SwiftUI
 
 enum SortOption: String, CaseIterable, Identifiable {
     case popular = "Ommabop"
+    case top = "Top tovarlar"
     case priceLow = "Arzon avval"
     case priceHigh = "Qimmat avval"
     case nameAZ = "Nomi (A-Z)"
@@ -14,6 +15,7 @@ struct ShopView: View {
     var initialCategory: Category?
 
     @EnvironmentObject private var likes: LikesStore
+    @EnvironmentObject private var location: LocationStore
     @State private var products: [Product] = []
     @State private var categories: [Category] = []
     @State private var selectedCategory: String?
@@ -23,6 +25,7 @@ struct ShopView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showFilters = false
+    @State private var showViloyatPicker = false
 
     private var filtered: [Product] {
         var list = products
@@ -37,8 +40,8 @@ struct ShopView: View {
             list = list.filter { $0.nameUz.lowercased().contains(q) || $0.companyName.lowercased().contains(q) }
         }
         switch sort {
-        case .popular:
-            break
+        case .popular, .top:
+            break // backend `?ordering=top` orqali serverda saralanadi, mahalliy tartib o'zgarmaydi
         case .priceLow:
             list.sort { ($0.variants.first?.basePriceValue ?? 0) < ($1.variants.first?.basePriceValue ?? 0) }
         case .priceHigh:
@@ -57,6 +60,8 @@ struct ShopView: View {
                 if !categories.isEmpty {
                     categoryRow
                 }
+
+                viloyatChip
 
                 HStack {
                     Text("\(filtered.count) ta mahsulot")
@@ -107,9 +112,39 @@ struct ShopView: View {
             await load()
         }
         .refreshable { await load() }
+        .onChange(of: sort) { _, _ in Task { await load() } }
+        .onChange(of: location.viloyat) { _, _ in Task { await load() } }
         .sheet(isPresented: $showFilters) {
             filterSheet
         }
+        .confirmationDialog("Viloyat", isPresented: $showViloyatPicker, titleVisibility: .visible) {
+            Button("Barchasi") { location.setViloyat(nil) }
+            Button("📍 GPS orqali aniqlash") { location.detectFromGps() }
+            ForEach(viloyatlar) { v in
+                Button(v.label) { location.setViloyat(v.code) }
+            }
+        }
+    }
+
+    private var viloyatChip: some View {
+        Button {
+            showViloyatPicker = true
+        } label: {
+            HStack(spacing: 6) {
+                if location.status == .loading {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: "mappin.circle.fill")
+                }
+                Text(location.viloyatLabelText).font(.caption).bold()
+                Image(systemName: "chevron.down").font(.caption2)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Color(.secondarySystemBackground))
+            .foregroundStyle(.primary)
+            .clipShape(Capsule())
+        }
+        .padding(.horizontal)
     }
 
     private var searchBar: some View {
@@ -197,7 +232,15 @@ struct ShopView: View {
     private func load() async {
         isLoading = true
         errorMessage = nil
-        async let productsResult: Paginated<Product> = APIClient.shared.get("/products/", auth: true)
+        var params: [String] = []
+        if let viloyat = location.viloyat {
+            params.append("viloyat=\(viloyat)")
+        }
+        if sort == .top {
+            params.append("ordering=top")
+        }
+        let query = params.isEmpty ? "" : "?\(params.joined(separator: "&"))"
+        async let productsResult: Paginated<Product> = APIClient.shared.get("/products/\(query)", auth: true)
         async let categoriesResult: Paginated<Category> = APIClient.shared.get("/categories/")
         do {
             let (p, c) = try await (productsResult, categoriesResult)

@@ -8,10 +8,16 @@ enum AppMode: String {
     case customer, worker
 }
 
+struct OTPRequestResult {
+    let debugCode: String?
+    let resendAfter: Int
+}
+
 @MainActor
 final class AuthStore: ObservableObject {
     @Published private(set) var user: User?
     @Published private(set) var isAuthenticated = false
+    @Published private(set) var isNewUser = false
     @Published var errorMessage: String?
     @Published var appMode: AppMode = .customer {
         didSet { defaults.set(appMode.rawValue, forKey: appModeKey) }
@@ -79,31 +85,60 @@ final class AuthStore: ObservableObject {
 
     /// SMS-tasdiqlash: kod so'raladi. Hozircha SMS provayder ulanmagani uchun
     /// backend kodni javobda ham qaytaradi (`debug_code`) — ekranda shu ko'rsatiladi.
-    func requestOTP(phone: String) async -> String? {
+    /// `resend_after` — qayta yuborishgacha eng kam kutish vaqti (countdown shundan boshlanadi).
+    func requestOTP(phone: String) async -> OTPRequestResult? {
         struct Body: Encodable { let phone: String }
-        struct Resp: Decodable { let detail: String; let debugCode: String? }
+        struct Resp: Decodable { let detail: String; let debugCode: String?; let resendAfter: Int? }
         errorMessage = nil
         do {
             let resp: Resp = try await APIClient.shared.post("/auth/otp/request/", body: Body(phone: phone), auth: false)
-            return resp.debugCode
+            return OTPRequestResult(debugCode: resp.debugCode, resendAfter: resp.resendAfter ?? 60)
         } catch {
             errorMessage = error.localizedDescription
             return nil
         }
     }
 
-    func verifyOTP(phone: String, code: String) async {
+    /// Muvaffaqiyatli tasdiqlangach `isNewUser` yangilanadi — birinchi marta
+    /// kirgan foydalanuvchidan ism/familiya so'rash kerakligini bildiradi.
+    @discardableResult
+    func verifyOTP(phone: String, code: String) async -> Bool {
         struct Body: Encodable { let phone: String; let code: String }
+        struct Resp: Decodable { let access: String; let refresh: String; let isNewUser: Bool }
         errorMessage = nil
         do {
-            let tokens: TokenPair = try await APIClient.shared.post(
+            let resp: Resp = try await APIClient.shared.post(
                 "/auth/otp/verify/", body: Body(phone: phone, code: code), auth: false
             )
+            let tokens = TokenPair(access: resp.access, refresh: resp.refresh)
+            isNewUser = resp.isNewUser
             await APIClient.shared.setTokens(tokens)
             persist(tokens)
             await loadMe()
+            return true
         } catch {
             errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Birinchi marta kirgan foydalanuvchi ismini to'ldirishda ishlatiladi.
+    @discardableResult
+    func completeProfile(firstName: String, lastName: String, dateOfBirth: String?) async -> Bool {
+        struct Body: Encodable {
+            let firstName: String; let lastName: String; let dateOfBirth: String?
+        }
+        errorMessage = nil
+        do {
+            let me: User = try await APIClient.shared.patch(
+                "/users/me/", body: Body(firstName: firstName, lastName: lastName, dateOfBirth: dateOfBirth), auth: true
+            )
+            user = me
+            isNewUser = false
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 
