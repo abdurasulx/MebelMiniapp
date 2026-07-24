@@ -135,10 +135,24 @@ struct HomeView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 14) {
                 ForEach(products.prefix(10)) { product in
-                    NavigationLink(destination: ProductDetailView(productId: product.id)) {
-                        FeaturedProductCard(product: product)
+                    // LikeButton `NavigationLink`ning label'i ICHIDA emas, sibling
+                    // sifatida joylashtiriladi — aks holda yurakchaga bosish, tugma
+                    // o'z harakatini bajarish o'rniga, navigatsiyani ishga tushirib
+                    // yuboradi.
+                    ZStack(alignment: .topTrailing) {
+                        NavigationLink(destination: ProductDetailView(productId: product.id)) {
+                            FeaturedProductCard(product: product)
+                        }
+                        .buttonStyle(.plain)
+
+                        HStack(spacing: 6) {
+                            if product.model3d?.glbUrl != nil {
+                                ARBadge()
+                            }
+                            LikeButton(productId: product.id)
+                        }
+                        .padding(6)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
@@ -187,25 +201,15 @@ struct FeaturedProductCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .topTrailing) {
-                AsyncImage(url: URL(string: product.imageUrl ?? "")) { phase in
-                    if let image = phase.image {
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } else {
-                        Color.brandPrimary.opacity(0.3)
-                    }
+            AsyncImage(url: URL(string: product.imageUrl ?? "")) { phase in
+                if let image = phase.image {
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } else {
+                    Color.brandPrimary.opacity(0.3)
                 }
-                .frame(width: 160, height: 130)
-                .clipped()
-
-                HStack(spacing: 6) {
-                    if product.model3d?.glbUrl != nil {
-                        ARBadge()
-                    }
-                    LikeButton(productId: product.id)
-                }
-                .padding(6)
             }
+            .frame(width: 160, height: 130)
+            .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 14))
 
             Text(product.nameUz).font(.subheadline).bold().lineLimit(1)

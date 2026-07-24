@@ -94,10 +94,25 @@ struct ShopView: View {
                 } else {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
                         ForEach(filtered) { product in
-                            NavigationLink(destination: ProductDetailView(productId: product.id)) {
-                                ShopProductCard(product: product)
+                            // LikeButton `NavigationLink`ning label'i ICHIDA emas, sibling
+                            // sifatida joylashtiriladi — aks holda yurakchaga bosish, tugma
+                            // o'z harakatini bajarish o'rniga, navigatsiyani ishga tushirib
+                            // yuboradi (SwiftUI: Button ichidagi NavigationLink taplarni
+                            // yutib yuboradigan holat).
+                            ZStack(alignment: .topTrailing) {
+                                NavigationLink(destination: ProductDetailView(productId: product.id)) {
+                                    ShopProductCard(product: product)
+                                }
+                                .buttonStyle(.plain)
+
+                                HStack(spacing: 6) {
+                                    if product.model3d?.glbUrl != nil {
+                                        ARBadge()
+                                    }
+                                    LikeButton(productId: product.id)
+                                }
+                                .padding(6)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal)
@@ -259,25 +274,15 @@ private struct ShopProductCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ZStack(alignment: .topTrailing) {
-                AsyncImage(url: URL(string: product.imageUrl ?? "")) { phase in
-                    if let image = phase.image {
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } else {
-                        Color.brandPrimary.opacity(0.3)
-                    }
+            AsyncImage(url: URL(string: product.imageUrl ?? "")) { phase in
+                if let image = phase.image {
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } else {
+                    Color.brandPrimary.opacity(0.3)
                 }
-                .frame(height: 130)
-                .clipped()
-
-                HStack(spacing: 6) {
-                    if product.model3d?.glbUrl != nil {
-                        ARBadge()
-                    }
-                    LikeButton(productId: product.id)
-                }
-                .padding(6)
             }
+            .frame(height: 130)
+            .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Text(product.nameUz).font(.subheadline).bold().lineLimit(1)
