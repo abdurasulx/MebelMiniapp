@@ -229,7 +229,9 @@ private struct RotationDial: View {
 
 /// Markaziy shaffof joystik (D-pad/thumbstick) — barmoq markazdan qaysi
 /// tomonga surilsa, ob'ekt xuddi shu (fazoda qulflangan) yo'nalishda siljiydi.
-/// Qo'yib yuborilganda tayoqcha markazga qaytadi.
+/// Ikki zonaga bo'lingan: ichki zona (markazga yaqin) — nozik, 1x tezlik;
+/// tashqi zona (chekkaga yaqin) — tez, 2x tezlik. Qo'yib yuborilganda
+/// tayoqcha markazga qaytadi.
 private struct PositionJoystick: View {
     @ObservedObject var bridge: ARBridge
     @GestureState private var dragOffset: CGSize = .zero
@@ -237,6 +239,12 @@ private struct PositionJoystick: View {
     private let baseSize: CGFloat = 76
     private let knobSize: CGFloat = 34
     private let maxOffset: CGFloat = 21
+    private let innerRadius: CGFloat = 11 // ichki (1x) va tashqi (2x) zona chegarasi
+
+    private var distance: CGFloat {
+        sqrt(dragOffset.width * dragOffset.width + dragOffset.height * dragOffset.height)
+    }
+    private var inOuterZone: Bool { distance > innerRadius }
 
     var body: some View {
         ZStack {
@@ -247,11 +255,16 @@ private struct PositionJoystick: View {
                     Circle().stroke(.white.opacity(0.15), lineWidth: 1)
                 )
 
-            // yo'nalish o'qlari — surish paytida nozik ko'rinadi
+            // Ichki (1x) / tashqi (2x) zona chegarasi
+            Circle()
+                .stroke(.white.opacity(inOuterZone ? 0.4 : 0.2), lineWidth: 1)
+                .frame(width: innerRadius * 2, height: innerRadius * 2)
+
+            // yo'nalish o'qlari — tashqi zonada yorqinroq (tezlashgani bildiradi)
             ForEach([0.0, 90.0, 180.0, 270.0], id: \.self) { angle in
                 Image(systemName: "chevron.up")
                     .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white.opacity(dragOffset == .zero ? 0.25 : 0.55))
+                    .foregroundStyle(.white.opacity(dragOffset == .zero ? 0.25 : (inOuterZone ? 0.8 : 0.5)))
                     .offset(y: -baseSize / 2 + 6)
                     .rotationEffect(.degrees(angle))
             }
@@ -272,9 +285,12 @@ private struct PositionJoystick: View {
                     // Tayoqcha markazdan qanchalik uzoqlashgan bo'lsa, har bir
                     // harakat hodisasida shunchalik ko'proq siljiydi — barmoq
                     // qimirlab turgan ekan, tabiiy uzluksiz surilish hissi beradi.
+                    // Ichki zonada 1x (nozik boshqarish), tashqi zonada 2x (tez siljish).
+                    let dist = sqrt(clamped.width * clamped.width + clamped.height * clamped.height)
+                    let speed: Float = dist > innerRadius ? 2.0 : 1.0
                     let right = Float(clamped.width / maxOffset)
                     let forward = Float(-clamped.height / maxOffset)
-                    bridge.nudge(right: right * 0.01, forward: forward * 0.01)
+                    bridge.nudge(right: right * 0.01 * speed, forward: forward * 0.01 * speed)
                 }
         )
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)
