@@ -54,8 +54,8 @@ export default function Liked() {
               <Heart size={14} fill="currentColor" style={{ color: "#e74c3c" }} />
             </button>
             <Link to={`/products/${p.id}`}>
-              {p.image_url ? (
-                <img src={p.image_url} alt={p.name_uz} className="h-44 w-full object-cover" />
+              {(p.image_url || p.images?.[0]?.image_url) ? (
+                <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="h-44 w-full object-cover" />
               ) : (
                 <div
                   className="flex h-44 w-full items-center justify-center"

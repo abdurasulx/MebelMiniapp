@@ -133,8 +133,8 @@ export default function ProductDetail() {
               colorHex={variant.color_hex}
               textureUrl={variant.texture_url}
             />
-          ) : p.image_url ? (
-            <img src={p.image_url} alt={p.name_uz} className="card w-full object-cover" />
+          ) : (p.image_url || p.images?.[0]?.image_url) ? (
+            <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="card w-full object-cover" />
           ) : (
             <div
               className="card flex h-72 w-full items-center justify-center"
@@ -245,7 +245,7 @@ export default function ProductDetail() {
                       productName: p.name_uz,
                       companyId: p.company,
                       companyName: p.company_name,
-                      image: p.image_url,
+                      image: p.image_url || p.images?.[0]?.image_url,
                       variantId: variant.id,
                       variantName: variant.name,
                       m3Price: parseFloat(variant.base_price),

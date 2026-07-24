@@ -138,9 +138,9 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                             Expanded(
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
-                                child: p.imageUrl != null
+                                child: p.cardImageUrl != null
                                     ? Image.network(
-                                        p.imageUrl!,
+                                        p.cardImageUrl!,
                                         fit: BoxFit.cover,
                                         width: double.infinity,
                                       )

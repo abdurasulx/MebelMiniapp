@@ -235,6 +235,11 @@ class Product {
     ...images.map((i) => i.imageUrl).whereType<String>(),
   ];
 
+  /// Kartochka (Bosh sahifa/Katalog/Sevimlilar)da bitta rasm ko'rsatiladi —
+  /// asosiy rasm bo'lmasa, galereyadagi birinchi rasm ishlatiladi.
+  String? get cardImageUrl =>
+      imageUrl ?? (images.isNotEmpty ? images.first.imageUrl : null);
+
   factory Product.fromJson(Map<String, dynamic> j) => Product(
     id: j['id'],
     company: j['company'],

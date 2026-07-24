@@ -133,9 +133,9 @@ export default function Catalog() {
                 </button>
               )}
             </div>
-            {p.image_url ? (
+            {(p.image_url || p.images?.[0]?.image_url) ? (
               <img
-                src={p.image_url}
+                src={p.image_url || p.images[0].image_url}
                 alt={p.name_uz}
                 className="h-44 w-full object-cover transition group-hover:scale-105"
               />

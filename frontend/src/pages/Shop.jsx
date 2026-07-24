@@ -119,8 +119,8 @@ export default function Shop() {
               key={p.id}
               className="card group overflow-hidden transition hover:-translate-y-1 hover:shadow-lg"
             >
-              {p.image_url ? (
-                <img src={p.image_url} alt={p.name_uz} className="h-40 w-full object-cover transition group-hover:scale-105" />
+              {(p.image_url || p.images?.[0]?.image_url) ? (
+                <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="h-40 w-full object-cover transition group-hover:scale-105" />
               ) : (
                 <div
                   className="flex h-40 w-full items-center justify-center"

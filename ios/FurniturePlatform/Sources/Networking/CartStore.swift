@@ -78,7 +78,7 @@ final class CartStore: ObservableObject {
         } else {
             items.append(
                 CartItem(
-                    productId: product.id, productName: product.nameUz, imageUrl: product.imageUrl,
+                    productId: product.id, productName: product.nameUz, imageUrl: product.cardImageUrl,
                     companyId: product.company, companyName: product.companyName,
                     variantId: variant.id, variantName: variant.name,
                     width: variant.widthValue, height: variant.heightValue, depth: variant.depthValue,

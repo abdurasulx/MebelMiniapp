@@ -167,6 +167,10 @@ struct Product: Codable, Identifiable {
         urls.append(contentsOf: images.compactMap(\.imageUrl))
         return urls
     }
+
+    /// Kartochka (Bosh sahifa/Katalog/Sevimlilar)da bitta rasm ko'rsatiladi —
+    /// asosiy rasm bo'lmasa, galereyadagi birinchi rasm ishlatiladi.
+    var cardImageUrl: String? { imageUrl ?? images.first?.imageUrl }
 }
 
 struct Like: Codable, Identifiable {

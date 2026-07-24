@@ -115,7 +115,7 @@ class CartStore extends ChangeNotifier {
         CartItem(
           productId: product.id,
           productName: product.nameUz,
-          imageUrl: product.imageUrl,
+          imageUrl: product.cardImageUrl,
           companyId: product.company,
           companyName: product.companyName,
           variantId: variant.id,

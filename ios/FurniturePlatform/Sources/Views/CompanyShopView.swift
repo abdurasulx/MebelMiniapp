@@ -81,7 +81,7 @@ struct CompanyShopView: View {
                     ForEach(products) { product in
                         NavigationLink(destination: ProductDetailView(productId: product.id)) {
                             VStack(alignment: .leading, spacing: 4) {
-                                AsyncImage(url: URL(string: product.imageUrl ?? "")) { phase in
+                                AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
                                     if let image = phase.image {
                                         image.resizable().aspectRatio(contentMode: .fill)
                                     } else {

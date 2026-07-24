@@ -81,7 +81,7 @@ private struct ShopStyleCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            AsyncImage(url: URL(string: product.imageUrl ?? "")) { phase in
+            AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
                 if let image = phase.image {
                     image.resizable().aspectRatio(contentMode: .fill)
                 } else {
