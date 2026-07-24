@@ -2,6 +2,9 @@ import SwiftUI
 
 /// Mahsulotni AR orqali xonaga joylashtirish ekrani (roadmap Phase 4 — Customer AR:
 /// mahsulot tanlash, xonaga joylashtirish, scale, rotation).
+///
+/// Boshqaruv paneli "frosted glass" (glassmorphism) uslubida: kamera ko'rinishi
+/// panellar ortidan aniq ko'rinib tursin deb yuqori shaffoflik ishlatiladi.
 struct ARPlacementView: View {
     let usdzURL: URL
     let title: String
@@ -23,7 +26,7 @@ struct ARPlacementView: View {
                 VStack {
                     Spacer()
                     if bridge.hasSelection {
-                        MoveControlPad(bridge: bridge)
+                        ARBottomControlUnit(bridge: bridge)
                             .padding(.bottom, 24)
                     } else {
                         Text("Tekislikni toping, so'ng bosib mebelni joylashtiring.\nBir vaqtda faqat bitta buyum qo'yiladi — boshqa joyga bossangiz, o'sha yerga ko'chadi.")
@@ -53,25 +56,9 @@ struct ARPlacementView: View {
                 }
             }
 
-            HStack {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .padding(10)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                }
-                Spacer()
-                Text(title)
-                    .font(.caption).bold()
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Capsule())
-                Spacer()
-                Color.clear.frame(width: 36, height: 36)
+            ARHeader(title: title, subtitle: bridge.hasSelection ? "Aylantirish va siljitish uchun pastki paneldan foydalaning" : nil) {
+                dismiss()
             }
-            .padding()
         }
         .background(Color.black)
         .task { await downloadModel() }
@@ -92,63 +79,240 @@ struct ARPlacementView: View {
     }
 }
 
-/// Tanlangan obyektni tugmalar orqali boshqarish: oldinga/orqaga/o'ngga/chapga siljitish,
-/// aylantirish, va o'chirish. Yo'nalish **kompasga (dunyoga) qarab fiks** — xonada
-/// qayerda tursangiz ham, tugma bosilganda obyekt doim bir xil jismoniy tomonga suriladi.
-private struct MoveControlPad: View {
-    @ObservedObject var bridge: ARBridge
+// MARK: - Yuqori panel
+
+/// Nafis, shaffof yuqori panel: chapda yopish tugmasi, markazda ob'ekt nomi va
+/// qisqa yo'riqnoma.
+private struct ARHeader: View {
+    let title: String
+    let subtitle: String?
+    let onClose: () -> Void
 
     var body: some View {
-        HStack(spacing: 20) {
-            Button {
-                bridge.rotateSelected(radians: -.pi / 8)
-            } label: {
-                Image(systemName: "rotate.left.fill").arButton()
+        VStack(spacing: 2) {
+            HStack {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                Spacer()
+                Color.clear.frame(width: 30, height: 30)
             }
 
-            VStack(spacing: 6) {
-                Button { bridge.nudge(forward: 1) } label: {
-                    Image(systemName: "chevron.up").arButton()
-                }
-                HStack(spacing: 6) {
-                    Button { bridge.nudge(right: -1) } label: {
-                        Image(systemName: "chevron.left").arButton()
-                    }
-                    Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
-                        .arButton(tint: .white.opacity(0.5))
-                    Button { bridge.nudge(right: 1) } label: {
-                        Image(systemName: "chevron.right").arButton()
-                    }
-                }
-                Button { bridge.nudge(forward: -1) } label: {
-                    Image(systemName: "chevron.down").arButton()
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 10, weight: .regular))
+                        .foregroundStyle(.white.opacity(0.65))
                 }
             }
-
-            VStack(spacing: 10) {
-                Button {
-                    bridge.rotateSelected(radians: .pi / 8)
-                } label: {
-                    Image(systemName: "rotate.right.fill").arButton()
-                }
-                Button {
-                    bridge.removeSelected()
-                } label: {
-                    Image(systemName: "trash.fill").arButton(tint: .red)
-                }
-            }
+            .multilineTextAlignment(.center)
+            .padding(.top, 2)
         }
-        .padding(14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .opacity(0.55)
+        )
+        .padding(.horizontal, 14)
+        .padding(.top, 8)
     }
 }
 
-private extension Image {
-    func arButton(tint: Color = .white) -> some View {
-        self
-            .font(.system(size: 18, weight: .bold))
+// MARK: - Pastki boshqaruv bloki
+
+/// Yagona shaffof konteyner: rotatsiya slayderi (yuqorida) + joystik/scale/delete
+/// (pastda, bitta qatorda).
+private struct ARBottomControlUnit: View {
+    @ObservedObject var bridge: ARBridge
+
+    var body: some View {
+        VStack(spacing: 16) {
+            RotationDial(bridge: bridge)
+
+            HStack(spacing: 18) {
+                GlassIconButton(system: "arrow.up.left.and.arrow.down.right", tint: .white) {
+                    // tap: standart o'lchamga tez qaytarish (fine-tuning drag orqali)
+                } drag: { delta in
+                    let factor = 1 + Float(-delta.height) * 0.0025
+                    bridge.scaleSelected(by: factor)
+                }
+
+                PositionJoystick(bridge: bridge)
+
+                GlassIconButton(system: "trash", tint: .red) {
+                    bridge.removeSelected()
+                }
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .opacity(0.6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(.white.opacity(0.18), lineWidth: 1)
+        )
+        .padding(.horizontal, 28)
+    }
+}
+
+/// Bilyard kuch o'lchagichi / aylanma g'ildirakka o'xshash gorizontal slayder —
+/// barmoq o'ngga-chapga yurgizilganda ob'ekt X o'qi (dunyo Y) atrofida silliq
+/// buriladi. Chekka nuqtaga yopishib qolmaydi — cheksiz aylantirish uchun
+/// har gesture tugaganda boshlanish nuqtasi markazga qaytariladi.
+private struct RotationDial: View {
+    @ObservedObject var bridge: ARBridge
+    @State private var dragStartX: CGFloat?
+    @State private var lastX: CGFloat = 0
+
+    private let width: CGFloat = 220
+    private let height: CGFloat = 44
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+                .fill(.white.opacity(0.08))
+                .frame(width: width, height: height)
+                .overlay(
+                    RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+                        .stroke(.white.opacity(0.15), lineWidth: 1)
+                )
+
+            HStack(spacing: width - 56) {
+                Image(systemName: "arrow.counterclockwise")
+                Image(systemName: "arrow.clockwise")
+            }
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.55))
+
+            // tick belgilar — barmoq surilganda "aylanayotgandek" taassurot beradi
+            HStack(spacing: 10) {
+                ForEach(0..<9, id: \.self) { i in
+                    Capsule()
+                        .fill(.white.opacity(i == 4 ? 0.9 : 0.3))
+                        .frame(width: i == 4 ? 3 : 2, height: i == 4 ? 18 : 10)
+                }
+            }
+        }
+        .frame(width: width, height: height)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if dragStartX == nil {
+                        dragStartX = value.startLocation.x
+                        lastX = value.startLocation.x
+                    }
+                    let deltaX = value.location.x - lastX
+                    lastX = value.location.x
+                    // piksel → radian: butun disk kengligi bo'ylab surish ~ to'liq aylanish
+                    let radians = Float(deltaX / width) * .pi * 1.6
+                    bridge.rotateSelected(radians: radians)
+                }
+                .onEnded { _ in
+                    dragStartX = nil
+                }
+        )
+    }
+}
+
+/// Markaziy shaffof joystik (D-pad/thumbstick) — barmoq markazdan qaysi
+/// tomonga surilsa, ob'ekt xuddi shu (fazoda qulflangan) yo'nalishda siljiydi.
+/// Qo'yib yuborilganda tayoqcha markazga qaytadi.
+private struct PositionJoystick: View {
+    @ObservedObject var bridge: ARBridge
+    @GestureState private var dragOffset: CGSize = .zero
+
+    private let baseSize: CGFloat = 76
+    private let knobSize: CGFloat = 34
+    private let maxOffset: CGFloat = 21
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.white.opacity(0.08))
+                .frame(width: baseSize, height: baseSize)
+                .overlay(
+                    Circle().stroke(.white.opacity(0.15), lineWidth: 1)
+                )
+
+            // yo'nalish o'qlari — surish paytida nozik ko'rinadi
+            ForEach([0.0, 90.0, 180.0, 270.0], id: \.self) { angle in
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white.opacity(dragOffset == .zero ? 0.25 : 0.55))
+                    .offset(y: -baseSize / 2 + 6)
+                    .rotationEffect(.degrees(angle))
+            }
+
+            Circle()
+                .fill(.white.opacity(0.85))
+                .frame(width: knobSize, height: knobSize)
+                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+                .offset(dragOffset)
+        }
+        .frame(width: baseSize, height: baseSize)
+        .contentShape(Circle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($dragOffset) { value, state, _ in
+                    let clamped = Self.clamp(value.translation, radius: maxOffset)
+                    state = clamped
+                    // Tayoqcha markazdan qanchalik uzoqlashgan bo'lsa, har bir
+                    // harakat hodisasida shunchalik ko'proq siljiydi — barmoq
+                    // qimirlab turgan ekan, tabiiy uzluksiz surilish hissi beradi.
+                    let right = Float(clamped.width / maxOffset)
+                    let forward = Float(-clamped.height / maxOffset)
+                    bridge.nudge(right: right * 0.01, forward: forward * 0.01)
+                }
+        )
+        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)
+    }
+
+    private static func clamp(_ translation: CGSize, radius: CGFloat) -> CGSize {
+        let length = sqrt(translation.width * translation.width + translation.height * translation.height)
+        guard length > radius else { return translation }
+        let scaleFactor = radius / length
+        return CGSize(width: translation.width * scaleFactor, height: translation.height * scaleFactor)
+    }
+}
+
+/// Shisha effektli kvadrat piktogramma tugma — bosish (`onTap`) yoki tepaga/pastga
+/// sudrash (`drag`, masalan Scale uchun) orqali ishlaydi.
+private struct GlassIconButton: View {
+    let system: String
+    var tint: Color = .white
+    var onTap: (() -> Void)? = nil
+    var drag: ((CGSize) -> Void)? = nil
+
+    var body: some View {
+        Image(systemName: system)
+            .font(.system(size: 16, weight: .semibold))
             .foregroundStyle(tint)
-            .frame(width: 40, height: 40)
-            .background(Color.black.opacity(0.35), in: Circle())
+            .frame(width: 44, height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(tint == .red ? Color.red.opacity(0.16) : .white.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(tint == .red ? Color.red.opacity(0.45) : .white.opacity(0.15), lineWidth: 1)
+            )
+            .onTapGesture { onTap?() }
+            .gesture(
+                DragGesture(minimumDistance: 4)
+                    .onChanged { value in drag?(value.translation) }
+            )
     }
 }

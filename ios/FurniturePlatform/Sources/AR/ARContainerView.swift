@@ -19,6 +19,10 @@ final class ARBridge: ObservableObject {
     func removeSelected() {
         controller?.removeSelected()
     }
+
+    func scaleSelected(by factor: Float) {
+        controller?.scaleSelected(by: factor)
+    }
 }
 
 /// RealityKit ARView'ni SwiftUI'ga bog'laydi. Tepadagi ARPlacementView undan foydalanadi.
@@ -206,12 +210,14 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         let anchor = AnchorEntity(world: result.worldTransform)
         let entity = template.clone(recursive: true)
         entity.generateCollisionShapes(recursive: true)
-        entity.components.set(InputTargetComponent(allowedInputTypes: .all))
         anchor.addChild(entity)
         arView.scene.addAnchor(anchor)
 
-        // Barmoq bilan surish/aylantirish/kattalashtirish — RealityKit'ning tayyor gesture'lari.
-        arView.installGestures([.translation, .rotation, .scale], for: entity)
+        // Eslatma: RealityKit'ning tayyor `installGestures` imo-ishoralari ATAYIN
+        // ulanmaydi — pastki SwiftUI panelidagi joystik/aylantirish diski bilan bir
+        // xil teginishlarni "talashib", ikkalasi bir vaqtda ishga tushib ketardi
+        // (natijada joystik ishlamay qolgan, aylantirish esa noto'g'ri o'qda
+        // ko'rinar edi). Boshqaruv endi faqat SwiftUI panel orqali amalga oshadi.
 
         placed = entity
     }
@@ -246,6 +252,12 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         guard let entity = placed, let anchor = entity.anchor else { return }
         arView.scene.removeAnchor(anchor)
         placed = nil
+    }
+
+    func scaleSelected(by factor: Float) {
+        guard let entity = placed else { return }
+        let newScale = simd_clamp(entity.transform.scale * factor, [0.3, 0.3, 0.3], [3, 3, 3])
+        entity.transform.scale = newScale
     }
 
     func coachingOverlayViewDidDeactivate(_ coachingOverlayView: ARCoachingOverlayView) {}
