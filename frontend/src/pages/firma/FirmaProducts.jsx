@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sofa, Box, Check, Lock, Link2, Unlock, Workflow, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Sofa, Box, Check, Lock, Link2, Unlock, Workflow, Trash2, ArrowUp, ArrowDown, Images, X } from "lucide-react";
 import { api } from "../../api";
 import ModelViewer from "../../components/ModelViewer";
 import { POSITIONS } from "../../positions";
@@ -134,6 +134,7 @@ function ProductRow({ p, onChanged }) {
   const [variant, setVariant] = useState({ name: "", base_price: "", width: 1, height: 1, depth: 1 });
   const [showVariant, setShowVariant] = useState(false);
   const [show3d, setShow3d] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
   const [editColorFor, setEditColorFor] = useState(null);
   const [showWorkflow, setShowWorkflow] = useState(false);
 
@@ -194,6 +195,12 @@ function ProductRow({ p, onChanged }) {
             + Variant
           </button>
           <button
+            className={p.images?.length ? "btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
+            onClick={() => setShowGallery(!showGallery)}
+          >
+            <Images size={13} /> Rasmlar{p.images?.length ? ` (${p.images.length})` : ""}
+          </button>
+          <button
             className={p.model3d?.glb_url ? "btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
             onClick={() => setShow3d(!show3d)}
           >
@@ -215,6 +222,8 @@ function ProductRow({ p, onChanged }) {
       </div>
 
       {showWorkflow && <WorkflowEditor product={p} />}
+
+      {showGallery && <GalleryForm product={p} onDone={onChanged} />}
 
       {show3d && (
         <div>
@@ -466,6 +475,85 @@ function WorkflowEditor({ product }) {
           + Bosqich qo'shish
         </button>
       )}
+    </div>
+  );
+}
+
+function GalleryForm({ product, onDone }) {
+  const [file, setFile] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const upload = async (e) => {
+    e.preventDefault();
+    if (!file) return;
+    setError("");
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      fd.append("sort_order", product.images?.length || 0);
+      await api(`/products/${product.id}/images/`, { method: "POST", body: fd, isForm: true });
+      setFile(null);
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (imageId) => {
+    try {
+      await api(`/products/${product.id}/images/${imageId}/`, { method: "DELETE" });
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-xl p-4"
+      style={{ border: "1px dashed var(--border)", background: "color-mix(in srgb, var(--primary) 8%, transparent)" }}
+    >
+      <span className="inline-flex items-center gap-1.5 text-sm font-semibold">
+        <Images size={15} /> Qo'shimcha rasmlar — {product.name_uz}
+      </span>
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        Asosiy rasmdan tashqari bir nechta rasm qo'shishingiz mumkin (masalan loyiha
+        mahsuloti uchun xonaning turli burchaklari).
+      </p>
+
+      {product.images?.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {product.images.map((img) => (
+            <div key={img.id} className="group relative">
+              <img src={img.image_url} alt="" className="h-20 w-20 rounded-lg object-cover" />
+              <button
+                type="button"
+                onClick={() => remove(img.id)}
+                className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full"
+                style={{ background: "#e74c3c", color: "#fff" }}
+                title="O'chirish"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form className="flex items-end gap-3" onSubmit={upload}>
+        <div className="flex-1">
+          <label className="label">Yangi rasm</label>
+          <input className="input" type="file" accept="image/*" onChange={(e) => setFile(e.target.files[0])} />
+        </div>
+        <button className="btn !px-3 !py-1.5 text-xs" type="submit" disabled={busy || !file}>
+          {busy ? "Yuklanmoqda…" : "Qo'shish"}
+        </button>
+      </form>
+      {error && <div className="error">{error}</div>}
     </div>
   );
 }

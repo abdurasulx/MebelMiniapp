@@ -4,8 +4,13 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.companies.views import user_company
 
-from .models import Category, Product, Variant
-from .serializers import CategorySerializer, ProductSerializer, VariantSerializer
+from .models import Category, Product, ProductImage, Variant
+from .serializers import (
+    CategorySerializer,
+    ProductImageSerializer,
+    ProductSerializer,
+    VariantSerializer,
+)
 
 
 class IsPlatformAdminOrReadOnly(permissions.BasePermission):
@@ -83,6 +88,37 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer.save(company=company)
 
     def perform_destroy(self, instance):
+        instance.is_deleted = True
+        instance.save(update_fields=["is_deleted"])
+
+
+class ProductImageViewSet(viewsets.ModelViewSet):
+    """Mahsulot galereyasi — bitta asosiy rasmdan tashqari qo'shimcha rasmlar
+    (masalan "loyiha mahsuloti" — butun xona/loyihaning bir nechta burchagi)."""
+
+    serializer_class = ProductImageSerializer
+    permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+
+    def get_queryset(self):
+        return ProductImage.objects.filter(
+            is_deleted=False, product_id=self.kwargs["product_pk"]
+        ).order_by("sort_order")
+
+    def _get_product(self):
+        product = Product.objects.get(pk=self.kwargs["product_pk"], is_deleted=False)
+        if not can_manage(self.request.user, product.company):
+            raise PermissionDenied("Bu mahsulot sizniki emas")
+        return product
+
+    def perform_create(self, serializer):
+        serializer.save(product=self._get_product())
+
+    def perform_update(self, serializer):
+        self._get_product()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._get_product()
         instance.is_deleted = True
         instance.save(update_fields=["is_deleted"])
 

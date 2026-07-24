@@ -64,7 +64,12 @@ class DetailAssetViewSet(viewsets.ModelViewSet):
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    """Mijozning shaxsiy loyihalari — faqat egasi ko'radi/boshqaradi."""
+    """Mijozning shaxsiy loyihalari — faqat egasi ko'radi/boshqaradi.
+
+    Loyiha yaratish faqat xaridor (customer) uchun — firma egasi/xodimi
+    o'z nomidan "xona loyihasi" yaratmaydi (bu mijoz tomonidagi funksiya;
+    firma tomonidagi "loyiha mahsuloti" alohida — oddiy Product + Model3D
+    orqali, ko'rinuvchanlik/ulashish shu joyda allaqachon bor)."""
 
     serializer_class = ProjectSerializer
     permission_classes = (permissions.IsAuthenticated,)
@@ -75,6 +80,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         ).prefetch_related("items__product__model3d", "items__variant", "items__detail_asset")
 
     def perform_create(self, serializer):
+        if self.request.user.role != "customer":
+            raise PermissionDenied("Loyiha faqat xaridor hisobida yaratiladi")
         serializer.save(customer=self.request.user)
 
     def perform_destroy(self, instance):

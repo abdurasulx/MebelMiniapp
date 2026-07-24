@@ -14,7 +14,12 @@ from apps.crm.views import LeadViewSet
 from apps.likes.views import LikeViewSet
 from apps.orders.views import OrderViewSet
 from apps.production.views import PayslipViewSet, ProductionTaskViewSet
-from apps.products.views import CategoryViewSet, ProductViewSet, VariantViewSet
+from apps.products.views import (
+    CategoryViewSet,
+    ProductImageViewSet,
+    ProductViewSet,
+    VariantViewSet,
+)
 from apps.projects.views import (
     DetailAssetViewSet,
     ProjectItemViewSet,
@@ -58,6 +63,10 @@ variant_list = VariantViewSet.as_view({"get": "list", "post": "create"})
 variant_detail = VariantViewSet.as_view(
     {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
 )
+product_image_list = ProductImageViewSet.as_view({"get": "list", "post": "create"})
+product_image_detail = ProductImageViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
+)
 workflow_step_list = WorkflowStepViewSet.as_view({"get": "list", "post": "create"})
 workflow_step_detail = WorkflowStepViewSet.as_view(
     {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
@@ -79,6 +88,8 @@ urlpatterns = [
     path("admin/users/", AdminUserListView.as_view(), name="admin-users"),
     path("products/<uuid:product_pk>/variants/", variant_list, name="variant-list"),
     path("products/<uuid:product_pk>/variants/<uuid:pk>/", variant_detail, name="variant-detail"),
+    path("products/<uuid:product_pk>/images/", product_image_list, name="product-image-list"),
+    path("products/<uuid:product_pk>/images/<uuid:pk>/", product_image_detail, name="product-image-detail"),
     path("products/<uuid:product_pk>/workflow-steps/", workflow_step_list, name="workflow-step-list"),
     path(
         "products/<uuid:product_pk>/workflow-steps/<uuid:pk>/",
