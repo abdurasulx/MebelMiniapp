@@ -15,6 +15,12 @@ from apps.likes.views import LikeViewSet
 from apps.orders.views import OrderViewSet
 from apps.production.views import PayslipViewSet, ProductionTaskViewSet
 from apps.products.views import CategoryViewSet, ProductViewSet, VariantViewSet
+from apps.projects.views import (
+    DetailAssetViewSet,
+    ProjectItemViewSet,
+    ProjectViewerView,
+    ProjectViewSet,
+)
 from apps.users.views import (
     AdminStatsView,
     AdminUserListView,
@@ -45,6 +51,8 @@ router.register("likes", LikeViewSet, basename="like")
 router.register("reviews", ReviewViewSet, basename="review")
 router.register("branches", BranchViewSet, basename="branch")
 router.register("workflow-instances", WorkflowStepInstanceViewSet, basename="workflow-instance")
+router.register("detail-assets", DetailAssetViewSet, basename="detail-asset")
+router.register("projects", ProjectViewSet, basename="project")
 
 variant_list = VariantViewSet.as_view({"get": "list", "post": "create"})
 variant_detail = VariantViewSet.as_view(
@@ -52,6 +60,10 @@ variant_detail = VariantViewSet.as_view(
 )
 workflow_step_list = WorkflowStepViewSet.as_view({"get": "list", "post": "create"})
 workflow_step_detail = WorkflowStepViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
+)
+project_item_list = ProjectItemViewSet.as_view({"get": "list", "post": "create"})
+project_item_detail = ProjectItemViewSet.as_view(
     {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
 )
 
@@ -75,6 +87,9 @@ urlpatterns = [
     ),
     path("workflow-stats/", WorkflowStatsView.as_view(), name="workflow-stats"),
     path("viewer/<uuid:token>/", Model3DViewerView.as_view(), name="model3d-viewer"),
+    path("projects/<uuid:project_pk>/items/", project_item_list, name="project-item-list"),
+    path("projects/<uuid:project_pk>/items/<uuid:pk>/", project_item_detail, name="project-item-detail"),
+    path("viewer/project/<uuid:token>/", ProjectViewerView.as_view(), name="project-viewer"),
 ]
 
 urlpatterns += router.urls

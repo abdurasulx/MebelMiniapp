@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.production",
     "apps.likes",
     "apps.workflow",
+    "apps.projects",
 ]
 
 MIDDLEWARE = [
