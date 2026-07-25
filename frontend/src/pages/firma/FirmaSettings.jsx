@@ -6,7 +6,7 @@ export default function FirmaSettings() {
   const { user } = useAuth();
   const [company, setCompany] = useState(null);
   const [loaded, setLoaded] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", address: "", description: "" });
+  const [form, setForm] = useState({ name: "", phone: "", address: "", description: "", employment_contract_template: "" });
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -23,6 +23,7 @@ export default function FirmaSettings() {
             phone: c.phone || "",
             address: c.address || "",
             description: c.description || "",
+            employment_contract_template: c.employment_contract_template || "",
           });
         }
       })
@@ -79,6 +80,23 @@ export default function FirmaSettings() {
         <label className="label">Tavsif</label>
         <textarea className="input" rows={3} value={form.description} onChange={set("description")} disabled={!isOwner} />
       </div>
+      {company && (
+        <div>
+          <label className="label">Ishga olish shartnomasi matni</label>
+          <p className="mb-1.5 text-xs" style={{ color: "var(--muted)" }}>
+            Xodimni ishga taklif qilganingizda, u taklifni qabul qilishdan oldin o'z ilovasida
+            aynan shu matnni ko'radi.
+          </p>
+          <textarea
+            className="input"
+            rows={8}
+            value={form.employment_contract_template}
+            onChange={set("employment_contract_template")}
+            disabled={!isOwner}
+            placeholder="Masalan: ish vaqti, maosh to'lash tartibi, sinov muddati va h.k."
+          />
+        </div>
+      )}
       {error && <div className="error">{error}</div>}
       {msg && <span className="badge">{msg}</span>}
       {isOwner && (

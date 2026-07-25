@@ -2,16 +2,26 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { POSITIONS } from "../positions";
 
+const INVITATION_STATUS_BADGE = {
+  pending: "badge-off",
+  accepted: "badge",
+  declined: "badge-off",
+};
+
 export default function Employees() {
   const [list, setList] = useState([]);
-  const [form, setForm] = useState({ email: "", positions: [], base_salary: "", bonus_per_task: "" });
+  const [invitations, setInvitations] = useState([]);
+  const [form, setForm] = useState({ worker_id: "", positions: [], base_salary: "", bonus_per_task: "" });
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [editing, setEditing] = useState(null);
 
   const load = () =>
-    api("/employees/")
-      .then((d) => setList(d.results || []))
+    Promise.all([api("/employees/"), api("/employee-invitations/")])
+      .then(([emp, inv]) => {
+        setList(emp.results || []);
+        setInvitations(inv.results || []);
+      })
       .catch((e) => setError(e.message));
 
   useEffect(() => {
@@ -26,7 +36,7 @@ export default function Employees() {
         : [...f.positions, p],
     }));
 
-  const add = async (e) => {
+  const invite = async (e) => {
     e.preventDefault();
     setError("");
     if (form.positions.length === 0) {
@@ -34,7 +44,7 @@ export default function Employees() {
       return;
     }
     try {
-      await api("/employees/", {
+      await api("/employee-invitations/", {
         method: "POST",
         body: {
           ...form,
@@ -42,17 +52,17 @@ export default function Employees() {
           bonus_per_task: form.bonus_per_task || 0,
         },
       });
-      setForm({ email: "", positions: [], base_salary: "", bonus_per_task: "" });
-      setMsg("Xodim qo'shildi");
-      setTimeout(() => setMsg(""), 3000);
+      setForm({ worker_id: "", positions: [], base_salary: "", bonus_per_task: "" });
+      setMsg("Taklif yuborildi — xodim o'z ilovasida qabul qilishi kerak");
+      setTimeout(() => setMsg(""), 4000);
       load();
     } catch (err) {
       setError(err.message);
     }
   };
 
-  const remove = async (emp) => {
-    if (!confirm(`${emp.user_email} xodimlikdan chiqarilsinmi?`)) return;
+  const fire = async (emp) => {
+    if (!confirm(`${emp.user_name || emp.user_email} ishdan bo'shatilsinmi?`)) return;
     try {
       await api(`/employees/${emp.id}/`, { method: "DELETE" });
       load();
@@ -63,15 +73,20 @@ export default function Employees() {
 
   return (
     <div className="flex flex-col gap-4">
-      <form className="card flex flex-col gap-4 p-5" onSubmit={add}>
-        <h2 className="text-base font-semibold">+ Yangi xodim</h2>
+      <form className="card flex flex-col gap-4 p-5" onSubmit={invite}>
+        <h2 className="text-base font-semibold">Ishga taklif qilish</h2>
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
+          Xodim mobil ilovadagi profilida ko'rsatilgan shaxsiy ID raqamini sizga aytadi — shu ID orqali
+          taklif yuborasiz. Xodim taklifni o'z ilovasida (Flutter/iOS) qabul qilgandan keyingina
+          ro'yxatga qo'shiladi — yangi xodim to'g'ridan-to'g'ri bu yerdan yaratilmaydi.
+        </p>
         <div className="max-w-md">
-          <label className="label">Xodim emaili (avval ro'yxatdan o'tgan bo'lsin)</label>
+          <label className="label">Xodimning ID raqami</label>
           <input
             className="input"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            value={form.worker_id}
+            onChange={(e) => setForm({ ...form, worker_id: e.target.value })}
+            placeholder="masalan 4829173650"
             required
           />
         </div>
@@ -126,17 +141,57 @@ export default function Employees() {
             />
           </div>
         </div>
-        <button className="btn self-start" type="submit">+ Qo'shish</button>
+        <button className="btn self-start" type="submit">Taklif yuborish</button>
       </form>
 
       {msg && <span className="badge self-start">{msg}</span>}
       {error && <div className="error">{error}</div>}
 
+      {invitations.length > 0 && (
+        <div className="card flex flex-col gap-3 p-5">
+          <h2 className="text-base font-semibold">Yuborilgan takliflar</h2>
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Ismi</th>
+                  <th>Kasblari</th>
+                  <th>Holat</th>
+                  <th>Sana</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invitations.map((inv) => (
+                  <tr key={inv.id}>
+                    <td className="font-medium">{inv.invited_worker_id}</td>
+                    <td>{inv.invited_user_name || "—"}</td>
+                    <td>
+                      <div className="flex flex-wrap gap-1">
+                        {(inv.positions || []).map((p) => (
+                          <span key={p} className="badge badge-brand">{POSITIONS[p]?.label || p}</span>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge ${INVITATION_STATUS_BADGE[inv.status] || ""}`}>
+                        {inv.status_display}
+                      </span>
+                    </td>
+                    <td style={{ color: "var(--muted)" }}>{new Date(inv.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="table-wrap">
         <table className="table">
           <thead>
             <tr>
-              <th>Email</th>
+              <th>ID</th>
               <th>Ismi</th>
               <th>Kasblari</th>
               <th>Oylik</th>
@@ -148,7 +203,7 @@ export default function Employees() {
           <tbody>
             {list.map((emp) => (
               <tr key={emp.id}>
-                <td className="font-medium">{emp.user_email}</td>
+                <td className="font-medium">{emp.user_worker_id}</td>
                 <td>{emp.user_name || "—"}</td>
                 <td>
                   <div className="flex flex-wrap gap-1">
@@ -175,8 +230,8 @@ export default function Employees() {
                     <button className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => setEditing(emp)}>
                       Oylikni tahrirlash
                     </button>
-                    <button className="btn-danger !px-3 !py-1.5 text-xs" onClick={() => remove(emp)}>
-                      Chiqarish
+                    <button className="btn-danger !px-3 !py-1.5 text-xs" onClick={() => fire(emp)}>
+                      Ishdan bo'shatish
                     </button>
                   </div>
                 </td>

@@ -31,6 +31,10 @@ class Company(BaseModel, StoredFileMixin):
     address = models.CharField(max_length=500, blank=True)
     logo = models.ImageField(upload_to="companies/logos/", blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    # Har firma o'zining ishga olish shartnomasi matnini moslashtirib qo'yadi —
+    # xodim taklifnomani (EmployeeInvitation) qabul qilishdan oldin shu matnni
+    # ko'radi.
+    employment_contract_template = models.TextField(blank=True)
 
     class Meta:
         verbose_name_plural = "companies"

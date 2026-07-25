@@ -45,16 +45,21 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
             "is_active",
             "tier",
             "branches",
+            "employment_contract_template",
             "created_at",
         )
         read_only_fields = ("id", "owner", "slug", "created_at")
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(write_only=True)
+    """Mavjud xodimni ko'rish/tahrirlash uchun — yangi xodim bu orqali
+    yaratilmaydi (qarang: `EmployeeInvitationSerializer`, worker_id bilan
+    taklif + qabul qilish oqimi)."""
+
     user_id = serializers.UUIDField(source="user.id", read_only=True)
     user_email = serializers.EmailField(source="user.email", read_only=True)
     user_name = serializers.CharField(source="user.first_name", read_only=True)
+    user_worker_id = serializers.CharField(source="user.worker_id", read_only=True)
     positions = serializers.ListField(
         child=serializers.ChoiceField(choices=Employee.Position.choices),
         allow_empty=False,
@@ -63,39 +68,10 @@ class EmployeeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee
         fields = (
-            "id", "email", "user_id", "user_email", "user_name",
+            "id", "user_id", "user_email", "user_name", "user_worker_id",
             "positions", "is_active", "base_salary", "bonus_per_task", "created_at",
         )
         read_only_fields = ("id", "created_at")
-
-    def validate_email(self, value):
-        try:
-            self._user = User.objects.get(email__iexact=value)
-        except User.DoesNotExist:
-            raise serializers.ValidationError(
-                "Bu email bilan foydalanuvchi topilmadi. Xodim avval saytda ro'yxatdan o'tsin."
-            )
-        return value
-
-    def create(self, validated_data):
-        validated_data.pop("email")
-        company = validated_data["company"]
-        user = self._user
-        if user.id == company.owner_id:
-            raise serializers.ValidationError("Kompaniya egasini xodim qilib qo'shib bo'lmaydi")
-        existing = Employee.objects.filter(company=company, user=user).first()
-        if existing:
-            existing.is_active = True
-            existing.is_deleted = False
-            existing.positions = validated_data.get("positions", existing.positions)
-            existing.base_salary = validated_data.get("base_salary", existing.base_salary)
-            existing.bonus_per_task = validated_data.get("bonus_per_task", existing.bonus_per_task)
-            existing.save()
-            return existing
-        if user.role == User.Role.CUSTOMER:
-            user.role = User.Role.EMPLOYEE
-            user.save(update_fields=["role"])
-        return Employee.objects.create(user=user, **validated_data)
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -141,6 +117,7 @@ class EmployeeInvitationSerializer(serializers.ModelSerializer):
     invited_user_name = serializers.CharField(source="invited_user.first_name", read_only=True)
     invited_worker_id = serializers.CharField(source="invited_user.worker_id", read_only=True)
     company_name = serializers.CharField(source="company.name", read_only=True)
+    company_contract = serializers.CharField(source="company.employment_contract_template", read_only=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     positions = serializers.ListField(
         child=serializers.ChoiceField(choices=Employee.Position.choices),
@@ -150,12 +127,13 @@ class EmployeeInvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployeeInvitation
         fields = (
-            "id", "company", "company_name", "worker_id", "invited_user_name", "invited_worker_id",
+            "id", "company", "company_name", "company_contract", "worker_id",
+            "invited_user_name", "invited_worker_id",
             "positions", "base_salary", "bonus_per_task", "status", "status_display",
             "responded_at", "created_at",
         )
         read_only_fields = (
-            "id", "company", "company_name", "invited_user_name", "invited_worker_id",
+            "id", "company", "company_name", "company_contract", "invited_user_name", "invited_worker_id",
             "status", "status_display", "responded_at", "created_at",
         )
 

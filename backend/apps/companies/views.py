@@ -60,10 +60,18 @@ class CompanyViewSet(viewsets.ModelViewSet):
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    """Firma portali: kompaniya egasi xodimlarini boshqaradi."""
+    """Firma portali: kompaniya egasi xodimlarini boshqaradi.
+
+    Yangi xodim to'g'ridan-to'g'ri shu yerda YARATILMAYDI — yagona yo'l
+    `EmployeeInvitationViewSet` orqali (worker_id bilan taklif, foydalanuvchi
+    o'zi qabul qilgach `Employee` yozuvi hosil bo'ladi). Shuning uchun "create"
+    metodi ataylab o'chirilgan — bu yerda faqat mavjud xodimlarni ko'rish,
+    tahrirlash (lavozim/maosh) va "ishdan bo'shatish" (soft-delete) mumkin.
+    """
 
     serializer_class = EmployeeSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ("get", "patch", "delete", "head", "options")
 
     def _own_company(self):
         company = Company.objects.filter(
@@ -80,9 +88,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         return Employee.objects.filter(
             company=company, is_deleted=False
         ).select_related("user")
-
-    def perform_create(self, serializer):
-        serializer.save(company=self._own_company())
 
     def perform_update(self, serializer):
         self._own_company()
