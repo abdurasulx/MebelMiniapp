@@ -58,8 +58,8 @@ export default function Viewer() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col" style={{ background: "#0d0d15" }}>
-      <div className="flex items-center justify-between px-5 py-4">
+    <div className="flex h-screen flex-col" style={{ background: "#0d0d15" }}>
+      <div className="flex shrink-0 items-center justify-between px-5 py-4">
         <div>
           <div className="text-sm font-bold text-white">{data.product_name}</div>
           <div className="text-xs" style={{ color: "#9a9aa5" }}>
@@ -79,11 +79,11 @@ export default function Viewer() {
           );
         })()}
       </div>
-      <div className="flex flex-1 items-center justify-center px-4 pb-8">
+      <div className="min-h-0 flex-1 px-4 pb-4">
         <ModelSceneViewer
           glb={data.glb_url}
           alt={data.product_name}
-          style={{ height: "70vh", width: "100%", maxWidth: 900, background: "#16161f" }}
+          style={{ height: "100%", width: "100%", background: "#16161f" }}
         />
       </div>
     </div>

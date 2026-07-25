@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { Layers, Camera, Maximize, Link2, Check, ListTree, Search, Eye, EyeOff, ChevronRight } from "lucide-react";
+import { Layers, Camera, Maximize, Link2, Check, ListTree, Search, Eye, EyeOff, ChevronRight, Ruler, Box } from "lucide-react";
 
 const MODES = [
   { value: "textured", label: "Teksturada" },
@@ -11,6 +11,16 @@ const MODES = [
   { value: "wireframe", label: "Karkas" },
   { value: "effects", label: "Effektlar (studiya yorug'ligi)" },
   { value: "xray", label: "Rentgen rejimi" },
+];
+
+const VIEW_PRESETS = [
+  { label: "Old", dir: [0, 0, 1] },
+  { label: "Orqa", dir: [0, 0, -1] },
+  { label: "Chap", dir: [-1, 0, 0] },
+  { label: "O'ng", dir: [1, 0, 0] },
+  { label: "Tepa", dir: [0, 1, 0.0001] },
+  { label: "Ostki", dir: [0, -1, 0.0001] },
+  { label: "Izometrik", dir: [1, 0.55, 1] },
 ];
 
 const BG_DEFAULT = 0x11131c;
@@ -36,6 +46,9 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(() => new Set());
   const [tick, setTick] = useState(0);
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [measuring, setMeasuring] = useState(false);
+  const [measureDistance, setMeasureDistance] = useState(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -81,8 +94,58 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
     }
     animate();
 
-    const st = { scene, camera, renderer, controls, envTexture, root: null };
+    const measureGroup = new THREE.Group();
+    scene.add(measureGroup);
+
+    const st = {
+      scene, camera, renderer, controls, envTexture, root: null,
+      measureGroup, measurePoints: [], measureActive: false, onMeasure: null,
+    };
     stateRef.current = st;
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    function handleMeasureClick(e) {
+      if (!st.measureActive || !st.root) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const meshes = [];
+      st.root.traverse((o) => {
+        if (o.isMesh && o.visible) meshes.push(o);
+      });
+      const hits = raycaster.intersectObjects(meshes, false);
+      if (!hits.length) return;
+      const point = hits[0].point.clone();
+
+      if (st.measurePoints.length >= 2) {
+        st.measurePoints = [];
+        st.measureGroup.clear();
+        st.onMeasure?.(null);
+      }
+      st.measurePoints.push(point);
+      const dotSize = Math.max(camera.position.distanceTo(controls.target) * 0.012, 0.005);
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(dotSize, 12, 12),
+        new THREE.MeshBasicMaterial({ color: 0xff4d4f, depthTest: false })
+      );
+      dot.renderOrder = 999;
+      dot.position.copy(point);
+      st.measureGroup.add(dot);
+
+      if (st.measurePoints.length === 2) {
+        const [a, b] = st.measurePoints;
+        const line = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([a, b]),
+          new THREE.LineBasicMaterial({ color: 0xff4d4f, depthTest: false })
+        );
+        line.renderOrder = 999;
+        st.measureGroup.add(line);
+        st.onMeasure?.(a.distanceTo(b));
+      }
+    }
+    renderer.domElement.addEventListener("click", handleMeasureClick);
 
     const resizeObserver = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
@@ -97,6 +160,7 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
     return () => {
       cancelAnimationFrame(raf);
       resizeObserver.disconnect();
+      renderer.domElement.removeEventListener("click", handleMeasureClick);
       controls.dispose();
       renderer.dispose();
       pmremGenerator.dispose();
@@ -152,6 +216,37 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
   useEffect(() => {
     applyMode(stateRef.current, mode);
   }, [mode]);
+
+  useEffect(() => {
+    const st = stateRef.current;
+    st.onMeasure = setMeasureDistance;
+  }, []);
+
+  useEffect(() => {
+    const st = stateRef.current;
+    st.measureActive = measuring;
+    if (!measuring) {
+      st.measurePoints = [];
+      st.measureGroup?.clear();
+      setMeasureDistance(null);
+    }
+  }, [measuring]);
+
+  const setPresetView = (dir) => {
+    const st = stateRef.current;
+    if (!st.root) return;
+    const box = new THREE.Box3().setFromObject(st.root);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const fovRad = (st.camera.fov * Math.PI) / 180;
+    const fitH = maxDim / (2 * Math.tan(fovRad / 2));
+    const fitW = fitH / st.camera.aspect;
+    const distance = 1.25 * Math.max(fitH, fitW);
+    st.camera.position.copy(new THREE.Vector3(...dir).normalize().multiplyScalar(distance));
+    st.controls.target.set(0, 0, 0);
+    st.controls.update();
+    setViewMenuOpen(false);
+  };
 
   const screenshot = () => {
     const { renderer, scene, camera } = stateRef.current;
@@ -258,10 +353,77 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
         </div>
       )}
 
+      {measuring && (
+        <div
+          style={{
+            position: "absolute",
+            top: 10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(28,30,41,0.92)",
+            border: "1px solid #33364a",
+            borderRadius: 8,
+            padding: "6px 12px",
+            color: "#e7e9f2",
+            fontSize: 12.5,
+            zIndex: 4,
+          }}
+        >
+          {measureDistance != null
+            ? `Masofa: ${measureDistance.toFixed(3)} m`
+            : "Modelda ikkita nuqtani bosing…"}
+        </div>
+      )}
+
       <div style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 6 }}>
         <ToolbarButton title="Sahna tuzilmasi" active={treeOpen} onClick={() => setTreeOpen((v) => !v)}>
           <ListTree size={16} />
         </ToolbarButton>
+        <ToolbarButton title="O'lchash" active={measuring} onClick={() => setMeasuring((v) => !v)}>
+          <Ruler size={16} />
+        </ToolbarButton>
+        <div style={{ position: "relative" }}>
+          <ToolbarButton title="Kamera burchagi" active={viewMenuOpen} onClick={() => setViewMenuOpen((v) => !v)}>
+            <Box size={16} />
+          </ToolbarButton>
+          {viewMenuOpen && (
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 6px)",
+                right: 0,
+                background: "#1c1e29",
+                border: "1px solid #33364a",
+                borderRadius: 10,
+                padding: 4,
+                minWidth: 160,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+                zIndex: 5,
+              }}
+            >
+              {VIEW_PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => setPresetView(p.dir)}
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    padding: "8px 10px",
+                    background: "transparent",
+                    color: "#e7e9f2",
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 12.5,
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div style={{ position: "relative" }}>
           <ToolbarButton title="Ko'rinish rejimi" active={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
             <Layers size={16} />
