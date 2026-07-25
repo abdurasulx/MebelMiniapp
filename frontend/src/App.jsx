@@ -20,6 +20,7 @@ import FirmaLeads from "./pages/firma/FirmaLeads";
 import FirmaOrders from "./pages/firma/FirmaOrders";
 import FirmaPayroll from "./pages/firma/FirmaPayroll";
 import FirmaProduction from "./pages/firma/FirmaProduction";
+import FirmaProductDetail from "./pages/firma/FirmaProductDetail";
 import FirmaProducts from "./pages/firma/FirmaProducts";
 import FirmaSettings from "./pages/firma/FirmaSettings";
 import Login from "./pages/Login";
@@ -243,6 +244,7 @@ export default function App() {
         >
           <Route path="/" element={<FirmaDashboard />} />
           <Route path="/products" element={<FirmaProducts />} />
+          <Route path="/products/:id" element={<FirmaProductDetail />} />
           <Route path="/leads" element={<FirmaLeads />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/orders" element={<FirmaOrders />} />
