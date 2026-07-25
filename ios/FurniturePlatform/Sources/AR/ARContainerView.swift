@@ -251,10 +251,17 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
 
         let anchor = AnchorEntity(world: result.worldTransform)
         let entity = template.clone(recursive: true)
-        // Mahsulot sahifasida kiritilgan o'lcham variant standartidan farq qilsa,
-        // AR'dagi model ham shu nisbatda kattalashadi/kichrayadi — shunda narx
-        // hisoblangan o'lcham bilan AR'da ko'ringan o'lcham mos keladi.
+        // USDZ/GLB modelning ichki nol nuqtasi (pivot) har doim ham obyektning
+        // eng past (oyoq) qismida bo'lavermaydi — ko'p professional modellash
+        // dasturlari pivotni obyekt markaziga qo'yadi. Agar buni hisobga
+        // olmasak, model to'g'ridan-to'g'ri polga "0,0,0" qilib qo'yiladi va
+        // pastki yarmi pol ichiga cho'kib ko'rinadi. Shuning uchun avval xom
+        // (masshtablanmagan) chegaralarni o'lchab, eng past nuqta polga
+        // to'g'ri kelishi uchun tikka siljitib qo'yamiz.
+        let localBounds = entity.visualBounds(relativeTo: entity)
         entity.transform.scale = scaleFactors
+        let bottomOffset = localBounds.min.y * scaleFactors.y
+        entity.position.y -= bottomOffset
         entity.generateCollisionShapes(recursive: true)
         anchor.addChild(entity)
         arView.scene.addAnchor(anchor)
