@@ -1,3 +1,8 @@
+import subprocess
+import sys
+from pathlib import Path
+
+from django.conf import settings
 from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
@@ -48,10 +53,31 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
         return visible_file_url(obj, "usdz_file", self.context.get("request"))
 
     def save(self, **kwargs):
+        # Firma faqat GLB yuklasa (USDZ'ni qo'lda tayyorlash shart emas) — iOS AR
+        # uchun USDZ'ni server avtomatik generatsiya qiladi. Agar bu so'rovda
+        # usdz_file ham qo'lda yuklangan bo'lsa, uni ustunlik beramiz (avtomatik
+        # generatsiyani ishga tushirmaymiz).
+        usdz_uploaded_manually = "usdz_file" in self.validated_data
         instance = super().save(**kwargs)
         instance.recompute_status()
-        instance.save(update_fields=["status"])
+
+        if instance.glb_file and not usdz_uploaded_manually:
+            instance.status = Model3D.Status.PROCESSING
+            instance.save(update_fields=["status"])
+            self._trigger_usdz_generation(instance.id)
+        else:
+            instance.save(update_fields=["status"])
         return instance
+
+    @staticmethod
+    def _trigger_usdz_generation(model3d_id):
+        manage_py = Path(settings.BASE_DIR) / "manage.py"
+        subprocess.Popen(
+            [sys.executable, str(manage_py), "generate_usdz", str(model3d_id)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
 
 
 class Model3DViewerSerializer(serializers.ModelSerializer):

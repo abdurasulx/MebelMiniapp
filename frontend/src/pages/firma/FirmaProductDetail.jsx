@@ -545,6 +545,15 @@ function Model3DForm({ product, onDone }) {
   const [busy, setBusy] = useState(false);
   const m = product.model3d;
 
+  // GLB yuklanganda server fonda USDZ'ni avtomatik generatsiya qiladi
+  // (Blender orqali) — shu vaqtda status "processing" bo'ladi, tayyor
+  // bo'lgach avtomatik yangilanishi uchun bir necha soniyada qayta so'raymiz.
+  useEffect(() => {
+    if (m?.status !== "processing") return;
+    const timer = setInterval(onDone, 3000);
+    return () => clearInterval(timer);
+  }, [m?.status, onDone]);
+
   const submit = async (e) => {
     e.preventDefault();
     setError("");
@@ -587,7 +596,11 @@ function Model3DForm({ product, onDone }) {
     <div>
       <div className="mb-3 flex items-center gap-2">
         <span className="inline-flex items-center gap-1.5 text-base font-semibold"><Box size={16} /> 3D model</span>
-        {m && <span className="badge">{m.status_display}</span>}
+        {m && (
+          <span className={m.status === "processing" ? "badge badge-off" : "badge"}>
+            {m.status === "processing" ? "USDZ generatsiya qilinmoqda…" : m.status_display}
+          </span>
+        )}
       </div>
       <p className="mb-3 text-xs" style={{ color: "var(--muted)" }}>
         Bitta 3D model butun mahsulotga tegishli — har rang variant o'z rangini
@@ -608,8 +621,13 @@ function Model3DForm({ product, onDone }) {
             {m?.glb_url && <span className="text-xs" style={{ color: "var(--muted)" }}>Mavjud — almashtirish uchun tanlang</span>}
           </div>
           <div>
-            <label className="label">USDZ fayl (iOS AR) — ixtiyoriy</label>
+            <label className="label">USDZ fayl (iOS AR) — qo'lda ustunlik berish, ixtiyoriy</label>
             <input className="input" type="file" accept=".usdz" onChange={(e) => setUsdz(e.target.files[0])} />
+            {!usdz && (
+              <span className="text-xs" style={{ color: "var(--muted)" }}>
+                Bo'sh qoldirsangiz, GLB'dan server avtomatik USDZ yasaydi
+              </span>
+            )}
           </div>
         </div>
         {error && <div className="error">{error}</div>}
@@ -624,8 +642,9 @@ function Model3DForm({ product, onDone }) {
           )}
         </div>
         <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Tayyor GLB (.glb) formatida yuklang. iOS'da AR uchun USDZ ham qo'shsangiz yaxshi.
-          FBX/OBJ → GLB avtomatik konvertatsiya keyingi bosqichda qo'shiladi.
+          Tayyor GLB (.glb) formatida yuklang — iOS AR uchun kerak bo'ladigan USDZ
+          fayl server tomonidan avtomatik yasaladi (bir necha soniya). USDZ'ni
+          qo'lda yuklasangiz, avtomatik generatsiya o'rniga o'sha fayl ishlatiladi.
         </p>
       </form>
 
