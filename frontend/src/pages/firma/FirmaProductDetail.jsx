@@ -634,22 +634,20 @@ function Model3DForm({ product, onDone }) {
               </span>
             )}
           </div>
-          {glb && !GLB_SOURCE_EXTENSIONS.some((ext) => glb.name.toLowerCase().endsWith(ext)) && (
-            <div className="sm:col-span-2">
-              <label className="label">Tekstura arxivi (.zip) — ixtiyoriy</label>
-              <input
-                className="input"
-                type="file"
-                accept=".zip"
-                onChange={(e) => setTextureArchive(e.target.files[0])}
-              />
-              <span className="text-xs" style={{ color: "var(--muted)" }}>
-                FBX/OBJ fayl tekstura rasmlariga faqat havola saqlaydi — haqiqiy
-                rasmlarni (.zip qilib) shu yerga qo'shsangiz, server ularni fayl
-                nomi bo'yicha avtomatik moslashtirib ulaydi
-              </span>
-            </div>
-          )}
+          <div className="sm:col-span-2">
+            <label className="label">Tekstura arxivi (.zip) — FBX/OBJ bilan birga, ixtiyoriy</label>
+            <input
+              className="input"
+              type="file"
+              accept=".zip"
+              onChange={(e) => setTextureArchive(e.target.files[0])}
+            />
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              {glb && GLB_SOURCE_EXTENSIONS.some((ext) => glb.name.toLowerCase().endsWith(ext))
+                ? "GLB fayl tanlandi — bu maydon shu safar ta'sir qilmaydi (faqat FBX/OBJ bilan ishlaydi)"
+                : "FBX/OBJ fayl tekstura rasmlariga faqat havola saqlaydi — haqiqiy rasmlarni (.zip qilib) yuqoridagi 3D fayl bilan bir vaqtda shu yerga qo'shsangiz, server ularni fayl nomi bo'yicha avtomatik moslashtirib ulaydi"}
+            </span>
+          </div>
         </div>
         {error && <div className="error">{error}</div>}
         <div className="flex gap-2">
