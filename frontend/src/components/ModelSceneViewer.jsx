@@ -49,6 +49,7 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [measuring, setMeasuring] = useState(false);
   const [measureDistance, setMeasureDistance] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -100,13 +101,33 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
     const st = {
       scene, camera, renderer, controls, envTexture, root: null,
       measureGroup, measurePoints: [], measureActive: false, onMeasure: null,
+      selectedNode: null, onSelect: null,
     };
     stateRef.current = st;
 
+    // Tanlangan qismni (va uning bola meshlarini) to'q sariq chiziq bilan
+    // belgilaydi — bazissoft.ru'dagi kabi. Ham 3D sahnada bosish, ham
+    // tuzilma panelidan tanlash shu bir xil funksiyani chaqiradi.
+    function selectNode(node) {
+      if (st.selectedNode) {
+        st.selectedNode.traverse((o) => {
+          if (o.userData?.selectOutline) o.userData.selectOutline.visible = false;
+        });
+      }
+      st.selectedNode = node || null;
+      if (node) {
+        node.traverse((o) => {
+          if (o.userData?.selectOutline) o.userData.selectOutline.visible = true;
+        });
+      }
+      st.onSelect?.(node?.uuid ?? null);
+    }
+    st.selectNode = selectNode;
+
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    function handleMeasureClick(e) {
-      if (!st.measureActive || !st.root) return;
+    function handleClick(e) {
+      if (!st.root) return;
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -116,36 +137,51 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
         if (o.isMesh && o.visible) meshes.push(o);
       });
       const hits = raycaster.intersectObjects(meshes, false);
-      if (!hits.length) return;
-      const point = hits[0].point.clone();
 
-      if (st.measurePoints.length >= 2) {
-        st.measurePoints = [];
-        st.measureGroup.clear();
-        st.onMeasure?.(null);
-      }
-      st.measurePoints.push(point);
-      const dotSize = Math.max(camera.position.distanceTo(controls.target) * 0.012, 0.005);
-      const dot = new THREE.Mesh(
-        new THREE.SphereGeometry(dotSize, 12, 12),
-        new THREE.MeshBasicMaterial({ color: 0xff4d4f, depthTest: false })
-      );
-      dot.renderOrder = 999;
-      dot.position.copy(point);
-      st.measureGroup.add(dot);
+      if (st.measureActive) {
+        if (!hits.length) return;
+        const point = hits[0].point.clone();
 
-      if (st.measurePoints.length === 2) {
-        const [a, b] = st.measurePoints;
-        const line = new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints([a, b]),
-          new THREE.LineBasicMaterial({ color: 0xff4d4f, depthTest: false })
+        if (st.measurePoints.length >= 2) {
+          st.measurePoints = [];
+          st.measureGroup.clear();
+          st.onMeasure?.(null);
+        }
+        st.measurePoints.push(point);
+        const dotSize = Math.max(camera.position.distanceTo(controls.target) * 0.012, 0.005);
+        const dot = new THREE.Mesh(
+          new THREE.SphereGeometry(dotSize, 12, 12),
+          new THREE.MeshBasicMaterial({ color: 0xff4d4f, depthTest: false })
         );
-        line.renderOrder = 999;
-        st.measureGroup.add(line);
-        st.onMeasure?.(a.distanceTo(b));
+        dot.renderOrder = 999;
+        dot.position.copy(point);
+        st.measureGroup.add(dot);
+
+        if (st.measurePoints.length === 2) {
+          const [a, b] = st.measurePoints;
+          const line = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([a, b]),
+            new THREE.LineBasicMaterial({ color: 0xff4d4f, depthTest: false })
+          );
+          line.renderOrder = 999;
+          st.measureGroup.add(line);
+          st.onMeasure?.(a.distanceTo(b));
+        }
+        return;
       }
+
+      if (!hits.length) {
+        selectNode(null);
+        return;
+      }
+      // Yuqoriga ko'tarilib, root'ning bevosita bolasi bo'lgan eng yaqin
+      // ajdodni topamiz — bu tuzilma panelidagi yuqori darajadagi elementga
+      // mos keladi (masalan butun tortma bloki, faqat bitta mesh emas).
+      let node = hits[0].object;
+      while (node.parent && node.parent !== st.root) node = node.parent;
+      selectNode(node);
     }
-    renderer.domElement.addEventListener("click", handleMeasureClick);
+    renderer.domElement.addEventListener("click", handleClick);
 
     const resizeObserver = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
@@ -160,7 +196,7 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
     return () => {
       cancelAnimationFrame(raf);
       resizeObserver.disconnect();
-      renderer.domElement.removeEventListener("click", handleMeasureClick);
+      renderer.domElement.removeEventListener("click", handleClick);
       controls.dispose();
       renderer.dispose();
       pmremGenerator.dispose();
@@ -176,6 +212,7 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
     setTreeOpen(false);
     setSearch("");
     setExpanded(new Set());
+    setSelectedId(null);
 
     const loader = new GLTFLoader();
     let cancelled = false;
@@ -195,11 +232,22 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
           edges.userData.__helper = true;
           o.add(edges);
           o.userData.edges = edges;
+
+          const selectOutline = new THREE.LineSegments(
+            new THREE.EdgesGeometry(o.geometry, 1),
+            new THREE.LineBasicMaterial({ color: 0xff9f1c, depthTest: false, linewidth: 2 })
+          );
+          selectOutline.visible = false;
+          selectOutline.renderOrder = 998;
+          selectOutline.userData.__helper = true;
+          o.add(selectOutline);
+          o.userData.selectOutline = selectOutline;
         }
       });
 
       st.scene.add(root);
       st.root = root;
+      st.selectedNode = null;
       frameObject(st.camera, root, st.controls);
 
       applyMode(st, mode);
@@ -220,6 +268,7 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
   useEffect(() => {
     const st = stateRef.current;
     st.onMeasure = setMeasureDistance;
+    st.onSelect = setSelectedId;
   }, []);
 
   useEffect(() => {
@@ -272,6 +321,10 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
   const toggleNodeVisible = (node) => {
     node.ref.visible = !node.ref.visible;
     setTick((t) => t + 1);
+  };
+
+  const selectFromTree = (node) => {
+    stateRef.current.selectNode?.(node.ref);
   };
 
   const toggleExpanded = (id) => {
@@ -346,6 +399,8 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
                   autoExpand={autoExpand}
                   onToggleExpand={toggleExpanded}
                   onToggleVisible={toggleNodeVisible}
+                  onSelect={selectFromTree}
+                  selectedId={selectedId}
                 />
               ))
             )}
@@ -487,10 +542,11 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
   );
 }
 
-function TreeRow({ node, depth, expanded, autoExpand, onToggleExpand, onToggleVisible }) {
+function TreeRow({ node, depth, expanded, autoExpand, onToggleExpand, onToggleVisible, onSelect, selectedId }) {
   const hasChildren = node.children.length > 0;
   const isOpen = autoExpand || expanded.has(node.id);
   const visible = node.ref.visible;
+  const isSelected = node.id === selectedId;
 
   return (
     <div>
@@ -502,14 +558,19 @@ function TreeRow({ node, depth, expanded, autoExpand, onToggleExpand, onToggleVi
           padding: "5px 6px",
           paddingLeft: 6 + depth * 14,
           borderRadius: 6,
-          cursor: hasChildren ? "pointer" : "default",
+          cursor: "pointer",
+          background: isSelected ? "rgba(255,159,28,0.18)" : "transparent",
         }}
-        onClick={() => hasChildren && onToggleExpand(node.id)}
+        onClick={() => onSelect(node)}
       >
         {hasChildren ? (
           <ChevronRight
             size={12}
             style={{ color: "#8b8fa3", flexShrink: 0, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.12s" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpand(node.id);
+            }}
           />
         ) : (
           <span style={{ width: 12, flexShrink: 0 }} />
@@ -522,7 +583,7 @@ function TreeRow({ node, depth, expanded, autoExpand, onToggleExpand, onToggleVi
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
             fontSize: 12,
-            color: visible ? "#e7e9f2" : "#6b6f82",
+            color: isSelected ? "#ff9f1c" : visible ? "#e7e9f2" : "#6b6f82",
           }}
           title={node.name}
         >
@@ -558,6 +619,8 @@ function TreeRow({ node, depth, expanded, autoExpand, onToggleExpand, onToggleVi
               autoExpand={autoExpand}
               onToggleExpand={onToggleExpand}
               onToggleVisible={onToggleVisible}
+              onSelect={onSelect}
+              selectedId={selectedId}
             />
           ))}
         </div>
