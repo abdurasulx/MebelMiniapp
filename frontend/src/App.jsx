@@ -23,6 +23,8 @@ import FirmaProduction from "./pages/firma/FirmaProduction";
 import FirmaProductDetail from "./pages/firma/FirmaProductDetail";
 import FirmaProducts from "./pages/firma/FirmaProducts";
 import FirmaSettings from "./pages/firma/FirmaSettings";
+import FirmaWarehouses from "./pages/firma/FirmaWarehouses";
+import FirmaWarehouseDetail from "./pages/firma/FirmaWarehouseDetail";
 import Login from "./pages/Login";
 import MyOrders from "./pages/MyOrders";
 import MyProjects from "./pages/MyProjects";
@@ -51,6 +53,7 @@ import {
   ShoppingBasket,
   Heart,
   FolderKanban,
+  Warehouse,
 } from "lucide-react";
 
 const ADMIN_MENU = [
@@ -68,6 +71,7 @@ const FIRMA_MENU = [
   { to: "/leads", icon: Target, label: "Leadlar (CRM)", group: "Savdo" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
   { to: "/production", icon: Hammer, label: "Ishlab chiqarish", group: "Ishlab chiqarish" },
+  { to: "/warehouses", icon: Warehouse, label: "Omborlar", group: "Ishlab chiqarish" },
   { to: "/employees", icon: HardHat, label: "Xodimlar", group: "Xodimlar" },
   { to: "/payroll", icon: Wallet, label: "Ish haqi", group: "Xodimlar" },
   { to: "/settings", icon: Settings, label: "Sozlamalar", group: "Tizim" },
@@ -249,6 +253,8 @@ export default function App() {
           <Route path="/employees" element={<Employees />} />
           <Route path="/orders" element={<FirmaOrders />} />
           <Route path="/production" element={<FirmaProduction />} />
+          <Route path="/warehouses" element={<FirmaWarehouses />} />
+          <Route path="/warehouses/:id" element={<FirmaWarehouseDetail />} />
           <Route path="/payroll" element={<FirmaPayroll />} />
           <Route path="/settings" element={<FirmaSettings />} />
         </Route>

@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.likes",
     "apps.workflow",
     "apps.projects",
+    "apps.inventory",
 ]
 
 MIDDLEWARE = [
