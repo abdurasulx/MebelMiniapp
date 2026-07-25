@@ -1,6 +1,7 @@
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 
 from django.core.files import File
@@ -31,6 +32,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("model3d_id", type=str)
         parser.add_argument("--skip-usdz", action="store_true")
+        parser.add_argument("--texture-archive", type=str, default=None)
 
     def handle(self, *args, **options):
         model3d_id = options["model3d_id"]
@@ -54,9 +56,20 @@ class Command(BaseCommand):
             glb_path = source_path
             if source_path.suffix.lower() in SOURCE_FORMATS:
                 converted = Path(tmp_dir) / f"{model.id}.glb"
-                if not self._run_blender(
-                    blender_bin, SCRIPTS_DIR / "to_glb.py", [str(source_path), str(converted)]
-                ):
+                script_args = [str(source_path), str(converted)]
+
+                texture_archive = options["texture_archive"]
+                if texture_archive:
+                    texture_dir = Path(tmp_dir) / "textures"
+                    texture_dir.mkdir()
+                    try:
+                        with zipfile.ZipFile(texture_archive) as zf:
+                            zf.extractall(texture_dir)
+                        script_args.append(str(texture_dir))
+                    except zipfile.BadZipFile:
+                        self.stderr.write("Tekstura arxivi yaroqsiz (zip emas) — o'tkazib yuborildi")
+
+                if not self._run_blender(blender_bin, SCRIPTS_DIR / "to_glb.py", script_args):
                     self._fail(model, "FBX/OBJ -> GLB konvertatsiyasi muvaffaqiyatsiz")
                     return
                 with open(converted, "rb") as f:

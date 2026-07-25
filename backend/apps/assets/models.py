@@ -47,6 +47,16 @@ class Model3D(BaseModel, StoredFileMixin):
         null=True,
         validators=[FileExtensionValidator(["usdz"])],
     )
+    # FBX/OBJ ko'pincha faylning ichida tekstura rasmlariga faqat *havola*
+    # saqlaydi (artistning o'z kompyuteridagi yo'l bilan) — haqiqiy rasmlar
+    # alohida arxivda bo'ladi. Shu arxiv shu yerga yuklansa, konvertatsiya
+    # bosqichida fayl nomlari bo'yicha moslashtirib avtomatik ulanadi.
+    texture_archive = models.FileField(
+        upload_to="assets/textures/",
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(["zip"])],
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.UPLOADED)
     # standart o'lchamlar (metr) — AR sahnada realistik ko'rsatish uchun
     scale_width = models.DecimalField(max_digits=6, decimal_places=2, default=1)

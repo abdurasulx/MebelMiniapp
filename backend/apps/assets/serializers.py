@@ -13,9 +13,10 @@ from .models import Model3D
 class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
     """Firma tomoni: 3D yuklash/tahrirlash + ulashish sozlamalari."""
 
-    file_fields = ("glb_file", "usdz_file")
+    file_fields = ("glb_file", "usdz_file", "texture_archive")
     glb_file = serializers.FileField(write_only=True, required=False, allow_null=True)
     usdz_file = serializers.FileField(write_only=True, required=False, allow_null=True)
+    texture_archive = serializers.FileField(write_only=True, required=False, allow_null=True)
     glb_url = serializers.SerializerMethodField()
     usdz_url = serializers.SerializerMethodField()
     status_display = serializers.CharField(source="get_status_display", read_only=True)
@@ -31,6 +32,7 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
             "product",
             "glb_file",
             "usdz_file",
+            "texture_archive",
             "glb_url",
             "usdz_url",
             "status",
@@ -74,17 +76,29 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
         if needs_processing:
             instance.status = Model3D.Status.PROCESSING
             instance.save(update_fields=["status"])
-            self._trigger_processing(instance.id, skip_usdz=usdz_uploaded_manually)
+            # Tekstura arxivi faqat shu so'rovda FBX/OBJ bilan birga yuklansa
+            # foydali — konvertatsiya paytida manba fayl hali mavjud bo'lganda
+            # rasm nomlarini moslashtirish mumkin. Keyinchalik alohida
+            # yuklansa, moslashtirish uchun FBX/OBJ qayta yuklanishi kerak
+            # (glb_file allaqachon yakuniy GLB'ga almashtirilgan bo'ladi).
+            texture_archive_path = (
+                instance.texture_archive.path if needs_conversion and instance.texture_archive else None
+            )
+            self._trigger_processing(
+                instance.id, skip_usdz=usdz_uploaded_manually, texture_archive_path=texture_archive_path
+            )
         else:
             instance.save(update_fields=["status"])
         return instance
 
     @staticmethod
-    def _trigger_processing(model3d_id, skip_usdz=False):
+    def _trigger_processing(model3d_id, skip_usdz=False, texture_archive_path=None):
         manage_py = Path(settings.BASE_DIR) / "manage.py"
         args = [sys.executable, str(manage_py), "process_model3d", str(model3d_id)]
         if skip_usdz:
             args.append("--skip-usdz")
+        if texture_archive_path:
+            args += ["--texture-archive", texture_archive_path]
         subprocess.Popen(
             args,
             stdout=subprocess.DEVNULL,

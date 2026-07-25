@@ -538,9 +538,12 @@ function WorkflowEditor({ product }) {
   );
 }
 
+const GLB_SOURCE_EXTENSIONS = [".glb", ".gltf"];
+
 function Model3DForm({ product, onDone }) {
   const [glb, setGlb] = useState(null);
   const [usdz, setUsdz] = useState(null);
+  const [textureArchive, setTextureArchive] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const m = product.model3d;
@@ -567,6 +570,7 @@ function Model3DForm({ product, onDone }) {
       if (!m) fd.append("product", product.id);
       if (glb) fd.append("glb_file", glb);
       if (usdz) fd.append("usdz_file", usdz);
+      if (textureArchive) fd.append("texture_archive", textureArchive);
       await api(m ? `/models3d/${m.id}/` : "/models3d/", {
         method: m ? "PATCH" : "POST",
         body: fd,
@@ -574,6 +578,7 @@ function Model3DForm({ product, onDone }) {
       });
       setGlb(null);
       setUsdz(null);
+      setTextureArchive(null);
       onDone();
     } catch (err) {
       setError(err.message);
@@ -629,6 +634,22 @@ function Model3DForm({ product, onDone }) {
               </span>
             )}
           </div>
+          {glb && !GLB_SOURCE_EXTENSIONS.some((ext) => glb.name.toLowerCase().endsWith(ext)) && (
+            <div className="sm:col-span-2">
+              <label className="label">Tekstura arxivi (.zip) — ixtiyoriy</label>
+              <input
+                className="input"
+                type="file"
+                accept=".zip"
+                onChange={(e) => setTextureArchive(e.target.files[0])}
+              />
+              <span className="text-xs" style={{ color: "var(--muted)" }}>
+                FBX/OBJ fayl tekstura rasmlariga faqat havola saqlaydi — haqiqiy
+                rasmlarni (.zip qilib) shu yerga qo'shsangiz, server ularni fayl
+                nomi bo'yicha avtomatik moslashtirib ulaydi
+              </span>
+            </div>
+          )}
         </div>
         {error && <div className="error">{error}</div>}
         <div className="flex gap-2">
