@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Lock, Unlock, Link2 } from "lucide-react";
 import { api } from "../api";
-import ModelViewer from "../components/ModelViewer";
+import ModelSceneViewer from "../components/ModelSceneViewer";
 
 const VISIBILITY_BADGE = {
   public: { label: "Ochiq", icon: Unlock },
@@ -80,9 +80,8 @@ export default function Viewer() {
         })()}
       </div>
       <div className="flex flex-1 items-center justify-center px-4 pb-8">
-        <ModelViewer
+        <ModelSceneViewer
           glb={data.glb_url}
-          usdz={data.usdz_url}
           alt={data.product_name}
           style={{ height: "70vh", width: "100%", maxWidth: 900, background: "#16161f" }}
         />

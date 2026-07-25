@@ -7,7 +7,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     // subdomen portallari: lvh.me, admin.lvh.me, firma.lvh.me -> 127.0.0.1
+    // nip.io/sslip.io -> so'ralgan IP (masalan firma.100.69.182.71.nip.io ->
+    // 100.69.182.71), shu orqali boshqa qurilmalardan ham subdomen-portal
+    // aniqlash ishlaydi.
     host: true,
-    allowedHosts: ['.lvh.me'],
+    allowedHosts: ['.lvh.me', '.nip.io', '.sslip.io'],
   },
 })
