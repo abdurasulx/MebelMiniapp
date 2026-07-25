@@ -251,20 +251,27 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
 
         let anchor = AnchorEntity(world: result.worldTransform)
         let entity = template.clone(recursive: true)
-        // USDZ/GLB modelning ichki nol nuqtasi (pivot) har doim ham obyektning
-        // eng past (oyoq) qismida bo'lavermaydi — ko'p professional modellash
-        // dasturlari pivotni obyekt markaziga qo'yadi. Agar buni hisobga
-        // olmasak, model to'g'ridan-to'g'ri polga "0,0,0" qilib qo'yiladi va
-        // pastki yarmi pol ichiga cho'kib ko'rinadi. Shuning uchun avval xom
-        // (masshtablanmagan) chegaralarni o'lchab, eng past nuqta polga
-        // to'g'ri kelishi uchun tikka siljitib qo'yamiz.
-        let localBounds = entity.visualBounds(relativeTo: entity)
         entity.transform.scale = scaleFactors
-        let bottomOffset = localBounds.min.y * scaleFactors.y
-        entity.position.y -= bottomOffset
         entity.generateCollisionShapes(recursive: true)
         anchor.addChild(entity)
         arView.scene.addAnchor(anchor)
+
+        // USDZ/GLB modelning ichki nol nuqtasi (pivot) har doim ham obyektning
+        // eng past (oyoq) qismida bo'lavermaydi — ko'p professional modellash
+        // dasturlari pivotni obyekt markaziga qo'yadi, ba'zilari esa boshqa
+        // o'lchov/o'q konvensiyasida eksport qilingan bo'ladi. Buni oldindan
+        // taxmin qilish (masalan faqat local-space chegarani o'lchab) turli
+        // fayllarda turlicha xato berdi — ba'zisida bir necha santimetr farq,
+        // ba'zisida butunlay havoda "muallaq" qolish. Shuning uchun endi
+        // TAXMIN qilinmaydi: obyekt sahnaga qo'shilgach uning HAQIQIY
+        // dunyoviy (world-space) pastki nuqtasi o'lchanadi va aynan shu farq
+        // bo'yicha tuzatiladi — qanday fayl, qanday pivot yoki o'lchov
+        // konvensiyasi bo'lishidan qat'iy nazar, natija har doim bir xil
+        // ishonchli bo'ladi.
+        let worldBounds = entity.visualBounds(relativeTo: nil)
+        let targetFloorY = result.worldTransform.columns.3.y
+        let correction = targetFloorY - worldBounds.min.y
+        entity.position.y += correction
 
         // Eslatma: RealityKit'ning tayyor `installGestures` imo-ishoralari ATAYIN
         // ulanmaydi — pastki SwiftUI panelidagi joystik/aylantirish diski bilan bir
