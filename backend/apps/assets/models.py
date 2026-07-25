@@ -55,7 +55,7 @@ class Model3D(BaseModel, StoredFileMixin):
         upload_to="assets/textures/",
         blank=True,
         null=True,
-        validators=[FileExtensionValidator(["zip"])],
+        validators=[FileExtensionValidator(["zip", "rar"])],
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.UPLOADED)
     # standart o'lchamlar (metr) — AR sahnada realistik ko'rsatish uchun

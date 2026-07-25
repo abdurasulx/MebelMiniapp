@@ -32,8 +32,10 @@ else:
     raise SystemExit(f"Qo'llab-quvvatlanmaydigan manba format: {ext}")
 
 if texture_dir and texture_dir.is_dir():
-    # Nom bo'yicha katta-kichik harfga bog'liq bo'lmagan qidiruv jadvali.
-    available = {p.name.lower(): p for p in texture_dir.iterdir() if p.is_file()}
+    # Nom bo'yicha katta-kichik harfga bog'liq bo'lmagan qidiruv jadvali —
+    # arxivlar ko'pincha rasmlarni ichki papkalarga solib qo'yadi, shuning
+    # uchun rekursiv qidiriladi.
+    available = {p.name.lower(): p for p in texture_dir.rglob("*") if p.is_file()}
     relinked = 0
     for image in bpy.data.images:
         if image.filepath and Path(bpy.path.abspath(image.filepath)).exists():

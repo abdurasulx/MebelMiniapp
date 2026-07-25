@@ -635,11 +635,11 @@ function Model3DForm({ product, onDone }) {
             )}
           </div>
           <div className="sm:col-span-2">
-            <label className="label">Tekstura arxivi (.zip) — FBX/OBJ bilan birga, ixtiyoriy</label>
+            <label className="label">Tekstura arxivi (.zip yoki .rar) — FBX/OBJ bilan birga, ixtiyoriy</label>
             <input
               className="input"
               type="file"
-              accept=".zip"
+              accept=".zip,.rar"
               onChange={(e) => setTextureArchive(e.target.files[0])}
             />
             <span className="text-xs" style={{ color: "var(--muted)" }}>

@@ -62,12 +62,8 @@ class Command(BaseCommand):
                 if texture_archive:
                     texture_dir = Path(tmp_dir) / "textures"
                     texture_dir.mkdir()
-                    try:
-                        with zipfile.ZipFile(texture_archive) as zf:
-                            zf.extractall(texture_dir)
+                    if self._extract_archive(texture_archive, texture_dir):
                         script_args.append(str(texture_dir))
-                    except zipfile.BadZipFile:
-                        self.stderr.write("Tekstura arxivi yaroqsiz (zip emas) — o'tkazib yuborildi")
 
                 if not self._run_blender(blender_bin, SCRIPTS_DIR / "to_glb.py", script_args):
                     self._fail(model, "FBX/OBJ -> GLB konvertatsiyasi muvaffaqiyatsiz")
@@ -96,6 +92,46 @@ class Command(BaseCommand):
             model.save(update_fields=["usdz_file", "status"])
 
         self.stdout.write(self.style.SUCCESS(f"Tayyor: {model.id}"))
+
+    def _extract_archive(self, archive_path, dest_dir):
+        """Tekstura arxivini (.zip yoki .rar) `dest_dir`ga ochadi.
+
+        RAR — Zip'dan farqli o'laroq — proprietar siqish formati, Python
+        standart kutubxonasida qo'llab-quvvatlanmaydi. Shuning uchun
+        `unar` (The Unarchiver CLI, `brew install unar`) tashqi vositasi
+        chaqiriladi; o'rnatilmagan bo'lsa, tekstura moslashtirilmasdan
+        konvertatsiya davom etadi (fayl saqlanib qoladi — keyin serverga
+        vosita o'rnatilgach qayta ishga tushirish mumkin).
+        """
+        suffix = Path(archive_path).suffix.lower()
+        if suffix == ".zip":
+            try:
+                with zipfile.ZipFile(archive_path) as zf:
+                    zf.extractall(dest_dir)
+                return True
+            except zipfile.BadZipFile:
+                self.stderr.write("Tekstura arxivi yaroqsiz (zip emas) — o'tkazib yuborildi")
+                return False
+
+        if suffix == ".rar":
+            unar_bin = shutil.which("unar")
+            if not unar_bin:
+                self.stderr.write(
+                    "RAR arxivini ochish uchun 'unar' topilmadi (brew install unar) — "
+                    "tekstura moslashtirilmasdan davom etiladi"
+                )
+                return False
+            result = subprocess.run(
+                [unar_bin, "-quiet", "-force-overwrite", "-output-directory", str(dest_dir), str(archive_path)],
+                capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode != 0:
+                self.stderr.write(f"RAR ochishda xato:\n{result.stdout}\n{result.stderr}")
+                return False
+            return True
+
+        self.stderr.write(f"Qo'llab-quvvatlanmaydigan arxiv formati: {suffix}")
+        return False
 
     def _run_blender(self, blender_bin, script_path, extra_args):
         result = subprocess.run(
