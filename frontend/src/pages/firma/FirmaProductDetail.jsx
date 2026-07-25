@@ -558,7 +558,7 @@ function Model3DForm({ product, onDone }) {
     e.preventDefault();
     setError("");
     if (!glb && !usdz && !m) {
-      setError("Kamida GLB fayl tanlang");
+      setError("Kamida 3D fayl tanlang");
       return;
     }
     setBusy(true);
@@ -598,7 +598,7 @@ function Model3DForm({ product, onDone }) {
         <span className="inline-flex items-center gap-1.5 text-base font-semibold"><Box size={16} /> 3D model</span>
         {m && (
           <span className={m.status === "processing" ? "badge badge-off" : "badge"}>
-            {m.status === "processing" ? "USDZ generatsiya qilinmoqda…" : m.status_display}
+            {m.status === "processing" ? "Fayl qayta ishlanmoqda…" : m.status_display}
           </span>
         )}
       </div>
@@ -607,7 +607,7 @@ function Model3DForm({ product, onDone }) {
         variantlar jadvalidan oladi, alohida model yuklash shart emas.
       </p>
 
-      {m?.glb_url && (
+      {m?.glb_url && m.status !== "processing" && (
         <div className="mb-3 max-w-sm">
           <ModelViewer glb={m.glb_url} usdz={m.usdz_url} poster={product.image_url} style={{ height: "220px" }} />
         </div>
@@ -616,8 +616,8 @@ function Model3DForm({ product, onDone }) {
       <form className="flex flex-col gap-3" onSubmit={submit}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="label">GLB fayl (web / Android AR) *</label>
-            <input className="input" type="file" accept=".glb,.gltf" onChange={(e) => setGlb(e.target.files[0])} />
+            <label className="label">3D fayl (GLB yoki FBX/OBJ) *</label>
+            <input className="input" type="file" accept=".glb,.gltf,.fbx,.obj" onChange={(e) => setGlb(e.target.files[0])} />
             {m?.glb_url && <span className="text-xs" style={{ color: "var(--muted)" }}>Mavjud — almashtirish uchun tanlang</span>}
           </div>
           <div>
@@ -642,9 +642,10 @@ function Model3DForm({ product, onDone }) {
           )}
         </div>
         <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Tayyor GLB (.glb) formatida yuklang — iOS AR uchun kerak bo'ladigan USDZ
-          fayl server tomonidan avtomatik yasaladi (bir necha soniya). USDZ'ni
-          qo'lda yuklasangiz, avtomatik generatsiya o'rniga o'sha fayl ishlatiladi.
+          GLB, FBX yoki OBJ formatida yuklashingiz mumkin — FBX/OBJ bo'lsa server
+          avtomatik GLB'ga aylantiradi, so'ng iOS AR uchun kerak bo'ladigan USDZ
+          faylni ham o'zi yasaydi (bir necha soniya). USDZ'ni qo'lda yuklasangiz,
+          avtomatik generatsiya o'rniga o'sha fayl ishlatiladi.
         </p>
       </form>
 

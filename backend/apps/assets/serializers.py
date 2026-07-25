@@ -52,28 +52,41 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
     def get_usdz_url(self, obj):
         return visible_file_url(obj, "usdz_file", self.context.get("request"))
 
+    SOURCE_FORMATS = (".fbx", ".obj")
+
     def save(self, **kwargs):
-        # Firma faqat GLB yuklasa (USDZ'ni qo'lda tayyorlash shart emas) — iOS AR
-        # uchun USDZ'ni server avtomatik generatsiya qiladi. Agar bu so'rovda
-        # usdz_file ham qo'lda yuklangan bo'lsa, uni ustunlik beramiz (avtomatik
-        # generatsiyani ishga tushirmaymiz).
+        # Firma GLB, yoki hatto xom FBX/OBJ yuklasa ham — qo'lda Blender/Reality
+        # Converter ishlatishi shart emas: server fonda kerakli bosqichlarni
+        # (FBX/OBJ -> GLB, GLB -> USDZ) avtomatik bajaradi. Agar bu so'rovda
+        # usdz_file qo'lda ham yuklangan bo'lsa, uni ustunlik beramiz (USDZ
+        # generatsiyasi o'tkazib yuboriladi — GLB konvertatsiyasi kerak bo'lsa
+        # baribir bajariladi).
         usdz_uploaded_manually = "usdz_file" in self.validated_data
         instance = super().save(**kwargs)
         instance.recompute_status()
 
-        if instance.glb_file and not usdz_uploaded_manually:
+        needs_conversion = (
+            instance.glb_file
+            and Path(instance.glb_file.name).suffix.lower() in self.SOURCE_FORMATS
+        )
+        needs_processing = instance.glb_file and (needs_conversion or not usdz_uploaded_manually)
+
+        if needs_processing:
             instance.status = Model3D.Status.PROCESSING
             instance.save(update_fields=["status"])
-            self._trigger_usdz_generation(instance.id)
+            self._trigger_processing(instance.id, skip_usdz=usdz_uploaded_manually)
         else:
             instance.save(update_fields=["status"])
         return instance
 
     @staticmethod
-    def _trigger_usdz_generation(model3d_id):
+    def _trigger_processing(model3d_id, skip_usdz=False):
         manage_py = Path(settings.BASE_DIR) / "manage.py"
+        args = [sys.executable, str(manage_py), "process_model3d", str(model3d_id)]
+        if skip_usdz:
+            args.append("--skip-usdz")
         subprocess.Popen(
-            [sys.executable, str(manage_py), "generate_usdz", str(model3d_id)],
+            args,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
