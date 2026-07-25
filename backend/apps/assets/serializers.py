@@ -54,7 +54,10 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
     def get_usdz_url(self, obj):
         return visible_file_url(obj, "usdz_file", self.context.get("request"))
 
-    SOURCE_FORMATS = (".fbx", ".obj")
+    # FBX/OBJ -> to'g'ridan-to'g'ri konvertatsiya kerak; ZIP/RAR -> avval
+    # ochilib, ichidan model fayli topiladi (bular ham "konvertatsiya kerak"
+    # holatlar, chunki natija hali `glb_file`ga yozilmagan).
+    CONVERSION_NEEDED_FORMATS = (".fbx", ".obj", ".zip", ".rar")
 
     def save(self, **kwargs):
         # Firma GLB, yoki hatto xom FBX/OBJ yuklasa ham — qo'lda Blender/Reality
@@ -69,7 +72,7 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
 
         needs_conversion = (
             instance.glb_file
-            and Path(instance.glb_file.name).suffix.lower() in self.SOURCE_FORMATS
+            and Path(instance.glb_file.name).suffix.lower() in self.CONVERSION_NEEDED_FORMATS
         )
         needs_processing = instance.glb_file and (needs_conversion or not usdz_uploaded_manually)
 

@@ -621,9 +621,19 @@ function Model3DForm({ product, onDone }) {
       <form className="flex flex-col gap-3" onSubmit={submit}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="label">3D fayl (GLB yoki FBX/OBJ) *</label>
-            <input className="input" type="file" accept=".glb,.gltf,.fbx,.obj" onChange={(e) => setGlb(e.target.files[0])} />
+            <label className="label">3D fayl (GLB, FBX/OBJ yoki ularni o'z ichiga olgan .zip/.rar) *</label>
+            <input
+              className="input"
+              type="file"
+              accept=".glb,.gltf,.fbx,.obj,.zip,.rar"
+              onChange={(e) => setGlb(e.target.files[0])}
+            />
             {m?.glb_url && <span className="text-xs" style={{ color: "var(--muted)" }}>Mavjud — almashtirish uchun tanlang</span>}
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              Marketplace'dan yuklab olgan arxivni (masalan "...-fbx.rar") ochmasdan
+              to'g'ridan-to'g'ri shu yerga tashlashingiz mumkin — server ichidan model
+              faylini o'zi topadi
+            </span>
           </div>
           <div>
             <label className="label">USDZ fayl (iOS AR) — qo'lda ustunlik berish, ixtiyoriy</label>
@@ -635,7 +645,7 @@ function Model3DForm({ product, onDone }) {
             )}
           </div>
           <div className="sm:col-span-2">
-            <label className="label">Tekstura arxivi (.zip yoki .rar) — FBX/OBJ bilan birga, ixtiyoriy</label>
+            <label className="label">Tekstura arxivi (.zip yoki .rar) — alohida yuklangan bo'lsa, ixtiyoriy</label>
             <input
               className="input"
               type="file"
@@ -645,7 +655,7 @@ function Model3DForm({ product, onDone }) {
             <span className="text-xs" style={{ color: "var(--muted)" }}>
               {glb && GLB_SOURCE_EXTENSIONS.some((ext) => glb.name.toLowerCase().endsWith(ext))
                 ? "GLB fayl tanlandi — bu maydon shu safar ta'sir qilmaydi (faqat FBX/OBJ bilan ishlaydi)"
-                : "FBX/OBJ fayl tekstura rasmlariga faqat havola saqlaydi — haqiqiy rasmlarni (.zip qilib) yuqoridagi 3D fayl bilan bir vaqtda shu yerga qo'shsangiz, server ularni fayl nomi bo'yicha avtomatik moslashtirib ulaydi"}
+                : "Agar tekstura rasmlari 3D fayl bilan bitta arxivda kelmagan bo'lsa (masalan alohida \"map.rar\"), shu yerga qo'shing — 3D fayl bilan bir vaqtda yuklang"}
             </span>
           </div>
         </div>

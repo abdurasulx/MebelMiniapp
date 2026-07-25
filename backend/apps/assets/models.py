@@ -32,14 +32,15 @@ class Model3D(BaseModel, StoredFileMixin):
     product = models.OneToOneField(
         "products.Product", on_delete=models.CASCADE, related_name="model3d"
     )
-    # "glb_file" nomi tarixiy — lekin FBX/OBJ ham qabul qilinadi: agar manba
-    # shu formatlarda bo'lsa, server avtomatik GLB'ga aylantirib shu maydonga
-    # qayta yozadi (apps/assets/management/commands/process_model3d.py).
+    # "glb_file" nomi tarixiy — lekin FBX/OBJ, hatto ZIP/RAR ham qabul
+    # qilinadi (masalan marketplace'dan yuklab olingan arxivning o'zi):
+    # server avtomatik ichidan model faylini topib GLB'ga aylantirib shu
+    # maydonga qayta yozadi (apps/assets/management/commands/process_model3d.py).
     glb_file = models.FileField(
         upload_to="assets/glb/",
         blank=True,
         null=True,
-        validators=[FileExtensionValidator(["glb", "gltf", "fbx", "obj"])],
+        validators=[FileExtensionValidator(["glb", "gltf", "fbx", "obj", "zip", "rar"])],
     )
     usdz_file = models.FileField(
         upload_to="assets/usdz/",

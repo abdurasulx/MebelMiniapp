@@ -10,24 +10,30 @@ from django.core.management.base import BaseCommand, CommandError
 from apps.assets.models import Model3D
 
 SOURCE_FORMATS = (".fbx", ".obj")
+ARCHIVE_FORMATS = (".zip", ".rar")
+MODEL_SEARCH_PRIORITY = (".glb", ".gltf", ".fbx", ".obj")
 SCRIPTS_DIR = Path(__file__).resolve().parents[4] / "scripts"
 
 
 class Command(BaseCommand):
-    """Model3D uchun to'liq avtomatik konvertatsiya: FBX/OBJ -> GLB -> USDZ.
+    """Model3D uchun to'liq avtomatik konvertatsiya: (ZIP/RAR ->) FBX/OBJ -> GLB -> USDZ.
 
     Firma xodimi Blender yoki Reality Converter'ni qo'lda ishlatmasin uchun —
     `Model3DSerializer.save()` fayl yuklanganda shu buyruqni alohida OS
     jarayonida (HTTP javobini bloklamasdan) ishga tushiradi. Manba fayl
     formatiga qarab bosqichlar avtomatik tanlanadi:
-      - FBX/OBJ bo'lsa -> avval GLB'ga aylantiriladi (natija `glb_file`ga
-        yoziladi), keyin o'sha GLB'dan USDZ yasaladi.
+      - ZIP/RAR bo'lsa -> ochiladi, ichidan birinchi GLB/GLTF/FBX/OBJ fayl
+        topiladi va shu davom etadigan manba sifatida ishlatiladi (marketplace
+        arxivlarida ko'pincha model va teksturalar bitta arxivda birga keladi
+        — foydalanuvchi qo'lda ochib, to'g'ri faylni tanlashi shart emas).
+      - FBX/OBJ bo'lsa -> GLB'ga aylantiriladi (natija `glb_file`ga yoziladi),
+        keyin o'sha GLB'dan USDZ yasaladi.
       - GLB/GLTF bo'lsa -> to'g'ridan-to'g'ri USDZ yasaladi.
     `--skip-usdz` — foydalanuvchi USDZ'ni qo'lda yuklagan bo'lsa, faqat
     GLB konvertatsiyasi bajariladi (agar manba FBX/OBJ bo'lsa).
     """
 
-    help = "Model3D uchun FBX/OBJ->GLB va/yoki GLB->USDZ konvertatsiyasini bajaradi."
+    help = "Model3D uchun (ZIP/RAR->)FBX/OBJ->GLB va/yoki GLB->USDZ konvertatsiyasini bajaradi."
 
     def add_arguments(self, parser):
         parser.add_argument("model3d_id", type=str)
@@ -53,17 +59,45 @@ class Command(BaseCommand):
         source_path = Path(model.glb_file.path)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
+            # Manba arxiv bo'lsa (foydalanuvchi marketplace'dan yuklab olgan
+            # .zip/.rar'ni to'g'ridan-to'g'ri shu yerga tashlagan bo'lishi
+            # mumkin) — ochib, ichidan haqiqiy model faylini topamiz.
+            # Arxiv ichidagi boshqa fayllar (rasm-teksturalar) ham keyingi
+            # bosqichda avtomatik tekstura manbai sifatida ishlatiladi.
+            archive_texture_dir = None
+            if source_path.suffix.lower() in ARCHIVE_FORMATS:
+                extract_dir = Path(tmp_dir) / "source_archive"
+                extract_dir.mkdir()
+                if not self._extract_archive(source_path, extract_dir):
+                    self._fail(model, "Manba arxivni ochib bo'lmadi")
+                    return
+                found = self._find_model_file(extract_dir)
+                if not found:
+                    self._fail(model, "Arxiv ichida GLB/FBX/OBJ fayl topilmadi")
+                    return
+                with open(found, "rb") as f:
+                    model.glb_file.save(found.name, File(f), save=False)
+                model.save(update_fields=["glb_file"])
+                source_path = Path(model.glb_file.path)
+                archive_texture_dir = extract_dir
+
             glb_path = source_path
             if source_path.suffix.lower() in SOURCE_FORMATS:
                 converted = Path(tmp_dir) / f"{model.id}.glb"
                 script_args = [str(source_path), str(converted)]
 
+                texture_dir = None
                 texture_archive = options["texture_archive"]
                 if texture_archive:
                     texture_dir = Path(tmp_dir) / "textures"
                     texture_dir.mkdir()
-                    if self._extract_archive(texture_archive, texture_dir):
-                        script_args.append(str(texture_dir))
+                    if not self._extract_archive(texture_archive, texture_dir):
+                        texture_dir = None
+                elif archive_texture_dir:
+                    texture_dir = archive_texture_dir
+
+                if texture_dir:
+                    script_args.append(str(texture_dir))
 
                 if not self._run_blender(blender_bin, SCRIPTS_DIR / "to_glb.py", script_args):
                     self._fail(model, "FBX/OBJ -> GLB konvertatsiyasi muvaffaqiyatsiz")
@@ -92,6 +126,19 @@ class Command(BaseCommand):
             model.save(update_fields=["usdz_file", "status"])
 
         self.stdout.write(self.style.SUCCESS(f"Tayyor: {model.id}"))
+
+    def _find_model_file(self, directory):
+        """Arxiv ichidan haqiqiy 3D model faylini topadi.
+
+        GLB/GLTF ustunlik beriladi (qo'shimcha konvertatsiya kerak emas),
+        keyin FBX, keyin OBJ.
+        """
+        files = list(directory.rglob("*"))
+        for ext in MODEL_SEARCH_PRIORITY:
+            for f in files:
+                if f.is_file() and f.suffix.lower() == ext:
+                    return f
+        return None
 
     def _extract_archive(self, archive_path, dest_dir):
         """Tekstura arxivini (.zip yoki .rar) `dest_dir`ga ochadi.
