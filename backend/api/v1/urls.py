@@ -12,11 +12,15 @@ from apps.companies.views import (
 )
 from apps.crm.views import LeadViewSet
 from apps.inventory.views import (
+    BillOfMaterialViewSet,
+    ManufacturedUnitViewSet,
     MaterialMovementViewSet,
     MaterialStockViewSet,
     MaterialViewSet,
+    ProduceView,
     ProductMovementViewSet,
     ProductStockViewSet,
+    SellUnitsView,
     WarehouseViewSet,
 )
 from apps.likes.views import LikeViewSet
@@ -89,6 +93,11 @@ material_stock_list = MaterialStockViewSet.as_view({"get": "list"})
 material_movement_list = MaterialMovementViewSet.as_view({"get": "list", "post": "create"})
 product_stock_list = ProductStockViewSet.as_view({"get": "list"})
 product_movement_list = ProductMovementViewSet.as_view({"get": "list", "post": "create"})
+bom_list = BillOfMaterialViewSet.as_view({"get": "list", "post": "create"})
+bom_detail = BillOfMaterialViewSet.as_view(
+    {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
+)
+manufactured_unit_list = ManufacturedUnitViewSet.as_view({"get": "list"})
 
 urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
@@ -119,6 +128,11 @@ urlpatterns = [
     path("warehouses/<uuid:warehouse_pk>/material-movements/", material_movement_list, name="material-movement-list"),
     path("warehouses/<uuid:warehouse_pk>/product-stocks/", product_stock_list, name="product-stock-list"),
     path("warehouses/<uuid:warehouse_pk>/product-movements/", product_movement_list, name="product-movement-list"),
+    path("warehouses/<uuid:warehouse_pk>/produce/", ProduceView.as_view(), name="warehouse-produce"),
+    path("products/<uuid:product_pk>/bill-of-materials/", bom_list, name="bom-list"),
+    path("products/<uuid:product_pk>/bill-of-materials/<uuid:pk>/", bom_detail, name="bom-detail"),
+    path("products/<uuid:product_pk>/manufactured-units/", manufactured_unit_list, name="manufactured-unit-list"),
+    path("products/<uuid:product_pk>/sell-units/", SellUnitsView.as_view(), name="product-sell-units"),
 ]
 
 urlpatterns += router.urls

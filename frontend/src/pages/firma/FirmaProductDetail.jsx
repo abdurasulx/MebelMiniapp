@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowUp, ArrowDown, Boxes, Check, CheckCircle2,
-  Circle, Eye, ExternalLink, FileBox, Image as ImageIcon, Images, Link2,
-  Lock, MoreHorizontal, Palette, Share2, Sparkles, Trash2, Unlock, Upload,
+  Circle, Eye, ExternalLink, FileBox, Image as ImageIcon, Images, Layers, Link2,
+  Lock, MoreHorizontal, Palette, Share2, Sparkles, Tag, TrendingUp, Trash2, Unlock, Upload,
   Workflow,
 } from "lucide-react";
 import { api } from "../../api";
@@ -152,7 +152,13 @@ export default function FirmaProductDetail() {
           {tab === "media" && <MediaTab product={product} onDone={load} />}
           {tab === "model" && <ModelTab product={product} onDone={load} />}
           {tab === "variants" && <VariantsTab product={product} onDone={load} />}
-          {tab === "production" && <ProductionTab product={product} steps={steps} onStepsChange={load} />}
+          {tab === "production" && (
+            <>
+              <ProductionTab product={product} steps={steps} onStepsChange={load} />
+              <BomTab product={product} />
+              <ManufacturedUnitsTab product={product} />
+            </>
+          )}
           {tab === "sharing" && <SharingTab product={product} onDone={load} />}
         </div>
         <RightPanel product={product} completeness={completeness} />
@@ -1021,6 +1027,222 @@ function ProductionTab({ product, steps, onStepsChange }) {
             <EntButton small variant="ghost" onClick={() => setShowForm(false)}>Bekor</EntButton>
           </div>
         </form>
+      )}
+    </Card>
+  );
+}
+
+function BomTab({ product }) {
+  const [lines, setLines] = useState([]);
+  const [materials, setMaterials] = useState([]);
+  const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ material: "", quantity_per_unit: "" });
+
+  const load = () =>
+    Promise.all([
+      api(`/products/${product.id}/bill-of-materials/`),
+      api("/materials/"),
+    ])
+      .then(([bom, mat]) => {
+        setLines(bom.results || []);
+        setMaterials(mat.results || []);
+      })
+      .catch((e) => setError(e.message));
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
+
+  const addLine = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      await api(`/products/${product.id}/bill-of-materials/`, { method: "POST", body: form });
+      setForm({ material: "", quantity_per_unit: "" });
+      setShowForm(false);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const removeLine = async (id) => {
+    if (!confirm("Retsept qatori o'chirilsinmi?")) return;
+    try {
+      await api(`/products/${product.id}/bill-of-materials/${id}/`, { method: "DELETE" });
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const totalCost = lines.reduce((n, l) => n + Number(l.quantity_per_unit) * Number(l.material_unit_cost), 0);
+
+  return (
+    <Card
+      title="Retsept (Bill of Materials)"
+      description="1 dona mahsulot ishlab chiqarish uchun kerakli xom ashyo — shundan avtomatik material tannarxi hisoblanadi."
+      icon={Layers}
+      actions={<EntButton small onClick={() => setShowForm((v) => !v)}>+ Material</EntButton>}
+    >
+      {showForm && (
+        <form onSubmit={addLine} style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 16, flexWrap: "wrap" }}>
+          <div>
+            <label className="label">Material</label>
+            <select className="input" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} required>
+              <option value="">Tanlang…</option>
+              {materials.map((m) => (
+                <option key={m.id} value={m.id}>{m.name} ({m.unit_display})</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">1 dona uchun miqdor</label>
+            <input className="input" type="number" step="0.0001" min="0" value={form.quantity_per_unit}
+              onChange={(e) => setForm({ ...form, quantity_per_unit: e.target.value })} required />
+          </div>
+          <EntButton small type="submit">Qo'shish</EntButton>
+        </form>
+      )}
+      {error && <div className="error">{error}</div>}
+      {lines.length === 0 ? (
+        <p style={{ fontSize: 13, color: ENT.muted }}>
+          Hali retsept belgilanmagan — ishlab chiqarish uchun kamida bitta material qo'shing.
+        </p>
+      ) : (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {lines.map((l) => (
+              <div key={l.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", border: `1px solid ${ENT.border}`, borderRadius: 8 }}>
+                <span style={{ fontSize: 13, color: ENT.text }}>{l.material_name} — {l.quantity_per_unit} {l.material_unit}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 12, color: ENT.muted }}>
+                    {(Number(l.quantity_per_unit) * Number(l.material_unit_cost)).toLocaleString()} so'm
+                  </span>
+                  <button onClick={() => removeLine(l.id)} style={{ background: "transparent", border: "none", color: ENT.danger, cursor: "pointer", display: "flex" }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: ENT.text, textAlign: "right" }}>
+            Jami material tannarxi (1 dona): {totalCost.toLocaleString()} so'm
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+function ManufacturedUnitsTab({ product }) {
+  const [units, setUnits] = useState([]);
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+  const [showSell, setShowSell] = useState(false);
+  const [sellForm, setSellForm] = useState({ quantity: "", sale_price_per_unit: "" });
+  const [statusFilter, setStatusFilter] = useState("in_stock");
+
+  const load = () =>
+    api(`/products/${product.id}/manufactured-units/?status=${statusFilter}`)
+      .then((d) => setUnits(d.results || []))
+      .catch((e) => setError(e.message));
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id, statusFilter]);
+
+  const sell = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      const resp = await api(`/products/${product.id}/sell-units/`, { method: "POST", body: sellForm });
+      setMsg(`Sotildi — sof foyda: ${Number(resp.total_profit).toLocaleString()} so'm`);
+      setTimeout(() => setMsg(""), 4000);
+      setSellForm({ quantity: "", sale_price_per_unit: "" });
+      setShowSell(false);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <Card
+      title="Ishlab chiqarilgan donalar"
+      description="Har bir dona o'zining haqiqiy tannarxi bilan alohida kuzatiladi — sotilganda sof foyda aynan shu tannarxdan hisoblanadi (o'rtacha emas)."
+      icon={Tag}
+      actions={<EntButton small onClick={() => setShowSell((v) => !v)}>Sotish</EntButton>}
+    >
+      {showSell && (
+        <form onSubmit={sell} style={{ display: "flex", gap: 12, alignItems: "flex-end", marginBottom: 16, flexWrap: "wrap" }}>
+          <div>
+            <label className="label">Soni</label>
+            <input className="input" type="number" min="1" value={sellForm.quantity}
+              onChange={(e) => setSellForm({ ...sellForm, quantity: e.target.value })} required />
+          </div>
+          <div>
+            <label className="label">Dona narxi (sotuv, so'm)</label>
+            <input className="input" type="number" min="0" value={sellForm.sale_price_per_unit}
+              onChange={(e) => setSellForm({ ...sellForm, sale_price_per_unit: e.target.value })} required />
+          </div>
+          <EntButton small type="submit">Tasdiqlash</EntButton>
+        </form>
+      )}
+      {error && <div className="error">{error}</div>}
+      {msg && <div style={{ marginBottom: 12 }}><Pill tone="success" icon={TrendingUp}>{msg}</Pill></div>}
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        {[["in_stock", "Omborda"], ["sold", "Sotilgan"]].map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setStatusFilter(k)}
+            style={{
+              padding: "5px 12px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+              border: `1px solid ${ENT.border}`,
+              background: statusFilter === k ? ENT.primary : "#fff",
+              color: statusFilter === k ? "#fff" : ENT.muted,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {units.length === 0 ? (
+        <p style={{ fontSize: 13, color: ENT.muted }}>Bu holatda dona yo'q.</p>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Seriya</th>
+                <th>Tannarx</th>
+                {statusFilter === "sold" && <th>Sotuv narxi</th>}
+                {statusFilter === "sold" && <th>Sof foyda</th>}
+                <th>Sana</th>
+              </tr>
+            </thead>
+            <tbody>
+              {units.map((u) => (
+                <tr key={u.id}>
+                  <td className="font-medium">{u.serial_number}</td>
+                  <td>{Number(u.total_cost).toLocaleString()} so'm</td>
+                  {statusFilter === "sold" && <td>{Number(u.sale_price).toLocaleString()} so'm</td>}
+                  {statusFilter === "sold" && (
+                    <td style={{ color: u.profit >= 0 ? ENT.success : ENT.danger, fontWeight: 600 }}>
+                      {Number(u.profit).toLocaleString()} so'm
+                    </td>
+                  )}
+                  <td style={{ color: "var(--muted)" }}>{new Date(u.sold_at || u.created_at).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </Card>
   );

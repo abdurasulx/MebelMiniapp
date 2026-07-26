@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Hammer, Plus } from "lucide-react";
 import { api } from "../../api";
 
 export default function FirmaWarehouseDetail() {
@@ -233,6 +233,7 @@ function ProductWarehousePanel({ warehouseId }) {
   const [stocks, setStocks] = useState([]);
   const [movements, setMovements] = useState([]);
   const [products, setProducts] = useState([]);
+  const [rawWarehouses, setRawWarehouses] = useState([]);
   const [error, setError] = useState("");
   const [showMove, setShowMove] = useState(false);
   const [move, setMove] = useState({ product: "", variant: "", movement_type: "in", quantity: "", note: "" });
@@ -243,11 +244,13 @@ function ProductWarehousePanel({ warehouseId }) {
       api(`/warehouses/${warehouseId}/product-stocks/`),
       api(`/warehouses/${warehouseId}/product-movements/`),
       api("/products/"),
+      api("/warehouses/"),
     ])
-      .then(([s, m, p]) => {
+      .then(([s, m, p, wh]) => {
         setStocks(s.results || []);
         setMovements(m.results || []);
         setProducts(p.results || []);
+        setRawWarehouses((wh.results || []).filter((w) => w.kind === "raw_material"));
       })
       .catch((e) => setError(e.message));
 
@@ -283,6 +286,8 @@ function ProductWarehousePanel({ warehouseId }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <ProduceForm warehouseId={warehouseId} products={products} rawWarehouses={rawWarehouses} onDone={load} />
+
       <div className="card flex flex-col gap-3 p-5">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Qoldiqlar</h2>
@@ -369,6 +374,107 @@ function ProductWarehousePanel({ warehouseId }) {
       </div>
 
       <MovementHistory movements={movements} qtyLabel="product_name" />
+    </div>
+  );
+}
+
+function ProduceForm({ warehouseId, products, rawWarehouses, onDone }) {
+  const [show, setShow] = useState(false);
+  const [form, setForm] = useState({ product: "", variant: "", quantity: "", material_warehouse: "" });
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const selectedProduct = products.find((p) => p.id === form.product);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setResult(null);
+    if (!form.product || !form.material_warehouse) {
+      setError("Mahsulot va xom ashyo omborini tanlang");
+      return;
+    }
+    setBusy(true);
+    try {
+      const units = await api(`/warehouses/${warehouseId}/produce/`, {
+        method: "POST",
+        body: { ...form, variant: form.variant || null, quantity: Number(form.quantity) || 0 },
+      });
+      const unitCost = units[0]?.total_cost;
+      setResult(`${units.length} dona ishlab chiqarildi — dona tannarxi: ${Number(unitCost).toLocaleString()} so'm`);
+      setForm({ product: "", variant: "", quantity: "", material_warehouse: "" });
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card flex flex-col gap-3 p-5">
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-1.5 text-base font-semibold">
+          <Hammer size={16} /> Ishlab chiqarish
+        </span>
+        <button className="btn !px-3 !py-1.5 text-xs" onClick={() => setShow((v) => !v)}>
+          {show ? "Yopish" : "Yangi partiya"}
+        </button>
+      </div>
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        Mahsulotning retsepti (Bill of Materials) bo'yicha xom ashyo avtomatik kamaytiriladi va har bir
+        dona o'z tannarxi bilan alohida yozib olinadi.
+      </p>
+
+      {show && (
+        <form className="flex flex-col gap-3 rounded-xl p-4" style={{ border: "1px dashed var(--border)" }} onSubmit={submit}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label">Mahsulot</label>
+              <select className="input" value={form.product} onChange={(e) => setForm({ ...form, product: e.target.value, variant: "" })} required>
+                <option value="">Tanlang…</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name_uz}</option>
+                ))}
+              </select>
+            </div>
+            {selectedProduct?.variants?.length > 0 && (
+              <div>
+                <label className="label">Variant (ixtiyoriy)</label>
+                <select className="input" value={form.variant} onChange={(e) => setForm({ ...form, variant: e.target.value })}>
+                  <option value="">Barcha variantlar uchun umumiy</option>
+                  {selectedProduct.variants.map((v) => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="label">Soni</label>
+              <input className="input" type="number" min="1" value={form.quantity}
+                onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
+            </div>
+            <div>
+              <label className="label">Xom ashyo ombori</label>
+              <select className="input" value={form.material_warehouse} onChange={(e) => setForm({ ...form, material_warehouse: e.target.value })} required>
+                <option value="">Tanlang…</option>
+                {rawWarehouses.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {error && <div className="error">{error}</div>}
+          <div className="flex gap-2">
+            <button className="btn !px-3 !py-1.5 text-xs" type="submit" disabled={busy}>
+              {busy ? "Ishlab chiqarilmoqda…" : "Ishlab chiqarish"}
+            </button>
+            <button className="btn-ghost !px-3 !py-1.5 text-xs" type="button" onClick={() => setShow(false)}>Bekor</button>
+          </div>
+        </form>
+      )}
+      {result && <span className="badge">{result}</span>}
     </div>
   );
 }
