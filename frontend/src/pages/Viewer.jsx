@@ -20,15 +20,24 @@ export default function Viewer() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [needsLogin, setNeedsLogin] = useState(false);
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
 
   useEffect(() => {
     api(`/viewer/${token}/`)
-      .then(setData)
+      .then((d) => {
+        setData(d);
+        setSelectedVariantId((d.variants || []).find((v) => v.is_current)?.id ?? null);
+      })
       .catch((e) => {
         setError(e.message);
         setNeedsLogin(!!e.body?.requires_login);
       });
   }, [token]);
+
+  const selectedVariant = (data?.variants || []).find((v) => v.id === selectedVariantId);
+  // Variantning o'z faylini yuklamasa (masalan faqat rangi farqli, geometriya
+  // bir xil), umumiy mahsulot modeliga tushamiz.
+  const activeGlb = (selectedVariant?.has_own_model && selectedVariant.glb_url) || data?.glb_url;
 
   if (error) {
     return (
@@ -63,7 +72,8 @@ export default function Viewer() {
         <div>
           <div className="text-sm font-bold text-white">{data.product_name}</div>
           <div className="text-xs" style={{ color: "#9a9aa5" }}>
-            {data.variant_name} · {data.company_name}
+            {(selectedVariant?.name || data.variant_name) && `${selectedVariant?.name || data.variant_name} · `}
+            {data.company_name}
           </div>
         </div>
         {(() => {
@@ -79,9 +89,33 @@ export default function Viewer() {
           );
         })()}
       </div>
+      {data.variants?.length > 1 && (
+        <div className="flex shrink-0 gap-2 overflow-x-auto px-5 pb-3">
+          {data.variants.map((v) => (
+            <button
+              key={v.id}
+              onClick={() => setSelectedVariantId(v.id)}
+              className="inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition"
+              style={
+                v.id === selectedVariantId
+                  ? { background: "var(--primary)", color: "var(--primary-deep)" }
+                  : { background: "#1c1c28", color: "#c8c8d4", border: "1px solid #2a2a38" }
+              }
+            >
+              {v.color_hex && (
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ background: v.color_hex, border: "1px solid rgba(255,255,255,.35)" }}
+                />
+              )}
+              {v.name}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="min-h-0 flex-1 px-4 pb-4">
         <ModelSceneViewer
-          glb={data.glb_url}
+          glb={activeGlb}
           alt={data.product_name}
           style={{ height: "100%", width: "100%", background: "#16161f" }}
         />

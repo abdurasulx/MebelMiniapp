@@ -30,6 +30,7 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
         fields = (
             "id",
             "product",
+            "variant",
             "glb_file",
             "usdz_file",
             "texture_archive",
@@ -46,7 +47,7 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
             "allowed_emails",
             "created_at",
         )
-        read_only_fields = ("id", "product", "status", "share_token", "created_at")
+        read_only_fields = ("id", "product", "variant", "status", "share_token", "created_at")
 
     def get_glb_url(self, obj):
         return visible_file_url(obj, "glb_file", self.context.get("request"))
@@ -57,7 +58,7 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
     # FBX/OBJ -> to'g'ridan-to'g'ri konvertatsiya kerak; ZIP/RAR -> avval
     # ochilib, ichidan model fayli topiladi (bular ham "konvertatsiya kerak"
     # holatlar, chunki natija hali `glb_file`ga yozilmagan).
-    CONVERSION_NEEDED_FORMATS = (".fbx", ".obj", ".zip", ".rar")
+    CONVERSION_NEEDED_FORMATS = (".fbx", ".obj", ".dae", ".zip", ".rar")
 
     def save(self, **kwargs):
         # Firma GLB, yoki hatto xom FBX/OBJ yuklasa ham — qo'lda Blender/Reality
@@ -116,8 +117,9 @@ class Model3DViewerSerializer(serializers.ModelSerializer):
 
     glb_url = serializers.SerializerMethodField()
     usdz_url = serializers.SerializerMethodField()
-    product_name = serializers.CharField(source="product.name_uz", read_only=True)
-    company_name = serializers.CharField(source="product.company.name", read_only=True)
+    product_name = serializers.SerializerMethodField()
+    variant_name = serializers.CharField(source="variant.name", read_only=True, default=None)
+    company_name = serializers.SerializerMethodField()
     variants = serializers.SerializerMethodField()
 
     class Meta:
@@ -125,6 +127,7 @@ class Model3DViewerSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "product_name",
+            "variant_name",
             "company_name",
             "variants",
             "glb_url",
@@ -135,11 +138,37 @@ class Model3DViewerSerializer(serializers.ModelSerializer):
             "visibility",
         )
 
+    def get_product_name(self, obj):
+        return obj.owning_product.name_uz
+
+    def get_company_name(self, obj):
+        return obj.owning_product.company.name
+
     def get_variants(self, obj):
-        return [
-            {"id": v.id, "name": v.name, "color_hex": v.color_hex}
-            for v in obj.product.variants.filter(is_deleted=False)
-        ]
+        # Har bir variant o'zining alohida 3D faylini olishi mumkin (masalan
+        # ko'p materialli mahsulotlarda runtime tint yetarli bo'lmaganda —
+        # qarang Model3D docstring). Shuning uchun viewer sahifasi yuqorida
+        # variant tanlash imkonini berishi uchun har biriga tegishli glb/usdz
+        # havolasi (agar bo'lsa) shu yerda qaytariladi.
+        request = self.context.get("request")
+        result = []
+        for v in obj.owning_product.variants.filter(is_deleted=False):
+            variant_model = getattr(v, "model3d", None)
+            has_own_model = (
+                variant_model is not None
+                and not variant_model.is_deleted
+                and variant_model.can_view(request.user if request else None)
+            )
+            result.append({
+                "id": v.id,
+                "name": v.name,
+                "color_hex": v.color_hex,
+                "is_current": v.id == obj.variant_id,
+                "has_own_model": has_own_model,
+                "glb_url": visible_file_url(variant_model, "glb_file", request) if has_own_model else None,
+                "usdz_url": visible_file_url(variant_model, "usdz_file", request) if has_own_model else None,
+            })
+        return result
 
     def get_glb_url(self, obj):
         return visible_file_url(obj, "glb_file", self.context.get("request"))
