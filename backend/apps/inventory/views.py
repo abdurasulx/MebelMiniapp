@@ -8,7 +8,8 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.companies.views import user_company
+from apps.companies.models import Employee
+from apps.companies.views import is_company_owner, user_company, user_has_position
 from apps.orders.models import Order
 from apps.products.models import Product, Variant
 from apps.products.views import can_manage
@@ -19,6 +20,7 @@ from .models import (
     ManufacturedUnit,
     Material,
     MaterialMovement,
+    MaterialRemnant,
     MaterialStock,
     ProductMovement,
     ProductStock,
@@ -28,6 +30,7 @@ from .serializers import (
     BillOfMaterialSerializer,
     ManufacturedUnitSerializer,
     MaterialMovementSerializer,
+    MaterialRemnantSerializer,
     MaterialSerializer,
     MaterialStockSerializer,
     ProduceSerializer,
@@ -36,6 +39,52 @@ from .serializers import (
     SellUnitsSerializer,
     WarehouseSerializer,
 )
+
+
+def _consume_cut_pieces(warehouse, material, cut_length, total_pieces):
+    """`total_pieces` dona `cut_length` uzunlikdagi bo'lak kerak bo'lganda:
+    avval mos keladigan mavjud qoldiqlardan (eng kichik yetarli — best-fit)
+    foydalanadi, ular tugagach yangi yaxlit birlikdan (`stock_unit_length`)
+    kesadi. Har safar kesishdan qolgan musbat qoldiq alohida saqlanadi.
+    Qaytaradi: yangi yaxlit birlikdan kesilgan donalar soni (audit/xarajat uchun)."""
+
+    fresh_units_used = 0
+    for _ in range(total_pieces):
+        remnant = (
+            MaterialRemnant.objects.select_for_update()
+            .filter(warehouse=warehouse, material=material, length__gte=cut_length, quantity__gt=0)
+            .order_by("length")
+            .first()
+        )
+        if remnant is not None:
+            leftover = remnant.length - cut_length
+            remnant.quantity -= 1
+            if remnant.quantity == 0:
+                remnant.delete()
+            else:
+                remnant.save(update_fields=["quantity"])
+        else:
+            stock, _ = MaterialStock.objects.select_for_update().get_or_create(
+                warehouse=warehouse, material=material
+            )
+            if stock.quantity < material.stock_unit_length:
+                raise ValidationError(
+                    f"'{material.name}' yetarli emas (mavjud: {stock.quantity}{material.unit}, "
+                    f"kerak yana kamida {material.stock_unit_length}{material.unit} yaxlit birlik)"
+                )
+            stock.quantity -= material.stock_unit_length
+            stock.save(update_fields=["quantity"])
+            fresh_units_used += 1
+            leftover = material.stock_unit_length - cut_length
+
+        if leftover > 0:
+            new_remnant, created = MaterialRemnant.objects.select_for_update().get_or_create(
+                warehouse=warehouse, material=material, length=leftover, defaults={"quantity": 0}
+            )
+            new_remnant.quantity += 1
+            new_remnant.save(update_fields=["quantity"])
+
+    return fresh_units_used
 
 
 class CompanyScopedViewSet(viewsets.ModelViewSet):
@@ -61,6 +110,12 @@ class WarehouseViewSet(CompanyScopedViewSet):
         if company is None:
             return Warehouse.objects.none()
         return Warehouse.objects.filter(company=company, is_deleted=False).select_related("branch")
+
+    def perform_create(self, serializer):
+        company = self._own_company()
+        if not is_company_owner(self.request.user, company):
+            raise PermissionDenied("Faqat firma egasi yangi ombor yarata oladi")
+        serializer.save(company=company)
 
     def perform_destroy(self, instance):
         self._own_company()
@@ -114,6 +169,18 @@ class MaterialStockViewSet(WarehouseNestedMixin, viewsets.ReadOnlyModelViewSet):
         return MaterialStock.objects.filter(warehouse=warehouse).select_related("material")
 
 
+class MaterialRemnantViewSet(WarehouseNestedMixin, viewsets.ReadOnlyModelViewSet):
+    """Qayta ishlatsa bo'ladigan kesish qoldiqlari (offcut) — faqat ko'rish,
+    yozuvlar avtomatik `ProduceView` orqali yaratiladi/sarflanadi."""
+
+    serializer_class = MaterialRemnantSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        warehouse = self._get_warehouse(Warehouse.Kind.RAW_MATERIAL)
+        return MaterialRemnant.objects.filter(warehouse=warehouse, quantity__gt=0).select_related("material")
+
+
 class MaterialMovementViewSet(WarehouseNestedMixin, viewsets.ModelViewSet):
     """Xom ashyo kirim/chiqimi — yaratilganda qoldiq (`MaterialStock`) ham
     shu bilan birga avtomatik yangilanadi."""
@@ -128,6 +195,8 @@ class MaterialMovementViewSet(WarehouseNestedMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         warehouse = self._get_warehouse(Warehouse.Kind.RAW_MATERIAL)
+        if not user_has_position(self.request.user, warehouse.company, Employee.Position.OMBORCHI):
+            raise PermissionDenied("Ombordagi kirim/chiqimni faqat omborchi (yoki firma egasi) boshqaradi")
         material = serializer.validated_data["material"]
         if material.company_id != warehouse.company_id:
             raise ValidationError("Bu material sizning kompaniyangizga tegishli emas")
@@ -259,29 +328,53 @@ class ProduceView(WarehouseNestedMixin, APIView):
 
         with transaction.atomic():
             material_cost_per_unit = Decimal("0")
-            stocks_to_update = []
             for line in bom_lines:
-                needed = line.quantity_per_unit * quantity
-                stock, _ = MaterialStock.objects.select_for_update().get_or_create(
-                    warehouse=material_warehouse, material=line.material
-                )
-                if stock.quantity < needed:
-                    raise ValidationError(
-                        f"'{line.material.name}' yetarli emas (mavjud: {stock.quantity}, "
-                        f"kerak: {needed} {line.material.unit})"
+                material = line.material
+                if line.cut_length:
+                    # Kesish-qoldiq (offcut) rejimi: quantity_per_unit bu yerda
+                    # bo'laklar SONI, uzluksiz miqdor emas.
+                    raw_total_pieces = line.quantity_per_unit * quantity
+                    total_pieces = int(raw_total_pieces)
+                    if raw_total_pieces != total_pieces:
+                        raise ValidationError(
+                            f"'{material.name}' uchun kesiladigan bo'laklar soni butun son "
+                            f"bo'lishi kerak (hisoblandi: {raw_total_pieces})"
+                        )
+                    fresh_units_used = _consume_cut_pieces(
+                        material_warehouse, material, line.cut_length, total_pieces
                     )
-                stock.quantity -= needed
-                stocks_to_update.append((stock, line, needed))
-                material_cost_per_unit += line.quantity_per_unit * line.material.unit_cost
-
-            for stock, line, needed in stocks_to_update:
-                stock.save(update_fields=["quantity"])
-                MaterialMovement.objects.create(
-                    warehouse=material_warehouse, material=line.material,
-                    movement_type=MaterialMovement.Type.OUT, quantity=needed,
-                    note=f"Ishlab chiqarish: {product.name_uz} x{quantity}",
-                    created_by=request.user,
-                )
+                    if fresh_units_used:
+                        MaterialMovement.objects.create(
+                            warehouse=material_warehouse, material=material,
+                            movement_type=MaterialMovement.Type.OUT,
+                            quantity=fresh_units_used * material.stock_unit_length,
+                            note=(
+                                f"Ishlab chiqarish: {product.name_uz} x{quantity} — "
+                                f"{total_pieces} ta {line.cut_length}{material.unit} bo'lak kesildi "
+                                f"({fresh_units_used} ta yangi yaxlit birlikdan)"
+                            ),
+                            created_by=request.user,
+                        )
+                    material_cost_per_unit += line.quantity_per_unit * line.cut_length * material.unit_cost
+                else:
+                    needed = line.quantity_per_unit * quantity
+                    stock, _ = MaterialStock.objects.select_for_update().get_or_create(
+                        warehouse=material_warehouse, material=material
+                    )
+                    if stock.quantity < needed:
+                        raise ValidationError(
+                            f"'{material.name}' yetarli emas (mavjud: {stock.quantity}, "
+                            f"kerak: {needed} {material.unit})"
+                        )
+                    stock.quantity -= needed
+                    stock.save(update_fields=["quantity"])
+                    MaterialMovement.objects.create(
+                        warehouse=material_warehouse, material=material,
+                        movement_type=MaterialMovement.Type.OUT, quantity=needed,
+                        note=f"Ishlab chiqarish: {product.name_uz} x{quantity}",
+                        created_by=request.user,
+                    )
+                    material_cost_per_unit += line.quantity_per_unit * material.unit_cost
 
             # bulk_create Model.save()ni chaqirmaydi, shuning uchun serial_number
             # (odatda save()da avtomatik generatsiya qilinadi) INSERT'dan OLDIN
@@ -398,6 +491,8 @@ class ProductMovementViewSet(WarehouseNestedMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         warehouse = self._get_warehouse(Warehouse.Kind.FINISHED_GOODS)
+        if not user_has_position(self.request.user, warehouse.company, Employee.Position.OMBORCHI):
+            raise PermissionDenied("Ombordagi kirim/chiqimni faqat omborchi (yoki firma egasi) boshqaradi")
         product = serializer.validated_data["product"]
         variant = serializer.validated_data.get("variant")
         if product.company_id != warehouse.company_id:

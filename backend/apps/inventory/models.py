@@ -31,7 +31,9 @@ class Warehouse(BaseModel):
     )
     name = models.CharField(max_length=255)
     kind = models.CharField(max_length=20, choices=Kind.choices)
-    address = models.CharField(max_length=500, blank=True)
+    # Ombor manzili/lokatsiyasi — yaratishda majburiy (qayerdaligi noma'lum
+    # ombor bo'lishi mumkin emas).
+    address = models.CharField(max_length=500)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -49,6 +51,12 @@ class Material(BaseModel):
     name = models.CharField(max_length=255)
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES, default="dona")
     unit_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    # Faqat "m" (uzunlik) birligidagi materiallar uchun ma'noli: bitta yaxlit
+    # birlik (masalan taxta) qancha uzunlikda kelishi. Belgilansa, ishlab
+    # chiqarishda kesish-qoldiq (offcut) mantig'i ishga tushadi — aks holda
+    # material cheksiz bo'linadigan uzluksiz miqdor sifatida ishlaydi (avvalgi
+    # xatti-harakat, o'zgarishsiz).
+    stock_unit_length = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -97,20 +105,51 @@ class MaterialMovement(BaseModel):
 
 class BillOfMaterial(BaseModel):
     """Bitta mahsulot birligini (1 dona) ishlab chiqarish uchun kerakli xom
-    ashyo retsepti — "yarim tayyor mahsulotlarni mahsulotga biriktirish"."""
+    ashyo retsepti — "yarim tayyor mahsulotlarni mahsulotga biriktirish".
+
+    Ikki rejimda ishlaydi:
+      - `cut_length` bo'sh: `quantity_per_unit` — 1 dona mahsulot uchun
+        sarflanadigan UZLUKSIZ miqdor (masalan bo'yoq, elim — necha kg/litr).
+      - `cut_length` berilgan (faqat uzunlik-birlikli, `stock_unit_length`
+        belgilangan materiallar uchun): `quantity_per_unit` — 1 dona mahsulot
+        uchun kerakli KESILGAN BO'LAKLAR SONI (masalan 4 ta oyoq, har biri
+        `cut_length` uzunlikda) — ishlab chiqarishda avval mos qoldiqlardan
+        (offcut), keyin yaxlit birlikdan kesiladi, va yangi qoldiq hosil bo'ladi.
+    """
 
     product = models.ForeignKey(
         "products.Product", on_delete=models.CASCADE, related_name="bill_of_materials"
     )
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name="used_in")
     quantity_per_unit = models.DecimalField(max_digits=12, decimal_places=4, validators=[MinValueValidator(0.0001)])
+    cut_length = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
 
     class Meta:
         unique_together = ("product", "material")
         ordering = ("material__name",)
 
     def __str__(self):
+        if self.cut_length:
+            return f"{self.product.name_uz}: {self.quantity_per_unit} dona x {self.cut_length}{self.material.unit} ({self.material.name})"
         return f"{self.product.name_uz}: {self.quantity_per_unit} {self.material.unit} {self.material.name}"
+
+
+class MaterialRemnant(BaseModel):
+    """Kesishdan qolgan qayta ishlatsa bo'ladigan bo'lak (offcut) — masalan
+    1m taxtadan 0.7m kesilsa, qolgan 0.3m shu yerda alohida saqlanadi va
+    keyingi ishlab chiqarishda avval shundan foydalanishga harakat qilinadi."""
+
+    warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE, related_name="material_remnants")
+    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name="remnants")
+    length = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(0.001)])
+    quantity = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ("warehouse", "material", "length")
+        ordering = ("length",)
+
+    def __str__(self):
+        return f"{self.material.name} qoldig'i {self.length}{self.material.unit} x{self.quantity} @ {self.warehouse.name}"
 
 
 class ManufacturedUnit(BaseModel):

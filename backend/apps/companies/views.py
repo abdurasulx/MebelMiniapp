@@ -29,6 +29,22 @@ def user_company(user):
     return emp.company if emp and not emp.company.is_deleted else None
 
 
+def is_company_owner(user, company):
+    return bool(company) and company.owner_id == user.id
+
+
+def user_has_position(user, company, position):
+    """Firma egasi har doim ruxsatga ega; xodim bo'lsa, faqat shu `position`
+    (masalan "omborchi") unga tayinlangan bo'lsa."""
+    if is_company_owner(user, company):
+        return True
+    if not company:
+        return False
+    return Employee.objects.filter(
+        company=company, user=user, is_active=True, is_deleted=False, positions__contains=[position]
+    ).exists()
+
+
 class IsOwnerOrPlatformAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
@@ -116,7 +132,7 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
 
     serializer_class = EmployeeInvitationSerializer
     permission_classes = (permissions.IsAuthenticated,)
-    http_method_names = ("get", "post", "head", "options")
+    http_method_names = ("get", "post", "delete", "head", "options")
 
     def get_queryset(self):
         user = self.request.user
@@ -181,6 +197,17 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         invitation.responded_at = timezone.now()
         invitation.save(update_fields=["status", "responded_at"])
         return Response(EmployeeInvitationSerializer(invitation, context={"request": request}).data)
+
+    def perform_destroy(self, instance):
+        # Faqat firma egasi hali javob berilmagan taklifni bekor qila oladi —
+        # qabul/rad qilingan taklif tarix sifatida saqlanib qoladi.
+        company = Company.objects.filter(owner=self.request.user, is_deleted=False).first()
+        if company is None or instance.company_id != company.id:
+            raise PermissionDenied("Faqat kompaniya egasi taklifni bekor qila oladi")
+        if instance.status != EmployeeInvitation.Status.PENDING:
+            raise ValidationError("Javob berilgan taklifni bekor qilib bo'lmaydi")
+        instance.is_deleted = True
+        instance.save(update_fields=["is_deleted"])
 
 
 class BranchViewSet(viewsets.ModelViewSet):
