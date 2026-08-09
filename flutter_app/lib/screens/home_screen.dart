@@ -5,6 +5,7 @@ import '../likes_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/product_card.dart';
+import 'catalog_screen.dart';
 
 /// Bosh sahifa — yirik marketplace uslubidagi landing (hero banner +
 /// kolleksiyalar + ommabop mahsulotlar), iOS'dagi `HomeView` bilan bir xil.
@@ -86,8 +87,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
                 if (_products.isNotEmpty) ...[
                   _sectionHeader('Ommabop mahsulotlar', 'Eng ko\'p tanlangan'),
-                  _productsGrid(),
+                  _featuredRow(),
+                  const SizedBox(height: 24),
                 ],
+                _arBanner(),
               ],
             ],
           ),
@@ -144,6 +147,35 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.white.withOpacity(0.8),
               fontSize: 13.5,
               height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CatalogScreen()),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Xarid qilish',
+                    style: TextStyle(
+                      color: AppColors.deep,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.arrow_forward_rounded, color: AppColors.deep, size: 16),
+                ],
+              ),
             ),
           ),
         ],
@@ -216,20 +248,57 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _productsGrid() {
+  Widget _featuredRow() {
+    final items = _products.length > 10 ? _products.sublist(0, 10) : _products;
+    return SizedBox(
+      height: 240,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 14),
+        itemBuilder: (context, i) => SizedBox(
+          width: 160,
+          child: ProductCard(product: items[i]),
+        ),
+      ),
+    );
+  }
+
+  Widget _arBanner() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
-          childAspectRatio: 0.68,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const CatalogScreen()),
         ),
-        itemCount: _products.length > 6 ? 6 : _products.length,
-        itemBuilder: (context, i) => ProductCard(product: _products[i]),
+        child: Container(
+          height: 120,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                '🧊 AR bilan sinab ko\'ring',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                width: 260,
+                child: Text(
+                  'Xonangizga real o\'lchamda joylashtiring — sotib olishdan oldin ko\'zingiz bilan ko\'ring.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
