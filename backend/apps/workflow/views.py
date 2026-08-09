@@ -16,6 +16,7 @@ from .serializers import (
     WorkflowStepInstanceSerializer,
     WorkflowStepSerializer,
 )
+from .services import sync_order_status_on_step_completion
 
 
 class WorkflowStepViewSet(viewsets.ModelViewSet):
@@ -140,6 +141,7 @@ class WorkflowStepInstanceViewSet(viewsets.ReadOnlyModelViewSet):
         instance.completed_by = request.user
         instance.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
         instance.activate_dependents()
+        sync_order_status_on_step_completion(instance.order)
 
         instance = self.get_queryset().get(pk=instance.pk)
         return Response(

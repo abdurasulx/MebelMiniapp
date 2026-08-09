@@ -3,6 +3,24 @@ from django.utils import timezone
 from .models import StepStatus, WorkflowStepInstance
 
 
+def sync_order_status_on_step_completion(order):
+    """Buyurtmaning barcha workflow bosqichlari tugagach, buyurtma statusini
+    qo'lda "Tayyor" deb belgilashni kutmasdan avtomatik READY holatiga
+    o'tkazadi — ishlab chiqarish avtomatlashtirishning bir qismi (ombor va
+    boshqa keyingi bosqichlar buyurtma real vaqtda qayerdaligini bilishi uchun)."""
+    from apps.orders.models import Order
+
+    if order.status != Order.Status.IN_PRODUCTION:
+        return
+    steps = order.workflow_steps.filter(is_deleted=False)
+    if not steps.exists():
+        return
+    if steps.exclude(status=StepStatus.COMPLETED).exists():
+        return
+    order.status = Order.Status.READY
+    order.save(update_fields=["status", "updated_at"])
+
+
 def create_workflow_instances(order, product):
     """Mahsulotning workflow shablonini buyurtmaga nusxalaydi (Order Workflow).
 
