@@ -87,8 +87,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ),
                   const SizedBox(height: 10),
                   _companyLink(context, p),
-                  if (p.branchAddress?.isNotEmpty == true ||
-                      p.branchViloyatDisplay != null) ...[
+                  if (p.companyAddress?.isNotEmpty == true ||
+                      p.companyViloyatDisplay != null) ...[
                     const SizedBox(height: 8),
                     _locationRow(p),
                   ],
@@ -344,8 +344,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _locationRow(Product p) {
     final text = [
-      if (p.branchViloyatDisplay != null) p.branchViloyatDisplay!,
-      if (p.branchAddress?.isNotEmpty == true) p.branchAddress!,
+      if (p.companyViloyatDisplay != null) p.companyViloyatDisplay!,
+      if (p.companyAddress?.isNotEmpty == true) p.companyAddress!,
     ].join(', ');
     if (text.isEmpty) return const SizedBox.shrink();
     return Row(

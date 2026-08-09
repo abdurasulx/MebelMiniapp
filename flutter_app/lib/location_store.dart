@@ -5,9 +5,9 @@ import 'viloyat.dart';
 
 enum LocationStatus { idle, loading, granted, denied, unavailable }
 
-/// GPS orqali foydalanuvchi qaysi viloyatda ekanini aniqlaydi — bir necha
-/// viloyatda filiali bor firmalarning shu viloyatga tegishli mahsulotlarini
-/// ko'rsatish uchun (`Product.branch_viloyat` filtri, backend `?viloyat=`).
+/// GPS orqali foydalanuvchi qaysi viloyatda ekanini aniqlaydi — o'sha
+/// viloyatdagi (yoki viloyati ko'rsatilmagan) firmalarning mahsulotlarini
+/// ko'rsatish uchun (`Product.company_viloyat` filtri, backend `?viloyat=`).
 /// Foydalanuvchi xohlasa katalogdan qo'lda "Barchasi"ga o'tishi ham mumkin.
 class LocationStore extends ChangeNotifier {
   static const _prefKey = 'selected_viloyat';

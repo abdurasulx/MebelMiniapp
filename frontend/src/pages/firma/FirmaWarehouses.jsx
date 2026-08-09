@@ -111,7 +111,6 @@ export default function FirmaWarehouses() {
                       </div>
                       <div className="text-xs" style={{ color: "var(--muted)" }}>
                         {wh.address || "Manzil kiritilmagan"}
-                        {wh.branch_viloyat && ` · ${wh.branch_viloyat}`}
                       </div>
                     </div>
                   </Link>

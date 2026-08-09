@@ -18,17 +18,13 @@ UNIT_CHOICES = [
 
 class Warehouse(BaseModel):
     """Firma o'zi yaratadigan ombor — bitta firmada bir nechtasi bo'lishi mumkin
-    (masalan har filialda alohida, yoki bir filialda ham xom ashyo, ham tayyor
-    mahsulot uchun alohida-alohida)."""
+    (masalan xom ashyo va tayyor mahsulot uchun alohida-alohida)."""
 
     class Kind(models.TextChoices):
         RAW_MATERIAL = "raw_material", "Xom ashyo ombori"
         FINISHED_GOODS = "finished_goods", "Tayyor mahsulot ombori"
 
     company = models.ForeignKey("companies.Company", on_delete=models.CASCADE, related_name="warehouses")
-    branch = models.ForeignKey(
-        "companies.Branch", on_delete=models.SET_NULL, null=True, blank=True, related_name="warehouses"
-    )
     name = models.CharField(max_length=255)
     kind = models.CharField(max_length=20, choices=Kind.choices)
     # Ombor manzili/lokatsiyasi — yaratishda majburiy (qayerdaligi noma'lum

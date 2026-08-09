@@ -23,17 +23,30 @@ class VariantSerializer(StorageStampMixin, serializers.ModelSerializer):
     file_fields = ("texture",)
     texture = serializers.ImageField(write_only=True, required=False, allow_null=True)
     texture_url = serializers.SerializerMethodField()
+    model3d = serializers.SerializerMethodField()
 
     class Meta:
         model = Variant
         fields = (
             "id", "name", "base_price", "width", "height", "depth",
-            "color_hex", "texture", "texture_url",
+            "color_hex", "texture", "texture_url", "model3d",
         )
         read_only_fields = ("id",)
 
     def get_texture_url(self, obj):
         return visible_file_url(obj, "texture", self.context.get("request"))
+
+    def get_model3d(self, obj):
+        # Ko'p materialli mahsulotlar uchun: variant o'zining alohida 3D
+        # faylini olishi mumkin (mahsulotning umumiy modeli o'rniga runtime
+        # rang/tekstura tint qo'llash yetarli bo'lmaganda). Yo'q bo'lsa
+        # frontend mahsulotning umumiy model3d'iga qaytadi.
+        model = getattr(obj, "model3d", None)
+        if model is None or model.is_deleted:
+            return None
+        from apps.assets.serializers import Model3DSerializer
+
+        return Model3DSerializer(model, context=self.context).data
 
 
 class ProductImageSerializer(StorageStampMixin, serializers.ModelSerializer):
@@ -52,17 +65,17 @@ class ProductImageSerializer(StorageStampMixin, serializers.ModelSerializer):
 
 class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
     file_fields = ("image",)
-    variants = VariantSerializer(many=True, read_only=True)
+    variants = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
     image = serializers.ImageField(write_only=True, required=False, allow_null=True)
     image_url = serializers.SerializerMethodField()
     company_name = serializers.CharField(source="company.name", read_only=True)
     company_slug = serializers.CharField(source="company.slug", read_only=True)
-    branch_viloyat = serializers.CharField(source="branch.viloyat", read_only=True, default=None)
-    branch_viloyat_display = serializers.CharField(
-        source="branch.get_viloyat_display", read_only=True, default=None
+    company_viloyat = serializers.CharField(source="company.viloyat", read_only=True, default=None)
+    company_viloyat_display = serializers.CharField(
+        source="company.get_viloyat_display", read_only=True, default=None
     )
-    branch_address = serializers.CharField(source="branch.address", read_only=True, default=None)
+    company_address = serializers.CharField(source="company.address", read_only=True, default=None)
     is_liked = serializers.SerializerMethodField()
     model3d = serializers.SerializerMethodField()
 
@@ -73,18 +86,15 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
             "company",
             "company_name",
             "company_slug",
-            "branch",
-            "branch_viloyat",
-            "branch_viloyat_display",
-            "branch_address",
+            "company_viloyat",
+            "company_viloyat_display",
+            "company_address",
             "category",
             "name_uz",
-            "name_ru",
             "slug",
             "description",
             "image",
             "image_url",
-            "video_url",
             "is_published",
             "variants",
             "images",
@@ -118,3 +128,11 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
         # joriy storage rejimiga mos bo'lmagan galereya rasmlari chiqarilmaydi
         visible = [img for img in obj.images.all() if not img.is_deleted and img.file_visible()]
         return ProductImageSerializer(visible, many=True, context=self.context).data
+
+    def get_variants(self, obj):
+        # `obj.variants` — filtrlanmagan teskari FK manager (BaseModel'da
+        # soft-delete'ni avtomatik chiqarib tashlaydigan custom manager yo'q),
+        # shuning uchun o'chirilgan variantlar filtrlamasak abadiy ko'rinib
+        # qolar edi (masalan variant o'chirilgandan keyin ham ro'yxatda turadi).
+        visible = [v for v in obj.variants.all() if not v.is_deleted]
+        return VariantSerializer(visible, many=True, context=self.context).data

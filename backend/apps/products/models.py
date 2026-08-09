@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
 
-from apps.companies.models import Branch, Company
+from apps.companies.models import Company
 from common.models import BaseModel, StoredFileMixin
 
 
@@ -33,18 +33,11 @@ class Product(BaseModel, StoredFileMixin):
     """Kompaniyaga tegishli mahsulot (techdocs/06 §9)."""
 
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="products")
-    # Qaysi filialda ishlab chiqariladi/sotiladi — bo'sh bo'lsa barcha viloyatlarda
-    # ko'rinadi (eski mahsulotlar yoki bitta filialli firmalar uchun default).
-    branch = models.ForeignKey(
-        Branch, on_delete=models.SET_NULL, null=True, blank=True, related_name="products"
-    )
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name="products")
     name_uz = models.CharField(max_length=200)
-    name_ru = models.CharField(max_length=200, blank=True)
     slug = models.SlugField(max_length=220)
     description = models.TextField(blank=True)
     image = models.ImageField(upload_to="products/", blank=True, null=True)
-    video_url = models.URLField(max_length=500, blank=True)
     is_published = models.BooleanField(default=False)
 
     class Meta:

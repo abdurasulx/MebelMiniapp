@@ -18,6 +18,31 @@ TIER_NEW = {"key": "new", "label": "Yangi firma", "color": "#94a3b8"}
 TIER_LOW_RATING_COLOR = "#ef4444"
 
 
+class Viloyat(models.TextChoices):
+    """O'zbekiston viloyatlari — kompaniya qaysi hududda joylashganini
+    belgilash va katalogni foydalanuvchi lokatsiyasiga qarab filtrlash uchun.
+
+    Ilgari bu filial (Branch) darajasida edi — bitta firma bir nechta
+    viloyatda filiali bo'lishi mumkin edi. Endi har bir jismoniy joylashuv
+    alohida Company sifatida ro'yxatdan o'tadi, shuning uchun viloyat
+    to'g'ridan-to'g'ri Company'ga ko'chirildi."""
+
+    TOSHKENT_SHAHRI = "toshkent_shahri", "Toshkent shahri"
+    TOSHKENT_VILOYATI = "toshkent_viloyati", "Toshkent viloyati"
+    ANDIJON = "andijon", "Andijon"
+    BUXORO = "buxoro", "Buxoro"
+    FARGONA = "fargona", "Farg'ona"
+    JIZZAX = "jizzax", "Jizzax"
+    XORAZM = "xorazm", "Xorazm"
+    NAMANGAN = "namangan", "Namangan"
+    NAVOIY = "navoiy", "Navoiy"
+    QASHQADARYO = "qashqadaryo", "Qashqadaryo"
+    QORAQALPOGISTON = "qoraqalpogiston", "Qoraqalpog'iston Respublikasi"
+    SAMARQAND = "samarqand", "Samarqand"
+    SIRDARYO = "sirdaryo", "Sirdaryo"
+    SURXONDARYO = "surxondaryo", "Surxondaryo"
+
+
 class Company(BaseModel, StoredFileMixin):
     """Tenant: mebel ishlab chiqaruvchi kompaniya (docs/06, techdocs/06 §6)."""
 
@@ -29,6 +54,7 @@ class Company(BaseModel, StoredFileMixin):
     description = models.TextField(blank=True)
     phone = models.CharField(max_length=20, blank=True)
     address = models.CharField(max_length=500, blank=True)
+    viloyat = models.CharField(max_length=30, choices=Viloyat.choices, blank=True)
     logo = models.ImageField(upload_to="companies/logos/", blank=True, null=True)
     is_active = models.BooleanField(default=True)
     # Har firma o'zining ishga olish shartnomasi matnini moslashtirib qo'yadi —
@@ -80,47 +106,6 @@ class Company(BaseModel, StoredFileMixin):
             "rating": rating,
             "review_count": self.review_count,
         }
-
-
-class Viloyat(models.TextChoices):
-    """O'zbekiston viloyatlari — filialni qaysi hududga tegishli ekanini
-    belgilash va katalogni foydalanuvchi lokatsiyasiga qarab filtrlash uchun."""
-
-    TOSHKENT_SHAHRI = "toshkent_shahri", "Toshkent shahri"
-    TOSHKENT_VILOYATI = "toshkent_viloyati", "Toshkent viloyati"
-    ANDIJON = "andijon", "Andijon"
-    BUXORO = "buxoro", "Buxoro"
-    FARGONA = "fargona", "Farg'ona"
-    JIZZAX = "jizzax", "Jizzax"
-    XORAZM = "xorazm", "Xorazm"
-    NAMANGAN = "namangan", "Namangan"
-    NAVOIY = "navoiy", "Navoiy"
-    QASHQADARYO = "qashqadaryo", "Qashqadaryo"
-    QORAQALPOGISTON = "qoraqalpogiston", "Qoraqalpog'iston Respublikasi"
-    SAMARQAND = "samarqand", "Samarqand"
-    SIRDARYO = "sirdaryo", "Sirdaryo"
-    SURXONDARYO = "surxondaryo", "Surxondaryo"
-
-
-class Branch(BaseModel):
-    """Bir firma nomi ostida bir nechta viloyatda ishlaydigan filial (docs
-    talab: "toshkentdan turib ko'rsam toshkentdagi offisi materiallari
-    ko'rinsin"). Mahsulot muayyan filialga bog'lanadi — filial orqali
-    katalog foydalanuvchi joylashgan viloyatga qarab filtrlanadi."""
-
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="branches")
-    viloyat = models.CharField(max_length=30, choices=Viloyat.choices)
-    address = models.CharField(max_length=500, blank=True)
-    phone = models.CharField(max_length=20, blank=True)
-    # Firma birinchi marta filialsiz yaratilgan bo'lsa ham ishlashi uchun
-    # asosiy filial belgisi — yangi firma ro'yxatdan o'tganda avtomatik shu bo'ladi.
-    is_main = models.BooleanField(default=False)
-
-    class Meta:
-        ordering = ("-is_main", "viloyat")
-
-    def __str__(self):
-        return f"{self.company.name} — {self.get_viloyat_display()}"
 
 
 class Review(BaseModel):

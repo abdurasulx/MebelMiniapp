@@ -4,7 +4,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from apps.assets.views import Model3DViewerView, Model3DViewSet
 from apps.companies.views import (
-    BranchViewSet,
     CompanyViewSet,
     EmployeeInvitationViewSet,
     EmployeeViewSet,
@@ -15,6 +14,7 @@ from apps.inventory.views import (
     BillOfMaterialViewSet,
     ManufacturedUnitViewSet,
     MaterialMovementViewSet,
+    MaterialRemnantViewSet,
     MaterialStockViewSet,
     MaterialViewSet,
     ProduceView,
@@ -66,7 +66,6 @@ router.register("tasks", ProductionTaskViewSet, basename="task")
 router.register("payslips", PayslipViewSet, basename="payslip")
 router.register("likes", LikeViewSet, basename="like")
 router.register("reviews", ReviewViewSet, basename="review")
-router.register("branches", BranchViewSet, basename="branch")
 router.register("workflow-instances", WorkflowStepInstanceViewSet, basename="workflow-instance")
 router.register("detail-assets", DetailAssetViewSet, basename="detail-asset")
 router.register("projects", ProjectViewSet, basename="project")
@@ -90,6 +89,7 @@ project_item_detail = ProjectItemViewSet.as_view(
     {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
 )
 material_stock_list = MaterialStockViewSet.as_view({"get": "list"})
+material_remnant_list = MaterialRemnantViewSet.as_view({"get": "list"})
 material_movement_list = MaterialMovementViewSet.as_view({"get": "list", "post": "create"})
 product_stock_list = ProductStockViewSet.as_view({"get": "list"})
 product_movement_list = ProductMovementViewSet.as_view({"get": "list", "post": "create"})
@@ -125,6 +125,7 @@ urlpatterns = [
     path("projects/<uuid:project_pk>/items/<uuid:pk>/", project_item_detail, name="project-item-detail"),
     path("viewer/project/<uuid:token>/", ProjectViewerView.as_view(), name="project-viewer"),
     path("warehouses/<uuid:warehouse_pk>/material-stocks/", material_stock_list, name="material-stock-list"),
+    path("warehouses/<uuid:warehouse_pk>/material-remnants/", material_remnant_list, name="material-remnant-list"),
     path("warehouses/<uuid:warehouse_pk>/material-movements/", material_movement_list, name="material-movement-list"),
     path("warehouses/<uuid:warehouse_pk>/product-stocks/", product_stock_list, name="product-stock-list"),
     path("warehouses/<uuid:warehouse_pk>/product-movements/", product_movement_list, name="product-movement-list"),

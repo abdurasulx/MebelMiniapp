@@ -73,11 +73,11 @@ struct ProductDetailView: View {
                         } else {
                             Text("🏭 \(product.companyName)").foregroundStyle(.secondary)
                         }
-                        if product.branchViloyatDisplay != nil || (product.branchAddress?.isEmpty == false) {
+                        if product.companyViloyatDisplay != nil || (product.companyAddress?.isEmpty == false) {
                             HStack(spacing: 4) {
                                 Image(systemName: "mappin.and.ellipse").font(.caption2)
                                 Text(
-                                    [product.branchViloyatDisplay, product.branchAddress]
+                                    [product.companyViloyatDisplay, product.companyAddress]
                                         .compactMap { $0 }
                                         .filter { !$0.isEmpty }
                                         .joined(separator: ", ")

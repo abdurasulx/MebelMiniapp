@@ -104,18 +104,6 @@ struct CompanyTier: Codable {
     let reviewCount: Int
 }
 
-/// Bir firma nomi ostida bir nechta viloyatda ishlaydigan filial — mahsulot
-/// muayyan filialga bog'lanadi, katalog foydalanuvchi joylashgan viloyatga
-/// qarab shu orqali filtrlanadi (backend `Branch` modeli).
-struct Branch: Codable, Identifiable {
-    let id: String
-    let viloyat: String
-    let viloyatDisplay: String
-    let address: String?
-    let phone: String?
-    let isMain: Bool
-}
-
 struct Company: Codable, Identifiable {
     let id: String
     let name: String
@@ -123,9 +111,10 @@ struct Company: Codable, Identifiable {
     let description: String?
     let phone: String?
     let address: String?
+    let viloyat: String?
+    let viloyatDisplay: String?
     let logoUrl: String?
     let tier: CompanyTier?
-    let branches: [Branch]?
 }
 
 struct Review: Codable, Identifiable {
@@ -141,10 +130,9 @@ struct Product: Codable, Identifiable {
     let company: String
     let companyName: String
     let companySlug: String?
-    let branch: String?
-    let branchViloyat: String?
-    let branchViloyatDisplay: String?
-    let branchAddress: String?
+    let companyViloyat: String?
+    let companyViloyatDisplay: String?
+    let companyAddress: String?
     let category: String?
     let nameUz: String
     let nameRu: String?

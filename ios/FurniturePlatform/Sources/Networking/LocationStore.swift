@@ -5,9 +5,9 @@ enum LocationStatus {
     case idle, loading, granted, denied, unavailable
 }
 
-/// GPS orqali foydalanuvchi qaysi viloyatda ekanini aniqlaydi — bir necha
-/// viloyatda filiali bor firmalarning shu viloyatga tegishli mahsulotlarini
-/// ko'rsatish uchun (`Product.branchViloyat` filtri, backend `?viloyat=`).
+/// GPS orqali foydalanuvchi qaysi viloyatda ekanini aniqlaydi — o'sha
+/// viloyatdagi (yoki viloyati ko'rsatilmagan) firmalarning mahsulotlarini
+/// ko'rsatish uchun (`Product.companyViloyat` filtri, backend `?viloyat=`).
 /// Flutter'dagi `lib/location_store.dart` bilan bir xil naqsh.
 @MainActor
 final class LocationStore: NSObject, ObservableObject, CLLocationManagerDelegate {

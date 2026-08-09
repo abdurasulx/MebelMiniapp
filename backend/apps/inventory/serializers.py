@@ -5,6 +5,7 @@ from .models import (
     ManufacturedUnit,
     Material,
     MaterialMovement,
+    MaterialRemnant,
     MaterialStock,
     ProductMovement,
     ProductStock,
@@ -14,12 +15,11 @@ from .models import (
 
 class WarehouseSerializer(serializers.ModelSerializer):
     kind_display = serializers.CharField(source="get_kind_display", read_only=True)
-    branch_viloyat = serializers.CharField(source="branch.get_viloyat_display", read_only=True, default=None)
 
     class Meta:
         model = Warehouse
         fields = (
-            "id", "company", "branch", "branch_viloyat", "name", "kind", "kind_display",
+            "id", "company", "name", "kind", "kind_display",
             "address", "is_active", "created_at",
         )
         read_only_fields = ("id", "company", "created_at")
@@ -30,7 +30,10 @@ class MaterialSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Material
-        fields = ("id", "company", "name", "unit", "unit_display", "unit_cost", "is_active", "created_at")
+        fields = (
+            "id", "company", "name", "unit", "unit_display", "unit_cost",
+            "stock_unit_length", "is_active", "created_at",
+        )
         read_only_fields = ("id", "company", "created_at")
 
 
@@ -72,9 +75,28 @@ class BillOfMaterialSerializer(serializers.ModelSerializer):
         model = BillOfMaterial
         fields = (
             "id", "product", "material", "material_name", "material_unit",
-            "material_unit_cost", "quantity_per_unit",
+            "material_unit_cost", "quantity_per_unit", "cut_length",
         )
         read_only_fields = ("id", "product")
+
+    def validate(self, attrs):
+        material = attrs.get("material") or getattr(self.instance, "material", None)
+        cut_length = attrs.get("cut_length", getattr(self.instance, "cut_length", None))
+        if cut_length and (not material or material.unit != "m" or not material.stock_unit_length):
+            raise serializers.ValidationError(
+                "cut_length faqat 'metr' birligida va stock_unit_length belgilangan material uchun qo'llaniladi"
+            )
+        return attrs
+
+
+class MaterialRemnantSerializer(serializers.ModelSerializer):
+    material_name = serializers.CharField(source="material.name", read_only=True)
+    material_unit = serializers.CharField(source="material.get_unit_display", read_only=True)
+
+    class Meta:
+        model = MaterialRemnant
+        fields = ("id", "warehouse", "material", "material_name", "material_unit", "length", "quantity")
+        read_only_fields = fields
 
 
 class ManufacturedUnitSerializer(serializers.ModelSerializer):

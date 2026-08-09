@@ -199,9 +199,9 @@ class Product {
   final String company;
   final String companyName;
   final String? companySlug;
-  final String? branchViloyat;
-  final String? branchViloyatDisplay;
-  final String? branchAddress;
+  final String? companyViloyat;
+  final String? companyViloyatDisplay;
+  final String? companyAddress;
   final String nameUz;
   final String? description;
   final String? imageUrl;
@@ -216,9 +216,9 @@ class Product {
     required this.company,
     required this.companyName,
     this.companySlug,
-    this.branchViloyat,
-    this.branchViloyatDisplay,
-    this.branchAddress,
+    this.companyViloyat,
+    this.companyViloyatDisplay,
+    this.companyAddress,
     required this.nameUz,
     this.description,
     this.imageUrl,
@@ -245,9 +245,9 @@ class Product {
     company: j['company'],
     companyName: j['company_name'] ?? '',
     companySlug: j['company_slug'],
-    branchViloyat: j['branch_viloyat'],
-    branchViloyatDisplay: j['branch_viloyat_display'],
-    branchAddress: j['branch_address'],
+    companyViloyat: j['company_viloyat'],
+    companyViloyatDisplay: j['company_viloyat_display'],
+    companyAddress: j['company_address'],
     nameUz: j['name_uz'] ?? '',
     description: j['description'],
     imageUrl: j['image_url'],

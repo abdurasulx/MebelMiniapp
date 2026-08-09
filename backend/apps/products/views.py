@@ -1,6 +1,9 @@
+from django.core.files.base import ContentFile
 from django.db.models import Count, Q
 from rest_framework import permissions, viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.response import Response
 
 from apps.companies.views import user_company
 
@@ -70,12 +73,12 @@ class ProductViewSet(viewsets.ModelViewSet):
         company_slug = self.request.query_params.get("company")
         if company_slug:
             qs = qs.filter(company__slug=company_slug)
-        # Bir nechta viloyatda filiali bor firmalar uchun: foydalanuvchi
-        # joylashgan viloyatga tegishli (yoki filialsiz, ya'ni hammaga umumiy)
-        # mahsulotlarnigina ko'rsatish.
+        # Foydalanuvchi joylashgan viloyatga tegishli (yoki viloyati
+        # ko'rsatilmagan, ya'ni hammaga umumiy) firmalarning mahsulotlarigina
+        # ko'rsatiladi.
         viloyat = self.request.query_params.get("viloyat")
         if viloyat:
-            qs = qs.filter(Q(branch__viloyat=viloyat) | Q(branch__isnull=True))
+            qs = qs.filter(Q(company__viloyat=viloyat) | Q(company__viloyat=""))
         ordering = self.request.query_params.get("ordering")
         if ordering == "top":
             qs = qs.annotate(like_count=Count("liked_by")).order_by("-like_count", "-created_at")
@@ -86,6 +89,26 @@ class ProductViewSet(viewsets.ModelViewSet):
         if company is None:
             raise PermissionDenied("Avval kompaniya yarating yoki kompaniyaga xodim bo'ling")
         serializer.save(company=company)
+
+    @action(detail=True, methods=["post"], url_path="set-primary-image")
+    def set_primary_image(self, request, pk=None):
+        """Galereyadagi (`ProductImage`) mavjud rasmlardan birini asosiy rasm
+        (`Product.image`) sifatida belgilaydi — qayta yuklash shart emas,
+        fayl serverda ichkarida nusxalanadi."""
+        product = self.get_object()
+        if not can_manage(request.user, product.company):
+            raise PermissionDenied("Bu mahsulot sizniki emas")
+        try:
+            gallery_image = product.images.get(pk=request.data.get("image"), is_deleted=False)
+        except ProductImage.DoesNotExist:
+            raise NotFound("Bu rasm mahsulot galereyasida topilmadi")
+        if not gallery_image.image:
+            raise ValidationError("Bu rasm fayli mavjud emas")
+
+        with gallery_image.image.open("rb") as f:
+            product.image.save(gallery_image.image.name.rsplit("/", 1)[-1], ContentFile(f.read()), save=True)
+
+        return Response(ProductSerializer(product, context={"request": request}).data)
 
     def perform_destroy(self, instance):
         instance.is_deleted = True

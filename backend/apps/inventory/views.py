@@ -109,7 +109,7 @@ class WarehouseViewSet(CompanyScopedViewSet):
         company = user_company(self.request.user)
         if company is None:
             return Warehouse.objects.none()
-        return Warehouse.objects.filter(company=company, is_deleted=False).select_related("branch")
+        return Warehouse.objects.filter(company=company, is_deleted=False)
 
     def perform_create(self, serializer):
         company = self._own_company()
