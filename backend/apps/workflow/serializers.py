@@ -54,12 +54,25 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
     completed_by_name = serializers.CharField(source="completed_by.first_name", read_only=True)
     depends_on = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     is_available = serializers.BooleanField(read_only=True)
-    updates = ProgressUpdateSerializer(many=True, read_only=True)
+    updates = serializers.SerializerMethodField()
+    order_display = serializers.SerializerMethodField()
+    order_status = serializers.CharField(source="order.status", read_only=True)
+
+    def get_updates(self, obj):
+        # `obj.updates` — filtrlanmagan teskari FK manager, is_deleted=False
+        # bilan filtrlamasak o'chirilgan yangilanishlar abadiy ko'rinib
+        # qolar edi (xuddi variant/lead-note/filial o'chirish xatolaridagi kabi).
+        visible = [u for u in obj.updates.all() if not u.is_deleted]
+        return ProgressUpdateSerializer(visible, many=True, context=self.context).data
+
+    def get_order_display(self, obj):
+        return f"#{str(obj.order_id)[:8]}"
 
     class Meta:
         model = WorkflowStepInstance
         fields = (
-            "id", "order", "template_step", "order_index", "name", "role", "role_display",
+            "id", "order", "order_display", "order_status", "template_step", "order_index",
+            "name", "role", "role_display",
             "employee", "employee_name", "estimated_hours", "cost", "required_materials",
             "photo_requirement", "photo_requirement_display", "depends_on",
             "status", "status_display", "is_available",
