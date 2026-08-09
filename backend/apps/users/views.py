@@ -118,7 +118,15 @@ class OTPRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         phone = serializer.validated_data["phone"].strip()
 
-        last = PhoneOTP.objects.filter(phone=phone).order_by("-created_at").first()
+        # `is_used=False`: allaqachon tasdiqlangan (login uchun ishlatilgan) kod
+        # cooldownga hisoblanmaydi — aks holda muvaffaqiyatli kirgan foydalanuvchi
+        # chiqib darhol qayta kirmoqchi bo'lsa, 60 soniya davomida yangi kod
+        # so'rolmay, 400 xatolikka uchraydi.
+        last = (
+            PhoneOTP.objects.filter(phone=phone, is_used=False)
+            .order_by("-created_at")
+            .first()
+        )
         if last is not None:
             elapsed = (timezone.now() - last.created_at).total_seconds()
             if elapsed < PhoneOTP.RESEND_COOLDOWN_SECONDS:
