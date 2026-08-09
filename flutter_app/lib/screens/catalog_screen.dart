@@ -209,14 +209,32 @@ class _CatalogScreenState extends State<CatalogScreen> {
                       height: 14,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.place_rounded, size: 16),
-              label: Text(location.viloyatLabelText),
+                  : const Icon(Icons.place_rounded, size: 16, color: AppColors.deep),
+              label: Text(
+                location.viloyatLabelText,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                  color: AppColors.deep,
+                ),
+              ),
               onPressed: _pickViloyat,
             ),
             const SizedBox(width: 8),
             ChoiceChip(
-              avatar: const Icon(Icons.trending_up_rounded, size: 16),
-              label: const Text('Top tovarlar'),
+              avatar: Icon(
+                Icons.trending_up_rounded,
+                size: 16,
+                color: _topOnly ? AppColors.primary : AppColors.deep,
+              ),
+              label: Text(
+                'Top tovarlar',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                  color: _topOnly ? AppColors.primary : AppColors.deep,
+                ),
+              ),
               selected: _topOnly,
               onSelected: (v) {
                 setState(() => _topOnly = v);
