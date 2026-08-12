@@ -71,6 +71,56 @@ actor APIClient {
         try await send(path: path, method: "PATCH", body: try encoder.encode(body), auth: auth)
     }
 
+    /// `multipart/form-data` — rasm yuklash kerak bo'lgan amallar uchun
+    /// (masalan bosh sahifa/katalogdagi "rasm bilan qidirish").
+    func postMultipartImage<T: Decodable>(
+        _ path: String,
+        imageData: Data,
+        imageFieldName: String = "image",
+        fileName: String = "photo.jpg",
+        mimeType: String = "image/jpeg",
+        fields: [String: String] = [:],
+        auth: Bool = false
+    ) async throws -> T {
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        for (key, value) in fields {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(key)\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(value)\r\n".data(using: .utf8)!)
+        }
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append(
+            "Content-Disposition: form-data; name=\"\(imageFieldName)\"; filename=\"\(fileName)\"\r\n"
+                .data(using: .utf8)!
+        )
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        var request = URLRequest(url: APIConfig.baseURL.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        if auth, let accessToken {
+            request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = body
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.server("Server bilan bog'lanib bo'lmadi")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let message = (try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil
+            throw APIError.server(message ?? "Xatolik (\(http.statusCode))")
+        }
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            throw APIError.decoding
+        }
+    }
+
     // MARK: - Core
 
     private func send<T: Decodable>(path: String, method: String, body: Data?, auth: Bool) async throws -> T {

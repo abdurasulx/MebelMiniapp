@@ -27,7 +27,12 @@ struct ShopView: View {
     @State private var showFilters = false
     @State private var showViloyatPicker = false
 
+    @State private var imageResults: [Product]?
+    @State private var isImageSearching = false
+    @State private var imageSearchError: String?
+
     private var filtered: [Product] {
+        if let imageResults { return imageResults }
         var list = products
         if let selectedCategory {
             list = list.filter { $0.category == selectedCategory }
@@ -64,16 +69,25 @@ struct ShopView: View {
                 viloyatChip
 
                 HStack {
-                    Text("\(filtered.count) ta mahsulot")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text(
+                        imageResults != nil
+                            ? "Rasmga o'xshash \(filtered.count) ta mahsulot (70%+)"
+                            : "\(filtered.count) ta mahsulot"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     Spacer()
-                    sortMenu
-                    Button {
-                        showFilters = true
-                    } label: {
-                        Image(systemName: onlyWithAR ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                            .foregroundStyle(onlyWithAR ? Color.brandDeep : .primary)
+                    if imageResults != nil {
+                        Button("Tozalash") { imageResults = nil }
+                            .font(.caption).bold()
+                    } else {
+                        sortMenu
+                        Button {
+                            showFilters = true
+                        } label: {
+                            Image(systemName: onlyWithAR ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                                .foregroundStyle(onlyWithAR ? Color.brandDeep : .primary)
+                        }
                     }
                 }
                 .padding(.horizontal)
@@ -81,8 +95,15 @@ struct ShopView: View {
                 if let errorMessage {
                     Text(errorMessage).foregroundStyle(.red).padding(.horizontal)
                 }
+                if let imageSearchError {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(imageSearchError).foregroundStyle(.red)
+                        Button("Yopish") { self.imageSearchError = nil }
+                    }
+                    .padding(.horizontal)
+                }
 
-                if isLoading {
+                if isLoading || isImageSearching {
                     ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
                 } else if filtered.isEmpty {
                     VStack(spacing: 8) {
@@ -164,20 +185,46 @@ struct ShopView: View {
 
     private var searchBar: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Mahsulot yoki firma qidirish…", text: $search)
-                .textInputAutocapitalization(.never)
-            if !search.isEmpty {
-                Button { search = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Mahsulot yoki firma qidirish…", text: $search)
+                    .textInputAutocapitalization(.never)
+                    .onChange(of: search) { _, newValue in
+                        if !newValue.isEmpty { imageResults = nil }
+                    }
+                if !search.isEmpty {
+                    Button { search = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .accessibilityIdentifier("clearSearchButton")
                 }
-                .accessibilityIdentifier("clearSearchButton")
+            }
+            .padding(12)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            ImageSearchButton { data in
+                Task { await searchByImage(data) }
             }
         }
-        .padding(12)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal)
+    }
+
+    private func searchByImage(_ data: Data) async {
+        isImageSearching = true
+        imageSearchError = nil
+        imageResults = nil
+        search = ""
+        do {
+            let results: [Product] = try await APIClient.shared.postMultipartImage(
+                "/products/search-by-image/",
+                imageData: data
+            )
+            imageResults = results
+        } catch {
+            imageSearchError = error.localizedDescription
+        }
+        isImageSearching = false
     }
 
     private var categoryRow: some View {

@@ -7,8 +7,23 @@ struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var likes: LikesStore
     @EnvironmentObject private var cart: CartStore
+    @State private var showSplash = true
 
     var body: some View {
+        Group {
+            if showSplash {
+                SplashScreenView()
+                    .task {
+                        try? await Task.sleep(nanoseconds: 1_300_000_000)
+                        withAnimation { showSplash = false }
+                    }
+            } else {
+                mainTabs
+            }
+        }
+    }
+
+    private var mainTabs: some View {
         TabView {
             if auth.appMode == .worker && auth.user?.company != nil {
                 WorkerHomeView()

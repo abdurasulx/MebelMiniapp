@@ -145,6 +145,8 @@ struct Product: Codable, Identifiable {
     let images: [ProductImage]
     let isLiked: Bool?
     let model3d: Model3D?
+    // Faqat "rasm bilan qidirish" natijalarida keladi.
+    let similarityPercent: Double?
 
     var liked: Bool { isLiked ?? false }
 

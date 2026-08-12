@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Bosh sahifa — yirik marketplace uslubidagi landing (hero banner + kolleksiyalar +
-/// ommabop mahsulotlar), Shopify "Plank" mavzusiga mos.
+/// Bosh sahifa — kolleksiyalar + ommabop mahsulotlar + qidiruv (nom yoki
+/// rasm bo'yicha). Brend hero matni endi `SplashScreenView`da — bu yerda
+/// bekorchi turmasin deb olib tashlandi, "AR bilan sinab ko'ring" banneri
+/// ham (foydasiz qo'shimcha reklama sifatida) olib tashlandi.
 struct HomeView: View {
     @EnvironmentObject private var likes: LikesStore
     @State private var products: [Product] = []
@@ -9,11 +11,26 @@ struct HomeView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
 
+    @State private var query = ""
+    @State private var imageResults: [Product]?
+    @State private var isImageSearching = false
+    @State private var imageSearchError: String?
+
+    private var nameMatches: [Product] {
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        let q = query.lowercased()
+        return products.filter { $0.nameUz.lowercased().contains(q) || $0.companyName.lowercased().contains(q) }
+    }
+
+    private var isSearching: Bool {
+        !query.trimmingCharacters(in: .whitespaces).isEmpty || imageResults != nil || isImageSearching
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
-                    hero
+                VStack(alignment: .leading, spacing: 20) {
+                    searchBar
 
                     if let errorMessage {
                         Text(errorMessage).foregroundStyle(.red).padding(.horizontal)
@@ -21,6 +38,8 @@ struct HomeView: View {
 
                     if isLoading {
                         ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+                    } else if isSearching {
+                        searchResultsSection
                     } else {
                         if !categories.isEmpty {
                             sectionHeader("Kolleksiyalar", subtitle: "Har xona uchun")
@@ -31,10 +50,9 @@ struct HomeView: View {
                             sectionHeader("Ommabop mahsulotlar", subtitle: "Eng ko'p tanlangan")
                             featuredRow
                         }
-
-                        banner
                     }
                 }
+                .padding(.top, 8)
                 .padding(.bottom, 32)
             }
             .navigationTitle("")
@@ -44,49 +62,99 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Hero
+    // MARK: - Qidiruv
 
-    private var hero: some View {
-        ZStack(alignment: .bottomLeading) {
-            LinearGradient(
-                colors: [Color.brandDeep, Color.brandDeep.opacity(0.75), Color.brandPrimary.opacity(0.55)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .frame(height: 340)
-
-            VStack(alignment: .leading, spacing: 14) {
-                Text("MINIMAL VA FUNKSIONAL")
-                    .font(.caption).bold()
-                    .tracking(1.5)
-                    .foregroundStyle(Color.brandPrimary)
-
-                Text("Uyingizga\nqulaylik va hashamat")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineSpacing(2)
-
-                Text("O'zbekistonning eng yaxshi mebel ustalari.\nO'lchamingizga mos dizayn, uyingizga yetkazib berish.")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.85))
-
-                NavigationLink(destination: ShopView()) {
-                    HStack(spacing: 6) {
-                        Text("Xarid qilish").bold()
-                        Image(systemName: "arrow.right")
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Mahsulot yoki firma qidirish…", text: $query)
+                    .textInputAutocapitalization(.never)
+                    .onChange(of: query) { _, newValue in
+                        if !newValue.isEmpty { imageResults = nil }
                     }
-                    .font(.subheadline)
-                    .padding(.horizontal, 20).padding(.vertical, 12)
-                    .background(Color.brandPrimary)
-                    .foregroundStyle(Color.brandDeep)
-                    .clipShape(Capsule())
+                if !query.isEmpty {
+                    Button { query = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
                 }
-                .padding(.top, 4)
             }
-            .padding(24)
+            .padding(12)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+
+            ImageSearchButton { data in
+                Task { await searchByImage(data) }
+            }
         }
-        .frame(height: 340)
-        .clipped()
+        .padding(.horizontal)
+    }
+
+    private func searchByImage(_ data: Data) async {
+        isImageSearching = true
+        imageSearchError = nil
+        imageResults = nil
+        query = ""
+        do {
+            let results: [Product] = try await APIClient.shared.postMultipartImage(
+                "/products/search-by-image/",
+                imageData: data
+            )
+            imageResults = results
+        } catch {
+            imageSearchError = error.localizedDescription
+        }
+        isImageSearching = false
+    }
+
+    @ViewBuilder
+    private var searchResultsSection: some View {
+        if isImageSearching {
+            ProgressView().frame(maxWidth: .infinity).padding(.top, 30)
+        } else if let imageSearchError {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(imageSearchError).foregroundStyle(.red)
+                Button("Yopish") { self.imageSearchError = nil }
+            }
+            .padding(.horizontal)
+        } else {
+            let items = imageResults ?? nameMatches
+            HStack {
+                Text(
+                    imageResults != nil
+                        ? "\(items.count) ta o'xshash mahsulot (70%+)"
+                        : "\(items.count) ta natija"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                Spacer()
+                if imageResults != nil {
+                    Button("Tozalash") { imageResults = nil }
+                        .font(.caption).bold()
+                }
+            }
+            .padding(.horizontal)
+
+            if items.isEmpty {
+                Text("Hech narsa topilmadi.")
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+                    .padding(.top, 20)
+            } else {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                    ForEach(items) { product in
+                        ZStack(alignment: .topTrailing) {
+                            NavigationLink(destination: ProductDetailView(productId: product.id)) {
+                                FeaturedGridCard(product: product)
+                            }
+                            .buttonStyle(.plain)
+                            LikeButton(productId: product.id).padding(6)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
     }
 
     private func sectionHeader(_ title: String, subtitle: String) -> some View {
@@ -154,26 +222,6 @@ struct HomeView: View {
         }
     }
 
-    private var banner: some View {
-        NavigationLink(destination: ShopView()) {
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.brandPrimary.opacity(0.3))
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("🧊 AR bilan sinab ko'ring").font(.headline)
-                    Text("Xonangizga real o'lchamda joylashtiring — sotib olishdan oldin ko'zingiz bilan ko'ring.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: 260, alignment: .leading)
-                }
-                .padding(20)
-            }
-            .frame(height: 120)
-            .padding(.horizontal)
-        }
-        .buttonStyle(.plain)
-    }
-
     private func load() async {
         isLoading = true
         errorMessage = nil
@@ -215,6 +263,34 @@ struct FeaturedProductCard: View {
             }
         }
         .frame(width: 160)
+    }
+}
+
+/// Qidiruv natijalari to'rida ishlatiladigan kartochka (2 ustunli grid).
+struct FeaturedGridCard: View {
+    let product: Product
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
+                if let image = phase.image {
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } else {
+                    Color.brandPrimary.opacity(0.3)
+                }
+            }
+            .frame(height: 130)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            Text(product.nameUz).font(.subheadline).bold().lineLimit(1)
+            Text(product.companyName).font(.caption).foregroundStyle(.secondary)
+            if let first = product.variants.first {
+                Text("\(first.basePrice.formattedSom) so'm/m³ dan")
+                    .font(.caption).bold()
+                    .foregroundStyle(Color.brandSecondary)
+            }
+        }
     }
 }
 
