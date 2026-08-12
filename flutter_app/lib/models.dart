@@ -210,6 +210,8 @@ class Product {
   final List<Variant> variants;
   final Model3D? model3d;
   final bool isLiked;
+  // Faqat "rasm bilan qidirish" natijalarida keladi (qarang search_service.dart).
+  final double? similarityPercent;
 
   Product({
     required this.id,
@@ -227,6 +229,7 @@ class Product {
     this.variants = const [],
     this.model3d,
     this.isLiked = false,
+    this.similarityPercent,
   });
 
   /// Galereya: bosh rasm + qo'shimcha rasmlar, birortasi bo'lmasa bo'sh.
@@ -260,6 +263,7 @@ class Product {
         .toList(),
     model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
     isLiked: j['is_liked'] ?? false,
+    similarityPercent: (j['similarity_percent'] as num?)?.toDouble(),
   );
 }
 

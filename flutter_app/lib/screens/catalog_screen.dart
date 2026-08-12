@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../likes_store.dart';
@@ -24,6 +25,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
   String _search = '';
   bool _topOnly = false;
   String? _appliedViloyat;
+
+  List<Product>? _imageResults;
+  bool _imageSearching = false;
+  String? _imageError;
 
   @override
   void initState() {
@@ -104,6 +109,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 
   List<Product> get _filtered {
+    if (_imageResults != null) return _imageResults!;
     if (_search.trim().isEmpty) return _products;
     final q = _search.toLowerCase();
     return _products
@@ -114,6 +120,63 @@ class _CatalogScreenState extends State<CatalogScreen> {
         )
         .toList();
   }
+
+  Future<void> _pickAndSearchByImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_rounded),
+              title: const Text('Kamera'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Galereya'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1280,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _imageSearching = true;
+      _imageError = null;
+      _imageResults = null;
+      _search = '';
+    });
+    try {
+      final results = await ApiClient.instance.postMultipart(
+        '/products/search-by-image/',
+        (j) => (j as List).map((e) => Product.fromJson(e)).toList(),
+        imageFieldName: 'image',
+        imagePath: picked.path,
+      );
+      setState(() => _imageResults = results);
+    } catch (e) {
+      setState(() => _imageError = e.toString());
+    } finally {
+      setState(() => _imageSearching = false);
+    }
+  }
+
+  void _clearImageSearch() => setState(() {
+    _imageResults = null;
+    _imageError = null;
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -132,26 +195,62 @@ class _CatalogScreenState extends State<CatalogScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverToBoxAdapter(child: _filterChips()),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 10, top: 6),
-                  child: Text(
-                    '${_filtered.length} ta mahsulot',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: Color(0xFF8A7357),
-                      fontWeight: FontWeight.w600,
+            if (_imageResults != null)
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Rasmga o\'xshash ${_imageResults!.length} ta mahsulot (70%+)',
+                            style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+                          ),
+                        ),
+                        TextButton(onPressed: _clearImageSearch, child: const Text('Tozalash')),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 10, top: 6),
+                    child: Text(
+                      '${_filtered.length} ta mahsulot',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF8A7357),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            if (_loading)
+            if (_loading || _imageSearching)
               const SliverFillRemaining(
                 child: Center(
                   child: CircularProgressIndicator(color: AppColors.deep),
+                ),
+              )
+            else if (_imageError != null)
+              SliverFillRemaining(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_imageError!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+                        TextButton(onPressed: _clearImageSearch, child: const Text('Yopish')),
+                      ],
+                    ),
+                  ),
                 ),
               )
             else if (_error != null)
@@ -248,21 +347,44 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 
   Widget _searchBar(LocaleStore loc) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: TextField(
-        onChanged: (v) => setState(() => _search = v),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: loc.t('catalog_search_hint'),
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF8A7357)),
-          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: TextField(
+              onChanged: (v) => setState(() {
+                _search = v;
+                if (v.isNotEmpty) _imageResults = null;
+              }),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: loc.t('catalog_search_hint'),
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF8A7357)),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: _pickAndSearchByImage,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.deep,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+          ),
+        ),
+      ],
     );
   }
 }

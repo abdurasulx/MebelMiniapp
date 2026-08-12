@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../likes_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/product_card.dart';
-import 'catalog_screen.dart';
 
-/// Bosh sahifa — yirik marketplace uslubidagi landing (hero banner +
-/// kolleksiyalar + ommabop mahsulotlar), iOS'dagi `HomeView` bilan bir xil.
+/// Bosh sahifa — kolleksiyalar + ommabop mahsulotlar + qidiruv (nom yoki
+/// rasm bo'yicha). Brend hero matni endi splash_screen.dart'da — bu yerda
+/// bekorchi turmasin deb olib tashlandi.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -21,10 +22,26 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _error;
 
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  List<Product>? _imageResults;
+  bool _imageSearching = false;
+  String? _imageError;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _searchCtrl.addListener(() {
+      setState(() => _query = _searchCtrl.text.trim());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -54,16 +71,89 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  List<Product> get _nameMatches {
+    if (_query.isEmpty) return const [];
+    final q = _query.toLowerCase();
+    return _products
+        .where(
+          (p) =>
+              p.nameUz.toLowerCase().contains(q) ||
+              p.companyName.toLowerCase().contains(q),
+        )
+        .toList();
+  }
+
+  Future<void> _pickAndSearchByImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_rounded),
+              title: const Text('Kamera'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Galereya'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1280,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    setState(() {
+      _imageSearching = true;
+      _imageError = null;
+      _imageResults = null;
+    });
+    _searchCtrl.clear();
+    try {
+      final results = await ApiClient.instance.postMultipart(
+        '/products/search-by-image/',
+        (j) => (j as List).map((e) => Product.fromJson(e)).toList(),
+        imageFieldName: 'image',
+        imagePath: picked.path,
+      );
+      setState(() => _imageResults = results);
+    } catch (e) {
+      setState(() => _imageError = e.toString());
+    } finally {
+      setState(() => _imageSearching = false);
+    }
+  }
+
+  void _clearImageSearch() {
+    setState(() {
+      _imageResults = null;
+      _imageError = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final searching = _query.isNotEmpty || _imageResults != null || _imageSearching;
+
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _load,
           child: ListView(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.only(bottom: 24, top: 8),
             children: [
-              _hero(),
+              _searchBar(),
               if (_error != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -79,6 +169,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: CircularProgressIndicator(color: AppColors.deep),
                   ),
                 )
+              else if (searching)
+                _searchResults()
               else ...[
                 if (_categories.isNotEmpty) ...[
                   _sectionHeader('Kolleksiyalar', 'Har xona uchun'),
@@ -88,9 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (_products.isNotEmpty) ...[
                   _sectionHeader('Ommabop mahsulotlar', 'Eng ko\'p tanlangan'),
                   _featuredRow(),
-                  const SizedBox(height: 24),
                 ],
-                _arBanner(),
               ],
             ],
           ),
@@ -99,87 +189,113 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _hero() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      padding: const EdgeInsets.fromLTRB(22, 26, 22, 26),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.deep, Color(0xFF6B4130)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.deep.withOpacity(0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _searchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Row(
         children: [
-          Text(
-            'MINIMAL VA FUNKSIONAL',
-            style: TextStyle(
-              color: AppColors.primary.withOpacity(0.85),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.4,
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Uyingizga\nqulaylik va hashamat',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              height: 1.15,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'O\'zbekistonning eng yaxshi mebel ustalari. O\'lchamingizga mos dizayn, uyingizga yetkazib berish.',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 13.5,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-          InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CatalogScreen()),
-            ),
+          Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(999),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.cardBorder),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Xarid qilish',
-                    style: TextStyle(
-                      color: AppColors.deep,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13.5,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.arrow_forward_rounded, color: AppColors.deep, size: 16),
-                ],
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  hintText: 'Mahsulot yoki firma qidirish…',
+                  prefixIcon: Icon(Icons.search, color: Color(0xFF8A7357)),
+                  contentPadding: EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: _pickAndSearchByImage,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.deep,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _searchResults() {
+    if (_imageSearching) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 30),
+        child: Center(child: CircularProgressIndicator(color: AppColors.deep)),
+      );
+    }
+    if (_imageError != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_imageError!, style: const TextStyle(color: Colors.red)),
+            TextButton(onPressed: _clearImageSearch, child: const Text('Yopish')),
+          ],
+        ),
+      );
+    }
+
+    final items = _imageResults ?? _nameMatches;
+    final isImageSearch = _imageResults != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isImageSearch
+                      ? '${items.length} ta o\'xshash mahsulot (70%+)'
+                      : '${items.length} ta natija',
+                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+                ),
+              ),
+              if (isImageSearch)
+                TextButton(onPressed: _clearImageSearch, child: const Text('Tozalash')),
+            ],
+          ),
+        ),
+        if (items.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Text('Hech narsa topilmadi.', style: TextStyle(color: Color(0xFF8A7357))),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 14,
+                childAspectRatio: 0.68,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, i) => ProductCard(product: items[i]),
+            ),
+          ),
+      ],
     );
   }
 
@@ -260,44 +376,6 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, i) => SizedBox(
           width: 160,
           child: ProductCard(product: items[i]),
-        ),
-      ),
-    );
-  }
-
-  Widget _arBanner() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const CatalogScreen()),
-        ),
-        child: Container(
-          height: 120,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                '🧊 AR bilan sinab ko\'ring',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-              ),
-              const SizedBox(height: 6),
-              SizedBox(
-                width: 260,
-                child: Text(
-                  'Xonangizga real o\'lchamda joylashtiring — sotib olishdan oldin ko\'zingiz bilan ko\'ring.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

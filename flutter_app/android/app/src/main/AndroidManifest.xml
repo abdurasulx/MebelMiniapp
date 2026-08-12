@@ -2,6 +2,9 @@
     <!-- Viloyat bo'yicha filtrlash uchun GPS lokatsiya (geolocator paketi) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <!-- Bosh sahifadagi "rasm bilan qidirish" uchun (image_picker paketi) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <application
         android:label="furniture_platform_mobile"
         android:name="${applicationName}"

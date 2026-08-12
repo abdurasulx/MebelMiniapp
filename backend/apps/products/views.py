@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from apps.companies.views import user_company
 
-from .imaging import compute_signature, distance
+from .imaging import compute_signature, similarity_percent
 from .models import Category, Product, ProductImage, Variant
 from .serializers import (
     CategorySerializer,
@@ -76,6 +76,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         company_slug = self.request.query_params.get("company")
         if company_slug:
             qs = qs.filter(company__slug=company_slug)
+        search = self.request.query_params.get("search")
+        if search:
+            qs = qs.filter(Q(name_uz__icontains=search) | Q(company__name__icontains=search))
         # Foydalanuvchi joylashgan viloyatga tegishli (yoki viloyati
         # ko'rsatilmagan, ya'ni hammaga umumiy) firmalarning mahsulotlarigina
         # ko'rsatiladi.
@@ -180,11 +183,13 @@ class VariantViewSet(viewsets.ModelViewSet):
 class ProductSearchByImageView(APIView):
     """`/products/search-by-image/` — mijoz rasm yuklab, katalogdagi shu
     rasmga eng o'xshash (rang/shakl bo'yicha) nashr etilgan mahsulotlarni
-    topadi. Tashqi AI xizmatiga muhtoj emas — qarang apps/products/imaging.py.
-    """
+    topadi. Faqat `min_similarity` (standart 70) foizdan yuqori yoki teng
+    natijalar qaytariladi, eng o'xshashidan boshlab. Tashqi AI xizmatiga
+    muhtoj emas — qarang apps/products/imaging.py."""
 
     permission_classes = (permissions.AllowAny,)
-    MAX_RESULTS = 12
+    MAX_RESULTS = 24
+    DEFAULT_MIN_SIMILARITY = 70
 
     def post(self, request):
         serializer = ImageSearchSerializer(data=request.data)
@@ -193,14 +198,26 @@ class ProductSearchByImageView(APIView):
         if query_signature is None:
             raise ValidationError("Rasmni o'qib bo'lmadi — boshqa fayl tanlang")
 
+        try:
+            min_similarity = float(request.data.get("min_similarity", self.DEFAULT_MIN_SIMILARITY))
+        except (TypeError, ValueError):
+            min_similarity = self.DEFAULT_MIN_SIMILARITY
+
         candidates = Product.objects.filter(
             is_deleted=False, is_published=True, image_signature__isnull=False
         ).select_related("company", "category").prefetch_related("variants", "images")
 
-        ranked = sorted(
-            candidates, key=lambda p: distance(query_signature, p.image_signature)
-        )[: self.MAX_RESULTS]
+        scored = [
+            (p, similarity_percent(query_signature, p.image_signature)) for p in candidates
+        ]
+        scored = [(p, s) for p, s in scored if s >= min_similarity]
+        scored.sort(key=lambda pair: pair[1], reverse=True)
+        scored = scored[: self.MAX_RESULTS]
 
-        return Response(
-            ProductSerializer(ranked, many=True, context={"request": request}).data
-        )
+        products_data = ProductSerializer(
+            [p for p, _ in scored], many=True, context={"request": request}
+        ).data
+        for item, (_, score) in zip(products_data, scored):
+            item["similarity_percent"] = round(score, 1)
+
+        return Response(products_data)

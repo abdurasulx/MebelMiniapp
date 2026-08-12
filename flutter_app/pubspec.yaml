@@ -22,6 +22,8 @@ dependencies:
   geolocator: ^13.0.1
   # Mahsulot sahifasidagi "Ulashish" tugmasi uchun.
   share_plus: ^7.2.2
+  # Bosh sahifadagi "rasm bilan qidirish" uchun kamera/galereyadan rasm tanlash.
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

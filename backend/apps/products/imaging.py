@@ -7,6 +7,9 @@ katalogida "shunga o'xshash" natijalarni topish uchun amalda yetarli."""
 from PIL import Image, UnidentifiedImageError
 
 SIGNATURE_SIZE = 12  # 12x12x3 = 432 o'lchamli vektor
+# Har komponent 0..1 oralig'ida, eng katta mumkin bo'lgan farq (0 va 1 orasida)
+# — shundan foizli o'xshashlik hisoblanadi.
+MAX_DISTANCE = (SIGNATURE_SIZE * SIGNATURE_SIZE * 3) ** 0.5
 
 
 def compute_signature(file_obj):
@@ -30,3 +33,11 @@ def distance(a, b):
     if not a or not b or len(a) != len(b):
         return float("inf")
     return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+
+
+def similarity_percent(a, b):
+    """0..100 oralig'ida o'xshashlik foizi (100 = bir xil rasm)."""
+    d = distance(a, b)
+    if d == float("inf"):
+        return 0.0
+    return max(0.0, (1 - d / MAX_DISTANCE) * 100)

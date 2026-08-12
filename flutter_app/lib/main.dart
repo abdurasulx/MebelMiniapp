@@ -6,6 +6,7 @@ import 'likes_store.dart';
 import 'locale_store.dart';
 import 'location_store.dart';
 import 'screens/root_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme.dart';
 
 void main() {
@@ -52,9 +53,7 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
         title: 'Furniture Platform',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        home: _ready
-            ? const RootScreen()
-            : const Scaffold(body: Center(child: CircularProgressIndicator())),
+        home: _ready ? const RootScreen() : const SplashScreen(),
       ),
     );
   }
