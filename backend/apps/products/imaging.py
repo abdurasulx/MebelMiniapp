@@ -14,15 +14,30 @@ MAX_DISTANCE = (SIGNATURE_SIZE * SIGNATURE_SIZE * 3) ** 0.5
 
 def compute_signature(file_obj):
     """Fayl-obyektdan (ImageFieldFile yoki UploadedFile) 0..1 oralig'idagi
-    RGB vektorini hisoblaydi. Rasm sifatida ochib bo'lmasa None qaytaradi."""
+    RGB vektorini hisoblaydi. Rasm sifatida ochib bo'lmasa None qaytaradi.
+
+    Mebel rasmlari (ayniqsa 3D-render eksportlari, masalan PNG) ko'pincha
+    shaffof fonli (RGBA) bo'ladi. To'g'ridan-to'g'ri `.convert("RGB")`
+    shaffof qismlarni QORA rangga aylantirib yuboradi (alpha kanali
+    tashlanib, ostidagi (0,0,0) qoladi) — natijada bir xil oq fonli ikkita
+    rasm ham (biri shaffof PNG, biri haqiqiy oq fon) butunlay boshqa-boshqa
+    signature olardi. Shuning uchun shaffof qismlar avval OQ fonga
+    qo'shiladi (compositing), xuddi brauzerda/ko'ruvchida ko'rinadigani kabi.
+    """
     try:
         file_obj.seek(0)
     except (AttributeError, ValueError):
         pass
     try:
-        img = Image.open(file_obj).convert("RGB").resize(
-            (SIGNATURE_SIZE, SIGNATURE_SIZE), Image.BILINEAR
-        )
+        raw = Image.open(file_obj)
+        if raw.mode in ("RGBA", "LA") or (raw.mode == "P" and "transparency" in raw.info):
+            raw = raw.convert("RGBA")
+            background = Image.new("RGB", raw.size, (255, 255, 255))
+            background.paste(raw, mask=raw.split()[-1])
+            img = background
+        else:
+            img = raw.convert("RGB")
+        img = img.resize((SIGNATURE_SIZE, SIGNATURE_SIZE), Image.BILINEAR)
     except (UnidentifiedImageError, OSError):
         return None
     return [round(c / 255, 4) for pixel in img.getdata() for c in pixel]
