@@ -47,6 +47,25 @@ class AdminUserListView(generics.ListAPIView):
         return qs
 
 
+class AdminUserToggleActiveView(APIView):
+    """`/admin/users/<id>/toggle-active/` — platforma admini foydalanuvchini
+    bloklaydi/blokdan chiqaradi (`is_active`). O'zini bloklab qo'yishning
+    oldi olinadi."""
+
+    permission_classes = (IsPlatformAdmin,)
+
+    def post(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            raise ValidationError("Foydalanuvchi topilmadi")
+        if user.id == request.user.id:
+            raise ValidationError("O'zingizni bloklay olmaysiz")
+        user.is_active = not user.is_active
+        user.save(update_fields=["is_active"])
+        return Response(UserSerializer(user, context={"request": request}).data)
+
+
 class AdminStatsView(APIView):
     """admin.domen.uz portali uchun umumiy statistika."""
 
@@ -198,6 +217,8 @@ class OTPVerifyView(APIView):
             user = User(phone=phone, email=f"{phone}@phone.local", role=User.Role.CUSTOMER)
             user.set_unusable_password()
             user.save()
+        elif not user.is_active:
+            raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
 
         refresh = RefreshToken.for_user(user)
         return Response(

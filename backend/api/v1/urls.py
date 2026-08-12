@@ -42,6 +42,7 @@ from apps.projects.views import (
 from apps.users.views import (
     AdminStatsView,
     AdminUserListView,
+    AdminUserToggleActiveView,
     CareerView,
     MeView,
     OTPRequestView,
@@ -110,6 +111,11 @@ urlpatterns = [
     path("auth/otp/verify/", OTPVerifyView.as_view(), name="otp-verify"),
     path("admin/stats/", AdminStatsView.as_view(), name="admin-stats"),
     path("admin/users/", AdminUserListView.as_view(), name="admin-users"),
+    path(
+        "admin/users/<uuid:pk>/toggle-active/",
+        AdminUserToggleActiveView.as_view(),
+        name="admin-user-toggle-active",
+    ),
     path("products/search-by-image/", ProductSearchByImageView.as_view(), name="product-search-by-image"),
     path("products/<uuid:product_pk>/variants/", variant_list, name="variant-list"),
     path("products/<uuid:product_pk>/variants/<uuid:pk>/", variant_detail, name="variant-detail"),

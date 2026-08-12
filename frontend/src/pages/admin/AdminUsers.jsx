@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Ban, CheckCircle2 } from "lucide-react";
 import { api } from "../../api";
 
 const ROLE_LABEL = {
@@ -13,18 +14,36 @@ export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("");
   const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
+
+  const load = () => {
+    const qs = new URLSearchParams();
+    if (search) qs.set("search", search);
+    if (role) qs.set("role", role);
+    api(`/admin/users/?${qs}`)
+      .then((d) => setUsers(d.results || []))
+      .catch((e) => setError(e.message));
+  };
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      const qs = new URLSearchParams();
-      if (search) qs.set("search", search);
-      if (role) qs.set("role", role);
-      api(`/admin/users/?${qs}`)
-        .then((d) => setUsers(d.results || []))
-        .catch((e) => setError(e.message));
-    }, 300);
+    const t = setTimeout(load, 300);
     return () => clearTimeout(t);
   }, [search, role]);
+
+  const toggleActive = async (u) => {
+    const action = u.is_active ? "bloklansinmi" : "blokdan chiqarilsinmi";
+    if (!confirm(`"${u.email}" ${action}?`)) return;
+    setBusyId(u.id);
+    setError("");
+    try {
+      const updated = await api(`/admin/users/${u.id}/toggle-active/`, { method: "POST" });
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? updated : x)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -51,7 +70,9 @@ export default function AdminUsers() {
               <th>Ismi</th>
               <th>Rol</th>
               <th>Kompaniya</th>
+              <th>Holati</th>
               <th>Ro'yxatdan o'tgan</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -61,12 +82,28 @@ export default function AdminUsers() {
                 <td>{u.first_name || "—"}</td>
                 <td><span className="badge badge-brand">{ROLE_LABEL[u.role] || u.role}</span></td>
                 <td>{u.company?.name || "—"}</td>
+                <td>
+                  <span className={u.is_active === false ? "badge badge-off" : "badge"}>
+                    {u.is_active === false ? "Bloklangan" : "Faol"}
+                  </span>
+                </td>
                 <td>{new Date(u.date_joined).toLocaleDateString("uz-UZ")}</td>
+                <td>
+                  {u.role !== "platform_admin" && (
+                    <button
+                      className={u.is_active === false ? "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-danger inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
+                      disabled={busyId === u.id}
+                      onClick={() => toggleActive(u)}
+                    >
+                      {u.is_active === false ? <><CheckCircle2 size={12} /> Blokdan chiqarish</> : <><Ban size={12} /> Bloklash</>}
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
             {users.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ color: "var(--muted)" }}>Topilmadi.</td>
+                <td colSpan={7} style={{ color: "var(--muted)" }}>Topilmadi.</td>
               </tr>
             )}
           </tbody>
