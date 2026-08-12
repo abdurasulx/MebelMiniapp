@@ -9,77 +9,14 @@ from rest_framework.response import Response
 from apps.companies.models import Company, Employee
 from apps.companies.views import user_company
 
-from .models import Payslip, ProductionTask
-from .serializers import PayslipSerializer, ProductionTaskSerializer
+from .models import Payslip
+from .serializers import PayslipSerializer
 
 
 def is_manager(user, company):
     return user.role == "platform_admin" or (
         company is not None and Company.objects.filter(id=company.id, owner=user).exists()
     )
-
-
-class ProductionTaskViewSet(viewsets.ModelViewSet):
-    """Firma (ega) vazifa yaratadi/tayinlaydi; xodim faqat o'ziga
-    tayinlangan vazifalarni ko'radi va statusini o'zgartiradi."""
-
-    serializer_class = ProductionTaskSerializer
-    permission_classes = (permissions.IsAuthenticated,)
-
-    def get_queryset(self):
-        qs = ProductionTask.objects.filter(is_deleted=False).select_related(
-            "assigned_to", "order"
-        )
-        user = self.request.user
-        if user.role == "platform_admin":
-            return qs
-        company = user_company(user)
-        if company is None:
-            return qs.none()
-        qs = qs.filter(company=company)
-        if is_manager(user, company):
-            return qs
-        # oddiy xodim faqat o'ziga tayinlangan vazifalarni ko'radi
-        return qs.filter(assigned_to=user)
-
-    def perform_create(self, serializer):
-        company = user_company(self.request.user)
-        if company is None or not is_manager(self.request.user, company):
-            raise PermissionDenied("Faqat kompaniya egasi vazifa yarata oladi")
-        serializer.save(company=company)
-
-    def perform_update(self, serializer):
-        instance = serializer.instance
-        user = self.request.user
-        company = user_company(user)
-        manager = is_manager(user, company)
-        is_assignee = instance.assigned_to_id == user.id
-
-        if not (manager or is_assignee):
-            raise PermissionDenied("Bu vazifa sizniki emas")
-
-        if not manager:
-            # oddiy xodim faqat statusini o'zgartira oladi
-            allowed_fields = {"status"}
-            provided = set(self.request.data.keys())
-            if not provided.issubset(allowed_fields):
-                raise PermissionDenied("Faqat statusni o'zgartira olasiz")
-
-        extra = {}
-        new_status = serializer.validated_data.get("status")
-        if new_status == ProductionTask.Status.DONE and instance.status != ProductionTask.Status.DONE:
-            extra["completed_at"] = timezone.now()
-        elif new_status and new_status != ProductionTask.Status.DONE:
-            extra["completed_at"] = None
-
-        serializer.save(**extra)
-
-    def perform_destroy(self, instance):
-        company = user_company(self.request.user)
-        if not is_manager(self.request.user, company):
-            raise PermissionDenied("Faqat kompaniya egasi o'chira oladi")
-        instance.is_deleted = True
-        instance.save(update_fields=["is_deleted"])
 
 
 class PayslipViewSet(

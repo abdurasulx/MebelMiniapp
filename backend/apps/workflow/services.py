@@ -39,6 +39,7 @@ def create_workflow_instances(order, product):
     instances = []
     for step in template_steps:
         instance = WorkflowStepInstance.objects.create(
+            company=order.company,
             order=order,
             template_step=step,
             order_index=step.order_index,

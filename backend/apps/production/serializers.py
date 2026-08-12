@@ -1,37 +1,6 @@
 from rest_framework import serializers
 
-from .models import Payslip, ProductionTask
-
-
-class ProductionTaskSerializer(serializers.ModelSerializer):
-    stage_display = serializers.CharField(source="get_stage_display", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    assigned_to_name = serializers.SerializerMethodField()
-    order_display = serializers.SerializerMethodField()
-    suggested_position = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ProductionTask
-        fields = (
-            "id", "company", "order", "order_display", "title", "description",
-            "stage", "stage_display", "suggested_position",
-            "status", "status_display", "assigned_to", "assigned_to_name",
-            "deadline", "completed_at", "created_at",
-        )
-        read_only_fields = ("id", "company", "completed_at", "created_at")
-
-    def get_assigned_to_name(self, obj):
-        if obj.assigned_to is None:
-            return None
-        return obj.assigned_to.first_name or obj.assigned_to.email
-
-    def get_order_display(self, obj):
-        if obj.order is None:
-            return None
-        return f"#{str(obj.order.id)[:8]}"
-
-    def get_suggested_position(self, obj):
-        return ProductionTask.STAGE_POSITION.get(obj.stage)
+from .models import Payslip
 
 
 class PayslipSerializer(serializers.ModelSerializer):

@@ -60,7 +60,7 @@ function WorkflowPipeline() {
   const load = () =>
     api("/workflow-instances/")
       .then((d) => {
-        setInstances(d.results || []);
+        setInstances((d.results || []).filter((i) => !i.is_manual));
         setNextPage(d.next || null);
       })
       .catch((e) => setError(e.message));
@@ -70,7 +70,7 @@ function WorkflowPipeline() {
     setLoadingMore(true);
     try {
       const d = await api(nextPage);
-      setInstances((prev) => [...prev, ...(d.results || [])]);
+      setInstances((prev) => [...prev, ...(d.results || []).filter((i) => !i.is_manual)]);
       setNextPage(d.next || null);
     } catch (e) {
       setError(e.message);
@@ -177,7 +177,7 @@ function WorkflowPipeline() {
   );
 }
 
-/* ================= Manager (ega) ko'rinishi ================= */
+/* ================= Manager (ega) ko'rinishi — qo'lda vazifalar ================= */
 
 function ManagerView() {
   const [tasks, setTasks] = useState([]);
@@ -190,9 +190,9 @@ function ManagerView() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = () =>
-    Promise.all([api("/tasks/"), api("/employees/"), api("/orders/")])
+    Promise.all([api("/workflow-instances/"), api("/employees/"), api("/orders/")])
       .then(([t, e, o]) => {
-        setTasks(t.results || []);
+        setTasks((t.results || []).filter((x) => x.is_manual));
         setNextPage(t.next || null);
         setEmployees((e.results || []).filter((x) => x.is_active));
         setOrders(o.results || []);
@@ -204,7 +204,7 @@ function ManagerView() {
     setLoadingMore(true);
     try {
       const d = await api(nextPage);
-      setTasks((prev) => [...prev, ...(d.results || [])]);
+      setTasks((prev) => [...prev, ...(d.results || []).filter((x) => x.is_manual)]);
       setNextPage(d.next || null);
     } catch (err) {
       setError(err.message);
@@ -283,7 +283,7 @@ function ManagerView() {
 
 function TaskForm({ employees, orders, onClose, onDone }) {
   const [form, setForm] = useState({
-    title: "", description: "", stage: "assembly", assigned_to: "", order: "", deadline: "",
+    name: "", description: "", stage: "assembly", employee: "", order: "", deadline: "",
   });
   const [error, setError] = useState("");
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -298,10 +298,10 @@ function TaskForm({ employees, orders, onClose, onDone }) {
     setError("");
     try {
       const body = { ...form };
-      if (!body.assigned_to) delete body.assigned_to;
+      if (!body.employee) delete body.employee;
       if (!body.order) delete body.order;
       if (!body.deadline) delete body.deadline;
-      await api("/tasks/", { method: "POST", body });
+      await api("/workflow-instances/", { method: "POST", body });
       onDone();
     } catch (err) {
       setError(err.message);
@@ -318,7 +318,7 @@ function TaskForm({ employees, orders, onClose, onDone }) {
         <h2 className="text-base font-semibold">Yangi vazifa</h2>
         <div>
           <label className="label">Sarlavha *</label>
-          <input className="input" value={form.title} onChange={set("title")} required />
+          <input className="input" value={form.name} onChange={set("name")} required />
         </div>
         <div>
           <label className="label">Bosqich</label>
@@ -337,10 +337,10 @@ function TaskForm({ employees, orders, onClose, onDone }) {
               </span>
             )}
           </label>
-          <select className="input" value={form.assigned_to} onChange={set("assigned_to")}>
+          <select className="input" value={form.employee} onChange={set("employee")}>
             <option value="">Tayinlanmagan</option>
             {filteredEmployees.map((e) => (
-              <option key={e.id} value={e.user_id || ""}>{e.user_name || e.user_email}</option>
+              <option key={e.id} value={e.id}>{e.user_name || e.user_email}</option>
             ))}
           </select>
           {suggestedPos && filteredEmployees.length === 0 && (
@@ -398,9 +398,9 @@ function EmployeeView() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = () =>
-    api("/tasks/")
+    api("/workflow-instances/")
       .then((d) => {
-        setTasks(d.results || []);
+        setTasks((d.results || []).filter((x) => x.is_manual));
         setNextPage(d.next || null);
       })
       .catch((e) => setError(e.message));
@@ -410,7 +410,7 @@ function EmployeeView() {
     setLoadingMore(true);
     try {
       const d = await api(nextPage);
-      setTasks((prev) => [...prev, ...(d.results || [])]);
+      setTasks((prev) => [...prev, ...(d.results || []).filter((x) => x.is_manual)]);
       setNextPage(d.next || null);
     } catch (err) {
       setError(err.message);
@@ -457,12 +457,12 @@ function EmployeeView() {
 function TaskCard({ task, manager, onChanged }) {
   const [error, setError] = useState("");
   const stage = TASK_STAGE[task.stage] || TASK_STAGE.other;
-  const isOverdue = task.deadline && task.status !== "done" && new Date(task.deadline) < new Date();
+  const isOverdue = task.deadline && task.status !== "completed" && new Date(task.deadline) < new Date();
 
   const advance = async () => {
-    const next = task.status === "todo" ? "in_progress" : "done";
+    const next = task.status === "pending" ? "in_progress" : "completed";
     try {
-      await api(`/tasks/${task.id}/`, { method: "PATCH", body: { status: next } });
+      await api(`/workflow-instances/${task.id}/`, { method: "PATCH", body: { status: next } });
       onChanged();
     } catch (e) {
       setError(e.message);
@@ -470,9 +470,9 @@ function TaskCard({ task, manager, onChanged }) {
   };
 
   const remove = async () => {
-    if (!confirm(`"${task.title}" o'chirilsinmi?`)) return;
+    if (!confirm(`"${task.name}" o'chirilsinmi?`)) return;
     try {
-      await api(`/tasks/${task.id}/`, { method: "DELETE" });
+      await api(`/workflow-instances/${task.id}/`, { method: "DELETE" });
       onChanged();
     } catch (e) {
       setError(e.message);
@@ -489,7 +489,7 @@ function TaskCard({ task, manager, onChanged }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold">{task.title}</span>
+          <span className="font-semibold">{task.name}</span>
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-medium"
             style={{ background: `color-mix(in srgb, ${TASK_STATUS[task.status].color} 16%, transparent)`, color: TASK_STATUS[task.status].color }}
@@ -505,16 +505,16 @@ function TaskCard({ task, manager, onChanged }) {
         <div className="text-xs" style={{ color: "var(--muted)" }}>
           {stage.label}
           {task.order_display && ` · Buyurtma ${task.order_display}`}
-          {manager && task.assigned_to_name && ` · ${task.assigned_to_name}`}
+          {manager && task.employee_name && ` · ${task.employee_name}`}
           {task.deadline && ` · muddat: ${task.deadline}`}
         </div>
         {task.description && <div className="mt-1 text-sm">{task.description}</div>}
         {error && <div className="error mt-1">{error}</div>}
       </div>
       <div className="flex gap-2">
-        {task.status !== "done" && (
+        {task.status !== "completed" && (
           <button className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={advance}>
-            {task.status === "todo" ? <><Play size={12} /> Boshlash</> : <><Check size={12} /> Bajarildi</>}
+            {task.status === "pending" ? <><Play size={12} /> Boshlash</> : <><Check size={12} /> Bajarildi</>}
           </button>
         )}
         {manager && (

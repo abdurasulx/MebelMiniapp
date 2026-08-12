@@ -25,7 +25,7 @@ from apps.inventory.views import (
 )
 from apps.likes.views import LikeViewSet
 from apps.orders.views import FinanceSummaryView, OrderViewSet
-from apps.production.views import PayslipViewSet, ProductionTaskViewSet
+from apps.production.views import PayslipViewSet
 from apps.products.views import (
     CategoryViewSet,
     ProductImageViewSet,
@@ -64,7 +64,6 @@ router.register("categories", CategoryViewSet, basename="category")
 router.register("products", ProductViewSet, basename="product")
 router.register("models3d", Model3DViewSet, basename="model3d")
 router.register("leads", LeadViewSet, basename="lead")
-router.register("tasks", ProductionTaskViewSet, basename="task")
 router.register("payslips", PayslipViewSet, basename="payslip")
 router.register("likes", LikeViewSet, basename="like")
 router.register("reviews", ReviewViewSet, basename="review")

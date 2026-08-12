@@ -2,9 +2,9 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APITestCase
 
-from apps.companies.models import Company
+from apps.companies.models import Company, Employee
 from apps.orders.models import Order
 from apps.products.models import Category, Product, Variant
 
@@ -75,3 +75,140 @@ class WorkflowServiceTests(TestCase):
 
         self.order.refresh_from_db()
         self.assertEqual(self.order.status, Order.Status.READY)
+
+
+class ManualTaskTests(APITestCase):
+    """Avvalgi `ProductionTask` funksiyasi endi shu API'ga birlashtirilgan —
+    retseptga bog'liq bo'lmagan (`template_step=None`) vazifalar."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+        )
+        self.company = Company.objects.create(owner=self.owner, name="Shop", slug="shop")
+        self.worker_user = User.objects.create_user(
+            email="usta@shop.uz", password="pass12345", role=User.Role.EMPLOYEE
+        )
+        self.employee = Employee.objects.create(
+            company=self.company, user=self.worker_user, positions=["usta"]
+        )
+        self.client = APIClient()
+
+    def test_owner_creates_manual_task(self):
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(
+            "/api/v1/workflow-instances/",
+            {"name": "Yetkazish", "stage": "delivery", "employee": str(self.employee.id)},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertTrue(resp.data["is_manual"])
+        self.assertEqual(resp.data["suggested_position"], "haydovchi")
+        self.assertEqual(resp.data["status"], "pending")
+
+    def test_employee_cannot_create_manual_task(self):
+        self.client.force_authenticate(self.worker_user)
+        resp = self.client.post("/api/v1/workflow-instances/", {"name": "Yetkazish"}, format="json")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_assigned_employee_can_only_change_status(self):
+        task = WorkflowStepInstance.objects.create(
+            company=self.company, name="Yig'ish", employee=self.employee, status=StepStatus.PENDING
+        )
+        self.client.force_authenticate(self.worker_user)
+
+        resp = self.client.patch(
+            f"/api/v1/workflow-instances/{task.id}/", {"name": "Boshqa nom"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 403)
+
+        resp = self.client.patch(
+            f"/api/v1/workflow-instances/{task.id}/", {"status": "completed"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        task.refresh_from_db()
+        self.assertEqual(task.status, StepStatus.COMPLETED)
+        self.assertIsNotNone(task.completed_at)
+
+    def test_other_employee_cannot_touch_unassigned_task(self):
+        other_user = User.objects.create_user(
+            email="boshqa@shop.uz", password="pass12345", role=User.Role.EMPLOYEE
+        )
+        Employee.objects.create(company=self.company, user=other_user, positions=["sotuvchi"])
+        task = WorkflowStepInstance.objects.create(
+            company=self.company, name="Yig'ish", employee=self.employee, status=StepStatus.PENDING
+        )
+        self.client.force_authenticate(other_user)
+        resp = self.client.patch(
+            f"/api/v1/workflow-instances/{task.id}/", {"status": "completed"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_recipe_step_cannot_be_edited_directly(self):
+        template = WorkflowStep.objects.create(product=Product.objects.create(
+            company=self.company,
+            category=Category.objects.create(name_uz="Stullar", slug="stullar-2"),
+            name_uz="Stul", is_published=True,
+        ), name="Kesish")
+        instance = WorkflowStepInstance.objects.create(
+            company=self.company, template_step=template, name="Kesish", status=StepStatus.PENDING
+        )
+        self.client.force_authenticate(self.owner)
+        resp = self.client.patch(
+            f"/api/v1/workflow-instances/{instance.id}/", {"status": "completed"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_owner_deletes_manual_task(self):
+        task = WorkflowStepInstance.objects.create(company=self.company, name="Vaqtinchalik")
+        self.client.force_authenticate(self.owner)
+        resp = self.client.delete(f"/api/v1/workflow-instances/{task.id}/")
+        self.assertEqual(resp.status_code, 204)
+        self.assertTrue(WorkflowStepInstance.objects.get(pk=task.pk).is_deleted)
+
+
+class PayslipRecomputeTests(TestCase):
+    """Regressiya: birlashtirishdan keyin qo'lda vazifalar bonus_per_task
+    bo'yicha, retsept bosqichlari esa cost bo'yicha hisoblanishi, ikkalasi
+    bir-birining ustiga qo'shilib ketmasligi kerak."""
+
+    def test_manual_and_recipe_completions_are_counted_separately(self):
+        from datetime import date
+
+        from apps.production.models import Payslip
+
+        owner = User.objects.create_user(email="owner2@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        company = Company.objects.create(owner=owner, name="Shop2", slug="shop2")
+        worker_user = User.objects.create_user(email="usta2@shop.uz", password="pass12345", role=User.Role.EMPLOYEE)
+        employee = Employee.objects.create(
+            company=company, user=worker_user, positions=["usta"],
+            base_salary=Decimal("1000000"), bonus_per_task=Decimal("5000"),
+        )
+
+        from django.utils import timezone
+
+        now = timezone.now()
+        WorkflowStepInstance.objects.create(
+            company=company, name="Qo'lda vazifa", employee=employee,
+            status=StepStatus.COMPLETED, completed_at=now, cost=0,
+        )
+        WorkflowStepInstance.objects.create(
+            company=company, name="Retsept bosqichi", employee=employee,
+            template_step=WorkflowStep.objects.create(
+                product=Product.objects.create(
+                    company=company,
+                    category=Category.objects.create(name_uz="Stul", slug="stul-x"),
+                    name_uz="Stul", is_published=True,
+                ),
+                name="Yig'ish",
+            ),
+            status=StepStatus.COMPLETED, completed_at=now, cost=Decimal("15000"),
+        )
+
+        payslip = Payslip.objects.create(company=company, employee=employee, period=date(now.year, now.month, 1))
+        payslip.recompute()
+
+        self.assertEqual(payslip.tasks_completed, 1)  # faqat qo'lda vazifa
+        self.assertEqual(payslip.bonus_amount, Decimal("5000"))
+        self.assertEqual(payslip.workflow_earnings, Decimal("15000"))  # ikkalasining cost yig'indisi (0 + 15000)
+        self.assertEqual(payslip.total_amount, Decimal("1000000") + Decimal("5000") + Decimal("15000"))

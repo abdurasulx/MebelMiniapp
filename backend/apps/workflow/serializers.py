@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
 
-from .models import ProgressUpdate, WorkflowStep, WorkflowStepInstance
+from .models import STAGE_POSITION, ProgressUpdate, WorkflowStep, WorkflowStepInstance
 
 
 class WorkflowStepSerializer(serializers.ModelSerializer):
@@ -45,18 +45,27 @@ class ProgressUpdateSerializer(StorageStampMixin, serializers.ModelSerializer):
 
 
 class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
+    """Ishlab chiqarish vazifasi — avtomatik (retsept, `template_step` bor)
+    yoki qo'lda (`template_step` bo'sh, avvalgi `ProductionTask`) yaratilgan.
+    Qo'lda yaratishda faqat pastdagi `read_only_fields`dan tashqarisi
+    to'ldiriladi — `company`/`template_step`/DAG-bog'liq maydonlar server
+    tomonidan boshqariladi."""
+
     role_display = serializers.CharField(source="get_role_display", read_only=True)
-    employee_name = serializers.CharField(source="employee.user.first_name", read_only=True)
+    stage_display = serializers.CharField(source="get_stage_display", read_only=True, default=None)
+    suggested_position = serializers.SerializerMethodField()
+    employee_name = serializers.CharField(source="employee.user.first_name", read_only=True, default=None)
     photo_requirement_display = serializers.CharField(
         source="get_photo_requirement_display", read_only=True
     )
     status_display = serializers.CharField(source="get_status_display", read_only=True)
-    completed_by_name = serializers.CharField(source="completed_by.first_name", read_only=True)
+    completed_by_name = serializers.CharField(source="completed_by.first_name", read_only=True, default=None)
     depends_on = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     is_available = serializers.BooleanField(read_only=True)
+    is_manual = serializers.SerializerMethodField()
     updates = serializers.SerializerMethodField()
     order_display = serializers.SerializerMethodField()
-    order_status = serializers.CharField(source="order.status", read_only=True)
+    order_status = serializers.CharField(source="order.status", read_only=True, default=None)
 
     def get_updates(self, obj):
         # `obj.updates` — filtrlanmagan teskari FK manager, is_deleted=False
@@ -66,16 +75,26 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
         return ProgressUpdateSerializer(visible, many=True, context=self.context).data
 
     def get_order_display(self, obj):
-        return f"#{str(obj.order_id)[:8]}"
+        return f"#{str(obj.order_id)[:8]}" if obj.order_id else None
+
+    def get_suggested_position(self, obj):
+        return STAGE_POSITION.get(obj.stage)
+
+    def get_is_manual(self, obj):
+        return obj.template_step_id is None
 
     class Meta:
         model = WorkflowStepInstance
         fields = (
-            "id", "order", "order_display", "order_status", "template_step", "order_index",
-            "name", "role", "role_display",
+            "id", "company", "order", "order_display", "order_status", "template_step", "order_index",
+            "is_manual", "name", "description", "stage", "stage_display", "suggested_position",
+            "role", "role_display",
             "employee", "employee_name", "estimated_hours", "cost", "required_materials",
             "photo_requirement", "photo_requirement_display", "depends_on",
-            "status", "status_display", "is_available",
+            "status", "status_display", "is_available", "deadline",
             "started_at", "completed_at", "completed_by_name", "updates", "created_at",
         )
-        read_only_fields = fields
+        read_only_fields = (
+            "id", "company", "order_index", "template_step", "depends_on", "is_available",
+            "started_at", "completed_at", "created_at",
+        )

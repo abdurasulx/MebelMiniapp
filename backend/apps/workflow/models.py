@@ -18,6 +18,35 @@ class StepStatus(models.TextChoices):
     COMPLETED = "completed", "Bajarildi"
 
 
+class Stage(models.TextChoices):
+    """Qo'lda yaratiladigan (buyurtma retseptiga bog'liq bo'lmagan) vazifalar
+    uchun ixtiyoriy toifa — avvalgi `apps.production.ProductionTask.Stage`dan
+    ko'chirildi (ProductionTask va WorkflowStepInstance bitta tizimga
+    birlashtirildi)."""
+
+    CUTTING = "cutting", "Kesish"
+    EDGE_PROCESSING = "edge_processing", "Qirra ishlov"
+    ASSEMBLY = "assembly", "Yig'ish"
+    PAINTING = "painting", "Bo'yash"
+    QUALITY_CONTROL = "quality_control", "Sifat nazorati"
+    INSTALLATION = "installation", "O'rnatish"
+    DELIVERY = "delivery", "Yetkazib berish"
+    OTHER = "other", "Boshqa"
+
+
+# qaysi kasb bu bosqichga mos (positions bilan moslashtirish uchun tavsiya)
+STAGE_POSITION = {
+    Stage.CUTTING: "usta",
+    Stage.EDGE_PROCESSING: "usta",
+    Stage.ASSEMBLY: "usta",
+    Stage.PAINTING: "usta",
+    Stage.QUALITY_CONTROL: "usta",
+    Stage.INSTALLATION: "ornatuvchi",
+    Stage.DELIVERY: "haydovchi",
+    Stage.OTHER: None,
+}
+
+
 class WorkflowStep(BaseModel):
     """Mahsulotning ishlab chiqarish jarayoni shabloni (bosqichlar grafigi).
 
@@ -54,11 +83,32 @@ class WorkflowStep(BaseModel):
 
 
 class WorkflowStepInstance(BaseModel):
-    """Buyurtma yaratilganda mahsulot workflow shablonidan nusxa olinadi —
-    har bosqich mustaqil kuzatiladi (docs: Order Workflow)."""
+    """Ishlab chiqarish vazifasi — ikki xil yo'l bilan yaratiladi:
 
+    1. **Avtomatik**: buyurtma yaratilganda mahsulot workflow shablonidan
+       nusxa olinadi (`template_step` to'ldirilgan, `order` majburiy) —
+       DAG bog'liqlik bilan, docs: Order Workflow.
+    2. **Qo'lda**: firma egasi retseptga bog'liq bo'lmagan vazifa yaratadi
+       (`template_step` bo'sh, `order` ixtiyoriy) — masalan yetkazib berish
+       yoki maxsus topshiriq (avvalgi `ProductionTask`, endi shu yerga
+       birlashtirilgan).
+
+    Ikkalasi ham bitta joyda kuzatiladi va bitta ish haqi hisobiga (`Payslip`)
+    qo'shiladi — farqi: avtomatik bosqichlar odatda `cost`ga (retseptda
+    belgilangan) ega, qo'lda vazifalar esa `bonus_per_task`ga hisoblanadi
+    (qarang `Payslip.recompute`, `template_step__isnull` bo'yicha ajratiladi).
+    """
+
+    # DB darajasida null=True (eski qatorlar uchun migratsiya osonroq bo'lishi
+    # uchun), lekin amalda har doim to'ldiriladi (serializer/service orqali) —
+    # `order`dan hosil bo'lganda order.company, qo'lda yaratilganda so'rovchi
+    # kompaniyasi.
+    company = models.ForeignKey(
+        "companies.Company", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="workflow_instances",
+    )
     order = models.ForeignKey(
-        "orders.Order", on_delete=models.CASCADE, related_name="workflow_steps"
+        "orders.Order", on_delete=models.SET_NULL, null=True, blank=True, related_name="workflow_steps"
     )
     template_step = models.ForeignKey(
         WorkflowStep, on_delete=models.SET_NULL, null=True, blank=True, related_name="instances"
@@ -67,6 +117,8 @@ class WorkflowStepInstance(BaseModel):
     # quyidagi maydonlar shablon o'zgarganda ham buyurtma tarixi buzilmasligi
     # uchun yaratilish paytida muhrlanadi (OrderItem snapshot patterni bilan bir xil)
     name = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    stage = models.CharField(max_length=20, choices=Stage.choices, blank=True)
     role = models.CharField(max_length=20, blank=True)
     employee = models.ForeignKey(
         Employee, on_delete=models.SET_NULL, null=True, blank=True,
@@ -82,6 +134,7 @@ class WorkflowStepInstance(BaseModel):
         "self", symmetrical=False, blank=True, related_name="required_by"
     )
     status = models.CharField(max_length=15, choices=StepStatus.choices, default=StepStatus.PENDING)
+    deadline = models.DateField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     completed_by = models.ForeignKey(
@@ -92,7 +145,7 @@ class WorkflowStepInstance(BaseModel):
         ordering = ("order_index", "created_at")
 
     def __str__(self):
-        return f"{self.order_id} — {self.name} ({self.status})"
+        return f"{self.name} ({self.status})"
 
     @property
     def is_available(self):

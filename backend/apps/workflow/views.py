@@ -6,7 +6,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.companies.views import user_company
+from apps.companies.views import is_company_owner, user_company
 from apps.products.models import Product
 from apps.products.views import can_manage
 
@@ -75,30 +75,100 @@ class WorkflowStepViewSet(viewsets.ModelViewSet):
         instance.save(update_fields=["is_deleted"])
 
 
-class WorkflowStepInstanceViewSet(viewsets.ReadOnlyModelViewSet):
-    """Buyurtma ishlab chiqarish jarayoni — avtomatik yaratiladi (services.py),
-    bu yerda faqat kuzatiladi va progress/complete amallari orqali boshqariladi."""
+class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
+    """Ishlab chiqarish vazifalari — ikki manba: buyurtma qabul qilinganda
+    mahsulot retseptidan avtomatik yaratiladigan bosqichlar (bu yerda faqat
+    `progress`/`complete` orqali boshqariladi), va firma egasi qo'lda
+    yaratadigan vazifalar (avvalgi `ProductionTask`, endi shu yerga
+    birlashtirilgan — oddiy CRUD + status).
+    """
 
     serializer_class = WorkflowStepInstanceSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ("get", "post", "patch", "delete", "head", "options")
 
     def get_queryset(self):
         qs = WorkflowStepInstance.objects.filter(is_deleted=False).select_related(
-            "order__company", "order__customer", "employee__user", "completed_by"
+            "company", "order__customer", "employee__user", "completed_by"
         ).prefetch_related("depends_on", "updates")
         user = self.request.user
         if user.role == "platform_admin":
             return qs
         company = user_company(user)
         if company:
-            return qs.filter(order__company=company)
+            return qs.filter(company=company)
+        # Kompaniya a'zosi bo'lmasa — faqat o'ziga tegishli buyurtmalarning
+        # bosqichlarini (masalan mijoz o'z buyurtmasi jarayonini kuzatishi uchun).
         return qs.filter(order__customer=user)
+
+    def _own_company(self):
+        company = user_company(self.request.user)
+        if company is None:
+            raise PermissionDenied("Faqat firma a'zolari ishlab chiqarishni boshqaradi")
+        return company
 
     def _check_company_access(self, instance):
         company = user_company(self.request.user)
-        is_company_side = company is not None and company.id == instance.order.company_id
+        is_company_side = company is not None and company.id == instance.company_id
         if not (is_company_side or self.request.user.role == "platform_admin"):
             raise PermissionDenied("Bu bosqichni faqat firma tomoni boshqaradi")
+
+    def perform_create(self, serializer):
+        """Qo'lda vazifa yaratish — faqat firma egasi (retsept bosqichlari
+        buyurtma yaratilganda `services.create_workflow_instances` orqali
+        avtomatik hosil bo'ladi, bu yerdan emas)."""
+        company = self._own_company()
+        if not is_company_owner(self.request.user, company):
+            raise PermissionDenied("Faqat firma egasi vazifa yarata oladi")
+        order = serializer.validated_data.get("order")
+        if order is not None and order.company_id != company.id:
+            raise ValidationError("Bu buyurtma sizning kompaniyangizga tegishli emas")
+        serializer.save(company=company)
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        user = self.request.user
+        company = user_company(user)
+        manager = company is not None and is_company_owner(user, company)
+        is_assignee = instance.employee_id is not None and instance.employee.user_id == user.id
+
+        if not (manager or is_assignee or user.role == "platform_admin"):
+            raise PermissionDenied("Bu vazifa sizniki emas")
+
+        if instance.template_step_id is not None:
+            raise ValidationError(
+                "Retsept bosqichi to'g'ridan-to'g'ri tahrirlanmaydi — 'progress'/'complete' orqali boshqaring"
+            )
+
+        if not manager and user.role != "platform_admin":
+            # oddiy xodim faqat statusini o'zgartira oladi
+            allowed_fields = {"status"}
+            provided = set(self.request.data.keys())
+            if not provided.issubset(allowed_fields):
+                raise PermissionDenied("Faqat statusni o'zgartira olasiz")
+
+        extra = {}
+        new_status = serializer.validated_data.get("status")
+        if new_status == StepStatus.COMPLETED and instance.status != StepStatus.COMPLETED:
+            extra["completed_at"] = timezone.now()
+            extra["completed_by"] = user
+        elif new_status == StepStatus.IN_PROGRESS and instance.status == StepStatus.PENDING:
+            extra["started_at"] = timezone.now()
+        elif new_status and new_status != StepStatus.COMPLETED:
+            extra["completed_at"] = None
+
+        updated = serializer.save(**extra)
+        if new_status == StepStatus.COMPLETED and updated.order_id:
+            sync_order_status_on_step_completion(updated.order)
+
+    def perform_destroy(self, instance):
+        company = self._own_company()
+        if not is_company_owner(self.request.user, company) and self.request.user.role != "platform_admin":
+            raise PermissionDenied("Faqat firma egasi o'chira oladi")
+        if instance.template_step_id is not None:
+            raise ValidationError("Retsept bosqichi alohida o'chirilmaydi")
+        instance.is_deleted = True
+        instance.save(update_fields=["is_deleted"])
 
     @action(detail=True, methods=["post"])
     def progress(self, request, pk=None):
@@ -141,7 +211,8 @@ class WorkflowStepInstanceViewSet(viewsets.ReadOnlyModelViewSet):
         instance.completed_by = request.user
         instance.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
         instance.activate_dependents()
-        sync_order_status_on_step_completion(instance.order)
+        if instance.order_id:
+            sync_order_status_on_step_completion(instance.order)
 
         instance = self.get_queryset().get(pk=instance.pk)
         return Response(
@@ -164,7 +235,7 @@ class WorkflowStatsView(APIView):
             started_at__isnull=False, completed_at__isnull=False,
         )
         if company is not None:
-            qs = qs.filter(order__company=company)
+            qs = qs.filter(company=company)
         qs = qs.annotate(
             duration=ExpressionWrapper(F("completed_at") - F("started_at"), output_field=DurationField())
         )

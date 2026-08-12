@@ -1,12 +1,6 @@
 from django.contrib import admin
 
-from .models import Payslip, ProductionTask
-
-
-@admin.register(ProductionTask)
-class ProductionTaskAdmin(admin.ModelAdmin):
-    list_display = ("title", "company", "stage", "status", "assigned_to", "deadline")
-    list_filter = ("stage", "status")
+from .models import Payslip
 
 
 @admin.register(Payslip)
