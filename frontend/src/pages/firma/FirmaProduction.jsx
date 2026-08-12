@@ -1,11 +1,23 @@
 import { useEffect, useState } from "react";
-import { Play, Check, Clock, Workflow, ClipboardList } from "lucide-react";
+import { Play, Check, Clock, Workflow, ClipboardList, Gauge } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { POSITIONS } from "../../positions";
 import { TASK_FLOW, TASK_STAGE, TASK_STATUS } from "../../taskStage";
 import { StatusBadge } from "../../orderStatus";
 import LoadMoreButton from "../../components/LoadMoreButton";
+
+const TABS = [
+  { key: "pipeline", label: "Ishlab chiqarish pipeline", icon: Workflow },
+  { key: "tasks", label: "Qo'shimcha vazifalar", icon: ClipboardList },
+  { key: "capacity", label: "Xodimlar bandligi", icon: Gauge },
+];
+
+const TAB_HINTS = {
+  pipeline: "Har buyurtma qabul qilinganda mahsulot retseptidan avtomatik yaratiladigan bosqichlar — barcha bosqich tugasa, buyurtma avtomatik \"Tayyor\" bo'ladi.",
+  tasks: "Pipelinega kirmaydigan qo'shimcha ishlar uchun qo'lda yaratiladigan vazifalar (masalan yetkazib berish, maxsus topshiriq).",
+  capacity: "Har xodimning hozirgi navbatida qancha soatlik ish borligi — yangi buyurtma/vazifa kimga tayinlashni rejalashtirish uchun.",
+};
 
 export default function FirmaProduction() {
   const { user } = useAuth();
@@ -14,36 +26,77 @@ export default function FirmaProduction() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-2">
-        <button
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition"
-          style={
-            tab === "pipeline"
-              ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
-              : { border: "1px solid var(--border)", color: "var(--muted)" }
-          }
-          onClick={() => setTab("pipeline")}
-        >
-          <Workflow size={13} /> Ishlab chiqarish pipeline
-        </button>
-        <button
-          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition"
-          style={
-            tab === "tasks"
-              ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
-              : { border: "1px solid var(--border)", color: "var(--muted)" }
-          }
-          onClick={() => setTab("tasks")}
-        >
-          <ClipboardList size={13} /> Qo'shimcha vazifalar
-        </button>
+      <div className="flex flex-wrap gap-2">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition"
+            style={
+              tab === t.key
+                ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
+                : { border: "1px solid var(--border)", color: "var(--muted)" }
+            }
+            onClick={() => setTab(t.key)}
+          >
+            <t.icon size={13} /> {t.label}
+          </button>
+        ))}
       </div>
-      <p className="text-xs" style={{ color: "var(--muted)" }}>
-        {tab === "pipeline"
-          ? "Har buyurtma qabul qilinganda mahsulot retseptidan avtomatik yaratiladigan bosqichlar — barcha bosqich tugasa, buyurtma avtomatik \"Tayyor\" bo'ladi."
-          : "Pipelinega kirmaydigan qo'shimcha ishlar uchun qo'lda yaratiladigan vazifalar (masalan yetkazib berish, maxsus topshiriq)."}
-      </p>
-      {tab === "pipeline" ? <WorkflowPipeline /> : isManager ? <ManagerView /> : <EmployeeView />}
+      <p className="text-xs" style={{ color: "var(--muted)" }}>{TAB_HINTS[tab]}</p>
+      {tab === "pipeline" && <WorkflowPipeline />}
+      {tab === "tasks" && (isManager ? <ManagerView /> : <EmployeeView />)}
+      {tab === "capacity" && <CapacityView />}
+    </div>
+  );
+}
+
+/* ================= Xodimlar bandligi (ishlab chiqarish rejalashtirish) ================= */
+
+function CapacityView() {
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api("/workflow-capacity/")
+      .then((d) => setRows(d || []))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p className="text-sm" style={{ color: "var(--muted)" }}>Yuklanmoqda…</p>;
+  if (error) return <div className="error">{error}</div>;
+  if (rows.length === 0) return <p className="text-sm" style={{ color: "var(--muted)" }}>Faol xodim yo'q.</p>;
+
+  const maxHours = Math.max(1, ...rows.map((r) => r.pending_hours));
+
+  return (
+    <div className="flex flex-col gap-3">
+      {rows.map((r) => (
+        <div key={r.employee} className="card flex flex-col gap-2 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span className="font-semibold">{r.employee_name}</span>
+              <span className="ml-2 text-xs" style={{ color: "var(--muted)" }}>
+                {r.positions.map((p) => POSITIONS[p]?.label || p).join(", ")}
+              </span>
+            </div>
+            <span className="text-sm font-bold" style={{ color: r.pending_hours > 0 ? "#e67e22" : "#27ae60" }}>
+              {r.pending_hours} soat navbatda
+              {r.in_progress_count > 0 && ` · ${r.in_progress_count} ta bajarilmoqda`}
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "var(--bg)" }}>
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, (r.pending_hours / maxHours) * 100)}%`,
+                background: r.pending_hours > 0 ? "#e67e22" : "#27ae60",
+              }}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

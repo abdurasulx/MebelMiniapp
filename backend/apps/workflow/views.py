@@ -254,3 +254,47 @@ class WorkflowStatsView(APIView):
             for row in stats
         ]
         return Response(data)
+
+
+class WorkflowCapacityView(APIView):
+    """Xodimlar bandligi — ishlab chiqarish rejalashtirish uchun: har faol
+    xodimning hozirgi navbatida (pending/in_progress) qancha soatlik ish
+    borligi. Yangi buyurtma/vazifa tayinlashda kim band, kim bo'sh ekanini
+    ko'rish uchun (firma egasi qo'lda rejalashtiradi, tizim taxmin beradi)."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        company = user_company(request.user)
+        if company is None:
+            if request.user.role == "platform_admin":
+                return Response([])
+            raise PermissionDenied("Faqat firma a'zolari ishlab chiqarish quvvatini ko'radi")
+
+        from apps.companies.models import Employee
+
+        employees = Employee.objects.filter(
+            company=company, is_deleted=False, is_active=True
+        ).select_related("user")
+
+        backlog = WorkflowStepInstance.objects.filter(
+            is_deleted=False, company=company,
+            status__in=[StepStatus.PENDING, StepStatus.IN_PROGRESS],
+            employee__isnull=False,
+        )
+
+        data = []
+        for employee in employees:
+            steps = [s for s in backlog if s.employee_id == employee.id]
+            pending_hours = sum(float(s.estimated_hours) for s in steps)
+            in_progress = sum(1 for s in steps if s.status == StepStatus.IN_PROGRESS)
+            data.append({
+                "employee": str(employee.id),
+                "employee_name": employee.user.first_name or employee.user.email,
+                "positions": employee.positions,
+                "total_count": len(steps),
+                "in_progress_count": in_progress,
+                "pending_hours": round(pending_hours, 1),
+            })
+        data.sort(key=lambda row: -row["pending_hours"])
+        return Response(data)

@@ -212,3 +212,78 @@ class PayslipRecomputeTests(TestCase):
         self.assertEqual(payslip.bonus_amount, Decimal("5000"))
         self.assertEqual(payslip.workflow_earnings, Decimal("15000"))  # ikkalasining cost yig'indisi (0 + 15000)
         self.assertEqual(payslip.total_amount, Decimal("1000000") + Decimal("5000") + Decimal("15000"))
+
+
+class CapacityAndPredictionTests(APITestCase):
+    """Ishlab chiqarish rejalashtirish: xodimlar bandligi va navbatni
+    hisobga oladigan taxminiy tugash muddati."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+        )
+        self.company = Company.objects.create(owner=self.owner, name="Shop", slug="shop")
+        self.worker_user = User.objects.create_user(
+            email="usta@shop.uz", password="pass12345", role=User.Role.EMPLOYEE
+        )
+        self.employee = Employee.objects.create(
+            company=self.company, user=self.worker_user, positions=["usta"]
+        )
+        self.customer = User.objects.create_user(
+            email="mijoz@test.uz", password="pass12345", role=User.Role.CUSTOMER
+        )
+        self.client = APIClient()
+
+    def test_capacity_reflects_pending_workload(self):
+        WorkflowStepInstance.objects.create(
+            company=self.company, name="Yig'ish", employee=self.employee,
+            status=StepStatus.PENDING, estimated_hours=Decimal("3"),
+        )
+        WorkflowStepInstance.objects.create(
+            company=self.company, name="Bo'yash", employee=self.employee,
+            status=StepStatus.IN_PROGRESS, estimated_hours=Decimal("2"),
+        )
+        self.client.force_authenticate(self.owner)
+        resp = self.client.get("/api/v1/workflow-capacity/")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        row = next(r for r in resp.data if r["employee"] == str(self.employee.id))
+        self.assertEqual(row["total_count"], 2)
+        self.assertEqual(row["in_progress_count"], 1)
+        self.assertEqual(row["pending_hours"], 5.0)
+
+    def test_capacity_ignores_completed_steps(self):
+        WorkflowStepInstance.objects.create(
+            company=self.company, name="Kesish", employee=self.employee,
+            status=StepStatus.COMPLETED, estimated_hours=Decimal("4"),
+        )
+        self.client.force_authenticate(self.owner)
+        resp = self.client.get("/api/v1/workflow-capacity/")
+        row = next(r for r in resp.data if r["employee"] == str(self.employee.id))
+        self.assertEqual(row["total_count"], 0)
+        self.assertEqual(row["pending_hours"], 0)
+
+    def test_prediction_accounts_for_employee_backlog_on_other_orders(self):
+        order1 = Order.objects.create(
+            company=self.company, customer=self.customer, phone="+998900000000",
+            address="Toshkent", status=Order.Status.IN_PRODUCTION,
+        )
+        order2 = Order.objects.create(
+            company=self.company, customer=self.customer, phone="+998900000001",
+            address="Toshkent", status=Order.Status.IN_PRODUCTION,
+        )
+        # order1'ning ustasi allaqachon order2'da band (boshqa buyurtmada navbatda).
+        WorkflowStepInstance.objects.create(
+            company=self.company, order=order2, name="Boshqa buyurtma ishi",
+            employee=self.employee, status=StepStatus.PENDING, estimated_hours=Decimal("10"),
+        )
+        WorkflowStepInstance.objects.create(
+            company=self.company, order=order1, name="Yig'ish",
+            employee=self.employee, status=StepStatus.PENDING, estimated_hours=Decimal("2"),
+        )
+
+        self.client.force_authenticate(self.owner)
+        resp = self.client.get(f"/api/v1/orders/{order1.id}/prediction/")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data["own_hours"], 2.0)
+        self.assertEqual(resp.data["queue_hours"], 10.0)
+        self.assertEqual(resp.data["remaining_hours"], 12.0)

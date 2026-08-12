@@ -52,6 +52,7 @@ from apps.users.views import (
     RegisterView,
 )
 from apps.workflow.views import (
+    WorkflowCapacityView,
     WorkflowStatsView,
     WorkflowStepInstanceViewSet,
     WorkflowStepViewSet,
@@ -131,6 +132,7 @@ urlpatterns = [
         name="workflow-step-detail",
     ),
     path("workflow-stats/", WorkflowStatsView.as_view(), name="workflow-stats"),
+    path("workflow-capacity/", WorkflowCapacityView.as_view(), name="workflow-capacity"),
     path("finance/summary/", FinanceSummaryView.as_view(), name="finance-summary"),
     path("viewer/<uuid:token>/", Model3DViewerView.as_view(), name="model3d-viewer"),
     path("projects/<uuid:project_pk>/items/", project_item_list, name="project-item-list"),

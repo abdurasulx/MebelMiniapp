@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Avg, DurationField, ExpressionWrapper, F, Sum
+from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F, Sum
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from rest_framework import mixins, permissions, viewsets
@@ -71,8 +71,11 @@ class OrderViewSet(
 
     @action(detail=True, methods=["get"])
     def prediction(self, request, pk=None):
-        """Tarixiy bosqich davomiyligiga asoslangan taxminiy tugash sanasi
-        (docs: Delivery Prediction — statistik taxmin, AI emas)."""
+        """Taxminiy tugash sanasi — tarixiy bosqich davomiyligi + xodimlar
+        bandligi (quvvat) asosida. Faqat shu buyurtmaning ish hajmini emas,
+        balki tayinlangan xodimlarning BOSHQA buyurtmalardagi navbatini ham
+        hisobga oladi — aks holda "band" ustaning ETA'si sun'iy erta chiqib
+        qolardi (docs: Delivery Prediction — statistik taxmin, AI emas)."""
         order = self.get_object()
         pending = order.workflow_steps.filter(
             is_deleted=False, status__in=[StepStatus.PENDING, StepStatus.IN_PROGRESS]
@@ -89,22 +92,44 @@ class OrderViewSet(
             duration=ExpressionWrapper(F("completed_at") - F("started_at"), output_field=DurationField())
         )
 
-        total_hours = 0.0
-        sample_count = 0
-        for step in pending:
-            stats = history.filter(name=step.name).aggregate(avg=Avg("duration"))
+        def _estimate_hours(step_name, fallback_hours):
+            stats = history.filter(name=step_name).aggregate(avg=Avg("duration"), n=Count("id"))
             if stats["avg"] is not None:
-                total_hours += stats["avg"].total_seconds() / 3600
-                sample_count += history.filter(name=step.name).count()
-            else:
-                total_hours += float(step.estimated_hours)
+                return stats["avg"].total_seconds() / 3600, stats["n"]
+            return float(fallback_hours), 0
 
+        own_hours = 0.0
+        sample_count = 0
+        employee_ids = set()
+        for step in pending:
+            hours, n = _estimate_hours(step.name, step.estimated_hours)
+            own_hours += hours
+            sample_count += n
+            if step.employee_id:
+                employee_ids.add(step.employee_id)
+
+        # Tayinlangan xodimlarning BOSHQA buyurtmalardagi navbati — bir xil
+        # ustaga tayinlangan boshqa ishlar tugamaguncha bu buyurtma ham
+        # kuta turadi.
+        queue_hours = 0.0
+        for emp_id in employee_ids:
+            backlog = WorkflowStepInstance.objects.filter(
+                is_deleted=False, employee_id=emp_id,
+                status__in=[StepStatus.PENDING, StepStatus.IN_PROGRESS],
+            ).exclude(order=order)
+            for other_step in backlog:
+                hours, _ = _estimate_hours(other_step.name, other_step.estimated_hours)
+                queue_hours += hours
+
+        total_hours = own_hours + queue_hours
         estimated_finish = timezone.now() + timedelta(hours=total_hours)
         confidence = round(min(0.95, 0.5 + 0.05 * min(sample_count, 9)), 2)
         return Response({
             "estimated_finish": estimated_finish,
             "confidence": confidence,
             "remaining_hours": round(total_hours, 1),
+            "own_hours": round(own_hours, 1),
+            "queue_hours": round(queue_hours, 1),
         })
 
 
