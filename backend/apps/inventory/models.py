@@ -39,6 +39,23 @@ class Warehouse(BaseModel):
         return f"{self.company.name} — {self.name}"
 
 
+class Supplier(BaseModel):
+    """Xom ashyo yetkazib beruvchi — ta'minot (procurement) uchun."""
+
+    company = models.ForeignKey("companies.Company", on_delete=models.CASCADE, related_name="suppliers")
+    name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=20, blank=True)
+    address = models.CharField(max_length=500, blank=True)
+    note = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+
+
 class Material(BaseModel):
     """Xom ashyo katalogi — bitta firmaga tegishli (masalan taxta, mix, mato).
     `unit_cost` keyingi bosqichda mahsulot tannarxini hisoblashda ishlatiladi."""
@@ -53,6 +70,12 @@ class Material(BaseModel):
     # material cheksiz bo'linadigan uzluksiz miqdor sifatida ishlaydi (avvalgi
     # xatti-harakat, o'zgarishsiz).
     stock_unit_length = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    # Ta'minot: shu darajadan pastga tushsa, "kam qoldi" deb ogohlantiriladi
+    # (0 — ogohlantirish o'chirilgan, kuzatilmaydi).
+    min_stock = models.DecimalField(max_digits=14, decimal_places=3, default=0)
+    default_supplier = models.ForeignKey(
+        Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name="materials"
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -245,3 +268,47 @@ class ProductMovement(BaseModel):
 
     class Meta:
         ordering = ("-created_at",)
+
+
+class PurchaseOrder(BaseModel):
+    """Yetkazib beruvchidan xom ashyo xarid qilish buyurtmasi — ta'minot
+    (procurement) zanjiri. "Qabul qilindi" deb belgilanganda har bir band
+    tegishli ombor qoldig'iga avtomatik kirim qilinadi (MaterialMovement IN)."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Kutilmoqda"
+        RECEIVED = "received", "Qabul qilindi"
+        CANCELLED = "cancelled", "Bekor qilindi"
+
+    company = models.ForeignKey("companies.Company", on_delete=models.CASCADE, related_name="purchase_orders")
+    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name="purchase_orders")
+    warehouse = models.ForeignKey(
+        Warehouse, on_delete=models.PROTECT, related_name="purchase_orders",
+        help_text="Qabul qilinganda material shu omborga kirim qilinadi",
+    )
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    note = models.CharField(max_length=500, blank=True)
+    received_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.supplier.name} — {self.get_status_display()}"
+
+    @property
+    def total_cost(self):
+        return sum((item.quantity * item.unit_cost for item in self.items.all()), start=0)
+
+
+class PurchaseOrderItem(BaseModel):
+    purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="items")
+    material = models.ForeignKey(Material, on_delete=models.PROTECT, related_name="purchase_order_items")
+    quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=[MinValueValidator(0.001)])
+    unit_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.material.name} x{self.quantity}"

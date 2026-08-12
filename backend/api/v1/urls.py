@@ -20,7 +20,9 @@ from apps.inventory.views import (
     ProduceView,
     ProductMovementViewSet,
     ProductStockViewSet,
+    PurchaseOrderViewSet,
     SellUnitsView,
+    SupplierViewSet,
     WarehouseViewSet,
 )
 from apps.likes.views import LikeViewSet
@@ -72,6 +74,8 @@ router.register("detail-assets", DetailAssetViewSet, basename="detail-asset")
 router.register("projects", ProjectViewSet, basename="project")
 router.register("warehouses", WarehouseViewSet, basename="warehouse")
 router.register("materials", MaterialViewSet, basename="material")
+router.register("suppliers", SupplierViewSet, basename="supplier")
+router.register("purchase-orders", PurchaseOrderViewSet, basename="purchase-order")
 
 variant_list = VariantViewSet.as_view({"get": "list", "post": "create"})
 variant_detail = VariantViewSet.as_view(

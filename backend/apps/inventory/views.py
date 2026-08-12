@@ -4,6 +4,7 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,6 +25,8 @@ from .models import (
     MaterialStock,
     ProductMovement,
     ProductStock,
+    PurchaseOrder,
+    Supplier,
     Warehouse,
 )
 from .serializers import (
@@ -36,7 +39,9 @@ from .serializers import (
     ProduceSerializer,
     ProductMovementSerializer,
     ProductStockSerializer,
+    PurchaseOrderSerializer,
     SellUnitsSerializer,
+    SupplierSerializer,
     WarehouseSerializer,
 )
 
@@ -124,6 +129,22 @@ class WarehouseViewSet(CompanyScopedViewSet):
         instance.save(update_fields=["is_deleted", "is_active"])
 
 
+class SupplierViewSet(CompanyScopedViewSet):
+    serializer_class = SupplierSerializer
+
+    def get_queryset(self):
+        company = user_company(self.request.user)
+        if company is None:
+            return Supplier.objects.none()
+        return Supplier.objects.filter(company=company, is_deleted=False)
+
+    def perform_destroy(self, instance):
+        self._own_company()
+        instance.is_deleted = True
+        instance.is_active = False
+        instance.save(update_fields=["is_deleted", "is_active"])
+
+
 class MaterialViewSet(CompanyScopedViewSet):
     serializer_class = MaterialSerializer
 
@@ -138,6 +159,26 @@ class MaterialViewSet(CompanyScopedViewSet):
         instance.is_deleted = True
         instance.is_active = False
         instance.save(update_fields=["is_deleted", "is_active"])
+
+    @action(detail=False, methods=["get"], url_path="low-stock")
+    def low_stock(self, request):
+        """Ta'minot: `min_stock`dan pastga tushgan materiallar — barcha
+        omborlardagi joriy qoldiq yig'indisi solishtiriladi."""
+        company = self._own_company()
+        materials = Material.objects.filter(
+            company=company, is_deleted=False, is_active=True, min_stock__gt=0
+        ).select_related("default_supplier")
+
+        results = []
+        for material in materials:
+            total = MaterialStock.objects.filter(material=material).aggregate(
+                total=Sum("quantity")
+            )["total"] or Decimal("0")
+            if total < material.min_stock:
+                data = MaterialSerializer(material, context={"request": request}).data
+                data["current_stock"] = total
+                results.append(data)
+        return Response(results)
 
 
 class WarehouseNestedMixin:
@@ -515,3 +556,62 @@ class ProductMovementViewSet(WarehouseNestedMixin, viewsets.ModelViewSet):
                 stock.quantity += delta
             stock.save(update_fields=["quantity"])
             serializer.save(warehouse=warehouse, created_by=self.request.user)
+
+
+class PurchaseOrderViewSet(CompanyScopedViewSet):
+    """Xom ashyo ta'minoti: yetkazib beruvchidan xarid buyurtmasi. Faqat
+    omborchi (yoki firma egasi) yaratadi/qabul qiladi — kirim/chiqim bilan
+    bir xil ruxsat qoidasi (qarang MaterialMovementViewSet)."""
+
+    serializer_class = PurchaseOrderSerializer
+    http_method_names = ("get", "post", "head", "options")
+
+    def get_queryset(self):
+        company = user_company(self.request.user)
+        if company is None:
+            return PurchaseOrder.objects.none()
+        return PurchaseOrder.objects.filter(company=company, is_deleted=False).select_related(
+            "supplier", "warehouse", "created_by"
+        ).prefetch_related("items__material")
+
+    def perform_create(self, serializer):
+        company = self._own_company()
+        if not user_has_position(self.request.user, company, Employee.Position.OMBORCHI):
+            raise PermissionDenied("Xarid buyurtmasini faqat omborchi (yoki firma egasi) yaratadi")
+        supplier = serializer.validated_data["supplier"]
+        warehouse = serializer.validated_data["warehouse"]
+        if supplier.company_id != company.id or warehouse.company_id != company.id:
+            raise ValidationError("Yetkazib beruvchi yoki ombor sizning kompaniyangizga tegishli emas")
+        if warehouse.kind != Warehouse.Kind.RAW_MATERIAL:
+            raise ValidationError("Xarid buyurtmasi faqat xom ashyo omboriga qilinadi")
+        serializer.save(company=company, created_by=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def receive(self, request, pk=None):
+        """Buyurtmani "qabul qilindi" deb belgilaydi — har bir band tegishli
+        ombor qoldig'iga avtomatik kirim qilinadi (MaterialMovement IN)."""
+        order = self.get_object()
+        company = self._own_company()
+        if not user_has_position(request.user, company, Employee.Position.OMBORCHI):
+            raise PermissionDenied("Faqat omborchi (yoki firma egasi) qabul qila oladi")
+        if order.status != PurchaseOrder.Status.PENDING:
+            raise ValidationError("Bu buyurtma allaqachon yakunlangan")
+
+        with transaction.atomic():
+            for item in order.items.select_related("material"):
+                stock, _ = MaterialStock.objects.select_for_update().get_or_create(
+                    warehouse=order.warehouse, material=item.material
+                )
+                stock.quantity += item.quantity
+                stock.save(update_fields=["quantity"])
+                MaterialMovement.objects.create(
+                    warehouse=order.warehouse, material=item.material,
+                    movement_type=MaterialMovement.Type.IN, quantity=item.quantity,
+                    note=f"Xarid: {order.supplier.name} (buyurtma #{str(order.id)[:8]})",
+                    created_by=request.user,
+                )
+            order.status = PurchaseOrder.Status.RECEIVED
+            order.received_at = timezone.now()
+            order.save(update_fields=["status", "received_at"])
+
+        return Response(PurchaseOrderSerializer(order, context={"request": request}).data)

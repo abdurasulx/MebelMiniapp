@@ -9,6 +9,9 @@ from .models import (
     MaterialStock,
     ProductMovement,
     ProductStock,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    Supplier,
     Warehouse,
 )
 
@@ -25,14 +28,23 @@ class WarehouseSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "company", "created_at")
 
 
+class SupplierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Supplier
+        fields = ("id", "company", "name", "phone", "address", "note", "is_active", "created_at")
+        read_only_fields = ("id", "company", "created_at")
+
+
 class MaterialSerializer(serializers.ModelSerializer):
     unit_display = serializers.CharField(source="get_unit_display", read_only=True)
+    default_supplier_name = serializers.CharField(source="default_supplier.name", read_only=True, default=None)
 
     class Meta:
         model = Material
         fields = (
             "id", "company", "name", "unit", "unit_display", "unit_cost",
-            "stock_unit_length", "is_active", "created_at",
+            "stock_unit_length", "min_stock", "default_supplier", "default_supplier_name",
+            "is_active", "created_at",
         )
         read_only_fields = ("id", "company", "created_at")
 
@@ -160,3 +172,43 @@ class ProductMovementSerializer(serializers.ModelSerializer):
             "movement_type", "movement_type_display", "quantity", "note", "created_by_name", "created_at",
         )
         read_only_fields = ("id", "warehouse", "created_at")
+
+
+class PurchaseOrderItemSerializer(serializers.ModelSerializer):
+    material_name = serializers.CharField(source="material.name", read_only=True)
+    material_unit = serializers.CharField(source="material.get_unit_display", read_only=True)
+
+    class Meta:
+        model = PurchaseOrderItem
+        fields = ("id", "material", "material_name", "material_unit", "quantity", "unit_cost")
+        read_only_fields = ("id",)
+
+
+class PurchaseOrderSerializer(serializers.ModelSerializer):
+    supplier_name = serializers.CharField(source="supplier.name", read_only=True)
+    warehouse_name = serializers.CharField(source="warehouse.name", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.first_name", read_only=True, default=None)
+    total_cost = serializers.DecimalField(max_digits=16, decimal_places=2, read_only=True)
+    items = PurchaseOrderItemSerializer(many=True)
+
+    class Meta:
+        model = PurchaseOrder
+        fields = (
+            "id", "company", "supplier", "supplier_name", "warehouse", "warehouse_name",
+            "status", "status_display", "note", "items", "total_cost",
+            "created_by_name", "received_at", "created_at",
+        )
+        read_only_fields = ("id", "company", "status", "received_at", "created_at")
+
+    def validate_items(self, value):
+        if not value:
+            raise serializers.ValidationError("Kamida bitta band bo'lishi kerak")
+        return value
+
+    def create(self, validated_data):
+        items_data = validated_data.pop("items")
+        order = PurchaseOrder.objects.create(**validated_data)
+        for item in items_data:
+            PurchaseOrderItem.objects.create(purchase_order=order, **item)
+        return order
