@@ -71,7 +71,7 @@ struct ShopView: View {
                 HStack {
                     Text(
                         imageResults != nil
-                            ? "Rasmga o'xshash \(filtered.count) ta mahsulot (70%+)"
+                            ? "Rasmga o'xshash \(filtered.count) ta mahsulot"
                             : "\(filtered.count) ta mahsulot"
                     )
                     .font(.caption)

@@ -205,7 +205,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            'Rasmga o\'xshash ${_imageResults!.length} ta mahsulot (70%+)',
+                            'Rasmga o\'xshash ${_imageResults!.length} ta mahsulot',
                             style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
                           ),
                         ),

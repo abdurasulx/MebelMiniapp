@@ -264,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Text(
                   isImageSearch
-                      ? '${items.length} ta o\'xshash mahsulot (70%+)'
+                      ? '${items.length} ta o\'xshash mahsulot topildi'
                       : '${items.length} ta natija',
                   style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
                 ),

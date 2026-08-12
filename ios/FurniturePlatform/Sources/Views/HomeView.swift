@@ -122,7 +122,7 @@ struct HomeView: View {
             HStack {
                 Text(
                     imageResults != nil
-                        ? "\(items.count) ta o'xshash mahsulot (70%+)"
+                        ? "\(items.count) ta o'xshash mahsulot"
                         : "\(items.count) ta natija"
                 )
                 .font(.caption)
