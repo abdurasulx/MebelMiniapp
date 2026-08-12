@@ -1,13 +1,15 @@
 from datetime import timedelta
 
-from django.db.models import Avg, DurationField, ExpressionWrapper, F
+from django.db.models import Avg, DurationField, ExpressionWrapper, F, Sum
+from django.db.models.functions import TruncMonth
 from django.utils import timezone
 from rest_framework import mixins, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from apps.companies.views import user_company
+from apps.companies.views import is_company_owner, user_company
 from apps.workflow.models import StepStatus, WorkflowStepInstance
 
 from .models import Order
@@ -104,3 +106,86 @@ class OrderViewSet(
             "confidence": confidence,
             "remaining_hours": round(total_hours, 1),
         })
+
+
+class FinanceSummaryView(APIView):
+    """`/finance/summary/` — "Moliya" bo'limi uchun: daromad (yakunlangan
+    buyurtmalar), tannarx/foyda (ishlab chiqarilgan donalar) va ish haqi
+    fondi — hammasi mavjud ma'lumotlardan hisoblanadi, tashqi to'lov/hisobot
+    xizmatiga muhtoj emas.
+
+    Platforma admini — butun bozor (barcha kompaniyalar) bo'yicha, firma
+    ega/xodimi — faqat o'z kompaniyasi bo'yicha ko'radi."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        from apps.companies.models import Company
+        from apps.inventory.models import ManufacturedUnit
+        from apps.production.models import Payslip
+
+        is_platform_admin = request.user.role == "platform_admin"
+        company = None if is_platform_admin else user_company(request.user)
+        if not is_platform_admin:
+            if company is None or not is_company_owner(request.user, company):
+                raise PermissionDenied("Faqat firma egasi moliya bo'limini ko'radi")
+
+        orders = Order.objects.filter(is_deleted=False)
+        units = ManufacturedUnit.objects.filter(is_deleted=False)
+        payslips = Payslip.objects.filter(is_deleted=False)
+        if company is not None:
+            orders = orders.filter(company=company)
+            units = units.filter(product__company=company)
+            payslips = payslips.filter(company=company)
+
+        completed_orders = orders.filter(status=Order.Status.COMPLETED)
+        revenue_total = completed_orders.aggregate(total=Sum("total_price"))["total"] or 0
+
+        sold_units = units.filter(status=ManufacturedUnit.Status.SOLD)
+        material_cost_total = sold_units.aggregate(total=Sum("material_cost"))["total"] or 0
+        labor_cost_total = sold_units.aggregate(total=Sum("labor_cost"))["total"] or 0
+        sales_total = sold_units.aggregate(total=Sum("sale_price"))["total"] or 0
+        profit_total = sales_total - material_cost_total - labor_cost_total
+
+        payroll_total = payslips.aggregate(total=Sum("total_amount"))["total"] or 0
+        payroll_unpaid = payslips.filter(is_paid=False).aggregate(total=Sum("total_amount"))["total"] or 0
+
+        monthly = list(
+            completed_orders.annotate(month=TruncMonth("updated_at"))
+            .values("month")
+            .annotate(revenue=Sum("total_price"))
+            .order_by("-month")[:6]
+        )
+        monthly.reverse()
+
+        data = {
+            "scope": "platform" if is_platform_admin else "company",
+            "revenue_total": revenue_total,
+            "orders_count": orders.count(),
+            "completed_orders_count": completed_orders.count(),
+            "material_cost_total": material_cost_total,
+            "labor_cost_total": labor_cost_total,
+            "unit_sales_total": sales_total,
+            "unit_profit_total": profit_total,
+            "payroll_total": payroll_total,
+            "payroll_unpaid": payroll_unpaid,
+            "net_profit": profit_total - payroll_total,
+            "monthly_revenue": [
+                {"month": row["month"].strftime("%Y-%m"), "revenue": row["revenue"] or 0}
+                for row in monthly
+            ],
+        }
+
+        if is_platform_admin:
+            data["companies_count"] = Company.objects.filter(is_deleted=False).count()
+            top_companies = list(
+                completed_orders.values("company__name")
+                .annotate(revenue=Sum("total_price"))
+                .order_by("-revenue")[:5]
+            )
+            data["top_companies"] = [
+                {"name": row["company__name"], "revenue": row["revenue"] or 0}
+                for row in top_companies
+            ]
+
+        return Response(data)

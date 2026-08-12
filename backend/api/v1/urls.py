@@ -24,7 +24,7 @@ from apps.inventory.views import (
     WarehouseViewSet,
 )
 from apps.likes.views import LikeViewSet
-from apps.orders.views import OrderViewSet
+from apps.orders.views import FinanceSummaryView, OrderViewSet
 from apps.production.views import PayslipViewSet, ProductionTaskViewSet
 from apps.products.views import (
     CategoryViewSet,
@@ -122,6 +122,7 @@ urlpatterns = [
         name="workflow-step-detail",
     ),
     path("workflow-stats/", WorkflowStatsView.as_view(), name="workflow-stats"),
+    path("finance/summary/", FinanceSummaryView.as_view(), name="finance-summary"),
     path("viewer/<uuid:token>/", Model3DViewerView.as_view(), name="model3d-viewer"),
     path("projects/<uuid:project_pk>/items/", project_item_list, name="project-item-list"),
     path("projects/<uuid:project_pk>/items/<uuid:pk>/", project_item_detail, name="project-item-detail"),

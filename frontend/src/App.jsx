@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth";
 import PortalLayout from "./layouts/PortalLayout";
-import { PORTAL } from "./portal";
+import { BRAND_NAME, PORTAL } from "./portal";
 import { getActivePosition } from "./positions";
 import RolePicker from "./pages/firma/RolePicker";
 import { useTheme } from "./theme";
 import AdminCategories from "./pages/admin/AdminCategories";
 import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminFinance from "./pages/admin/AdminFinance";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminUsers from "./pages/admin/AdminUsers";
 import Cart from "./pages/Cart";
@@ -54,6 +55,7 @@ import {
   Heart,
   FolderKanban,
   Warehouse,
+  TrendingUp,
 } from "lucide-react";
 
 const ADMIN_MENU = [
@@ -62,7 +64,7 @@ const ADMIN_MENU = [
   { to: "/users", icon: Users, label: "Foydalanuvchilar", group: "Boshqaruv" },
   { to: "/categories", icon: FolderTree, label: "Kategoriyalar", group: "Boshqaruv" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
-  { to: "/finance", icon: Wallet, label: "Moliya", soon: true, group: "Savdo" },
+  { to: "/finance", icon: Wallet, label: "Moliya", group: "Savdo" },
 ];
 
 const FIRMA_MENU = [
@@ -74,6 +76,7 @@ const FIRMA_MENU = [
   { to: "/warehouses", icon: Warehouse, label: "Omborlar", group: "Ishlab chiqarish" },
   { to: "/employees", icon: HardHat, label: "Xodimlar", group: "Xodimlar" },
   { to: "/payroll", icon: Wallet, label: "Ish haqi", group: "Xodimlar" },
+  { to: "/finance", icon: TrendingUp, label: "Moliya", group: "Savdo" },
   { to: "/settings", icon: Settings, label: "Sozlamalar", group: "Tizim" },
 ];
 
@@ -142,7 +145,7 @@ function MarketLayout({ children }) {
         style={{ background: "var(--brand-surface)", color: "var(--brand-surface-text)" }}
       >
         <Link to="/" className="flex items-center gap-2 font-bold">
-          <Sofa size={22} /> Furniture Platform
+          <Sofa size={22} /> {BRAND_NAME}
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <Link to="/" className="rounded-lg px-3 py-1.5 transition hover:bg-black/10">
@@ -228,7 +231,7 @@ export default function App() {
           <Route path="/users" element={<AdminUsers />} />
           <Route path="/categories" element={<AdminCategories />} />
           <Route path="/orders" element={<AdminOrders />} />
-          <Route path="/finance" element={<Soon label="Moliya" />} />
+          <Route path="/finance" element={<AdminFinance />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -256,6 +259,7 @@ export default function App() {
           <Route path="/warehouses" element={<FirmaWarehouses />} />
           <Route path="/warehouses/:id" element={<FirmaWarehouseDetail />} />
           <Route path="/payroll" element={<FirmaPayroll />} />
+          <Route path="/finance" element={<AdminFinance />} />
           <Route path="/settings" element={<FirmaSettings />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
