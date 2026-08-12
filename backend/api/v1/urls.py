@@ -29,6 +29,7 @@ from apps.production.views import PayslipViewSet, ProductionTaskViewSet
 from apps.products.views import (
     CategoryViewSet,
     ProductImageViewSet,
+    ProductSearchByImageView,
     ProductViewSet,
     VariantViewSet,
 )
@@ -109,6 +110,7 @@ urlpatterns = [
     path("auth/otp/verify/", OTPVerifyView.as_view(), name="otp-verify"),
     path("admin/stats/", AdminStatsView.as_view(), name="admin-stats"),
     path("admin/users/", AdminUserListView.as_view(), name="admin-users"),
+    path("products/search-by-image/", ProductSearchByImageView.as_view(), name="product-search-by-image"),
     path("products/<uuid:product_pk>/variants/", variant_list, name="variant-list"),
     path("products/<uuid:product_pk>/variants/<uuid:pk>/", variant_detail, name="variant-detail"),
     path("products/<uuid:product_pk>/images/", product_image_list, name="product-image-list"),

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Box, Heart, Sofa, ArrowRight } from "lucide-react";
+import { Box, Camera, Heart, Sofa, ArrowRight, X } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { PORTAL, portalForUser, portalURLFor } from "../portal";
@@ -13,6 +13,39 @@ export default function Catalog() {
   const [categories, setCategories] = useState([]);
   const [cat, setCat] = useState("");
   const [error, setError] = useState("");
+  const [imageResults, setImageResults] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageSearching, setImageSearching] = useState(false);
+  const [imageError, setImageError] = useState("");
+  const fileInputRef = useRef(null);
+
+  const pickImage = () => fileInputRef.current?.click();
+
+  const searchByImage = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImageError("");
+    setImageSearching(true);
+    setImagePreview(URL.createObjectURL(file));
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const results = await api("/products/search-by-image/", { method: "POST", body: fd, isForm: true });
+      setImageResults(results || []);
+    } catch (err) {
+      setImageError(err.message);
+      setImageResults(null);
+    } finally {
+      setImageSearching(false);
+    }
+  };
+
+  const clearImageSearch = () => {
+    setImageResults(null);
+    setImagePreview(null);
+    setImageError("");
+  };
 
   const toggleLike = async (e, product) => {
     e.preventDefault();
@@ -35,7 +68,7 @@ export default function Catalog() {
       .catch((e) => setError(e.message));
   }, []);
 
-  const shown = cat ? products.filter((p) => p.category === cat) : products;
+  const shown = imageResults ?? (cat ? products.filter((p) => p.category === cat) : products);
 
   const targetPortal = user ? portalForUser(user) : null;
   const showPortalNotice = targetPortal && targetPortal !== PORTAL;
@@ -84,25 +117,60 @@ export default function Catalog() {
       {/* Filtr */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <button
-          className={cat === "" ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
-          onClick={() => setCat("")}
+          className={!imageResults && cat === "" ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
+          onClick={() => { setCat(""); clearImageSearch(); }}
         >
           Barchasi
         </button>
         {categories.map((c) => (
           <button
             key={c.id}
-            className={cat === c.id ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
-            onClick={() => setCat(c.id)}
+            className={!imageResults && cat === c.id ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
+            onClick={() => { setCat(c.id); clearImageSearch(); }}
           >
             {c.name_uz}
           </button>
         ))}
+        <button
+          className="btn-ghost ml-auto inline-flex items-center gap-1.5 !px-4 !py-1.5 text-xs"
+          onClick={pickImage}
+          disabled={imageSearching}
+        >
+          <Camera size={14} /> {imageSearching ? "Qidirilmoqda…" : "Rasm bilan qidirish"}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={searchByImage}
+        />
       </div>
+
+      {imagePreview && (
+        <div
+          className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3 text-sm"
+          style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+        >
+          <img src={imagePreview} alt="" className="h-12 w-12 rounded-lg object-cover" />
+          <span style={{ color: "var(--muted)" }}>
+            {imageSearching
+              ? "Shu rasmga o'xshash mahsulotlar qidirilmoqda…"
+              : `Shu rasmga o'xshash ${imageResults?.length ?? 0} ta mahsulot topildi`}
+          </span>
+          <button className="btn-ghost ml-auto inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={clearImageSearch}>
+            <X size={13} /> Bekor qilish
+          </button>
+        </div>
+      )}
+      {imageError && <div className="error mb-4">{imageError}</div>}
 
       {error && <div className="error mb-4">{error}</div>}
       {shown.length === 0 && (
-        <p className="text-sm" style={{ color: "var(--muted)" }}>Hozircha mahsulotlar yo'q.</p>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          {imageResults ? "O'xshash mahsulot topilmadi." : "Hozircha mahsulotlar yo'q."}
+        </p>
       )}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

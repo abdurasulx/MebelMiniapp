@@ -136,3 +136,9 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
         # qolar edi (masalan variant o'chirilgandan keyin ham ro'yxatda turadi).
         visible = [v for v in obj.variants.all() if not v.is_deleted]
         return VariantSerializer(visible, many=True, context=self.context).data
+
+
+class ImageSearchSerializer(serializers.Serializer):
+    """`/products/search-by-image/` uchun kirish ma'lumoti."""
+
+    image = serializers.ImageField()

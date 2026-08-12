@@ -4,12 +4,15 @@ from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.companies.views import user_company
 
+from .imaging import compute_signature, distance
 from .models import Category, Product, ProductImage, Variant
 from .serializers import (
     CategorySerializer,
+    ImageSearchSerializer,
     ProductImageSerializer,
     ProductSerializer,
     VariantSerializer,
@@ -172,3 +175,32 @@ class VariantViewSet(viewsets.ModelViewSet):
         self._get_product()
         instance.is_deleted = True
         instance.save(update_fields=["is_deleted"])
+
+
+class ProductSearchByImageView(APIView):
+    """`/products/search-by-image/` — mijoz rasm yuklab, katalogdagi shu
+    rasmga eng o'xshash (rang/shakl bo'yicha) nashr etilgan mahsulotlarni
+    topadi. Tashqi AI xizmatiga muhtoj emas — qarang apps/products/imaging.py.
+    """
+
+    permission_classes = (permissions.AllowAny,)
+    MAX_RESULTS = 12
+
+    def post(self, request):
+        serializer = ImageSearchSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        query_signature = compute_signature(serializer.validated_data["image"])
+        if query_signature is None:
+            raise ValidationError("Rasmni o'qib bo'lmadi — boshqa fayl tanlang")
+
+        candidates = Product.objects.filter(
+            is_deleted=False, is_published=True, image_signature__isnull=False
+        ).select_related("company", "category").prefetch_related("variants", "images")
+
+        ranked = sorted(
+            candidates, key=lambda p: distance(query_signature, p.image_signature)
+        )[: self.MAX_RESULTS]
+
+        return Response(
+            ProductSerializer(ranked, many=True, context={"request": request}).data
+        )

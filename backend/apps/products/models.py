@@ -4,6 +4,8 @@ from django.utils.text import slugify
 from apps.companies.models import Company
 from common.models import BaseModel, StoredFileMixin
 
+from .imaging import compute_signature
+
 
 class Category(BaseModel, StoredFileMixin):
     """Global katalog kategoriyasi (techdocs/06 §8). Nomlar uz/ru — eski loyihadan."""
@@ -39,6 +41,9 @@ class Product(BaseModel, StoredFileMixin):
     description = models.TextField(blank=True)
     image = models.ImageField(upload_to="products/", blank=True, null=True)
     is_published = models.BooleanField(default=False)
+    # Rasm bo'yicha qidiruv uchun — qarang apps/products/imaging.py. Rasm
+    # o'zgarganda avtomatik qayta hisoblanadi (pastdagi save()).
+    image_signature = models.JSONField(blank=True, null=True, editable=False)
 
     class Meta:
         ordering = ("-created_at",)
@@ -47,6 +52,10 @@ class Product(BaseModel, StoredFileMixin):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name_uz)
+        if self.image:
+            self.image_signature = compute_signature(self.image)
+        else:
+            self.image_signature = None
         super().save(*args, **kwargs)
 
     def __str__(self):
