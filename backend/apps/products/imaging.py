@@ -129,3 +129,76 @@ def similarity_percent(sig_a, sig_b):
 
     combined = 0.45 * hist_similarity + 0.55 * hash_similarity
     return round(combined * 100, 1)
+
+
+# Faqat ranglangan (to'yingan) piksellar uchun etalonlar — neytral (kulrang
+# spektrdagi) piksellar bularga umuman solishtirilmaydi (pastga qarang),
+# aks holda masalan o'rtacha kulrang soya "pushti"ga tasodifan yaqinroq
+# chiqib, oq stul "pushti" deb noto'g'ri teglanardi.
+_NAMED_HUES = (
+    ("qizil", (195, 35, 35)),
+    ("to'q jigarrang", (80, 50, 30)),
+    # Mebel katalogida eng ko'p uchraydigan ikkita yog'och ottenkasi — bular
+    # ajratilmasa (masalan bittagina "jigarrang" bo'lsa), och yog'och rangi
+    # rang masofasi bo'yicha ko'pincha "pushti"ga yaqinroq chiqib, noto'g'ri
+    # teglanardi.
+    ("jigarrang", (150, 100, 55)),
+    ("och jigarrang", (210, 175, 125)),
+    # Mato/yostiqchalarda keng tarqalgan iliq och rang — bo'lmasa, ko'pincha
+    # noto'g'ri "pushti" deb teglanardi (xuddi shu yorug'lik oralig'ida,
+    # lekin ko'k kanali kremga nisbatan pastroq bo'lgani uchun).
+    ("krem", (225, 205, 175)),
+    ("sariq", (225, 195, 60)),
+    ("yashil", (60, 140, 70)),
+    ("ko'k", (50, 95, 180)),
+    ("pushti", (235, 140, 170)),
+    ("binafsha", (130, 70, 165)),
+    ("to'q sariq", (215, 115, 40)),
+)
+
+# To'yinganlik shu qiymatdan past bo'lsa (max-min kanal farqi), piksel
+# "neytral" (oq/kulrang/qora spektrida) hisoblanadi va yorug'lik darajasiga
+# qarab shu uchtadan biriga ajratiladi — rang etalonlariga solishtirilmaydi.
+_NEUTRAL_SATURATION_THRESHOLD = 18
+
+
+def _classify_pixel(r, g, b):
+    saturation = max(r, g, b) - min(r, g, b)
+    if saturation < _NEUTRAL_SATURATION_THRESHOLD:
+        brightness = (r + g + b) / 3
+        if brightness > 225:
+            return "oq"
+        if brightness < 60:
+            return "qora"
+        return "kulrang"
+    return min(
+        _NAMED_HUES,
+        key=lambda nc: (r - nc[1][0]) ** 2 + (g - nc[1][1]) ** 2 + (b - nc[1][2]) ** 2,
+    )[0]
+
+
+def dominant_color_tag(file_obj):
+    """Rasmdagi eng ustun rangning nomini (masalan "jigarrang") qaytaradi —
+    fon (deyarli oq) piksellar hisobga olinmaydi, aks holda oq fonli
+    suratlarda mahsulotning haqiqiy rangi emas, doim "oq" chiqib qolar edi.
+    Rasm ochib bo'lmasa yoki faqat fondan iborat bo'lsa — bo'sh satr."""
+    try:
+        file_obj.seek(0)
+    except (AttributeError, ValueError):
+        pass
+    try:
+        img = _to_opaque_rgb(file_obj)
+    except (UnidentifiedImageError, OSError):
+        return ""
+
+    small = img.resize((48, 48), Image.BILINEAR)
+    votes = {}
+    for r, g, b in small.getdata():
+        if r > 235 and g > 235 and b > 235:
+            continue  # fon (deyarli oq)
+        name = _classify_pixel(r, g, b)
+        votes[name] = votes.get(name, 0) + 1
+
+    if not votes:
+        return "oq"
+    return max(votes.items(), key=lambda kv: kv[1])[0]

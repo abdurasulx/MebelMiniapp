@@ -4,7 +4,7 @@ from django.utils.text import slugify
 from apps.companies.models import Company
 from common.models import BaseModel, StoredFileMixin
 
-from .imaging import compute_signature
+from .imaging import compute_signature, dominant_color_tag
 
 
 class Category(BaseModel, StoredFileMixin):
@@ -44,6 +44,10 @@ class Product(BaseModel, StoredFileMixin):
     # Rasm bo'yicha qidiruv uchun — qarang apps/products/imaging.py. Rasm
     # o'zgarganda avtomatik qayta hisoblanadi (pastdagi save()).
     image_signature = models.JSONField(blank=True, null=True, editable=False)
+    # Rasmdan avtomatik aniqlangan asosiy rang (masalan "jigarrang") — nom
+    # qidiruviga ham qo'shiladi (apps/products/views.py), firma qo'lda hech
+    # narsa yozmasa ham "oq stul" kabi so'rovlar ishlashi uchun.
+    color_tag = models.CharField(max_length=20, blank=True, editable=False)
 
     class Meta:
         ordering = ("-created_at",)
@@ -54,8 +58,10 @@ class Product(BaseModel, StoredFileMixin):
             self.slug = slugify(self.name_uz)
         if self.image:
             self.image_signature = compute_signature(self.image)
+            self.color_tag = dominant_color_tag(self.image)
         else:
             self.image_signature = None
+            self.color_tag = ""
         super().save(*args, **kwargs)
 
     def __str__(self):

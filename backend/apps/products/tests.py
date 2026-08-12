@@ -7,7 +7,7 @@ from rest_framework.test import APIClient, APITestCase
 
 from apps.companies.models import Company
 
-from .imaging import compute_signature, similarity_percent
+from .imaging import compute_signature, dominant_color_tag, similarity_percent
 from .models import Category, Product
 
 User = get_user_model()
@@ -77,6 +77,25 @@ class ImagingTests(APITestCase):
         # Qora bilan chalkashmasligini alohida ham tasdiqlaymiz.
         opaque_black_sig = compute_signature(make_test_image((0, 0, 0)))
         self.assertLess(similarity_percent(opaque_black_sig, transparent_sig), 100.0)
+
+    def test_dominant_color_tag_ignores_white_background(self):
+        img = Image.new("RGB", (40, 40), (255, 255, 255))
+        for x in range(10, 30):
+            for y in range(10, 30):
+                img.putpixel((x, y), (150, 100, 55))  # jigarrang mahsulot
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        self.assertEqual(dominant_color_tag(buf), "jigarrang")
+
+    def test_neutral_gray_shading_is_not_confused_with_a_hue(self):
+        """Regressiya: oq/kulrang mahsulotning soyali qismlari (masalan
+        (200,200,200) kabi neytral kulranglar) tasodifan "pushti" kabi
+        to'yingan rang etaloniga raqamli jihatdan yaqinroq chiqib, oq
+        stulni "pushti" deb noto'g'ri teglardi."""
+        self.assertEqual(dominant_color_tag(make_test_image((210, 210, 210))), "kulrang")
+        self.assertEqual(dominant_color_tag(make_test_image((240, 240, 240))), "oq")
+        self.assertEqual(dominant_color_tag(make_test_image((30, 30, 30))), "qora")
 
     def test_search_by_image_ranks_closest_first(self):
         owner = User.objects.create_user(email="owner@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)

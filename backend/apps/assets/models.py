@@ -7,15 +7,22 @@ from common.models import BaseModel, StoredFileMixin
 
 
 class Model3D(BaseModel, StoredFileMixin):
-    """Mahsulotning 3D modeli — AR uchun (docs/43, roadmap Phase 3).
+    """3D model — AR uchun (docs/43, roadmap Phase 3).
 
-    Bitta mahsulotga bitta geometriya: barcha rang/material variantlar (Variant.color_hex
-    yoki Variant.texture) shu bitta model ustiga runtime'da qo'llanadi — har rang uchun
-    alohida fayl yuklash/qayta render qilish shart emas (masalan jiyda va yong'oq rangini
-    bitta stul modeliga qo'llash mumkin).
+    Odatda bitta mahsulotga bitta geometriya yetarli: oddiy (bitta materialli)
+    buyumlarda rang/material variantlar (Variant.color_hex yoki Variant.texture)
+    shu bitta model ustiga runtime'da qo'llanadi — har rang uchun alohida fayl
+    kerak emas.
+
+    Lekin ko'p materialli mahsulotlarda (masalan eshikli shkaf — eshik, tutqich,
+    zarur, oyoq har biri alohida material) runtime tint BARCHA materiallarni bir
+    xilda o'zgartirib yuboradi (masalan temir tutqichni ham yog'ochga aylantiradi).
+    Shuning uchun `variant` FK ham qo'shildi: firma xohlasa ma'lum bir variant
+    uchun to'liq alohida 3D fayl yuklaydi (`product=None, variant=<variant>`) —
+    o'sha variant tanlanganda mahsulotning umumiy modeli o'rniga shu ishlatiladi.
+    Aynan bittasi to'ldirilishi kerak: yo `product`, yo `variant`.
 
     MVP'da tayyor GLB (web/Android AR) va USDZ (iOS AR Quick Look) yuklanadi.
-    Kelajakda FBX/OBJ → avtomatik konvertatsiya qo'shiladi (processing status shu uchun).
     """
 
     class Status(models.TextChoices):
@@ -30,7 +37,10 @@ class Model3D(BaseModel, StoredFileMixin):
         PUBLIC = "public", "Ochiq (havola bilan hamma)"
 
     product = models.OneToOneField(
-        "products.Product", on_delete=models.CASCADE, related_name="model3d"
+        "products.Product", on_delete=models.CASCADE, related_name="model3d", null=True, blank=True
+    )
+    variant = models.OneToOneField(
+        "products.Variant", on_delete=models.CASCADE, related_name="model3d", null=True, blank=True
     )
     # "glb_file" nomi tarixiy — lekin FBX/OBJ, hatto ZIP/RAR ham qabul
     # qilinadi (masalan marketplace'dan yuklab olingan arxivning o'zi):
@@ -40,7 +50,7 @@ class Model3D(BaseModel, StoredFileMixin):
         upload_to="assets/glb/",
         blank=True,
         null=True,
-        validators=[FileExtensionValidator(["glb", "gltf", "fbx", "obj", "zip", "rar"])],
+        validators=[FileExtensionValidator(["glb", "gltf", "fbx", "obj", "dae", "zip", "rar"])],
     )
     usdz_file = models.FileField(
         upload_to="assets/usdz/",
@@ -64,6 +74,15 @@ class Model3D(BaseModel, StoredFileMixin):
     scale_height = models.DecimalField(max_digits=6, decimal_places=2, default=1)
     scale_depth = models.DecimalField(max_digits=6, decimal_places=2, default=1)
 
+    # Quyidagilar GLB faylning o'zidan (foydalanuvchi qo'lda kiritgan
+    # scale_*dan farqli — bu haqiqiy geometriyadan) hisoblanadi, qarang
+    # apps/assets/geometry.py va process_model3d.py. GLB hali tayyor
+    # bo'lmasa (FBX/OBJ/arxiv holatida) — bo'sh qoladi.
+    bbox_width = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True, editable=False)
+    bbox_height = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True, editable=False)
+    bbox_depth = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True, editable=False)
+    shape_tag = models.CharField(max_length=20, blank=True, editable=False)
+
     # Mustaqil 3D-viewer havolasi (bazissoft.ru uslubida): /viewer/<share_token>/
     share_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     visibility = models.CharField(
@@ -71,6 +90,12 @@ class Model3D(BaseModel, StoredFileMixin):
     )
     # "restricted" bo'lganda shu emaillar ro'yxatidagilar ko'ra oladi (kirgan holda)
     allowed_emails = models.JSONField(default=list, blank=True)
+
+    @property
+    def owning_product(self):
+        """Variant-darajasidagi model ham o'z mahsulotiga ega — kompaniya/ruxsat
+        tekshiruvlari doim shu orqali o'tadi (product yoki variant.product)."""
+        return self.product or self.variant.product
 
     def can_view(self, user):
         """Viewer havolasiga kirish huquqi (docs — bazissoft.ru uslubidagi ulashish)."""
@@ -83,15 +108,35 @@ class Model3D(BaseModel, StoredFileMixin):
         from apps.companies.views import user_company
 
         company = user_company(user)
-        if company is not None and company.id == self.product.company_id:
+        if company is not None and company.id == self.owning_product.company_id:
             return True
         if self.visibility == self.Visibility.RESTRICTED:
             return user.email.lower() in [e.lower() for e in self.allowed_emails]
         return False
 
     def __str__(self):
+        if self.variant_id:
+            return f"3D: {self.variant.product.name_uz} — {self.variant.name}"
         return f"3D: {self.product.name_uz}"
 
     def recompute_status(self):
         """GLB bo'lsa web/AR uchun tayyor deb belgilaymiz."""
         self.status = self.Status.READY if self.glb_file else self.Status.UPLOADED
+
+    def apply_bbox(self, bbox):
+        """`geometry.extract_bbox()` natijasidan bbox_* va shape_tag'ni
+        to'ldiradi. `bbox=None` bo'lsa (hali GLB emas yoki parslab
+        bo'lmadi), maydonlarni tozalaydi — eski, endi haqiqiy bo'lmagan
+        qiymat qolib ketmasligi uchun."""
+        from .geometry import classify_shape
+
+        if bbox:
+            self.bbox_width = bbox["width"]
+            self.bbox_height = bbox["height"]
+            self.bbox_depth = bbox["depth"]
+            self.shape_tag = classify_shape(bbox)
+        else:
+            self.bbox_width = None
+            self.bbox_height = None
+            self.bbox_depth = None
+            self.shape_tag = ""

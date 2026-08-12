@@ -78,7 +78,18 @@ class ProductViewSet(viewsets.ModelViewSet):
             qs = qs.filter(company__slug=company_slug)
         search = self.request.query_params.get("search")
         if search:
-            qs = qs.filter(Q(name_uz__icontains=search) | Q(company__name__icontains=search))
+            # Pastda `ordering=top` bilan Count() annotatsiyasi ham ishlatiladi —
+            # model3d/variants orqali qo'shimcha JOIN qo'shsak, fan-out sabab
+            # like_count noto'g'ri (bir necha marta) hisoblanib qolishi mumkin,
+            # shuning uchun moslikni alohida subquery orqali topamiz.
+            matching_ids = Product.objects.filter(
+                Q(name_uz__icontains=search)
+                | Q(company__name__icontains=search)
+                | Q(color_tag__icontains=search)
+                | Q(model3d__shape_tag__icontains=search)
+                | Q(variants__model3d__shape_tag__icontains=search)
+            ).values_list("pk", flat=True)
+            qs = qs.filter(pk__in=matching_ids)
         # Foydalanuvchi joylashgan viloyatga tegishli (yoki viloyati
         # ko'rsatilmagan, ya'ni hammaga umumiy) firmalarning mahsulotlarigina
         # ko'rsatiladi.

@@ -95,6 +95,7 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
             "description",
             "image",
             "image_url",
+            "color_tag",
             "is_published",
             "variants",
             "images",

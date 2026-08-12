@@ -41,6 +41,10 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
             "scale_width",
             "scale_height",
             "scale_depth",
+            "bbox_width",
+            "bbox_height",
+            "bbox_depth",
+            "shape_tag",
             "share_token",
             "visibility",
             "visibility_display",
@@ -92,7 +96,14 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
                 instance.id, skip_usdz=usdz_uploaded_manually, texture_archive_path=texture_archive_path
             )
         else:
-            instance.save(update_fields=["status"])
+            # Konvertatsiya kerak emas — fayl allaqachon haqiqiy GLB, shuning
+            # uchun geometriyani (bounding box/shakl) shu yerda darhol
+            # hisoblab olamiz (process_model3d navbatiga tushmaydi).
+            from .geometry import extract_bbox
+
+            with instance.glb_file.open("rb") as f:
+                instance.apply_bbox(extract_bbox(f))
+            instance.save(update_fields=["status", "bbox_width", "bbox_height", "bbox_depth", "shape_tag"])
         return instance
 
     @staticmethod

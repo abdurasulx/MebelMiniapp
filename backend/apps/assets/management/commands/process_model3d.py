@@ -7,11 +7,12 @@ from pathlib import Path
 from django.core.files import File
 from django.core.management.base import BaseCommand, CommandError
 
+from apps.assets.geometry import extract_bbox
 from apps.assets.models import Model3D
 
-SOURCE_FORMATS = (".fbx", ".obj")
+SOURCE_FORMATS = (".fbx", ".obj", ".dae")
 ARCHIVE_FORMATS = (".zip", ".rar")
-MODEL_SEARCH_PRIORITY = (".glb", ".gltf", ".fbx", ".obj")
+MODEL_SEARCH_PRIORITY = (".glb", ".gltf", ".fbx", ".obj", ".dae")
 SCRIPTS_DIR = Path(__file__).resolve().parents[4] / "scripts"
 
 
@@ -84,7 +85,6 @@ class Command(BaseCommand):
             glb_path = source_path
             if source_path.suffix.lower() in SOURCE_FORMATS:
                 converted = Path(tmp_dir) / f"{model.id}.glb"
-                script_args = [str(source_path), str(converted)]
 
                 texture_dir = None
                 texture_archive = options["texture_archive"]
@@ -96,6 +96,13 @@ class Command(BaseCommand):
                 elif archive_texture_dir:
                     texture_dir = archive_texture_dir
 
+                obj_source = source_path
+                if source_path.suffix.lower() == ".obj":
+                    obj_work_dir = Path(tmp_dir) / "obj_source"
+                    obj_work_dir.mkdir()
+                    obj_source = self._prepare_obj_source(source_path, texture_dir, obj_work_dir)
+
+                script_args = [str(obj_source), str(converted)]
                 if texture_dir:
                     script_args.append(str(texture_dir))
 
@@ -107,9 +114,13 @@ class Command(BaseCommand):
                 model.save(update_fields=["glb_file"])
                 glb_path = Path(model.glb_file.path)
 
+            with open(glb_path, "rb") as f:
+                model.apply_bbox(extract_bbox(f))
+            bbox_fields = ["bbox_width", "bbox_height", "bbox_depth", "shape_tag"]
+
             if options["skip_usdz"]:
                 model.status = Model3D.Status.READY
-                model.save(update_fields=["status"])
+                model.save(update_fields=["status", *bbox_fields])
                 self.stdout.write(self.style.SUCCESS(f"GLB tayyor: {model.id}"))
                 return
 
@@ -123,7 +134,7 @@ class Command(BaseCommand):
             with open(usdz_tmp_path, "rb") as f:
                 model.usdz_file.save(f"{model.id}.usdz", File(f), save=False)
             model.status = Model3D.Status.READY
-            model.save(update_fields=["usdz_file", "status"])
+            model.save(update_fields=["usdz_file", "status", *bbox_fields])
 
         self.stdout.write(self.style.SUCCESS(f"Tayyor: {model.id}"))
 
@@ -139,6 +150,40 @@ class Command(BaseCommand):
                 if f.is_file() and f.suffix.lower() == ext:
                     return f
         return None
+
+    def _prepare_obj_source(self, source_path, texture_dir, work_dir):
+        """OBJ faylning `mtllib` satri ko'pincha eksport qilingan dasturning
+        original kodировkasida (masalan kirillcha nom uchun Windows-1251)
+        yozilgan bo'ladi — Blender uni UTF-8 sifatida o'qiganda belgilar
+        buziladi va MTL fayl hech qachon topilmaydi, hatto u tekstura
+        arxivida haqiqatda mavjud bo'lsa ham (foydalanuvchi OBJ va tekstura
+        arxivini alohida-alohida yuklagan holatlarda ko'p uchraydi).
+
+        Shu yerda: agar `texture_dir`da biror MTL fayl topilsa, OBJ va MTL'ni
+        faqat lotin harflardagi xavfsiz nomlar bilan ishchi papkaga
+        nusxalab, `mtllib` satrini shu yangi nomga qayta yozamiz — bu
+        kodировka muammosidan butunlay qochadi (matnni dekodlashga
+        urinmasdan, faqat baytlar darajasida ishlaydi)."""
+
+        if not texture_dir:
+            return source_path
+        mtl_candidates = list(Path(texture_dir).rglob("*.mtl"))
+        if not mtl_candidates:
+            return source_path
+
+        safe_obj = work_dir / "model.obj"
+        safe_mtl = work_dir / "model.mtl"
+        shutil.copyfile(mtl_candidates[0], safe_mtl)
+
+        raw = source_path.read_bytes()
+        rewritten_lines = []
+        for line in raw.split(b"\n"):
+            if line.rstrip(b"\r").lower().startswith(b"mtllib"):
+                rewritten_lines.append(b"mtllib model.mtl")
+            else:
+                rewritten_lines.append(line)
+        safe_obj.write_bytes(b"\n".join(rewritten_lines))
+        return safe_obj
 
     def _extract_archive(self, archive_path, dest_dir):
         """Tekstura arxivini (.zip yoki .rar) `dest_dir`ga ochadi.
@@ -170,7 +215,7 @@ class Command(BaseCommand):
                 return False
             result = subprocess.run(
                 [unar_bin, "-quiet", "-force-overwrite", "-output-directory", str(dest_dir), str(archive_path)],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True, text=True, timeout=120, errors="replace",
             )
             if result.returncode != 0:
                 self.stderr.write(f"RAR ochishda xato:\n{result.stdout}\n{result.stderr}")
@@ -181,9 +226,17 @@ class Command(BaseCommand):
         return False
 
     def _run_blender(self, blender_bin, script_path, extra_args):
+        # Blender ba'zan o'z log-satrlarida (masalan yo'q MTL faylni xato
+        # xabarida) manba faylning kirill/boshqa non-ASCII nomini noto'g'ri
+        # kodlab chiqarib yuboradi — bu UTF-8 sifatida dekodlanmaydigan
+        # baytlar hosil qiladi. `text=True` + errors="replace" bo'lmasa,
+        # subprocess.run xato Blender MUVAFFAQIYATLI ishlab tugagandan keyin
+        # ham UnicodeDecodeError bilan qulab tushadi — natija (GLB) allaqachon
+        # tayyor bo'lsa ham yo'qoladi va model "processing" holatida abadiy
+        # osilib qoladi (chaqiruvchi buyruq hech qachon davom etolmaydi).
         result = subprocess.run(
             [blender_bin, "--background", "--python", str(script_path), "--", *extra_args],
-            capture_output=True, text=True, timeout=300,
+            capture_output=True, text=True, timeout=300, errors="replace",
         )
         if result.returncode != 0:
             self.stderr.write(f"Blender xatosi:\n{result.stdout}\n{result.stderr}")
