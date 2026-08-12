@@ -158,6 +158,7 @@ function PurchaseOrders() {
   const [lowStock, setLowStock] = useState([]);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [prefillMaterial, setPrefillMaterial] = useState(null);
   const [busyId, setBusyId] = useState(null);
 
   const load = () =>
@@ -203,16 +204,26 @@ function PurchaseOrders() {
           </div>
           <div className="flex flex-wrap gap-2">
             {lowStock.map((m) => (
-              <span key={m.id} className="badge" style={{ background: "#e67e2222", color: "#e67e22" }}>
+              <button
+                key={m.id}
+                className="badge inline-flex items-center gap-1.5"
+                style={{ background: "#e67e2222", color: "#e67e22", cursor: "pointer" }}
+                onClick={() => { setPrefillMaterial(m); setShowForm(true); }}
+                title="Shu material uchun xarid buyurtmasi yaratish"
+              >
                 {m.name}: {m.current_stock}/{m.min_stock} {m.unit_display}
-              </span>
+                <Plus size={11} />
+              </button>
             ))}
           </div>
         </div>
       )}
 
       <div className="flex justify-end">
-        <button className="btn inline-flex items-center gap-1" onClick={() => setShowForm((v) => !v)}>
+        <button
+          className="btn inline-flex items-center gap-1"
+          onClick={() => { setPrefillMaterial(null); setShowForm((v) => !v); }}
+        >
           <Plus size={14} /> Yangi xarid buyurtmasi
         </button>
       </div>
@@ -222,8 +233,9 @@ function PurchaseOrders() {
           suppliers={suppliers}
           materials={materials}
           warehouses={warehouses}
+          prefillMaterial={prefillMaterial}
           onClose={() => setShowForm(false)}
-          onDone={() => { setShowForm(false); load(); }}
+          onDone={() => { setShowForm(false); setPrefillMaterial(null); load(); }}
         />
       )}
 
@@ -275,11 +287,24 @@ function PurchaseOrders() {
   );
 }
 
-function PurchaseOrderForm({ suppliers, materials, warehouses, onClose, onDone }) {
-  const [supplier, setSupplier] = useState("");
-  const [warehouse, setWarehouse] = useState("");
+function PurchaseOrderForm({ suppliers, materials, warehouses, prefillMaterial, onClose, onDone }) {
+  // Kam-qoldiq ogohlantirishidan "xarid qilish" bosilsa: material, uning
+  // standart yetkazib beruvchisi (bo'lsa) va yetarli bo'ladigan taxminiy
+  // miqdor (min_stock'ga yetguncha, kamida 2 barobar zaxira bilan) oldindan
+  // to'ldiriladi — foydalanuvchi faqat tasdiqlaydi/tuzatadi.
+  const suggestedQty = prefillMaterial
+    ? Math.max(1, Math.ceil(prefillMaterial.min_stock * 2 - prefillMaterial.current_stock))
+    : "";
+  const [supplier, setSupplier] = useState(
+    prefillMaterial?.default_supplier ? String(prefillMaterial.default_supplier) : ""
+  );
+  const [warehouse, setWarehouse] = useState(warehouses.length === 1 ? warehouses[0].id : "");
   const [note, setNote] = useState("");
-  const [items, setItems] = useState([{ material: "", quantity: "", unit_cost: "" }]);
+  const [items, setItems] = useState(
+    prefillMaterial
+      ? [{ material: prefillMaterial.id, quantity: String(suggestedQty), unit_cost: prefillMaterial.unit_cost || "" }]
+      : [{ material: "", quantity: "", unit_cost: "" }]
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -327,6 +352,12 @@ function PurchaseOrderForm({ suppliers, materials, warehouses, onClose, onDone }
         <h2 className="inline-flex items-center gap-2 text-base font-semibold">
           <Package size={17} /> Yangi xarid buyurtmasi
         </h2>
+        {prefillMaterial && (
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            "{prefillMaterial.name}" kam qoldi ({prefillMaterial.current_stock}/{prefillMaterial.min_stock}{" "}
+            {prefillMaterial.unit_display}) — miqdor va yetkazib beruvchini tekshirib tasdiqlang.
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="label">Yetkazib beruvchi *</label>

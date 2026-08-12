@@ -132,9 +132,14 @@ export default function FirmaDashboard() {
       {/* Kam qolgan xom ashyo — ta'minot ogohlantirishi */}
       {lowStock.length > 0 && (
         <div className="card p-5" style={{ borderColor: "#e67e22" }}>
-          <h2 className="mb-4 inline-flex items-center gap-2 text-base font-semibold" style={{ color: "#e67e22" }}>
-            <AlertTriangle size={17} /> Kam qolgan xom ashyo ({lowStock.length})
-          </h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="inline-flex items-center gap-2 text-base font-semibold" style={{ color: "#e67e22" }}>
+              <AlertTriangle size={17} /> Kam qolgan xom ashyo ({lowStock.length})
+            </h2>
+            <Link to="/suppliers" className="inline-flex items-center gap-0.5 text-sm" style={{ color: "var(--secondary)" }}>
+              Xarid qilish <ArrowRight size={14} />
+            </Link>
+          </div>
           <div className="flex flex-col gap-2">
             {lowStock.slice(0, 5).map((m) => (
               <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl p-3" style={{ border: "1px solid var(--border)" }}>
