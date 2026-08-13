@@ -8,3 +8,10 @@ pillow==12.3.0
 psycopg2-binary==2.9.12
 PyJWT==2.13.0
 sqlparse==0.5.5
+
+# Vizual qidiruv (CLIP embedding + Qdrant) — qarang apps/products/embedding.py.
+# torch: CPU-only o'rnatish uchun --index-url https://download.pytorch.org/whl/cpu
+# ishlatilgan (GPU/CUDA kerak emas, katta hajmdagi CUDA wheel'lardan qochish uchun).
+torch==2.13.0
+open_clip_torch==3.3.0
+qdrant-client==1.19.0

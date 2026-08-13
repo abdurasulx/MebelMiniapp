@@ -15,3 +15,7 @@ logs/
 *.FBX
 *.blend
 *.blend1
+
+# Qdrant lokal vektor bazasi (embedded rejim) — CLIP embeddinglar shu yerda
+# saqlanadi, backfill_embeddings orqali qayta generatsiya qilinadi.
+backend/qdrant_data/

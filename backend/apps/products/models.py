@@ -4,6 +4,7 @@ from django.utils.text import slugify
 from apps.companies.models import Company
 from common.models import BaseModel, StoredFileMixin
 
+from .embedding import upsert_product_embedding
 from .imaging import compute_signature, dominant_color_tag
 
 
@@ -63,6 +64,9 @@ class Product(BaseModel, StoredFileMixin):
             self.image_signature = None
             self.color_tag = ""
         super().save(*args, **kwargs)
+        # CLIP embedding'ni Qdrant'ga yozish — bu Postgres'dan mustaqil,
+        # shuning uchun pk saqlangandan keyin, alohida qadam sifatida.
+        upsert_product_embedding(self)
 
     def __str__(self):
         return self.name_uz

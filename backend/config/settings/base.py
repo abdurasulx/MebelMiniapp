@@ -1,4 +1,5 @@
 """Furniture Platform — base settings (docs/30, techdocs/03)."""
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -8,6 +9,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
+
+# `manage.py test` orqali ishga tushirilganda — CLIP/Qdrant kabi disk holatiga
+# bog'liq modullar test izolyatsiyasi uchun shu flagga qaraydi (masalan
+# in-memory Qdrant ishlatish, disk lock to'qnashuvidan qochish).
+TESTING = "test" in sys.argv
 
 SECRET_KEY = env("SECRET_KEY", default="insecure-dev-key-change-me")
 DEBUG = env.bool("DEBUG", default=False)

@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from apps.companies.views import user_company
 
-from .imaging import compute_signature, similarity_percent
+from . import embedding
 from .models import Category, Product, ProductImage, Variant
 from .serializers import (
     CategorySerializer,
@@ -193,42 +193,54 @@ class VariantViewSet(viewsets.ModelViewSet):
 
 class ProductSearchByImageView(APIView):
     """`/products/search-by-image/` — mijoz rasm yuklab, katalogdagi shu
-    rasmga eng o'xshash (rang/shakl bo'yicha) nashr etilgan mahsulotlarni
-    topadi. Faqat `min_similarity` (standart 70) foizdan yuqori yoki teng
-    natijalar qaytariladi, eng o'xshashidan boshlab. Tashqi AI xizmatiga
-    muhtoj emas — qarang apps/products/imaging.py."""
+    rasmga eng o'xshash nashr etilgan mahsulotlarni topadi. CLIP (OpenCLIP)
+    embedding + Qdrant vektor qidiruvi orqali ishlaydi (qarang
+    apps/products/embedding.py) — shakl/rang/uslub bo'yicha semantik
+    o'xshashlikni ushlaydi, aynan bir xil piksel talab qilmaydi.
+    Ixtiyoriy `category` (slug) parametri natijani shu kategoriya bilan
+    cheklaydi."""
 
     permission_classes = (permissions.AllowAny,)
-    MAX_RESULTS = 24
-    DEFAULT_MIN_SIMILARITY = 70
+    MAX_RESULTS = 20
+    CANDIDATE_LIMIT = 60
 
     def post(self, request):
         serializer = ImageSearchSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        query_signature = compute_signature(serializer.validated_data["image"])
-        if query_signature is None:
-            raise ValidationError("Rasmni o'qib bo'lmadi — boshqa fayl tanlang")
 
-        try:
-            min_similarity = float(request.data.get("min_similarity", self.DEFAULT_MIN_SIMILARITY))
-        except (TypeError, ValueError):
-            min_similarity = self.DEFAULT_MIN_SIMILARITY
+        category_id = None
+        category_slug = request.data.get("category")
+        if category_slug:
+            category_id = Category.objects.filter(slug=category_slug).values_list(
+                "id", flat=True
+            ).first()
 
-        candidates = Product.objects.filter(
-            is_deleted=False, is_published=True, image_signature__isnull=False
-        ).select_related("company", "category").prefetch_related("variants", "images")
+        hits = embedding.search_similar(
+            serializer.validated_data["image"],
+            category_id=category_id,
+            limit=self.CANDIDATE_LIMIT,
+        )
+        if not hits:
+            return Response([])
 
-        scored = [
-            (p, similarity_percent(query_signature, p.image_signature)) for p in candidates
-        ]
-        scored = [(p, s) for p, s in scored if s >= min_similarity]
-        scored.sort(key=lambda pair: pair[1], reverse=True)
-        scored = scored[: self.MAX_RESULTS]
+        score_by_id = {product_id: score for product_id, score in hits}
+        candidates = {
+            str(p.id): p
+            for p in Product.objects.filter(
+                id__in=score_by_id.keys(), is_deleted=False, is_published=True
+            ).select_related("company", "category").prefetch_related("variants", "images")
+        }
+
+        ordered = [
+            (candidates[pid], score)
+            for pid, score in hits
+            if pid in candidates
+        ][: self.MAX_RESULTS]
 
         products_data = ProductSerializer(
-            [p for p, _ in scored], many=True, context={"request": request}
+            [p for p, _ in ordered], many=True, context={"request": request}
         ).data
-        for item, (_, score) in zip(products_data, scored):
-            item["similarity_percent"] = round(score, 1)
+        for item, (_, score) in zip(products_data, ordered):
+            item["similarity_percent"] = round(score * 100, 1)
 
         return Response(products_data)
