@@ -6,6 +6,7 @@ import SwiftUI
 /// ham (foydasiz qo'shimcha reklama sifatida) olib tashlandi.
 struct HomeView: View {
     @EnvironmentObject private var likes: LikesStore
+    @EnvironmentObject private var location: LocationStore
     @State private var products: [Product] = []
     @State private var categories: [Category] = []
     @State private var isLoading = true
@@ -90,6 +91,12 @@ struct HomeView: View {
         .padding(.horizontal)
     }
 
+    private func backToHome() {
+        query = ""
+        imageResults = nil
+        imageSearchError = nil
+    }
+
     private func searchByImage(_ data: Data) async {
         isImageSearching = true
         imageSearchError = nil
@@ -119,7 +126,12 @@ struct HomeView: View {
             .padding(.horizontal)
         } else {
             let items = imageResults ?? nameMatches
-            HStack {
+            HStack(spacing: 8) {
+                Button {
+                    backToHome()
+                } label: {
+                    Image(systemName: "arrow.left").foregroundStyle(Color.brandDeep)
+                }
                 Text(
                     imageResults != nil
                         ? "\(items.count) ta o'xshash mahsulot"
@@ -128,10 +140,6 @@ struct HomeView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 Spacer()
-                if imageResults != nil {
-                    Button("Tozalash") { imageResults = nil }
-                        .font(.caption).bold()
-                }
             }
             .padding(.horizontal)
 
@@ -225,7 +233,15 @@ struct HomeView: View {
     private func load() async {
         isLoading = true
         errorMessage = nil
-        async let productsResult: Paginated<Product> = APIClient.shared.get("/products/", auth: true)
+        var params: [String] = []
+        if let lat = location.lat, let lng = location.lng {
+            params.append("lat=\(lat)")
+            params.append("lng=\(lng)")
+        } else if let viloyat = location.viloyat {
+            params.append("viloyat=\(viloyat)")
+        }
+        let query = params.isEmpty ? "" : "?\(params.joined(separator: "&"))"
+        async let productsResult: Paginated<Product> = APIClient.shared.get("/products/\(query)", auth: true)
         async let categoriesResult: Paginated<Category> = APIClient.shared.get("/categories/")
         do {
             let (p, c) = try await (productsResult, categoriesResult)
@@ -256,6 +272,9 @@ struct FeaturedProductCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 14))
 
             Text(product.nameUz).font(.subheadline).bold().lineLimit(1)
+            if let attributeSummary = product.attributeSummary {
+                Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
+            }
             if let first = product.variants.first {
                 Text("\(first.basePrice.formattedSom) so'm/m³")
                     .font(.caption).bold()
@@ -284,6 +303,9 @@ struct FeaturedGridCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Text(product.nameUz).font(.subheadline).bold().lineLimit(1)
+            if let attributeSummary = product.attributeSummary {
+                Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
+            }
             Text(product.companyName).font(.caption).foregroundStyle(.secondary)
             if let first = product.variants.first {
                 Text("\(first.basePrice.formattedSom) so'm/m³ dan")

@@ -141,6 +141,10 @@ struct Product: Codable, Identifiable {
     let imageUrl: String?
     let videoUrl: String?
     let isPublished: Bool
+    // Rasmdan avtomatik aniqlangan asosiy rang (masalan "jigarrang") —
+    // kartochkada o'lcham bilan birga qisqa xususiyat qatorida ko'rsatiladi
+    // (qarang `attributeSummary`), Android/web bilan bir xil.
+    let colorTag: String?
     let variants: [Variant]
     let images: [ProductImage]
     let isLiked: Bool?
@@ -149,6 +153,20 @@ struct Product: Codable, Identifiable {
     let similarityPercent: Double?
 
     var liked: Bool { isLiked ?? false }
+
+    /// Kartochkada nomdan keyin ko'rsatiladigan qisqa xususiyat qatori —
+    /// masalan "kulrang · 60×90×60 sm".
+    var attributeSummary: String? {
+        var parts: [String] = []
+        if let colorTag, !colorTag.isEmpty { parts.append(colorTag) }
+        if let v = variants.first {
+            let w = Int((v.widthValue * 100).rounded())
+            let h = Int((v.heightValue * 100).rounded())
+            let d = Int((v.depthValue * 100).rounded())
+            if w > 1, h > 1, d > 1 { parts.append("\(w)×\(h)×\(d) sm") }
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
 
     /// Galereya: bosh rasm + qo'shimcha rasmlar.
     var galleryUrls: [String] {

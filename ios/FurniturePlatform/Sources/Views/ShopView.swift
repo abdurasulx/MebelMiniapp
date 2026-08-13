@@ -68,7 +68,14 @@ struct ShopView: View {
 
                 viloyatChip
 
-                HStack {
+                HStack(spacing: 8) {
+                    if imageResults != nil || !search.isEmpty {
+                        Button {
+                            backToHome()
+                        } label: {
+                            Image(systemName: "arrow.left").foregroundStyle(Color.brandDeep)
+                        }
+                    }
                     Text(
                         imageResults != nil
                             ? "Rasmga o'xshash \(filtered.count) ta mahsulot"
@@ -77,10 +84,7 @@ struct ShopView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     Spacer()
-                    if imageResults != nil {
-                        Button("Tozalash") { imageResults = nil }
-                            .font(.caption).bold()
-                    } else {
+                    if imageResults == nil {
                         sortMenu
                         Button {
                             showFilters = true
@@ -210,6 +214,12 @@ struct ShopView: View {
         .padding(.horizontal)
     }
 
+    private func backToHome() {
+        search = ""
+        imageResults = nil
+        imageSearchError = nil
+    }
+
     private func searchByImage(_ data: Data) async {
         isImageSearching = true
         imageSearchError = nil
@@ -295,7 +305,10 @@ struct ShopView: View {
         isLoading = true
         errorMessage = nil
         var params: [String] = []
-        if let viloyat = location.viloyat {
+        if let lat = location.lat, let lng = location.lng {
+            params.append("lat=\(lat)")
+            params.append("lng=\(lng)")
+        } else if let viloyat = location.viloyat {
             params.append("viloyat=\(viloyat)")
         }
         if sort == .top {
@@ -333,6 +346,9 @@ private struct ShopProductCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Text(product.nameUz).font(.subheadline).bold().lineLimit(1)
+            if let attributeSummary = product.attributeSummary {
+                Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
+            }
             Text(product.companyName).font(.caption).foregroundStyle(.secondary)
             if let first = product.variants.first {
                 Text("\(first.basePrice.formattedSom) so'm/m³ dan")

@@ -71,6 +71,13 @@ actor APIClient {
         try await send(path: path, method: "PATCH", body: try encoder.encode(body), auth: auth)
     }
 
+    /// Javob tanasi bo'sh (204) bo'lgan o'chirish so'rovlari uchun — `Data`
+    /// qaytaradi, chaqiruvchi odatda natijaga e'tibor bermaydi.
+    @discardableResult
+    func delete(_ path: String, auth: Bool = true) async throws -> Data {
+        try await rawRequest(path: path, method: "DELETE", body: nil, auth: auth)
+    }
+
     /// `multipart/form-data` — rasm yuklash kerak bo'lgan amallar uchun
     /// (masalan bosh sahifa/katalogdagi "rasm bilan qidirish").
     func postMultipartImage<T: Decodable>(
