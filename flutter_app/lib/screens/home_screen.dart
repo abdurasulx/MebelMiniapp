@@ -142,6 +142,11 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void _backToHome() {
+    _searchCtrl.clear();
+    _clearImageSearch();
+  }
+
   @override
   Widget build(BuildContext context) {
     final searching = _query.isNotEmpty || _imageResults != null || _imageSearching;
@@ -203,11 +208,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: TextField(
                 controller: _searchCtrl,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   border: InputBorder.none,
                   hintText: 'Mahsulot yoki firma qidirish…',
-                  prefixIcon: Icon(Icons.search, color: Color(0xFF8A7357)),
-                  contentPadding: EdgeInsets.symmetric(vertical: 14),
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF8A7357)),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Color(0xFF8A7357)),
+                          onPressed: _searchCtrl.clear,
+                        )
+                      : null,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
             ),
@@ -258,9 +269,14 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          padding: const EdgeInsets.fromLTRB(8, 0, 16, 12),
           child: Row(
             children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: AppColors.deep),
+                onPressed: _backToHome,
+                tooltip: 'Bosh sahifaga',
+              ),
               Expanded(
                 child: Text(
                   isImageSearch
@@ -269,8 +285,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
                 ),
               ),
-              if (isImageSearch)
-                TextButton(onPressed: _clearImageSearch, child: const Text('Tozalash')),
             ],
           ),
         ),

@@ -26,6 +26,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   bool _topOnly = false;
   String? _appliedViloyat;
 
+  final _searchCtrl = TextEditingController();
   List<Product>? _imageResults;
   bool _imageSearching = false;
   String? _imageError;
@@ -34,6 +35,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -178,6 +185,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
     _imageError = null;
   });
 
+  void _backToHome() {
+    _searchCtrl.clear();
+    setState(() => _search = '');
+    _clearImageSearch();
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = context.watch<LocaleStore>();
@@ -197,19 +210,23 @@ class _CatalogScreenState extends State<CatalogScreen> {
             ),
             if (_imageResults != null)
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 sliver: SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Row(
                       children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.deep),
+                          onPressed: _backToHome,
+                          tooltip: 'Tozalash',
+                        ),
                         Expanded(
                           child: Text(
                             'Rasmga o\'xshash ${_imageResults!.length} ta mahsulot',
                             style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
                           ),
                         ),
-                        TextButton(onPressed: _clearImageSearch, child: const Text('Tozalash')),
                       ],
                     ),
                   ),
@@ -357,6 +374,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
               border: Border.all(color: AppColors.cardBorder),
             ),
             child: TextField(
+              controller: _searchCtrl,
               onChanged: (v) => setState(() {
                 _search = v;
                 if (v.isNotEmpty) _imageResults = null;
@@ -365,6 +383,15 @@ class _CatalogScreenState extends State<CatalogScreen> {
                 border: InputBorder.none,
                 hintText: loc.t('catalog_search_hint'),
                 prefixIcon: const Icon(Icons.search, color: Color(0xFF8A7357)),
+                suffixIcon: _search.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded, color: Color(0xFF8A7357)),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _search = '');
+                        },
+                      )
+                    : null,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),

@@ -122,6 +122,19 @@ class ProductCard extends StatelessWidget {
                       fontSize: 13.5,
                     ),
                   ),
+                  if (product.attributeSummary != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      product.attributeSummary!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.deep,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 2),
                   Text(
                     product.companyName,

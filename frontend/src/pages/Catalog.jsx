@@ -1,11 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Box, Camera, Heart, Sofa, ArrowRight, X } from "lucide-react";
+import { ArrowLeft, Box, Camera, Heart, Search, Sofa, ArrowRight, X } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { PORTAL, portalForUser, portalURLFor } from "../portal";
 
 const PORTAL_LABEL = { admin: "platforma boshqaruvi", firma: "firma kabineti" };
+
+// Kartochkada nomdan keyin ko'rsatiladigan qisqa xususiyat qatori — masalan
+// "kulrang · 60×90×60 sm" (rang avtomatik aniqlangan, o'lcham birinchi
+// variantdan, metrdan santimetrga o'tkazilib).
+function attributeSummary(p) {
+  const parts = [];
+  if (p.color_tag) parts.push(p.color_tag);
+  const v = p.variants?.[0];
+  if (v) {
+    const w = Math.round(Number(v.width) * 100);
+    const h = Math.round(Number(v.height) * 100);
+    const d = Math.round(Number(v.depth) * 100);
+    if (w > 1 && h > 1 && d > 1) parts.push(`${w}×${h}×${d} sm`);
+  }
+  return parts.length ? parts.join(" · ") : null;
+}
 
 export default function Catalog() {
   const { user } = useAuth();
@@ -17,7 +33,32 @@ export default function Catalog() {
   const [imagePreview, setImagePreview] = useState(null);
   const [imageSearching, setImageSearching] = useState(false);
   const [imageError, setImageError] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchResults, setSearchResults] = useState(null);
+  const [searching, setSearching] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const q = search.trim();
+    if (!q) {
+      setSearchResults(null);
+      return;
+    }
+    setSearching(true);
+    const timer = setTimeout(() => {
+      api(`/products/?search=${encodeURIComponent(q)}`)
+        .then((d) => setSearchResults(d.results || []))
+        .catch((e) => setError(e.message))
+        .finally(() => setSearching(false));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const backToHome = () => {
+    setSearch("");
+    setSearchResults(null);
+    clearImageSearch();
+  };
 
   const pickImage = () => fileInputRef.current?.click();
 
@@ -68,7 +109,8 @@ export default function Catalog() {
       .catch((e) => setError(e.message));
   }, []);
 
-  const shown = imageResults ?? (cat ? products.filter((p) => p.category === cat) : products);
+  const isSearching = Boolean(imageResults || searchResults !== null);
+  const shown = imageResults ?? searchResults ?? (cat ? products.filter((p) => p.category === cat) : products);
 
   const targetPortal = user ? portalForUser(user) : null;
   const showPortalNotice = targetPortal && targetPortal !== PORTAL;
@@ -114,29 +156,46 @@ export default function Catalog() {
         </p>
       </div>
 
-      {/* Filtr */}
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        <button
-          className={!imageResults && cat === "" ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
-          onClick={() => { setCat(""); clearImageSearch(); }}
-        >
-          Barchasi
-        </button>
-        {categories.map((c) => (
+      {/* Qidiruv */}
+      <div className="mb-4 flex items-center gap-2">
+        {isSearching && (
           <button
-            key={c.id}
-            className={!imageResults && cat === c.id ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
-            onClick={() => { setCat(c.id); clearImageSearch(); }}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+            style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+            onClick={backToHome}
+            title="Bosh sahifaga qaytish"
           >
-            {c.name_uz}
+            <ArrowLeft size={16} />
           </button>
-        ))}
+        )}
+        <div className="relative flex-1">
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); if (e.target.value) clearImageSearch(); }}
+            placeholder="Mahsulot yoki firma qidirish…"
+            className="w-full rounded-xl py-2.5 pl-9 pr-9 text-sm"
+            style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+          />
+          {search && (
+            <button
+              className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full"
+              onClick={() => { setSearch(""); setSearchResults(null); }}
+              style={{ color: "var(--muted)" }}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
         <button
-          className="btn-ghost ml-auto inline-flex items-center gap-1.5 !px-4 !py-1.5 text-xs"
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
+          style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
           onClick={pickImage}
           disabled={imageSearching}
+          title="Rasm bilan qidirish"
         >
-          <Camera size={14} /> {imageSearching ? "Qidirilmoqda…" : "Rasm bilan qidirish"}
+          <Camera size={16} />
         </button>
         <input
           ref={fileInputRef}
@@ -147,6 +206,27 @@ export default function Catalog() {
           onChange={searchByImage}
         />
       </div>
+
+      {/* Filtr */}
+      {!isSearching && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <button
+            className={cat === "" ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
+            onClick={() => setCat("")}
+          >
+            Barchasi
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              className={cat === c.id ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
+              onClick={() => setCat(c.id)}
+            >
+              {c.name_uz}
+            </button>
+          ))}
+        </div>
+      )}
 
       {imagePreview && (
         <div
@@ -159,12 +239,13 @@ export default function Catalog() {
               ? "Shu rasmga o'xshash mahsulotlar qidirilmoqda…"
               : `Shu rasmga o'xshash ${imageResults?.length ?? 0} ta mahsulot topildi`}
           </span>
-          <button className="btn-ghost ml-auto inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={clearImageSearch}>
-            <X size={13} /> Bekor qilish
-          </button>
         </div>
       )}
       {imageError && <div className="error mb-4">{imageError}</div>}
+      {searching && <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>Qidirilmoqda…</p>}
+      {searchResults !== null && !searching && (
+        <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>{searchResults.length} ta natija</p>
+      )}
 
       {error && <div className="error mb-4">{error}</div>}
       {shown.length === 0 && (
@@ -217,6 +298,11 @@ export default function Catalog() {
             )}
             <div className="flex flex-col gap-1 p-4">
               <span className="font-semibold">{p.name_uz}</span>
+              {attributeSummary(p) && (
+                <span className="text-xs font-medium" style={{ color: "var(--brand-cta-bg)" }}>
+                  {attributeSummary(p)}
+                </span>
+              )}
               <span className="text-xs" style={{ color: "var(--muted)" }}>{p.company_name}</span>
               {p.variants.length > 0 && (
                 <span className="mt-1 text-sm font-bold" style={{ color: "var(--secondary)" }}>

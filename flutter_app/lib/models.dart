@@ -207,6 +207,7 @@ class Product {
   final String? imageUrl;
   final List<ProductImage> images;
   final bool isPublished;
+  final String? colorTag;
   final List<Variant> variants;
   final Model3D? model3d;
   final bool isLiked;
@@ -226,11 +227,28 @@ class Product {
     this.imageUrl,
     this.images = const [],
     required this.isPublished,
+    this.colorTag,
     this.variants = const [],
     this.model3d,
     this.isLiked = false,
     this.similarityPercent,
   });
+
+  /// Kartochkada nomdan keyin ko'rsatiladigan qisqa xususiyat qatori —
+  /// masalan "kulrang · 60×90×60 sm" (rang avtomatik aniqlangan, o'lcham
+  /// birinchi variantdan, metrdan santimetrga o'tkazilib).
+  String? get attributeSummary {
+    final parts = <String>[];
+    if (colorTag != null && colorTag!.isNotEmpty) parts.add(colorTag!);
+    if (variants.isNotEmpty) {
+      final v = variants.first;
+      final w = (v.widthValue * 100).round();
+      final h = (v.heightValue * 100).round();
+      final d = (v.depthValue * 100).round();
+      if (w > 1 && h > 1 && d > 1) parts.add('$w×$h×$d sm');
+    }
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
 
   /// Galereya: bosh rasm + qo'shimcha rasmlar, birortasi bo'lmasa bo'sh.
   List<String> get galleryUrls => [
@@ -258,6 +276,7 @@ class Product {
         .map((e) => ProductImage.fromJson(e as Map<String, dynamic>))
         .toList(),
     isPublished: j['is_published'] ?? false,
+    colorTag: j['color_tag'],
     variants: (j['variants'] as List? ?? [])
         .map((e) => Variant.fromJson(e as Map<String, dynamic>))
         .toList(),
