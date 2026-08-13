@@ -25,6 +25,7 @@ from apps.inventory.views import (
     SupplierViewSet,
     WarehouseViewSet,
 )
+from apps.cart.views import CartItemViewSet
 from apps.likes.views import LikeViewSet
 from apps.orders.views import FinanceSummaryView, OrderViewSet
 from apps.production.views import PayslipViewSet
@@ -69,6 +70,7 @@ router.register("models3d", Model3DViewSet, basename="model3d")
 router.register("leads", LeadViewSet, basename="lead")
 router.register("payslips", PayslipViewSet, basename="payslip")
 router.register("likes", LikeViewSet, basename="like")
+router.register("cart-items", CartItemViewSet, basename="cart-item")
 router.register("reviews", ReviewViewSet, basename="review")
 router.register("workflow-instances", WorkflowStepInstanceViewSet, basename="workflow-instance")
 router.register("detail-assets", DetailAssetViewSet, basename="detail-asset")

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "apps.workflow",
     "apps.projects",
     "apps.inventory",
+    "apps.cart",
 ]
 
 MIDDLEWARE = [

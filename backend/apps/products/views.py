@@ -1,13 +1,17 @@
 from django.core.files.base import ContentFile
-from django.db.models import Count, Q
+from django.db.models import Case, Count, F, IntegerField, OuterRef, Q, Subquery, Sum, Value, When
+from django.db.models.functions import Coalesce
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.cart.models import CartItem
 from apps.companies.models import Company
 from apps.companies.views import user_company
+from apps.likes.models import Like
+from apps.orders.models import OrderItem
 from common.geo import haversine_km
 
 from . import embedding
@@ -50,6 +54,77 @@ def _companies_within_radius(lat, lng):
         elif haversine_km(lat, lng, float(c.latitude), float(c.longitude)) <= c.service_radius_km:
             ids.append(c.id)
     return ids
+
+
+def _with_sales_and_cart_counts(qs):
+    """Har mahsulotga (bekor qilinmagan buyurtmalardagi) sotilgan dona soni
+    va hozir savatlarda turgan qatorlar sonini qo'shadi — qidiruv natijalari
+    shular bo'yicha tartiblanadi (qarang get_queryset). Subquery orqali,
+    Count/Sum'ni to'g'ridan-to'g'ri annotate qilish variants/images kabi
+    boshqa reverse relationlar bilan JOIN fan-out hosil qilib, noto'g'ri
+    sonlarga olib kelishi mumkin edi."""
+    sales_subquery = (
+        OrderItem.objects.filter(product=OuterRef("pk"))
+        .exclude(order__status="cancelled")
+        .values("product")
+        .annotate(total=Sum("quantity"))
+        .values("total")
+    )
+    cart_subquery = (
+        CartItem.objects.filter(product=OuterRef("pk"), is_deleted=False)
+        .values("product")
+        .annotate(total=Count("id"))
+        .values("total")
+    )
+    return qs.annotate(
+        sales_count=Coalesce(Subquery(sales_subquery, output_field=IntegerField()), Value(0)),
+        cart_count=Coalesce(Subquery(cart_subquery, output_field=IntegerField()), Value(0)),
+    )
+
+
+def _personalization_score_case(user):
+    """Foydalanuvchining sevimlilar/buyurtma tarixi/savatidan kelib chiqib
+    har kategoriya va rang uchun "qiziqish og'irligi" hisoblanadi (buyurtma
+    eng ishonchli signal — og'irligi eng katta, keyin savat, keyin like).
+    Signal umuman bo'lmasa `None` qaytaradi — chaqiruvchi bu holda oddiy
+    xronologik tartibga tushadi."""
+    category_weights = {}
+    color_weights = {}
+
+    def bump(weights, key, amount):
+        if key:
+            weights[key] = weights.get(key, 0) + amount
+
+    for category_id, color_tag in Like.objects.filter(user=user).values_list(
+        "product__category_id", "product__color_tag"
+    ):
+        bump(category_weights, category_id, 2)
+        bump(color_weights, color_tag, 2)
+    for category_id, color_tag in OrderItem.objects.filter(order__customer=user).values_list(
+        "product__category_id", "product__color_tag"
+    ):
+        bump(category_weights, category_id, 3)
+        bump(color_weights, color_tag, 3)
+    for category_id, color_tag in CartItem.objects.filter(user=user, is_deleted=False).values_list(
+        "product__category_id", "product__color_tag"
+    ):
+        bump(category_weights, category_id, 1)
+        bump(color_weights, color_tag, 1)
+
+    if not category_weights and not color_weights:
+        return None
+
+    category_case = Case(
+        *[When(category_id=k, then=Value(v)) for k, v in category_weights.items()],
+        default=Value(0),
+        output_field=IntegerField(),
+    )
+    color_case = Case(
+        *[When(color_tag=k, then=Value(v)) for k, v in color_weights.items()],
+        default=Value(0),
+        output_field=IntegerField(),
+    )
+    return category_case, color_case
 
 
 def can_manage(user, company):
@@ -129,6 +204,24 @@ class ProductViewSet(viewsets.ModelViewSet):
         ordering = self.request.query_params.get("ordering")
         if ordering == "top":
             qs = qs.annotate(like_count=Count("liked_by")).order_by("-like_count", "-created_at")
+        elif search:
+            # Qidiruv natijalari — eng ko'p sotilgan, keyin hozir eng ko'p
+            # savatda turgan mahsulot birinchi (sof matn moslikdan ko'ra
+            # "haqiqatan xarid qilinadigan" narsa yuqorida bo'lishi kerak).
+            qs = _with_sales_and_cart_counts(qs).order_by("-sales_count", "-cart_count", "-created_at")
+        elif user.is_authenticated and not company_slug:
+            # Asosiy sahifa (filtrsiz ko'rinish) — foydalanuvchining
+            # sevimlilar/buyurtma/savat tarixidan kelib chiqib kategoriya va
+            # rang moslashuvi asosiy rol o'ynaydi. Signal umuman bo'lmasa
+            # (yangi foydalanuvchi) — oddiy xronologik tartib qoladi.
+            personalization = _personalization_score_case(user)
+            if personalization is not None:
+                category_case, color_case = personalization
+                qs = qs.annotate(
+                    _category_score=category_case, _color_score=color_case
+                ).annotate(
+                    personal_score=F("_category_score") + F("_color_score")
+                ).order_by("-personal_score", "-created_at")
         return qs
 
     def perform_create(self, serializer):

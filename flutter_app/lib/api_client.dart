@@ -61,6 +61,12 @@ class ApiClient {
     bool auth = true,
   }) => _send('PATCH', path, body, fromJson, auth: auth);
 
+  Future<T> delete<T>(
+    String path,
+    T Function(dynamic json) fromJson, {
+    bool auth = true,
+  }) => _send('DELETE', path, null, fromJson, auth: auth);
+
   /// `multipart/form-data` — rasm yuklash kerak bo'lgan amallar uchun
   /// (workflow progress/complete, variant tekstura va h.k.).
   Future<T> postMultipart<T>(
@@ -115,6 +121,9 @@ class ApiClient {
         break;
       case 'PATCH':
         resp = await http.patch(uri, headers: headers, body: encoded);
+        break;
+      case 'DELETE':
+        resp = await http.delete(uri, headers: headers);
         break;
       default:
         throw ApiException('Noma\'lum HTTP metod: $method');

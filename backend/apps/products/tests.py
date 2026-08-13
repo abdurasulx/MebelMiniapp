@@ -5,10 +5,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from rest_framework.test import APIClient, APITestCase
 
+from apps.cart.models import CartItem
 from apps.companies.models import Company
+from apps.likes.models import Like
+from apps.orders.models import Order, OrderItem
 
 from .imaging import compute_signature, dominant_color_tag, similarity_percent
-from .models import Category, Product
+from .models import Category, Product, Variant
 
 User = get_user_model()
 
@@ -171,3 +174,55 @@ class DistanceVisibilityTests(APITestCase):
         self.assertIn(str(self.near_product.id), ids)
         self.assertIn(str(self.far_product.id), ids)
         self.assertIn(str(self.unset_product.id), ids)
+
+
+class RankingTests(APITestCase):
+    """Qidiruv — sotuv/savat faolligi bo'yicha; Asosiy sahifa — foydalanuvchi
+    qiziqishi (like/buyurtma/savat tarixi) bo'yicha tartiblanishi."""
+
+    def setUp(self):
+        owner = User.objects.create_user(email="r@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.customer = User.objects.create_user(email="rc@shop.uz", password="pass12345", role=User.Role.CUSTOMER)
+        self.company = Company.objects.create(owner=owner, name="Rank Shop", slug="rank-shop")
+        self.cat_a = Category.objects.create(name_uz="A toifa", slug="rank-a")
+        self.cat_b = Category.objects.create(name_uz="B toifa", slug="rank-b")
+
+        self.popular = Product.objects.create(
+            company=self.company, category=self.cat_a, name_uz="Ommabop stul", is_published=True,
+        )
+        self.unpopular = Product.objects.create(
+            company=self.company, category=self.cat_a, name_uz="Kam sotilgan stul", is_published=True,
+        )
+        variant = Variant.objects.create(product=self.popular, name="Standart", base_price=100000)
+
+        order = Order.objects.create(company=self.company, customer=self.customer, phone="+998900000000", address="Toshkent")
+        OrderItem.objects.create(
+            order=order, product=self.popular, variant=variant, product_name="Ommabop stul", variant_name="Standart",
+            width=1, height=1, depth=1, quantity=5, unit_m3_price=100000, subtotal=500000,
+        )
+
+    def test_search_orders_by_sales_count_first(self):
+        resp = self.client.get("/api/v1/products/?search=stul")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        ids = [p["id"] for p in resp.data["results"]]
+        self.assertEqual(ids[0], str(self.popular.id))
+
+    def test_home_feed_favors_liked_category(self):
+        # Alohida (buyurtma tarixi bo'lmagan) foydalanuvchi — faqat "like"
+        # signali sof holda tekshiriladi, setUp'dagi self.customer'ning
+        # buyurtma tarixi (cat_a) natijaga aralashmasligi uchun.
+        fan = User.objects.create_user(email="fan@shop.uz", password="pass12345", role=User.Role.CUSTOMER)
+        favorite_cat_product = Product.objects.create(
+            company=self.company, category=self.cat_b, name_uz="B toifadan mahsulot", is_published=True,
+        )
+        other_cat_product = Product.objects.create(
+            company=self.company, category=self.cat_a, name_uz="A toifadan yana biri", is_published=True,
+        )
+        Like.objects.create(user=fan, product=favorite_cat_product)
+
+        self.client.force_authenticate(fan)
+        resp = self.client.get("/api/v1/products/")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        ids = [p["id"] for p in resp.data["results"]]
+        self.assertEqual(ids[0], str(favorite_cat_product.id))
+        self.assertIn(str(other_cat_product.id), ids)
