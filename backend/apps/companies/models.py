@@ -133,6 +133,13 @@ class Review(BaseModel):
         return f"{self.customer} → {self.company}: {self.rating}★"
 
 
+class PayType(models.TextChoices):
+    FIXED = "fixed", "Faqat oylik"
+    FIXED_BONUS = "fixed_bonus", "Oylik + vazifa bonusi"
+    COMMISSION = "commission", "Komissiya (% sotuvdan)"
+    HOURLY = "hourly", "Soatbay"
+
+
 class Employee(BaseModel):
     """Kompaniya xodimi a'zoligi (techdocs/06 §7).
 
@@ -158,16 +165,63 @@ class Employee(BaseModel):
     # Karyera tarixi uchun: ishdan bo'shatilgan/chiqib ketgan sana (is_active=False
     # bo'lganda o'rnatiladi). Bo'sh bo'lsa — hozir ham shu firmada ishlayapti.
     left_at = models.DateTimeField(null=True, blank=True)
-    # Ish haqi (docs/41 §20 "employees.salary"): bazaviy oylik + bajarilgan
-    # vazifa uchun bonus (docs/38 §9 "Employee Productivity" bilan bog'liq).
+    # Ish haqi (docs/41 §20 "employees.salary"): to'lov turi + shu turga mos
+    # summa(lar). Xodim qo'shilganda/taklif qilinganda `PositionPayStandard`
+    # (pastda) frontendda taklif sifatida ko'rsatiladi, lekin bu yerda har
+    # doim aniq, individual kiritilgan qiymat saqlanadi — "o'zi individual
+    # sozlasin" talabiga ko'ra standart faqat boshlang'ich taklif, keyingi
+    # hisob-kitob (Payslip.recompute) shu yerdagi qiymatlarga tayanadi.
+    pay_type = models.CharField(max_length=20, choices=PayType.choices, default=PayType.FIXED_BONUS)
     base_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     bonus_per_task = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    commission_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     class Meta:
         unique_together = ("company", "user")
 
     def __str__(self):
         return f"{self.user} @ {self.company}"
+
+
+class PositionPayStandard(BaseModel):
+    """Lavozim bo'yicha standart to'lov tuzilmasi — ikkita daraja: platforma
+    darajasida (`company=None`, faqat platforma admini sozlaydi) va firma
+    o'ziga moslashtirgan daraja (`company=X`). Xodim qo'shish/taklif qilish
+    formasida shu standart (avval firma o'ziniki, bo'lmasa platforma
+    standarti) boshlang'ich taklif sifatida frontendda avtomatik to'ldiriladi
+    — Employee'ning o'zida saqlanmaydi, faqat taklif manbai.
+
+    KPI maqsadlari esa "taklif" emas — Payslip.recompute() har safar shu
+    yozuvdan real vaqtda o'qib, bonusga multiplikator sifatida qo'llaydi
+    (qarang PayslipMixin/KPI hisoblash apps/production/models.py)."""
+
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="pay_standards", null=True, blank=True
+    )
+    position = models.CharField(max_length=20, choices=Employee.Position.choices)
+    pay_type = models.CharField(max_length=20, choices=PayType.choices, default=PayType.FIXED_BONUS)
+    min_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    max_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    default_bonus_per_task = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    default_commission_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    default_hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # KPI — bajarilishi shart bo'lgan maqsad(lar). Bo'sh (None) qoldirilgan
+    # maqsad tekshirilmaydi. Ikkalasi ham bo'sh bo'lsa, KPI multiplikatori
+    # umuman qo'llanmaydi (faqat kuzatuv/hisobot uchun ishlatilishi mumkin).
+    kpi_target_tasks_per_month = models.PositiveIntegerField(null=True, blank=True)
+    kpi_target_on_time_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    kpi_bonus_multiplier = models.DecimalField(max_digits=4, decimal_places=2, default=1)
+
+    class Meta:
+        unique_together = ("company", "position")
+        ordering = ("position",)
+
+    def __str__(self):
+        scope = self.company.name if self.company_id else "Platforma"
+        return f"{scope} — {self.get_position_display()}"
 
 
 class EmployeeInvitation(BaseModel):
@@ -185,8 +239,11 @@ class EmployeeInvitation(BaseModel):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="employee_invitations"
     )
     positions = models.JSONField(default=list, blank=True)
+    pay_type = models.CharField(max_length=20, choices=PayType.choices, default=PayType.FIXED_BONUS)
     base_salary = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     bonus_per_task = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    commission_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     responded_at = models.DateTimeField(null=True, blank=True)
 

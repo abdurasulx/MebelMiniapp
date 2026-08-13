@@ -3,6 +3,7 @@ import { Calculator, Wallet } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { POSITIONS } from "../../positions";
+import LoadMoreButton from "../../components/LoadMoreButton";
 
 function currentPeriod() {
   const now = new Date();
@@ -18,6 +19,22 @@ function periodLabel(period) {
   return `${names[parseInt(m, 10) - 1]} ${y}`;
 }
 
+/// To'lov turiga mos asosiy summa tavsifi (KPI/workflow bonusidan tashqari).
+function payBreakdown(p) {
+  switch (p.pay_type) {
+    case "fixed":
+      return `${Number(p.base_salary).toLocaleString()} so'm/oy`;
+    case "fixed_bonus":
+      return `${Number(p.base_salary).toLocaleString()} so'm + ${p.tasks_completed} ta × ${Number(p.bonus_per_task).toLocaleString()}`;
+    case "commission":
+      return `${Number(p.commission_sales).toLocaleString()} so'mdan ${Number(p.commission_amount).toLocaleString()} so'm`;
+    case "hourly":
+      return `${Number(p.manual_hours).toLocaleString()} soat × ${Number(p.hourly_amount / (p.manual_hours || 1)).toLocaleString()}`;
+    default:
+      return "—";
+  }
+}
+
 export default function FirmaPayroll() {
   const { user } = useAuth();
   return user?.role === "company_owner" ? <ManagerPayroll /> : <MyPayslips />;
@@ -29,13 +46,33 @@ function ManagerPayroll() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [nextPage, setNextPage] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hoursDraft, setHoursDraft] = useState({});
 
   const load = () => {
     setLoaded(false);
     api(`/payslips/?period=${period}`)
-      .then((d) => setPayslips(d.results || []))
+      .then((d) => {
+        setPayslips(d.results || []);
+        setNextPage(d.next || null);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoaded(true));
+  };
+
+  const loadMore = async () => {
+    if (!nextPage) return;
+    setLoadingMore(true);
+    try {
+      const d = await api(nextPage);
+      setPayslips((prev) => [...prev, ...(d.results || [])]);
+      setNextPage(d.next || null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   useEffect(() => {
@@ -59,6 +96,18 @@ function ManagerPayroll() {
     if (!confirm(`${p.employee_name} uchun ${Number(p.total_amount).toLocaleString()} so'm to'landi deb belgilansinmi?`)) return;
     try {
       await api(`/payslips/${p.id}/mark_paid/`, { method: "POST" });
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const saveHours = async (p) => {
+    try {
+      await api(`/payslips/${p.id}/set_hours/`, {
+        method: "POST",
+        body: { manual_hours: hoursDraft[p.id] ?? p.manual_hours },
+      });
       load();
     } catch (e) {
       setError(e.message);
@@ -123,10 +172,10 @@ function ManagerPayroll() {
               <tr>
                 <th>Xodim</th>
                 <th>Kasblari</th>
-                <th>Bazaviy oylik</th>
-                <th>Bajarilgan vazifa</th>
-                <th>Bonus</th>
+                <th>To'lov turi</th>
+                <th>Asosiy summa</th>
                 <th>Workflow bosqichlari</th>
+                <th>KPI</th>
                 <th>Jami</th>
                 <th>Holat</th>
                 <th className="text-right">Amal</th>
@@ -148,10 +197,30 @@ function ManagerPayroll() {
                       })}
                     </div>
                   </td>
-                  <td>{Number(p.base_salary).toLocaleString()} so'm</td>
-                  <td>{p.tasks_completed} ta</td>
-                  <td>{Number(p.bonus_amount).toLocaleString()} so'm</td>
+                  <td className="text-xs" style={{ color: "var(--muted)" }}>{p.pay_type_display}</td>
+                  <td className="text-xs">
+                    {payBreakdown(p)}
+                    {p.pay_type === "hourly" && !p.is_paid && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <input
+                          className="input !w-20 !py-1 text-xs"
+                          type="number" min="0" step="0.5"
+                          placeholder={p.manual_hours}
+                          value={hoursDraft[p.id] ?? ""}
+                          onChange={(e) => setHoursDraft((d) => ({ ...d, [p.id]: e.target.value }))}
+                        />
+                        <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => saveHours(p)}>Soat kiritish</button>
+                      </div>
+                    )}
+                  </td>
                   <td>{Number(p.workflow_earnings || 0).toLocaleString()} so'm</td>
+                  <td>
+                    {Number(p.kpi_bonus_amount) > 0 ? (
+                      <span className="badge">✓ +{Number(p.kpi_bonus_amount).toLocaleString()}</span>
+                    ) : (
+                      <span className="text-xs" style={{ color: "var(--muted)" }}>—</span>
+                    )}
+                  </td>
                   <td className="font-bold">{Number(p.total_amount).toLocaleString()} so'm</td>
                   <td>
                     <span className={p.is_paid ? "badge" : "badge badge-off"}>
@@ -171,10 +240,15 @@ function ManagerPayroll() {
           </table>
         </div>
       )}
+      <div className="flex justify-center">
+        <LoadMoreButton next={nextPage} busy={loadingMore} onClick={loadMore} />
+      </div>
 
       <p className="text-xs" style={{ color: "var(--muted)" }}>
-        Jami = bazaviy oylik + (shu oyda bajarilgan vazifalar soni × har-vazifa bonusi). Oylik/bonus
-        stavkalarini <strong>Xodimlar</strong> bo'limida sozlang. To'langan oylar qayta hisoblanganda o'zgarmaydi.
+        Jami = to'lov turiga mos asosiy summa (oylik/bonus/komissiya/soatbay) + workflow bosqichlari +
+        KPI bonusi (agar lavozim standartidagi maqsad bajarilgan bo'lsa). To'lov turi/stavkalarini{" "}
+        <strong>Xodimlar</strong>, KPI maqsadlarini esa <strong>Sozlamalar</strong> yoki platforma admin
+        panelida sozlang. To'langan oylar qayta hisoblanganda o'zgarmaydi.
       </p>
     </div>
   );
@@ -183,12 +257,31 @@ function ManagerPayroll() {
 function MyPayslips() {
   const [payslips, setPayslips] = useState([]);
   const [error, setError] = useState("");
+  const [nextPage, setNextPage] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     api("/payslips/")
-      .then((d) => setPayslips(d.results || []))
+      .then((d) => {
+        setPayslips(d.results || []);
+        setNextPage(d.next || null);
+      })
       .catch((e) => setError(e.message));
   }, []);
+
+  const loadMore = async () => {
+    if (!nextPage) return;
+    setLoadingMore(true);
+    try {
+      const d = await api(nextPage);
+      setPayslips((prev) => [...prev, ...(d.results || [])]);
+      setNextPage(d.next || null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -203,8 +296,9 @@ function MyPayslips() {
             <div>
               <div className="font-semibold">{periodLabel(p.period.slice(0, 7))}</div>
               <div className="text-xs" style={{ color: "var(--muted)" }}>
-                Bazaviy {Number(p.base_salary).toLocaleString()} so'm + {p.tasks_completed} ta vazifa ×{" "}
-                {Number(p.bonus_per_task).toLocaleString()} so'm
+                {p.pay_type_display} · {payBreakdown(p)}
+                {Number(p.workflow_earnings) > 0 && ` + ${Number(p.workflow_earnings).toLocaleString()} workflow`}
+                {Number(p.kpi_bonus_amount) > 0 && ` + ${Number(p.kpi_bonus_amount).toLocaleString()} KPI bonus`}
               </div>
             </div>
             <div className="text-right">
@@ -215,6 +309,9 @@ function MyPayslips() {
             </div>
           </div>
         ))}
+      </div>
+      <div className="flex justify-center">
+        <LoadMoreButton next={nextPage} busy={loadingMore} onClick={loadMore} />
       </div>
     </div>
   );

@@ -69,6 +69,31 @@ class OrderViewSet(
         order.save(update_fields=["status", "updated_at"])
         return Response(OrderSerializer(order, context={"request": request}).data)
 
+    @action(detail=True, methods=["post"])
+    def set_sold_by(self, request, pk=None):
+        """Komissiyali xodim (sotuvchi/menejer) uchun — shu buyurtmani kim
+        yopgani belgilanadi, oylik komissiya shu bo'yicha hisoblanadi
+        (qarang apps/production/models.py Payslip.recompute)."""
+        from apps.companies.models import Employee
+
+        order = self.get_object()
+        company = user_company(request.user)
+        if company is None or company.id != order.company_id or not is_company_owner(request.user, company):
+            raise PermissionDenied("Faqat firma egasi buyurtmani xodimga bog'lay oladi")
+
+        employee_id = request.data.get("employee")
+        if employee_id:
+            employee = Employee.objects.filter(
+                id=employee_id, company=company, is_deleted=False
+            ).first()
+            if employee is None:
+                raise ValidationError("Bu xodim topilmadi")
+            order.sold_by = employee
+        else:
+            order.sold_by = None
+        order.save(update_fields=["sold_by", "updated_at"])
+        return Response(OrderSerializer(order, context={"request": request}).data)
+
     @action(detail=True, methods=["get"])
     def prediction(self, request, pk=None):
         """Taxminiy tugash sanasi — tarixiy bosqich davomiyligi + xodimlar

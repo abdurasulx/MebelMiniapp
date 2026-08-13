@@ -27,7 +27,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, read_only=True)
+    items = serializers.SerializerMethodField()
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     company_name = serializers.CharField(source="company.name", read_only=True)
     customer_email = serializers.EmailField(source="customer.email", read_only=True)
@@ -35,6 +35,14 @@ class OrderSerializer(serializers.ModelSerializer):
     workflow_steps = serializers.SerializerMethodField()
     production_cost = serializers.SerializerMethodField()
     progress_percent = serializers.SerializerMethodField()
+    sold_by_name = serializers.CharField(source="sold_by.user.first_name", read_only=True, default=None)
+
+    def get_items(self, obj):
+        # `obj.items` — filtrlanmagan teskari FK manager, is_deleted=False
+        # bilan filtrlamasak o'chirilgan buyurtma bandlari abadiy ko'rinib
+        # qolar edi (xuddi variant/lead-note/filial o'chirish xatolaridagi kabi).
+        visible = [i for i in obj.items.all() if not i.is_deleted]
+        return OrderItemSerializer(visible, many=True, context=self.context).data
 
     class Meta:
         model = Order
@@ -42,6 +50,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "id", "company", "company_name", "customer", "customer_email", "customer_name",
             "status", "status_display", "phone", "address", "note",
             "total_price", "items", "workflow_steps", "production_cost", "progress_percent",
+            "sold_by", "sold_by_name",
             "created_at", "updated_at",
         )
         read_only_fields = fields

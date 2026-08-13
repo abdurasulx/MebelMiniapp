@@ -3,17 +3,48 @@ import { Phone, MapPin, MessageSquare, X, Workflow } from "lucide-react";
 import { api } from "../../api";
 import { NEXT_STATUS, ORDER_STATUS, StatusBadge } from "../../orderStatus";
 import WorkflowPanel from "../../components/WorkflowPanel";
+import LoadMoreButton from "../../components/LoadMoreButton";
 
 export default function FirmaOrders() {
   const [orders, setOrders] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
   const [openWorkflow, setOpenWorkflow] = useState(null);
+  const [nextPage, setNextPage] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const load = () =>
-    api("/orders/")
-      .then((d) => setOrders(d.results || []))
+    Promise.all([api("/orders/"), api("/employees/")])
+      .then(([d, emp]) => {
+        setOrders(d.results || []);
+        setNextPage(d.next || null);
+        setEmployees((emp.results || []).filter((e) => e.pay_type === "commission"));
+      })
       .catch((e) => setError(e.message));
+
+  const setSoldBy = async (o, employeeId) => {
+    try {
+      await api(`/orders/${o.id}/set_sold_by/`, { method: "POST", body: { employee: employeeId || null } });
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const loadMore = async () => {
+    if (!nextPage) return;
+    setLoadingMore(true);
+    try {
+      const d = await api(nextPage);
+      setOrders((prev) => [...prev, ...(d.results || [])]);
+      setNextPage(d.next || null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -92,6 +123,21 @@ export default function FirmaOrders() {
               </div>
             ))}
           </div>
+          {employees.length > 0 && (
+            <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+              <span>Sotuvchi (komissiya uchun):</span>
+              <select
+                className="input !w-auto !py-1 text-xs"
+                value={o.sold_by || ""}
+                onChange={(e) => setSoldBy(o, e.target.value)}
+              >
+                <option value="">— tanlanmagan —</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>{emp.user_name || emp.user_email}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {o.note && (
             <div className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs" style={{ background: "color-mix(in srgb, var(--primary) 18%, transparent)" }}>
               <MessageSquare size={13} /> {o.note}
@@ -125,6 +171,9 @@ export default function FirmaOrders() {
           {openWorkflow === o.id && <WorkflowPanel order={o} editable onChanged={load} />}
         </div>
       ))}
+      <div className="flex justify-center">
+        <LoadMoreButton next={nextPage} busy={loadingMore} onClick={loadMore} />
+      </div>
     </div>
   );
 }

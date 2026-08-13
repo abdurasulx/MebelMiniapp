@@ -1,14 +1,16 @@
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from .models import Company, Employee, EmployeeInvitation, Review
+from .models import Company, Employee, EmployeeInvitation, PositionPayStandard, Review
 from .serializers import (
     CompanySerializer,
     EmployeeInvitationSerializer,
     EmployeeSerializer,
+    PositionPayStandardSerializer,
     ReviewSerializer,
 )
 
@@ -164,8 +166,11 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
             existing.is_active = True
             existing.is_deleted = False
             existing.positions = invitation.positions
+            existing.pay_type = invitation.pay_type
             existing.base_salary = invitation.base_salary
             existing.bonus_per_task = invitation.bonus_per_task
+            existing.commission_percent = invitation.commission_percent
+            existing.hourly_rate = invitation.hourly_rate
             existing.left_at = None
             existing.save()
         else:
@@ -173,8 +178,11 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
                 company=invitation.company,
                 user=invitation.invited_user,
                 positions=invitation.positions,
+                pay_type=invitation.pay_type,
                 base_salary=invitation.base_salary,
                 bonus_per_task=invitation.bonus_per_task,
+                commission_percent=invitation.commission_percent,
+                hourly_rate=invitation.hourly_rate,
             )
         if invitation.invited_user.role == "customer":
             invitation.invited_user.role = "employee"
@@ -205,6 +213,53 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Faqat kompaniya egasi taklifni bekor qila oladi")
         if instance.status != EmployeeInvitation.Status.PENDING:
             raise ValidationError("Javob berilgan taklifni bekor qilib bo'lmaydi")
+        instance.is_deleted = True
+        instance.save(update_fields=["is_deleted"])
+
+
+class PositionPayStandardViewSet(viewsets.ModelViewSet):
+    """Lavozim bo'yicha standart to'lov/KPI sozlamalari. Ikkita daraja:
+    platforma admini `company=null` (global) yozuvlarni, firma egasi esa
+    faqat o'z kompaniyasiga tegishli (`company=<uuid>`) yozuvlarni yarata
+    va tahrirlay oladi — biri ikkinchisining maydoniga tega olmaydi."""
+
+    serializer_class = PositionPayStandardSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ("get", "post", "patch", "delete", "head", "options")
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = PositionPayStandard.objects.filter(is_deleted=False)
+        if user.role == "platform_admin":
+            return qs
+        company = user_company(user)
+        if company:
+            return qs.filter(Q(company__isnull=True) | Q(company=company))
+        return qs.filter(company__isnull=True)
+
+    def _check_scope(self, company):
+        user = self.request.user
+        if company is None:
+            if user.role != "platform_admin":
+                raise PermissionDenied("Faqat platforma admini global standart belgilay oladi")
+        elif not is_company_owner(user, company):
+            raise PermissionDenied("Faqat shu firma egasi o'z standartini belgilay oladi")
+
+    def perform_create(self, serializer):
+        company = serializer.validated_data.get("company")
+        self._check_scope(company)
+        if PositionPayStandard.objects.filter(
+            is_deleted=False, company=company, position=serializer.validated_data["position"]
+        ).exists():
+            raise ValidationError("Bu lavozim uchun standart allaqachon mavjud — tahrirlang")
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_scope(serializer.instance.company)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_scope(instance.company)
         instance.is_deleted = True
         instance.save(update_fields=["is_deleted"])
 

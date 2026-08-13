@@ -11,6 +11,7 @@ import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminFinance from "./pages/admin/AdminFinance";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminPayStandards from "./pages/admin/AdminPayStandards";
 import AdminUsers from "./pages/admin/AdminUsers";
 import Cart from "./pages/Cart";
 import Catalog from "./pages/Catalog";
@@ -65,6 +66,7 @@ const ADMIN_MENU = [
   { to: "/companies", icon: Factory, label: "Kompaniyalar", group: "Boshqaruv" },
   { to: "/users", icon: Users, label: "Foydalanuvchilar", group: "Boshqaruv" },
   { to: "/categories", icon: FolderTree, label: "Kategoriyalar", group: "Boshqaruv" },
+  { to: "/pay-standards", icon: HardHat, label: "Ish haqi standartlari", group: "Boshqaruv" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
   { to: "/finance", icon: Wallet, label: "Moliya", group: "Savdo" },
 ];
@@ -233,6 +235,7 @@ export default function App() {
           <Route path="/companies" element={<AdminCompanies />} />
           <Route path="/users" element={<AdminUsers />} />
           <Route path="/categories" element={<AdminCategories />} />
+          <Route path="/pay-standards" element={<AdminPayStandards />} />
           <Route path="/orders" element={<AdminOrders />} />
           <Route path="/finance" element={<AdminFinance />} />
         </Route>

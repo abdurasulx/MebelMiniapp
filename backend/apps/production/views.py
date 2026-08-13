@@ -75,6 +75,28 @@ class PayslipViewSet(
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
+    def set_hours(self, request, pk=None):
+        """Soatbay xodim uchun — firma shu oy ishlagan soatni qo'lda
+        kiritadi, so'ng jami summa shu asosda qayta hisoblanadi (avtomatik
+        vaqt hisoblagich hozircha yo'q)."""
+        payslip = self.get_object()
+        company = user_company(request.user)
+        if not is_manager(request.user, company):
+            raise PermissionDenied("Faqat kompaniya egasi soat kiritadi")
+        if payslip.is_paid:
+            raise ValidationError("To'langan ish haqini o'zgartirib bo'lmaydi")
+        try:
+            hours = float(request.data.get("manual_hours"))
+        except (TypeError, ValueError):
+            raise ValidationError("manual_hours raqam bo'lishi kerak")
+        if hours < 0:
+            raise ValidationError("manual_hours manfiy bo'lishi mumkin emas")
+        payslip.manual_hours = hours
+        payslip.recompute()
+        payslip.save()
+        return Response(self.get_serializer(payslip).data)
+
+    @action(detail=True, methods=["post"])
     def mark_paid(self, request, pk=None):
         payslip = self.get_object()
         company = user_company(request.user)

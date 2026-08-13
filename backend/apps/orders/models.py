@@ -36,6 +36,12 @@ class Order(BaseModel):
     address = models.CharField(max_length=500)
     note = models.TextField(blank=True)
     total_price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    # Komissiyali xodim (masalan sotuvchi/menejer) uchun — shu buyurtma kim
+    # tomonidan yopilgani, oylik komissiya hisob-kitobida ishlatiladi (qarang
+    # apps/production/models.py Payslip.recompute).
+    sold_by = models.ForeignKey(
+        "companies.Employee", on_delete=models.SET_NULL, null=True, blank=True, related_name="sold_orders"
+    )
 
     class Meta:
         ordering = ("-created_at",)
