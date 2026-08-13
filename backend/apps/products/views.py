@@ -198,11 +198,14 @@ class ProductSearchByImageView(APIView):
     apps/products/embedding.py) — shakl/rang/uslub bo'yicha semantik
     o'xshashlikni ushlaydi, aynan bir xil piksel talab qilmaydi.
     Ixtiyoriy `category` (slug) parametri natijani shu kategoriya bilan
-    cheklaydi."""
+    cheklaydi. Faqat `min_similarity` (standart 60) foizdan yuqori yoki
+    teng natijalar qaytariladi — aks holda umuman aloqador bo'lmagan
+    mahsulot ham "eng yaqin"i sifatida chiqib qolardi."""
 
     permission_classes = (permissions.AllowAny,)
     MAX_RESULTS = 20
     CANDIDATE_LIMIT = 60
+    DEFAULT_MIN_SIMILARITY = 60
 
     def post(self, request):
         serializer = ImageSearchSerializer(data=request.data)
@@ -215,10 +218,16 @@ class ProductSearchByImageView(APIView):
                 "id", flat=True
             ).first()
 
+        try:
+            min_similarity = float(request.data.get("min_similarity", self.DEFAULT_MIN_SIMILARITY))
+        except (TypeError, ValueError):
+            min_similarity = self.DEFAULT_MIN_SIMILARITY
+
         hits = embedding.search_similar(
             serializer.validated_data["image"],
             category_id=category_id,
             limit=self.CANDIDATE_LIMIT,
+            score_threshold=min_similarity / 100,
         )
         if not hits:
             return Response([])

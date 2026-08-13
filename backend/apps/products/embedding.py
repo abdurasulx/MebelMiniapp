@@ -141,9 +141,12 @@ def delete_product_embedding(product_id):
         logger.exception("Qdrant'dan o'chirib bo'lmadi")
 
 
-def search_similar(image_file, category_id=None, limit=20):
+def search_similar(image_file, category_id=None, limit=20, score_threshold=None):
     """Berilgan rasmga eng o'xshash mahsulot ID'lari va o'xshashlik
-    ballarini (0..1) qaytaradi, eng o'xshashidan boshlab."""
+    ballarini (0..1) qaytaradi, eng o'xshashidan boshlab. `score_threshold`
+    berilsa, shundan past ballilar butunlay tashlab yuboriladi — aks holda
+    Qdrant har doim eng yaqin `limit` tanani qaytaradi, hatto ular umuman
+    aloqador bo'lmasa ham (masalan stul rasmiga karta rasmi)."""
     embedding = compute_embedding(image_file)
     if embedding is None:
         return []
@@ -164,6 +167,7 @@ def search_similar(image_file, category_id=None, limit=20):
         query=embedding,
         query_filter=query_filter,
         limit=limit,
+        score_threshold=score_threshold,
         with_payload=False,
     )
     return [(hit.id, hit.score) for hit in result.points]
