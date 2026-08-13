@@ -123,3 +123,51 @@ class ImagingTests(APITestCase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertGreaterEqual(len(resp.data), 1)
         self.assertEqual(resp.data[0]["id"], str(red.id))
+
+
+class DistanceVisibilityTests(APITestCase):
+    """Firma xizmat radiusi (Company.service_radius_km) bo'yicha mahsulot
+    ko'rinishi — qarang apps/products/views.py `_companies_within_radius`."""
+
+    def setUp(self):
+        owner = User.objects.create_user(email="d@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.category = Category.objects.create(name_uz="Stullar", slug="d-stullar")
+        # Toshkent markazi atrofida, 10km radius bilan xizmat qiladi.
+        self.near_company = Company.objects.create(
+            owner=owner, name="Yaqin firma", slug="yaqin-firma",
+            latitude=41.311081, longitude=69.240562, service_radius_km=10,
+        )
+        # Samarqandda, faqat 5km radius — Toshkentdagi foydalanuvchiga yetmaydi.
+        self.far_company = Company.objects.create(
+            owner=owner, name="Uzoq firma", slug="uzoq-firma",
+            latitude=39.627001, longitude=66.975006, service_radius_km=5,
+        )
+        # Lokatsiya sozlanmagan — har doim ko'rinishi kerak.
+        self.unset_company = Company.objects.create(owner=owner, name="Sozlanmagan firma", slug="sozlanmagan-firma")
+
+        self.near_product = Product.objects.create(
+            company=self.near_company, category=self.category, name_uz="Yaqin stul", is_published=True,
+        )
+        self.far_product = Product.objects.create(
+            company=self.far_company, category=self.category, name_uz="Uzoq stul", is_published=True,
+        )
+        self.unset_product = Product.objects.create(
+            company=self.unset_company, category=self.category, name_uz="Sozlanmagan stul", is_published=True,
+        )
+
+    def test_only_companies_within_radius_and_unset_are_visible(self):
+        # Toshkent shahridagi foydalanuvchi nuqtasi.
+        resp = self.client.get("/api/v1/products/?lat=41.3111&lng=69.2797")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        ids = {p["id"] for p in resp.data["results"]}
+        self.assertIn(str(self.near_product.id), ids)
+        self.assertIn(str(self.unset_product.id), ids)
+        self.assertNotIn(str(self.far_product.id), ids)
+
+    def test_without_lat_lng_all_are_visible(self):
+        resp = self.client.get("/api/v1/products/")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        ids = {p["id"] for p in resp.data["results"]}
+        self.assertIn(str(self.near_product.id), ids)
+        self.assertIn(str(self.far_product.id), ids)
+        self.assertIn(str(self.unset_product.id), ids)

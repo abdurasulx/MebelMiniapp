@@ -55,6 +55,13 @@ class Company(BaseModel, StoredFileMixin):
     phone = models.CharField(max_length=20, blank=True)
     address = models.CharField(max_length=500, blank=True)
     viloyat = models.CharField(max_length=30, choices=Viloyat.choices, blank=True)
+    # Aniq geolokatsiya — viloyatdan farqli, mahsulotlar foydalanuvchiga
+    # xizmat radiusi (pastda) orqali ko'rsatiladi, ma'muriy hudud chegarasiga
+    # qarab emas (qarang apps/products/views.py). Ikkalasi ham bo'sh bo'lsa,
+    # eski xatti-harakat davom etadi — firma hamma joyda ko'rinadi.
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    service_radius_km = models.PositiveIntegerField(null=True, blank=True)
     logo = models.ImageField(upload_to="companies/logos/", blank=True, null=True)
     is_active = models.BooleanField(default=True)
     # Har firma o'zining ishga olish shartnomasi matnini moslashtirib qo'yadi —

@@ -11,19 +11,32 @@ enum LocationStatus { idle, loading, granted, denied, unavailable }
 /// Foydalanuvchi xohlasa katalogdan qo'lda "Barchasi"ga o'tishi ham mumkin.
 class LocationStore extends ChangeNotifier {
   static const _prefKey = 'selected_viloyat';
+  static const _latKey = 'gps_lat';
+  static const _lngKey = 'gps_lng';
 
   String? _viloyat; // null = "Barchasi" (filtrsiz)
+  double? _lat;
+  double? _lng;
   LocationStatus _status = LocationStatus.idle;
 
   String? get viloyat => _viloyat;
+  // Aniq GPS koordinatasi — mavjud bo'lsa, firma xizmat radiusi bo'yicha
+  // filtrlashda viloyat o'rniga shu ishlatiladi (qarang apps/products/views.py
+  // `lat`/`lng` parametri, backend/common/geo.py).
+  double? get lat => _lat;
+  double? get lng => _lng;
   LocationStatus get status => _status;
   String get viloyatLabelText => viloyatLabel(_viloyat);
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_prefKey);
+    final savedLat = prefs.getDouble(_latKey);
+    final savedLng = prefs.getDouble(_lngKey);
     if (saved != null) {
       _viloyat = saved;
+      _lat = savedLat;
+      _lng = savedLng;
       _status = LocationStatus.granted;
       notifyListeners();
       return;
@@ -56,7 +69,7 @@ class LocationStore extends ChangeNotifier {
         ),
       );
       final nearest = nearestViloyat(position.latitude, position.longitude);
-      await setViloyat(nearest.code);
+      await setViloyat(nearest.code, lat: position.latitude, lng: position.longitude);
       _status = LocationStatus.granted;
     } catch (_) {
       _status = LocationStatus.unavailable;
@@ -64,14 +77,26 @@ class LocationStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setViloyat(String? code) async {
+  Future<void> setViloyat(String? code, {double? lat, double? lng}) async {
     _viloyat = code;
+    // Qo'lda boshqa viloyat tanlansa, avvalgi GPS koordinatasi endi noto'g'ri
+    // bo'lib qoladi — shuning uchun faqat GPS orqali kelgan chaqiruvdagina
+    // (lat/lng berilganda) saqlanadi, aks holda tozalanadi.
+    _lat = lat;
+    _lng = lng;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     if (code == null) {
       await prefs.remove(_prefKey);
     } else {
       await prefs.setString(_prefKey, code);
+    }
+    if (lat != null && lng != null) {
+      await prefs.setDouble(_latKey, lat);
+      await prefs.setDouble(_lngKey, lng);
+    } else {
+      await prefs.remove(_latKey);
+      await prefs.remove(_lngKey);
     }
   }
 }

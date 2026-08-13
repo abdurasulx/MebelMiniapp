@@ -6,7 +6,9 @@ from rest_framework.exceptions import NotFound, PermissionDenied, ValidationErro
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.companies.models import Company
 from apps.companies.views import user_company
+from common.geo import haversine_km
 
 from . import embedding
 from .models import Category, Product, ProductImage, Variant
@@ -33,6 +35,21 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Category.objects.filter(is_deleted=False)
+
+
+def _companies_within_radius(lat, lng):
+    """Foydalanuvchi nuqtasidan (`lat`, `lng`) firma o'zi sozlagan xizmat
+    radiusi ichida bo'lgan (yoki lokatsiya/radius umuman sozlanmagan —
+    ya'ni hammaga ochiq) kompaniyalar ID'lari."""
+    ids = []
+    for c in Company.objects.filter(is_active=True).only(
+        "id", "latitude", "longitude", "service_radius_km"
+    ):
+        if c.latitude is None or c.longitude is None or c.service_radius_km is None:
+            ids.append(c.id)
+        elif haversine_km(lat, lng, float(c.latitude), float(c.longitude)) <= c.service_radius_km:
+            ids.append(c.id)
+    return ids
 
 
 def can_manage(user, company):
@@ -90,12 +107,25 @@ class ProductViewSet(viewsets.ModelViewSet):
                 | Q(variants__model3d__shape_tag__icontains=search)
             ).values_list("pk", flat=True)
             qs = qs.filter(pk__in=matching_ids)
-        # Foydalanuvchi joylashgan viloyatga tegishli (yoki viloyati
-        # ko'rsatilmagan, ya'ni hammaga umumiy) firmalarning mahsulotlarigina
-        # ko'rsatiladi.
-        viloyat = self.request.query_params.get("viloyat")
-        if viloyat:
-            qs = qs.filter(Q(company__viloyat=viloyat) | Q(company__viloyat=""))
+        # Foydalanuvchi lokatsiyasi (`lat`/`lng`) berilgan bo'lsa — firma
+        # o'zi sozlagan xizmat radiusi (Company.service_radius_km) bo'yicha
+        # filtrlanadi, ma'muriy viloyat chegarasidan qat'iy nazar (masalan
+        # viloyat chegarasiga yaqin firma qo'shni viloyat mijozlariga ham
+        # xizmat qilishi mumkin). Lokatsiya/radius sozlanmagan firmalar
+        # avvalgidek hammaga ko'rinadi. Eski klientlar uchun `viloyat`
+        # parametri hali ham qo'llab-quvvatlanadi (lat/lng bo'lmasa).
+        lat = self.request.query_params.get("lat")
+        lng = self.request.query_params.get("lng")
+        if lat and lng:
+            try:
+                allowed_ids = _companies_within_radius(float(lat), float(lng))
+                qs = qs.filter(company_id__in=allowed_ids)
+            except (TypeError, ValueError):
+                pass
+        else:
+            viloyat = self.request.query_params.get("viloyat")
+            if viloyat:
+                qs = qs.filter(Q(company__viloyat=viloyat) | Q(company__viloyat=""))
         ordering = self.request.query_params.get("ordering")
         if ordering == "top":
             qs = qs.annotate(like_count=Count("liked_by")).order_by("-like_count", "-created_at")

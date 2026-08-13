@@ -100,13 +100,29 @@ export default function Catalog() {
     }
   };
 
+  const loadProducts = (lat, lng) => {
+    const query = lat != null && lng != null ? `?lat=${lat}&lng=${lng}` : "";
+    api(`/products/${query}`)
+      .then((d) => setProducts(d.results || []))
+      .catch((e) => setError(e.message));
+  };
+
   useEffect(() => {
     api("/categories/")
       .then((d) => setCategories(d.results || []))
       .catch(() => {});
-    api("/products/")
-      .then((d) => setProducts(d.results || []))
-      .catch((e) => setError(e.message));
+    // Foydalanuvchi joylashuvi ruxsat berilsa — firma xizmat radiusiga mos
+    // mahsulotlar ko'rsatiladi (qarang backend apps/products/views.py). Rad
+    // etilsa yoki mavjud bo'lmasa, oddiy (filtrsiz) ro'yxat ko'rsatiladi.
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => loadProducts(pos.coords.latitude, pos.coords.longitude),
+        () => loadProducts(),
+        { timeout: 5000 },
+      );
+    } else {
+      loadProducts();
+    }
   }, []);
 
   const isSearching = Boolean(imageResults || searchResults !== null);

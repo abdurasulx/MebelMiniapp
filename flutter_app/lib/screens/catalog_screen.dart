@@ -49,9 +49,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
       _error = null;
     });
     try {
-      _appliedViloyat = context.read<LocationStore>().viloyat;
+      final location = context.read<LocationStore>();
+      _appliedViloyat = location.viloyat;
       final params = <String, String>{
-        if (_appliedViloyat != null) 'viloyat': _appliedViloyat!,
+        if (location.lat != null && location.lng != null) ...{
+          'lat': location.lat!.toString(),
+          'lng': location.lng!.toString(),
+        } else if (_appliedViloyat != null) 'viloyat': _appliedViloyat!,
         if (_topOnly) 'ordering': 'top',
       };
       final query = params.isEmpty

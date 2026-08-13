@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../likes_store.dart';
+import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/product_card.dart';
@@ -50,8 +51,18 @@ class _HomeScreenState extends State<HomeScreen> {
       _error = null;
     });
     try {
+      final location = context.read<LocationStore>();
+      final params = <String, String>{
+        if (location.lat != null && location.lng != null) ...{
+          'lat': location.lat!.toString(),
+          'lng': location.lng!.toString(),
+        } else if (location.viloyat != null) 'viloyat': location.viloyat!,
+      };
+      final query = params.isEmpty
+          ? ''
+          : '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
       final productsPage = await ApiClient.instance.get(
-        '/products/',
+        '/products/$query',
         (j) => Paginated<Product>.fromJson(j, Product.fromJson),
         auth: true,
       );

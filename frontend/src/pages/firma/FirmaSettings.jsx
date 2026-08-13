@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Building2 } from "lucide-react";
+import { Building2, MapPin } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 
@@ -24,10 +24,14 @@ export default function FirmaSettings() {
   const { user } = useAuth();
   const [company, setCompany] = useState(null);
   const [loaded, setLoaded] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", address: "", viloyat: "", description: "", employment_contract_template: "" });
+  const [form, setForm] = useState({
+    name: "", phone: "", address: "", viloyat: "", description: "", employment_contract_template: "",
+    latitude: "", longitude: "", service_radius_km: "",
+  });
   const [logo, setLogo] = useState(null);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
+  const [locating, setLocating] = useState(false);
 
   const load = () =>
     api("/users/me/")
@@ -44,6 +48,9 @@ export default function FirmaSettings() {
             viloyat: c.viloyat || "",
             description: c.description || "",
             employment_contract_template: c.employment_contract_template || "",
+            latitude: c.latitude ?? "",
+            longitude: c.longitude ?? "",
+            service_radius_km: c.service_radius_km ?? "",
           });
         }
       })
@@ -57,12 +64,39 @@ export default function FirmaSettings() {
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const isOwner = user?.role === "company_owner";
 
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setError("Brauzeringiz joylashuvni aniqlashni qo'llab-quvvatlamaydi");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((f) => ({
+          ...f,
+          latitude: pos.coords.latitude.toFixed(6),
+          longitude: pos.coords.longitude.toFixed(6),
+        }));
+        setLocating(false);
+      },
+      (err) => {
+        setError("Joylashuvni aniqlab bo'lmadi: " + err.message);
+        setLocating(false);
+      },
+    );
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setError("");
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      Object.entries(form).forEach(([k, v]) => {
+        // Bo'sh raqamli maydonlarni yubormaymiz — aks holda backend "valid
+        // number kerak" deb rad etadi (lat/lng/radius ixtiyoriy).
+        if (["latitude", "longitude", "service_radius_km"].includes(k) && v === "") return;
+        fd.append(k, v);
+      });
       if (logo) fd.append("logo", logo);
       if (company) {
         await api(`/companies/${company.slug}/`, { method: "PATCH", body: fd, isForm: true });
@@ -142,6 +176,42 @@ export default function FirmaSettings() {
           <label className="label">Manzil</label>
           <input className="input" value={form.address} onChange={set("address")} disabled={!isOwner} />
         </div>
+
+        <div>
+          <label className="label inline-flex items-center gap-1.5">
+            <MapPin size={13} /> Xizmat ko'rsatish hududi
+          </label>
+          <p className="mb-1.5 text-xs" style={{ color: "var(--muted)" }}>
+            Firma joylashuvi va shu nuqtadan necha km radiusda mijozlarga xizmat qilishingiz —
+            mahsulotlaringiz shu radius ichidagi foydalanuvchilarga ko'rinadi (viloyat chegarasidan
+            qat'iy nazar). Bo'sh qoldirilsa, hamma joyda ko'rinadi.
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <input
+              className="input" type="number" step="0.000001" placeholder="Kenglik (lat)"
+              value={form.latitude} onChange={set("latitude")} disabled={!isOwner}
+            />
+            <input
+              className="input" type="number" step="0.000001" placeholder="Uzunlik (lng)"
+              value={form.longitude} onChange={set("longitude")} disabled={!isOwner}
+            />
+            <input
+              className="input" type="number" min="1" placeholder="Radius (km)"
+              value={form.service_radius_km} onChange={set("service_radius_km")} disabled={!isOwner}
+            />
+          </div>
+          {isOwner && (
+            <button
+              type="button"
+              className="btn-ghost mt-2 inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
+              onClick={detectLocation}
+              disabled={locating}
+            >
+              <MapPin size={13} /> {locating ? "Aniqlanmoqda…" : "Joriy joylashuvni aniqlash"}
+            </button>
+          )}
+        </div>
+
         <div>
           <label className="label">Tavsif</label>
           <textarea className="input" rows={3} value={form.description} onChange={set("description")} disabled={!isOwner} />
