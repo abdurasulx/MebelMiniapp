@@ -33,6 +33,16 @@ enum APIConfig {
         return URL(string: "http://100.69.182.71:8000/api/v1")!
         #endif
     }()
+
+    /// `baseURL.appendingPathComponent(path)` ishlatilmaydi — u `path`ni
+    /// fayl-yo'li segmenti deb hisoblab, `?`/`&` kabi so'rov-satr belgilarini
+    /// ham foizli kodlab yuboradi (masalan "?lat=1" -> "%3Flat=1"), natijada
+    /// `lat`/`lng` parametrli so'rovlar 404 bilan qaytardi. Oddiy string
+    /// birlashtirish + `URL(string:)` esa `?`ni to'g'ri so'rov ajratkichi
+    /// sifatida tushunadi.
+    static func url(for path: String) -> URL {
+        URL(string: baseURL.absoluteString + path)!
+    }
 }
 
 actor APIClient {
@@ -110,7 +120,7 @@ actor APIClient {
         body.append(imageData)
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
 
-        var request = URLRequest(url: APIConfig.baseURL.appendingPathComponent(path))
+        var request = URLRequest(url: APIConfig.url(for: path))
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         if auth, let accessToken {
@@ -168,7 +178,7 @@ actor APIClient {
     }
 
     private func rawRequest(path: String, method: String, body: Data?, auth: Bool, isRetry: Bool = false) async throws -> Data {
-        var request = URLRequest(url: APIConfig.baseURL.appendingPathComponent(path))
+        var request = URLRequest(url: APIConfig.url(for: path))
         request.httpMethod = method
         if let body {
             request.httpBody = body
