@@ -1,4 +1,4 @@
-from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F
+from django.db.models import Avg, Case, Count, DurationField, ExpressionWrapper, F, IntegerField, Value, When
 from django.utils import timezone
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
@@ -96,7 +96,25 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
             return qs
         company = user_company(user)
         if company:
-            return qs.filter(company=company)
+            qs = qs.filter(company=company)
+            if is_company_owner(user, company):
+                # Firma egasi — butun kompaniyaning barcha vazifalarini ko'radi
+                # (rejalashtirish/pipeline uchun), tartib o'zgarmaydi.
+                return qs
+            # Oddiy xodim ("usta" va h.k.) — faqat o'ziga biriktirilgan
+            # vazifalarni ko'radi, boshqa xodimlarnikini emas. Ustaning
+            # sahifasida "hozir nima qilishim kerak" ustuvor bo'lishi uchun:
+            # jarayonda/kutilayotganlar (bajarilishi mumkin) birinchi, ular
+            # ichida muddati yaqinroqlari birinchi, muddatsizlar oxirida.
+            qs = qs.filter(employee__user=user)
+            return qs.annotate(
+                _urgency=Case(
+                    When(status=StepStatus.IN_PROGRESS, then=Value(0)),
+                    When(status=StepStatus.PENDING, then=Value(1)),
+                    default=Value(2),
+                    output_field=IntegerField(),
+                )
+            ).order_by("_urgency", F("deadline").asc(nulls_last=True), "order_index", "created_at")
         # Kompaniya a'zosi bo'lmasa — faqat o'ziga tegishli buyurtmalarning
         # bosqichlarini (masalan mijoz o'z buyurtmasi jarayonini kuzatishi uchun).
         return qs.filter(order__customer=user)

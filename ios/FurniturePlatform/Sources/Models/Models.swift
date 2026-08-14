@@ -231,6 +231,21 @@ struct WorkflowStepInstance: Codable, Identifiable {
     let statusDisplay: String
     let isAvailable: Bool
     let photoRequirement: String
+    // "Usta sahifasi" (`/workflow-instances/`dan to'g'ridan-to'g'ri kelganda) —
+    // Order ichidagi nested holatda bular kerak emas, shuning uchun ixtiyoriy.
+    let order: String?
+    let orderDisplay: String?
+    let orderStatus: String?
+    let deadline: String?
+    let isManual: Bool?
+
+    var isOverdue: Bool {
+        guard let deadline, status != "completed" else { return false }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: deadline) else { return false }
+        return date < Calendar.current.startOfDay(for: Date())
+    }
 }
 
 /// Buyurtma statusi bo'yicha kompaniya tomonidan ruxsat etilgan keyingi

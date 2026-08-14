@@ -142,7 +142,10 @@ class ManualTaskTests(APITestCase):
         resp = self.client.patch(
             f"/api/v1/workflow-instances/{task.id}/", {"status": "completed"}, format="json"
         )
-        self.assertEqual(resp.status_code, 403)
+        # Xodim endi faqat o'ziga biriktirilgan vazifalarni ko'radi (qarang
+        # get_queryset "usta sahifasi" skoping) — boshqa xodimning vazifasi
+        # uning queryset'ida umuman yo'q, shuning uchun 403 emas 404.
+        self.assertEqual(resp.status_code, 404)
 
     def test_recipe_step_cannot_be_edited_directly(self):
         template = WorkflowStep.objects.create(product=Product.objects.create(
@@ -165,6 +168,81 @@ class ManualTaskTests(APITestCase):
         resp = self.client.delete(f"/api/v1/workflow-instances/{task.id}/")
         self.assertEqual(resp.status_code, 204)
         self.assertTrue(WorkflowStepInstance.objects.get(pk=task.pk).is_deleted)
+
+
+class UstaSahifasiScopingTests(APITestCase):
+    """"Usta sahifasi": oddiy xodim faqat o'ziga biriktirilgan vazifalarni
+    ko'rishi, firma egasi esa hamon barchasini ko'rishi kerak."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner2@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+        )
+        self.company = Company.objects.create(owner=self.owner, name="Shop2", slug="shop2")
+        self.usta_user = User.objects.create_user(
+            email="usta2@shop.uz", password="pass12345", role=User.Role.EMPLOYEE
+        )
+        self.usta = Employee.objects.create(company=self.company, user=self.usta_user, positions=["usta"])
+        self.other_user = User.objects.create_user(
+            email="other2@shop.uz", password="pass12345", role=User.Role.EMPLOYEE
+        )
+        self.other = Employee.objects.create(company=self.company, user=self.other_user, positions=["usta"])
+        self.client = APIClient()
+
+    def test_employee_sees_only_own_tasks(self):
+        mine = WorkflowStepInstance.objects.create(
+            company=self.company, name="Mening vazifam", employee=self.usta, status=StepStatus.PENDING
+        )
+        WorkflowStepInstance.objects.create(
+            company=self.company, name="Boshqaning vazifasi", employee=self.other, status=StepStatus.PENDING
+        )
+        WorkflowStepInstance.objects.create(
+            company=self.company, name="Hech kimga biriktirilmagan", status=StepStatus.PENDING
+        )
+        self.client.force_authenticate(self.usta_user)
+        resp = self.client.get("/api/v1/workflow-instances/")
+        self.assertEqual(resp.status_code, 200)
+        ids = {row["id"] for row in resp.data["results"]}
+        self.assertEqual(ids, {str(mine.id)})
+
+    def test_owner_still_sees_all_tasks(self):
+        WorkflowStepInstance.objects.create(company=self.company, name="A", employee=self.usta)
+        WorkflowStepInstance.objects.create(company=self.company, name="B", employee=self.other)
+        self.client.force_authenticate(self.owner)
+        resp = self.client.get("/api/v1/workflow-instances/")
+        self.assertEqual(len(resp.data["results"]), 2)
+
+    def test_employee_cannot_progress_other_employees_task(self):
+        theirs = WorkflowStepInstance.objects.create(
+            company=self.company, name="Boshqaning vazifasi", employee=self.other, status=StepStatus.PENDING
+        )
+        self.client.force_authenticate(self.usta_user)
+        resp = self.client.post(f"/api/v1/workflow-instances/{theirs.id}/progress/", {}, format="json")
+        self.assertEqual(resp.status_code, 404)
+
+    def test_own_tasks_ordered_actionable_first_then_deadline(self):
+        from datetime import date, timedelta
+
+        today = date.today()
+        done = WorkflowStepInstance.objects.create(
+            company=self.company, name="Tugagan", employee=self.usta, status=StepStatus.COMPLETED,
+        )
+        far_deadline = WorkflowStepInstance.objects.create(
+            company=self.company, name="Uzoq muddat", employee=self.usta, status=StepStatus.PENDING,
+            deadline=today + timedelta(days=10),
+        )
+        no_deadline = WorkflowStepInstance.objects.create(
+            company=self.company, name="Muddatsiz", employee=self.usta, status=StepStatus.PENDING,
+        )
+        soon_deadline = WorkflowStepInstance.objects.create(
+            company=self.company, name="Yaqin muddat", employee=self.usta, status=StepStatus.IN_PROGRESS,
+            deadline=today + timedelta(days=1),
+        )
+        self.client.force_authenticate(self.usta_user)
+        resp = self.client.get("/api/v1/workflow-instances/")
+        names = [row["name"] for row in resp.data["results"]]
+        # in_progress (muddati yaqin) -> pending (muddati yaqin) -> pending (muddatsiz) -> completed
+        self.assertEqual(names, ["Yaqin muddat", "Uzoq muddat", "Muddatsiz", "Tugagan"])
 
 
 class PayslipRecomputeTests(TestCase):

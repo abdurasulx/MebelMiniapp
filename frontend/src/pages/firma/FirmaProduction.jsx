@@ -198,6 +198,17 @@ function WorkflowPipeline() {
                     {step.role_display}
                     {step.employee_name && ` · ${step.employee_name}`}
                     {` · ${step.estimated_hours} soat`}
+                    {step.deadline && (
+                      <span
+                        style={
+                          step.status !== "completed" && new Date(step.deadline) < new Date()
+                            ? { color: "#e74c3c", fontWeight: 600 }
+                            : undefined
+                        }
+                      >
+                        {` · muddat: ${step.deadline}`}
+                      </span>
+                    )}
                   </div>
                 </div>
                 {step.status === "in_progress" && (

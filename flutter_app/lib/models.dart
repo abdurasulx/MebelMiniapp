@@ -358,6 +358,13 @@ class WorkflowStepInstance {
   final String statusDisplay;
   final bool isAvailable;
   final String photoRequirement;
+  // "Usta sahifasi" (`/workflow-instances/`dan to'g'ridan-to'g'ri kelganda) —
+  // Order ichidagi nested holatda bular kerak emas, shuning uchun ixtiyoriy.
+  final String? order;
+  final String? orderDisplay;
+  final String? orderStatus;
+  final String? deadline;
+  final bool isManual;
 
   WorkflowStepInstance({
     required this.id,
@@ -367,7 +374,18 @@ class WorkflowStepInstance {
     required this.statusDisplay,
     required this.isAvailable,
     required this.photoRequirement,
+    this.order,
+    this.orderDisplay,
+    this.orderStatus,
+    this.deadline,
+    this.isManual = false,
   });
+
+  bool get isOverdue {
+    if (deadline == null || status == 'completed') return false;
+    final d = DateTime.tryParse(deadline!);
+    return d != null && d.isBefore(DateTime.now());
+  }
 
   factory WorkflowStepInstance.fromJson(Map<String, dynamic> j) =>
       WorkflowStepInstance(
@@ -378,6 +396,11 @@ class WorkflowStepInstance {
         statusDisplay: j['status_display'],
         isAvailable: j['is_available'] ?? false,
         photoRequirement: j['photo_requirement'] ?? 'optional',
+        order: j['order'],
+        orderDisplay: j['order_display'],
+        orderStatus: j['order_status'],
+        deadline: j['deadline'],
+        isManual: j['is_manual'] ?? false,
       );
 }
 

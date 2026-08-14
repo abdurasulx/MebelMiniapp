@@ -1,45 +1,80 @@
+import PhotosUI
 import SwiftUI
 
-/// Usta: o'z firmasi buyurtmalari — statusni o'zgartiradi va o'ziga tegishli
-/// ishlab chiqarish bosqichlarini bajaradi (progress/complete). Android
-/// (`WorkerOrdersScreen`) bilan bir xil qamrov — hozircha rasm yuklash yo'q,
-/// faqat matnli izoh.
+/// Xodim (ustadan tortib sotuvchi/haydovchigacha) — o'z firmasi
+/// buyurtmalarini boshqaradi (status: qabul qilish/yetkazish) VA faqat
+/// o'ziga biriktirilgan ishlab chiqarish bosqichlarini bajaradi
+/// (progress/complete). Ikkinchisi `order.workflowSteps`dan EMAS (u
+/// kompaniyaning barcha bosqichini qamrab oladi) — balki alohida
+/// `/workflow-instances/`dan olinadi, chunki backend shu yerda xodimni
+/// o'ziniki bo'lmagan bosqichlarni ko'rishdan avtomatik cheklaydi
+/// (qarang apps/workflow/views.py get_queryset).
 struct WorkerOrdersView: View {
     @State private var orders: [Order] = []
+    @State private var myTasks: [WorkflowStepInstance] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var isOffline = false
+
+    private var manualTasks: [WorkflowStepInstance] { myTasks.filter { $0.order == nil } }
+
+    private func mySteps(for order: Order) -> [WorkflowStepInstance] {
+        myTasks.filter { $0.order == order.id }
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading {
-                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red).padding()
-                } else if orders.isEmpty {
-                    Text("Buyurtmalar yo'q").foregroundStyle(.secondary)
-                } else {
-                    List(orders) { order in
-                        OrderCardView(order: order, onChanged: { Task { await load() } })
-                            .listRowSeparator(.hidden)
+            if isOffline && orders.isEmpty && myTasks.isEmpty && !isLoading {
+                OfflineView(onRetry: { Task { await load() } })
+                    .navigationTitle("Buyurtmalar")
+            } else {
+                Group {
+                    if isLoading {
+                        ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else if let errorMessage {
+                        Text(errorMessage).foregroundStyle(.red).padding()
+                    } else if orders.isEmpty && manualTasks.isEmpty {
+                        Text("Hozircha vazifa yo'q").foregroundStyle(.secondary)
+                    } else {
+                        List {
+                            if !manualTasks.isEmpty {
+                                Section("Qo'shimcha vazifalar") {
+                                    ForEach(manualTasks) { step in
+                                        StepRowView(step: step, onChanged: { Task { await load() } })
+                                    }
+                                }
+                            }
+                            ForEach(orders) { order in
+                                OrderCardView(order: order, mySteps: mySteps(for: order), onChanged: { Task { await load() } })
+                                    .listRowSeparator(.hidden)
+                            }
+                        }
+                        .listStyle(.plain)
                     }
-                    .listStyle(.plain)
                 }
+                .navigationTitle("Buyurtmalar")
+                .task { await load() }
+                .refreshable { await load() }
             }
-            .navigationTitle("Buyurtmalar")
-            .task { await load() }
-            .refreshable { await load() }
         }
     }
 
     private func load() async {
         isLoading = true
         errorMessage = nil
+        isOffline = false
         do {
-            let page: Paginated<Order> = try await APIClient.shared.get("/orders/", auth: true)
-            orders = page.results
+            async let ordersResult: Paginated<Order> = APIClient.shared.get("/orders/", auth: true)
+            async let tasksResult: Paginated<WorkflowStepInstance> = APIClient.shared.get("/workflow-instances/", auth: true)
+            let (o, t) = try await (ordersResult, tasksResult)
+            orders = o.results
+            myTasks = t.results
         } catch {
-            errorMessage = error.localizedDescription
+            if OfflineView.isOffline(error) {
+                isOffline = true
+            } else {
+                errorMessage = error.localizedDescription
+            }
         }
         isLoading = false
     }
@@ -47,6 +82,7 @@ struct WorkerOrdersView: View {
 
 private struct OrderCardView: View {
     let order: Order
+    let mySteps: [WorkflowStepInstance]
     let onChanged: () -> Void
 
     @State private var expanded = false
@@ -82,11 +118,11 @@ private struct OrderCardView: View {
                         }
                         .disabled(busy)
                     }
-                    if !order.workflowSteps.isEmpty {
+                    if !mySteps.isEmpty {
                         Button {
                             expanded.toggle()
                         } label: {
-                            Label("Ishlab chiqarish (\(order.progressPercent ?? 0)%)", systemImage: "hammer.fill")
+                            Label("Mening bosqichlarim (\(mySteps.count))", systemImage: "hammer.fill")
                                 .font(.caption)
                                 .padding(.horizontal, 12).padding(.vertical, 6)
                                 .background(Color.brandPrimary.opacity(0.3))
@@ -97,7 +133,7 @@ private struct OrderCardView: View {
             }
 
             if expanded {
-                ForEach(order.workflowSteps) { step in
+                ForEach(mySteps) { step in
                     StepRowView(step: step, onChanged: onChanged)
                 }
             }
@@ -137,7 +173,7 @@ private struct StepRowView: View {
             Image(systemName: icon).foregroundStyle(color)
             VStack(alignment: .leading) {
                 Text(step.name).font(.subheadline)
-                Text("\(step.roleDisplay ?? "") · \(step.statusDisplay)").font(.caption2).foregroundStyle(.secondary)
+                Text(subtitle).font(.caption2).foregroundStyle(step.isOverdue ? .red : .secondary)
             }
             Spacer()
             if canAct {
@@ -149,6 +185,12 @@ private struct StepRowView: View {
         .sheet(isPresented: $showSheet) {
             StepUpdateSheet(step: step, isCompletion: completing, onDone: onChanged)
         }
+    }
+
+    private var subtitle: String {
+        var parts = [step.roleDisplay ?? "", step.statusDisplay]
+        if let deadline = step.deadline { parts.append("muddat: \(deadline)") }
+        return parts.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     private var icon: String {
@@ -178,12 +220,32 @@ private struct StepUpdateSheet: View {
     @State private var busy = false
     @State private var errorMessage: String?
 
+    @State private var photoData: Data?
+    @State private var showSourceDialog = false
+    @State private var showCamera = false
+    @State private var showGalleryPicker = false
+    @State private var photoPickerItem: PhotosPickerItem?
+
+    private var photoRequired: Bool { isCompletion && step.photoRequirement == "required" }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section(isCompletion ? "Bosqichni yakunlash" : "Yangilanish qo'shish") {
                     TextField("Izoh (ixtiyoriy)", text: $comment, axis: .vertical)
                         .lineLimit(3, reservesSpace: true)
+                }
+                Section {
+                    if let photoData, let uiImage = UIImage(data: photoData) {
+                        Image(uiImage: uiImage).resizable().scaledToFit().frame(height: 160)
+                    }
+                    Button {
+                        showSourceDialog = true
+                    } label: {
+                        Label(photoData == nil ? "Rasm olish" : "Rasm olindi ✓", systemImage: "camera")
+                    }
+                } header: {
+                    if photoRequired { Text("Bu bosqichni yakunlash uchun rasm majburiy") }
                 }
                 if let errorMessage {
                     Section { Text(errorMessage).foregroundStyle(.red) }
@@ -199,18 +261,45 @@ private struct StepUpdateSheet: View {
                     Button(busy ? "..." : "Yuborish") { Task { await submit() } }.disabled(busy)
                 }
             }
+            .confirmationDialog("Rasm qo'shish", isPresented: $showSourceDialog, titleVisibility: .visible) {
+                Button("Kamera") { showCamera = true }
+                Button("Galereya") { showGalleryPicker = true }
+                Button("Bekor qilish", role: .cancel) {}
+            }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraImagePicker { image in
+                    photoData = image.jpegData(compressionQuality: 0.85)
+                }
+                .ignoresSafeArea()
+            }
+            .photosPicker(isPresented: $showGalleryPicker, selection: $photoPickerItem, matching: .images)
+            .onChange(of: photoPickerItem) { _, newItem in
+                guard let newItem else { return }
+                Task {
+                    photoData = try? await newItem.loadTransferable(type: Data.self)
+                    photoPickerItem = nil
+                }
+            }
         }
     }
 
     private func submit() async {
+        if photoRequired && photoData == nil {
+            errorMessage = "Bu bosqich uchun rasm majburiy"
+            return
+        }
         busy = true
         errorMessage = nil
-        struct Body: Encodable { let comment: String }
+        let path = "/workflow-instances/\(step.id)/\(isCompletion ? "complete" : "progress")/"
         do {
-            let _: WorkflowStepInstance = try await APIClient.shared.post(
-                "/workflow-instances/\(step.id)/\(isCompletion ? "complete" : "progress")/",
-                body: Body(comment: comment)
-            )
+            if let photoData {
+                let _: WorkflowStepInstance = try await APIClient.shared.postMultipartImage(
+                    path, imageData: photoData, fields: ["comment": comment], auth: true
+                )
+            } else {
+                struct Body: Encodable { let comment: String }
+                let _: WorkflowStepInstance = try await APIClient.shared.post(path, body: Body(comment: comment))
+            }
             onDone()
             dismiss()
         } catch {
