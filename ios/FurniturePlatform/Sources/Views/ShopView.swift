@@ -24,6 +24,7 @@ struct ShopView: View {
     @State private var onlyWithAR = false
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var isOffline = false
     @State private var showFilters = false
     @State private var showViloyatPicker = false
 
@@ -58,6 +59,10 @@ struct ShopView: View {
     }
 
     var body: some View {
+        if isOffline && products.isEmpty && !isLoading {
+            OfflineView(onRetry: { Task { await load() } })
+                .navigationTitle("Katalog")
+        } else {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 searchBar
@@ -163,6 +168,7 @@ struct ShopView: View {
             ForEach(viloyatlar) { v in
                 Button(v.label) { location.setViloyat(v.code) }
             }
+        }
         }
     }
 
@@ -304,6 +310,7 @@ struct ShopView: View {
     private func load() async {
         isLoading = true
         errorMessage = nil
+        isOffline = false
         var params: [String] = []
         if let lat = location.lat, let lng = location.lng {
             params.append("lat=\(lat)")
@@ -323,7 +330,11 @@ struct ShopView: View {
             categories = c.results
             likes.sync(from: p.results)
         } catch {
-            errorMessage = error.localizedDescription
+            if OfflineView.isOffline(error) {
+                isOffline = true
+            } else {
+                errorMessage = error.localizedDescription
+            }
         }
         isLoading = false
     }

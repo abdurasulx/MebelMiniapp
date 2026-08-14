@@ -6,6 +6,7 @@ import '../likes_store.dart';
 import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/offline_view.dart';
 import '../widgets/product_card.dart';
 
 /// Bosh sahifa — kolleksiyalar + ommabop mahsulotlar + qidiruv (nom yoki
@@ -21,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Product> _products = [];
   List<_Category> _categories = [];
   bool _loading = true;
-  String? _error;
+  Object? _error;
 
   final _searchCtrl = TextEditingController();
   String _query = '';
@@ -76,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       if (mounted) context.read<LikesStore>().sync(productsPage.results);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = e);
     } finally {
       setState(() => _loading = false);
     }
@@ -160,6 +161,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_loading && OfflineView.isNetworkError(_error) && _products.isEmpty) {
+      return Scaffold(body: SafeArea(child: OfflineView(onRetry: _load)));
+    }
+
     final searching = _query.isNotEmpty || _imageResults != null || _imageSearching;
 
     return Scaffold(
@@ -170,11 +175,11 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.only(bottom: 24, top: 8),
             children: [
               _searchBar(),
-              if (_error != null)
+              if (_error != null && !OfflineView.isNetworkError(_error))
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    _error!,
+                    _error.toString(),
                     style: const TextStyle(color: Colors.red),
                   ),
                 ),

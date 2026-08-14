@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'models.dart';
 
@@ -7,6 +9,35 @@ class ApiException implements Exception {
   ApiException(this.message);
   @override
   String toString() => message;
+}
+
+/// Server umuman javob bermadi (internet yo'q, server o'chiq, DNS
+/// topilmadi va h.k.) — bu holatda ekranga xom `SocketException`/
+/// `TimeoutException` matnini emas, alohida "oflayn" holatini
+/// ko'rsatish kerak (qarang `widgets/offline_view.dart`).
+class NetworkException implements Exception {
+  final String message;
+  NetworkException([this.message = 'Internetga ulanib bo\'lmadi']);
+  @override
+  String toString() => message;
+}
+
+/// Transport darajasidagi xatoni (server umuman topilmadi/javob bermadi)
+/// [NetworkException]ga, aks holda o'zgarishsiz qayta uloqtiradi — HTTP
+/// status kodli javoblar (400/401/500 va h.k.) bunga tegmaydi, chunki ular
+/// server ishlab turganini bildiradi.
+Future<T> _guardNetwork<T>(Future<T> Function() action) async {
+  try {
+    return await action();
+  } on SocketException {
+    throw NetworkException();
+  } on TimeoutException {
+    throw NetworkException();
+  } on http.ClientException {
+    throw NetworkException();
+  } on HandshakeException {
+    throw NetworkException();
+  }
 }
 
 /// Backend Mac'da ishlab turadi (Asus noutbukda alohida backend ishga
@@ -88,7 +119,9 @@ class ApiClient {
         await http.MultipartFile.fromPath(imageFieldName, imagePath),
       );
     }
-    final streamed = await request.send();
+    final streamed = await _guardNetwork(
+      () => request.send().timeout(const Duration(seconds: 20)),
+    );
     final resp = await http.Response.fromStream(streamed);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException(_extractError(resp.body, resp.statusCode));
@@ -112,22 +145,21 @@ class ApiClient {
 
     late http.Response resp;
     final encoded = body != null ? jsonEncode(body) : null;
-    switch (method) {
-      case 'GET':
-        resp = await http.get(uri, headers: headers);
-        break;
-      case 'POST':
-        resp = await http.post(uri, headers: headers, body: encoded);
-        break;
-      case 'PATCH':
-        resp = await http.patch(uri, headers: headers, body: encoded);
-        break;
-      case 'DELETE':
-        resp = await http.delete(uri, headers: headers);
-        break;
-      default:
-        throw ApiException('Noma\'lum HTTP metod: $method');
-    }
+    resp = await _guardNetwork(() {
+      const timeout = Duration(seconds: 12);
+      switch (method) {
+        case 'GET':
+          return http.get(uri, headers: headers).timeout(timeout);
+        case 'POST':
+          return http.post(uri, headers: headers, body: encoded).timeout(timeout);
+        case 'PATCH':
+          return http.patch(uri, headers: headers, body: encoded).timeout(timeout);
+        case 'DELETE':
+          return http.delete(uri, headers: headers).timeout(timeout);
+        default:
+          throw ApiException('Noma\'lum HTTP metod: $method');
+      }
+    });
 
     if (resp.statusCode == 401 &&
         auth &&

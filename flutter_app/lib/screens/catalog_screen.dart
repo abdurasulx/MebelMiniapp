@@ -8,6 +8,7 @@ import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../viloyat.dart';
+import '../widgets/offline_view.dart';
 import '../widgets/product_card.dart';
 
 /// Katalog — qidiruv va to'liq mahsulot to'ri (iOS'dagi "Darix" uslubidagi
@@ -21,7 +22,7 @@ class CatalogScreen extends StatefulWidget {
 class _CatalogScreenState extends State<CatalogScreen> {
   List<Product> _products = [];
   bool _loading = true;
-  String? _error;
+  Object? _error;
   String _search = '';
   bool _topOnly = false;
   String? _appliedViloyat;
@@ -69,7 +70,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
       setState(() => _products = page.results);
       if (mounted) context.read<LikesStore>().sync(page.results);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = e);
     } finally {
       setState(() => _loading = false);
     }
@@ -274,11 +275,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   ),
                 ),
               )
+            else if (OfflineView.isNetworkError(_error))
+              SliverFillRemaining(child: OfflineView(onRetry: _load))
             else if (_error != null)
               SliverFillRemaining(
                 child: Center(
                   child: Text(
-                    _error!,
+                    _error.toString(),
                     style: const TextStyle(color: Colors.red),
                   ),
                 ),

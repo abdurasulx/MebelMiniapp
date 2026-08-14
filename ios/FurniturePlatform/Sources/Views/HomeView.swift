@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var categories: [Category] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
+    @State private var isOffline = false
 
     @State private var query = ""
     @State private var imageResults: [Product]?
@@ -29,37 +30,42 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    searchBar
+            if isOffline && products.isEmpty && !isLoading {
+                OfflineView(onRetry: { Task { await load() } })
+                    .navigationBarHidden(true)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        searchBar
 
-                    if let errorMessage {
-                        Text(errorMessage).foregroundStyle(.red).padding(.horizontal)
-                    }
-
-                    if isLoading {
-                        ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
-                    } else if isSearching {
-                        searchResultsSection
-                    } else {
-                        if !categories.isEmpty {
-                            sectionHeader("Kolleksiyalar", subtitle: "Har xona uchun")
-                            collectionsRow
+                        if let errorMessage {
+                            Text(errorMessage).foregroundStyle(.red).padding(.horizontal)
                         }
 
-                        if !products.isEmpty {
-                            sectionHeader("Ommabop mahsulotlar", subtitle: "Eng ko'p tanlangan")
-                            featuredRow
+                        if isLoading {
+                            ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+                        } else if isSearching {
+                            searchResultsSection
+                        } else {
+                            if !categories.isEmpty {
+                                sectionHeader("Kolleksiyalar", subtitle: "Har xona uchun")
+                                collectionsRow
+                            }
+
+                            if !products.isEmpty {
+                                sectionHeader("Ommabop mahsulotlar", subtitle: "Eng ko'p tanlangan")
+                                featuredRow
+                            }
                         }
                     }
+                    .padding(.top, 8)
+                    .padding(.bottom, 32)
                 }
-                .padding(.top, 8)
-                .padding(.bottom, 32)
+                .navigationTitle("")
+                .navigationBarHidden(true)
+                .task { await load() }
+                .refreshable { await load() }
             }
-            .navigationTitle("")
-            .navigationBarHidden(true)
-            .task { await load() }
-            .refreshable { await load() }
         }
     }
 
@@ -233,6 +239,7 @@ struct HomeView: View {
     private func load() async {
         isLoading = true
         errorMessage = nil
+        isOffline = false
         var params: [String] = []
         if let lat = location.lat, let lng = location.lng {
             params.append("lat=\(lat)")
@@ -249,7 +256,11 @@ struct HomeView: View {
             categories = c.results
             likes.sync(from: p.results)
         } catch {
-            errorMessage = error.localizedDescription
+            if OfflineView.isOffline(error) {
+                isOffline = true
+            } else {
+                errorMessage = error.localizedDescription
+            }
         }
         isLoading = false
     }

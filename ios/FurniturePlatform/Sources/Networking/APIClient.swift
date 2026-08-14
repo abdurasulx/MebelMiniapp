@@ -4,12 +4,17 @@ enum APIError: LocalizedError {
     case server(String)
     case decoding
     case unauthorized
+    // Server umuman javob bermadi (internet yo'q, backend o'chiq, DNS
+    // topilmadi, so'rov vaqti tugadi) — HTTP status kodli javoblardan farqli,
+    // bu holatda "oflayn" ekrani ko'rsatiladi (qarang Views/OfflineView.swift).
+    case offline
 
     var errorDescription: String? {
         switch self {
         case .server(let msg): return msg
         case .decoding: return "Ma'lumotni o'qib bo'lmadi"
         case .unauthorized: return "Avval tizimga kiring"
+        case .offline: return "Internetga ulanib bo'lmadi"
         }
     }
 }
@@ -113,7 +118,7 @@ actor APIClient {
         }
         request.httpBody = body
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await performRequest(request)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.server("Server bilan bog'lanib bo'lmadi")
         }
@@ -125,6 +130,17 @@ actor APIClient {
             return try decoder.decode(T.self, from: data)
         } catch {
             throw APIError.decoding
+        }
+    }
+
+    /// Transport darajasidagi xatoni (server umuman topilmadi/javob bermadi)
+    /// `.offline`ga aylantiradi — HTTP status kodli javoblar (400/401/500 va
+    /// h.k.) bunga tegmaydi, chunki ular server ishlab turganini bildiradi.
+    private func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await URLSession.shared.data(for: request)
+        } catch is URLError {
+            throw APIError.offline
         }
     }
 
@@ -150,7 +166,7 @@ actor APIClient {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await performRequest(request)
         guard let http = response as? HTTPURLResponse else {
             throw APIError.server("Server bilan bog'lanib bo'lmadi")
         }
