@@ -152,6 +152,8 @@ class Company {
   final String? telegramUrl;
   final String? facebookUrl;
   final String? websiteUrl;
+  final double? latitude;
+  final double? longitude;
 
   Company({
     required this.id,
@@ -165,7 +167,13 @@ class Company {
     this.telegramUrl,
     this.facebookUrl,
     this.websiteUrl,
+    this.latitude,
+    this.longitude,
   });
+
+  /// Google Maps'da shu nuqtani ochadigan havola — lat/lng bo'lmasa null.
+  String? get mapUrl =>
+      (latitude != null && longitude != null) ? 'https://www.google.com/maps?q=$latitude,$longitude' : null;
 
   /// Do'kon sahifasida bosiladigan ikonkalar ro'yxati — bo'sh havolalar
   /// chiqarib tashlanadi.
@@ -187,6 +195,8 @@ class Company {
     instagramUrl: j['instagram_url'],
     telegramUrl: j['telegram_url'],
     facebookUrl: j['facebook_url'],
+    latitude: double.tryParse(j['latitude']?.toString() ?? ''),
+    longitude: double.tryParse(j['longitude']?.toString() ?? ''),
     websiteUrl: j['website_url'],
   );
 }

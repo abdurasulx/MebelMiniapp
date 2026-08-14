@@ -107,9 +107,19 @@ export default function Shop() {
             <CompanyBadge tier={company.tier} />
           </div>
           {company.description && <p className="max-w-xl text-sm opacity-80">{company.description}</p>}
-          {company.address && (
+          {(company.address || (company.latitude && company.longitude)) && (
             <p className="mt-1 flex items-center gap-1 text-xs opacity-70">
               <MapPin size={12} /> {company.address}
+              {company.latitude && company.longitude && (
+                <a
+                  href={`https://www.google.com/maps?q=${company.latitude},${company.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1 underline"
+                >
+                  Xaritada ko'rish
+                </a>
+              )}
             </p>
           )}
           {SOCIAL_LINKS.some(({ key }) => company[key]) && (

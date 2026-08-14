@@ -119,6 +119,9 @@ struct Company: Codable, Identifiable {
     let telegramUrl: String?
     let facebookUrl: String?
     let websiteUrl: String?
+    // Backend DecimalField — string sifatida keladi (masalan "41.311081").
+    let latitude: String?
+    let longitude: String?
 
     /// Do'kon sahifasida bosiladigan ikonkalar — bo'sh havolalar chiqarib
     /// tashlanadi, tartib doim bir xil (Instagram, Telegram, Facebook, sayt).
@@ -130,6 +133,12 @@ struct Company: Codable, Identifiable {
             guard let raw, !raw.isEmpty, let url = URL(string: raw) else { return nil }
             return (label, url)
         }
+    }
+
+    /// Google Maps'da shu nuqtani ochadigan havola — lat/lng bo'lmasa nil.
+    var mapURL: URL? {
+        guard let latitude, let longitude else { return nil }
+        return URL(string: "https://www.google.com/maps?q=\(latitude),\(longitude)")
     }
 }
 

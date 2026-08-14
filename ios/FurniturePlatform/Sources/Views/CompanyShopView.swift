@@ -62,8 +62,18 @@ struct CompanyShopView: View {
             if let description = company.description, !description.isEmpty {
                 Text(description).font(.subheadline).foregroundStyle(.secondary)
             }
-            if let address = company.address, !address.isEmpty {
-                Label(address, systemImage: "mappin.and.ellipse").font(.caption).foregroundStyle(.secondary)
+            if (company.address?.isEmpty == false) || company.mapURL != nil {
+                HStack(spacing: 4) {
+                    if let address = company.address, !address.isEmpty {
+                        Label(address, systemImage: "mappin.and.ellipse").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Image(systemName: "mappin.and.ellipse").font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let mapURL = company.mapURL {
+                        Link("Xaritada ko'rish", destination: mapURL)
+                            .font(.caption).underline()
+                    }
+                }
             }
             if !company.socialLinks.isEmpty {
                 SocialLinksRow(links: company.socialLinks)

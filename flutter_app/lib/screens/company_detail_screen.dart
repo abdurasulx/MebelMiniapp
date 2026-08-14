@@ -373,16 +373,27 @@ class _Header extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
-          if (company.address?.isNotEmpty == true) ...[
+          if (company.address?.isNotEmpty == true || company.mapUrl != null) ...[
             const SizedBox(height: 6),
             Row(
               children: [
                 const Icon(Icons.location_on, size: 14, color: Colors.black54),
                 const SizedBox(width: 4),
-                Text(
-                  company.address!,
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
-                ),
+                if (company.address?.isNotEmpty == true)
+                  Text(
+                    company.address!,
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                if (company.mapUrl != null) ...[
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => launchUrl(Uri.parse(company.mapUrl!), mode: LaunchMode.externalApplication),
+                    child: const Text(
+                      'Xaritada ko\'rish',
+                      style: TextStyle(fontSize: 12, color: Colors.blue, decoration: TextDecoration.underline),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
