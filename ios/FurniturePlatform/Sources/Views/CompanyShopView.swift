@@ -65,6 +65,9 @@ struct CompanyShopView: View {
             if let address = company.address, !address.isEmpty {
                 Label(address, systemImage: "mappin.and.ellipse").font(.caption).foregroundStyle(.secondary)
             }
+            if !company.socialLinks.isEmpty {
+                SocialLinksRow(links: company.socialLinks)
+            }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -63,6 +63,12 @@ class Company(BaseModel, StoredFileMixin):
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     service_radius_km = models.PositiveIntegerField(null=True, blank=True)
     logo = models.ImageField(upload_to="companies/logos/", blank=True, null=True)
+    # Ijtimoiy tarmoq/veb-sahifa havolalari — firma profilida (Do'kon sahifasi)
+    # bosiladigan ikonka sifatida ko'rsatiladi. Barchasi ixtiyoriy.
+    instagram_url = models.URLField(max_length=300, blank=True)
+    telegram_url = models.URLField(max_length=300, blank=True)
+    facebook_url = models.URLField(max_length=300, blank=True)
+    website_url = models.URLField(max_length=300, blank=True)
     is_active = models.BooleanField(default=True)
     # Har firma o'zining ishga olish shartnomasi matnini moslashtirib qo'yadi —
     # xodim taklifnomani (EmployeeInvitation) qabul qilishdan oldin shu matnni

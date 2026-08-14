@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Factory, Sofa, MapPin, Star } from "lucide-react";
+import { Factory, Sofa, MapPin, Star, AtSign, Send, Link as LinkIcon, Globe } from "lucide-react";
+
+const SOCIAL_LINKS = [
+  { key: "instagram_url", icon: AtSign, label: "Instagram" },
+  { key: "telegram_url", icon: Send, label: "Telegram" },
+  { key: "facebook_url", icon: LinkIcon, label: "Facebook" },
+  { key: "website_url", icon: Globe, label: "Veb-sayt" },
+];
 import { api } from "../api";
 import { useAuth } from "../auth";
 import CompanyBadge from "../components/CompanyBadge";
@@ -104,6 +111,23 @@ export default function Shop() {
             <p className="mt-1 flex items-center gap-1 text-xs opacity-70">
               <MapPin size={12} /> {company.address}
             </p>
+          )}
+          {SOCIAL_LINKS.some(({ key }) => company[key]) && (
+            <div className="mt-2 flex items-center gap-2">
+              {SOCIAL_LINKS.filter(({ key }) => company[key]).map(({ key, icon: Icon, label }) => (
+                <a
+                  key={key}
+                  href={company[key]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={label}
+                  className="flex h-8 w-8 items-center justify-center rounded-full transition hover:opacity-80"
+                  style={{ background: "color-mix(in srgb, var(--brand-surface-text) 15%, transparent)" }}
+                >
+                  <Icon size={15} />
+                </a>
+              ))}
+            </div>
           )}
         </div>
       </div>

@@ -148,6 +148,10 @@ class Company {
   final String? address;
   final String? logoUrl;
   final CompanyTier? tier;
+  final String? instagramUrl;
+  final String? telegramUrl;
+  final String? facebookUrl;
+  final String? websiteUrl;
 
   Company({
     required this.id,
@@ -157,7 +161,20 @@ class Company {
     this.address,
     this.logoUrl,
     this.tier,
+    this.instagramUrl,
+    this.telegramUrl,
+    this.facebookUrl,
+    this.websiteUrl,
   });
+
+  /// Do'kon sahifasida bosiladigan ikonkalar ro'yxati — bo'sh havolalar
+  /// chiqarib tashlanadi.
+  Map<String, String> get socialLinks => {
+    if (instagramUrl != null && instagramUrl!.isNotEmpty) 'Instagram': instagramUrl!,
+    if (telegramUrl != null && telegramUrl!.isNotEmpty) 'Telegram': telegramUrl!,
+    if (facebookUrl != null && facebookUrl!.isNotEmpty) 'Facebook': facebookUrl!,
+    if (websiteUrl != null && websiteUrl!.isNotEmpty) 'Veb-sayt': websiteUrl!,
+  };
 
   factory Company.fromJson(Map<String, dynamic> j) => Company(
     id: j['id'],
@@ -167,6 +184,10 @@ class Company {
     address: j['address'],
     logoUrl: j['logo_url'],
     tier: j['tier'] != null ? CompanyTier.fromJson(j['tier']) : null,
+    instagramUrl: j['instagram_url'],
+    telegramUrl: j['telegram_url'],
+    facebookUrl: j['facebook_url'],
+    websiteUrl: j['website_url'],
   );
 }
 

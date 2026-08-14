@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Building2, MapPin } from "lucide-react";
+import { Building2, MapPin, AtSign, Send, Link as LinkIcon, Globe } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 
@@ -27,6 +27,7 @@ export default function FirmaSettings() {
   const [form, setForm] = useState({
     name: "", phone: "", address: "", viloyat: "", description: "", employment_contract_template: "",
     latitude: "", longitude: "", service_radius_km: "",
+    instagram_url: "", telegram_url: "", facebook_url: "", website_url: "",
   });
   const [logo, setLogo] = useState(null);
   const [error, setError] = useState("");
@@ -51,6 +52,10 @@ export default function FirmaSettings() {
             latitude: c.latitude ?? "",
             longitude: c.longitude ?? "",
             service_radius_km: c.service_radius_km ?? "",
+            instagram_url: c.instagram_url || "",
+            telegram_url: c.telegram_url || "",
+            facebook_url: c.facebook_url || "",
+            website_url: c.website_url || "",
           });
         }
       })
@@ -215,6 +220,44 @@ export default function FirmaSettings() {
         <div>
           <label className="label">Tavsif</label>
           <textarea className="input" rows={3} value={form.description} onChange={set("description")} disabled={!isOwner} />
+        </div>
+
+        <div>
+          <label className="label">Ijtimoiy sahifalar</label>
+          <p className="mb-1.5 text-xs" style={{ color: "var(--muted)" }}>
+            To'ldirilgan havolalar Do'kon sahifangizda bosiladigan ikonka sifatida ko'rinadi —
+            mijozlar mobil ilovadan ham to'g'ridan-to'g'ri o'tib ko'ra oladi.
+          </p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="relative">
+              <AtSign size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+              <input
+                className="input pl-9" type="url" placeholder="https://instagram.com/…"
+                value={form.instagram_url} onChange={set("instagram_url")} disabled={!isOwner}
+              />
+            </div>
+            <div className="relative">
+              <Send size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+              <input
+                className="input pl-9" type="url" placeholder="https://t.me/…"
+                value={form.telegram_url} onChange={set("telegram_url")} disabled={!isOwner}
+              />
+            </div>
+            <div className="relative">
+              <LinkIcon size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+              <input
+                className="input pl-9" type="url" placeholder="https://facebook.com/…"
+                value={form.facebook_url} onChange={set("facebook_url")} disabled={!isOwner}
+              />
+            </div>
+            <div className="relative">
+              <Globe size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
+              <input
+                className="input pl-9" type="url" placeholder="https://sizning-sayt.uz"
+                value={form.website_url} onChange={set("website_url")} disabled={!isOwner}
+              />
+            </div>
+          </div>
         </div>
         {company && (
           <div>

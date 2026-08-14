@@ -115,6 +115,22 @@ struct Company: Codable, Identifiable {
     let viloyatDisplay: String?
     let logoUrl: String?
     let tier: CompanyTier?
+    let instagramUrl: String?
+    let telegramUrl: String?
+    let facebookUrl: String?
+    let websiteUrl: String?
+
+    /// Do'kon sahifasida bosiladigan ikonkalar — bo'sh havolalar chiqarib
+    /// tashlanadi, tartib doim bir xil (Instagram, Telegram, Facebook, sayt).
+    var socialLinks: [(label: String, url: URL)] {
+        [
+            ("Instagram", instagramUrl), ("Telegram", telegramUrl),
+            ("Facebook", facebookUrl), ("Veb-sayt", websiteUrl),
+        ].compactMap { label, raw in
+            guard let raw, !raw.isEmpty, let url = URL(string: raw) else { return nil }
+            return (label, url)
+        }
+    }
 }
 
 struct Review: Codable, Identifiable {

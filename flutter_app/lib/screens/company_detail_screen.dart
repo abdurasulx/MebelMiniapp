@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api_client.dart';
 import '../auth_store.dart';
 import '../models.dart';
@@ -385,6 +386,10 @@ class _Header extends StatelessWidget {
               ],
             ),
           ],
+          if (company.socialLinks.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _SocialLinksRow(links: company.socialLinks),
+          ],
         ],
       ),
     );
@@ -393,5 +398,51 @@ class _Header extends StatelessWidget {
   Color _hexToColor(String hex) {
     final cleaned = hex.replaceFirst('#', '');
     return Color(int.parse('FF$cleaned', radix: 16));
+  }
+}
+
+const _socialIcons = {
+  'Instagram': Icons.alternate_email,
+  'Telegram': Icons.send_rounded,
+  'Facebook': Icons.link_rounded,
+  'Veb-sayt': Icons.public_rounded,
+};
+
+/// Firma profilidagi ijtimoiy tarmoq/veb-sayt havolalari — bosilganda
+/// tashqi brauzer/ilovada ochiladi (qarang Company.socialLinks).
+class _SocialLinksRow extends StatelessWidget {
+  final Map<String, String> links;
+  const _SocialLinksRow({required this.links});
+
+  Future<void> _open(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: links.entries
+          .map(
+            (e) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () => _open(e.value),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(_socialIcons[e.key] ?? Icons.link_rounded, size: 15, color: Colors.black87),
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
   }
 }
