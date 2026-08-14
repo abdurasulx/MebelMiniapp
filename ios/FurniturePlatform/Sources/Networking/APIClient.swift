@@ -133,13 +133,25 @@ actor APIClient {
         }
     }
 
+    // Faqat haqiqiy ulanish yo'qligini bildiradigan kodlar — `.cancelled`
+    // BUNGA KIRMAYDI: u so'rov eskirib (masalan ekran qayta render bo'lganda
+    // yangi so'rov eskisini almashtirganda) URLSession tomonidan bekor
+    // qilinganda tashlanadi, server bilan aloqa yo'qligini anglatmaydi.
+    // Buni ham `.offline`ga aylantirsak, oddiy ekran o'tishida ham (hatto
+    // server 404/200 qaytarayotgan bo'lsa ham) noto'g'ri "oflayn" ko'rsatilar edi.
+    private static let connectivityErrorCodes: Set<URLError.Code> = [
+        .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
+        .cannotFindHost, .dnsLookupFailed, .timedOut, .internationalRoamingOff,
+        .dataNotAllowed, .secureConnectionFailed,
+    ]
+
     /// Transport darajasidagi xatoni (server umuman topilmadi/javob bermadi)
     /// `.offline`ga aylantiradi — HTTP status kodli javoblar (400/401/500 va
     /// h.k.) bunga tegmaydi, chunki ular server ishlab turganini bildiradi.
     private func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             return try await URLSession.shared.data(for: request)
-        } catch is URLError {
+        } catch let error as URLError where Self.connectivityErrorCodes.contains(error.code) {
             throw APIError.offline
         }
     }
