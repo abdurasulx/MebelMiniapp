@@ -15,6 +15,12 @@ if (import.meta.env.DEV) {
 
 export const PORTAL = portal;
 
+// Har bir portal o'zining brend nomiga ega — sarlavha (title) va
+// sidebar/header'da shu nom ko'rsatiladi.
+export const BRAND_NAME = { market: "VIDA Market", admin: "VIDA Admin", firma: "VIDA ERP" }[PORTAL];
+
+if (typeof document !== "undefined") document.title = BRAND_NAME;
+
 /**
  * Boshqa portal (subdomen)ning to'liq URL'ini hisoblaydi. Faqat `*.lvh.me`
  * (yoki umuman ko'p-darajali domen) da ishlaydi — 127.0.0.1/localhost kabi
