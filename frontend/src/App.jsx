@@ -3,7 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth";
 import PortalLayout from "./layouts/PortalLayout";
 import { BRAND_NAME, PORTAL } from "./portal";
-import { getActivePosition } from "./positions";
+import { getActivePosition, setActivePosition } from "./positions";
 import RolePicker from "./pages/firma/RolePicker";
 import { useTheme } from "./theme";
 import AdminCategories from "./pages/admin/AdminCategories";
@@ -100,14 +100,21 @@ function Protected({ children, roles }) {
   return children;
 }
 
-/** Firma portali: multi-role xodim avval rolini tanlaydi. */
+/** Firma portali: faqat multi-role xodim rolini tanlaydi — bitta kasbi
+ * bo'lsa, RolePicker'ni ko'rsatmasdan to'g'ridan-to'g'ri o'sha rol bilan
+ * kiritiladi (tanlov keraksiz, bitta variant bo'lgani uchun). */
 function FirmaShell() {
   const { user } = useAuth();
   const [active, setActive] = useState(getActivePosition());
 
   if (user.role === "employee" && user.positions?.length > 0) {
-    const valid = active && user.positions.includes(active);
-    if (!valid) return <RolePicker onPicked={setActive} />;
+    if (user.positions.length === 1 && active !== user.positions[0]) {
+      setActivePosition(user.positions[0]);
+      setActive(user.positions[0]);
+    } else {
+      const valid = active && user.positions.includes(active);
+      if (!valid) return <RolePicker onPicked={setActive} />;
+    }
   }
   return (
     <PortalLayout

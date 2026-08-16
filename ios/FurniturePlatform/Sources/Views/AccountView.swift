@@ -32,6 +32,7 @@ private struct ProfileView: View {
     @State private var isLoading = false
     @State private var busyInvitationId: String?
     @State private var showLanguagePicker = false
+    @State private var showRolePicker = false
 
     var body: some View {
         List {
@@ -77,18 +78,40 @@ private struct ProfileView: View {
                 }
             }
 
-            // Faqat biror firmada ishlagan/ishlayotgan foydalanuvchida ko'rinadi —
-            // xaridor sifatida ilovadan foydalanish yoki ishchi rejimiga o'tish.
-            // Ikkinchi tugma matni — hisobda hozir "usta" lavozimi bo'lsa aniq
-            // "Usta bilan kirish" deb chiqadi, boshqa lavozim(lar)da esa umumiy
-            // "Xodim" (ishchi rejimi hamon barcha lavozimlar uchun ishlaydi).
-            if user.company != nil || !career.isEmpty {
+            // Faqat hozir kasbi bor xodimda ko'rinadi. Ikkinchi tugma matni —
+            // bitta kasbi bo'lsa aniq "{Kasb} bilan kirish" (masalan "Usta
+            // bilan kirish"), bosilganda to'g'ridan-to'g'ri o'sha rolga
+            // o'tadi. Bir nechta kasbi bo'lsa "Xodim sifatida kirish" —
+            // bosilganda qaysi rolda ishlashini so'raydi (RolePickerSheet).
+            if let positions = user.positions, !positions.isEmpty {
                 Section("Ko'rinish rejimi") {
-                    Picker("Rejim", selection: $auth.appMode) {
+                    Picker("Rejim", selection: Binding<AppMode>(
+                        get: { auth.appMode },
+                        set: { newValue in
+                            if newValue == .customer {
+                                auth.appMode = .customer
+                            } else if positions.count == 1 {
+                                auth.enterWorkerMode(positions[0])
+                            } else {
+                                showRolePicker = true
+                            }
+                        }
+                    )) {
                         Text("Xaridor").tag(AppMode.customer)
-                        Text((user.positions ?? []).contains("usta") ? "Usta bilan kirish" : "Xodim").tag(AppMode.worker)
+                        Text(positions.count == 1 ? "\(positionInfo(positions[0]).label) bilan kirish" : "Xodim sifatida kirish")
+                            .tag(AppMode.worker)
                     }
                     .pickerStyle(.segmented)
+                    if auth.appMode == .worker, let active = auth.activePosition {
+                        Text("Hozir: \(positionInfo(active).label)")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .sheet(isPresented: $showRolePicker) {
+                    RolePickerSheet(positions: positions) { chosen in
+                        auth.enterWorkerMode(chosen)
+                        showRolePicker = false
+                    }
                 }
             }
 

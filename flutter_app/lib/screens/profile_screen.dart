@@ -6,6 +6,7 @@ import '../auth_store.dart';
 import '../l10n/app_locale.dart';
 import '../locale_store.dart';
 import '../models.dart';
+import '../positions.dart';
 import 'auth_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -201,11 +202,11 @@ class _ProfileBodyState extends State<_ProfileBody> {
           const SizedBox(height: 20),
 
           // Faqat biror firmada ishlagan/ishlayotgan foydalanuvchida ko'rinadi.
-          // Ikkinchi segment matni — hisobda hozir "usta" lavozimi bo'lsa aniq
-          // "Usta bilan kirish" deb chiqadi, boshqa lavozim(lar)da esa umumiy
-          // "Xodim" (ishchi rejimi hamon barcha lavozimlar uchun ishlaydi —
-          // masalan sotuvchi/haydovchi ham shu orqali buyurtmalarni boshqaradi).
-          if (user.company != null || _career.isNotEmpty) ...[
+          // Ikkinchi tugma matni — bitta kasbi bo'lsa aniq "{Kasb} bilan
+          // kirish" (masalan "Usta bilan kirish"), bosilganda to'g'ridan-
+          // to'g'ri o'sha rolga o'tadi. Bir nechta kasbi bo'lsa "Xodim
+          // sifatida kirish" — bosilganda qaysi rolda ishlashini so'raydi.
+          if (user.positions.isNotEmpty) ...[
             const Text(
               'Ko\'rinish rejimi',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -216,12 +217,37 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 const ButtonSegment(value: AppMode.customer, label: Text('Xaridor')),
                 ButtonSegment(
                   value: AppMode.worker,
-                  label: Text(user.positions.contains('usta') ? 'Usta bilan kirish' : 'Xodim'),
+                  label: Text(
+                    user.positions.length == 1
+                        ? '${positionInfo(user.positions.first).label} bilan kirish'
+                        : 'Xodim sifatida kirish',
+                  ),
                 ),
               ],
               selected: {auth.appMode},
-              onSelectionChanged: (s) => auth.setAppMode(s.first),
+              onSelectionChanged: (s) async {
+                if (s.first == AppMode.customer) {
+                  auth.setAppMode(AppMode.customer);
+                } else if (user.positions.length == 1) {
+                  auth.enterWorkerMode(user.positions.first);
+                } else {
+                  final chosen = await showModalBottomSheet<String>(
+                    context: context,
+                    showDragHandle: true,
+                    builder: (ctx) => _RolePickerSheet(positions: user.positions),
+                  );
+                  if (chosen != null) auth.enterWorkerMode(chosen);
+                }
+              },
             ),
+            if (auth.appMode == AppMode.worker && auth.activePosition != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'Hozir: ${positionInfo(auth.activePosition!).label}',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
+                ),
+              ),
             const SizedBox(height: 20),
           ],
 
@@ -367,6 +393,44 @@ class _ProfileBodyState extends State<_ProfileBody> {
               ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Bir nechta kasbi bor xodim uchun — bugun qaysi rolda ishlashini tanlaydi
+/// (web'dagi RolePicker bilan bir xil vazifa).
+class _RolePickerSheet extends StatelessWidget {
+  final List<String> positions;
+  const _RolePickerSheet({required this.positions});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bugun qaysi rolda ishlaysiz?',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const SizedBox(height: 12),
+            for (final p in positions)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFFECC299),
+                  child: Icon(positionInfo(p).icon, color: const Color(0xFF4C2C24), size: 20),
+                ),
+                title: Text(positionInfo(p).label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(positionInfo(p).desc),
+                onTap: () => Navigator.pop(context, p),
+              ),
+          ],
+        ),
       ),
     );
   }

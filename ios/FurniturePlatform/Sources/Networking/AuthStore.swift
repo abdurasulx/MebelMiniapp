@@ -22,10 +22,23 @@ final class AuthStore: ObservableObject {
     @Published var appMode: AppMode = .customer {
         didSet { defaults.set(appMode.rawValue, forKey: appModeKey) }
     }
+    // Multi-role xodim qaysi kasb bilan ishlayotgani (web'dagi "active_position"
+    // bilan bir xil naqsh) — bitta kasbi bo'lsa avtomatik shu qiymat, bir
+    // nechtasi bo'lsa Profil ekranidagi RolePicker orqali tanlanadi.
+    @Published var activePosition: String? {
+        didSet {
+            if let activePosition {
+                defaults.set(activePosition, forKey: activePositionKey)
+            } else {
+                defaults.removeObject(forKey: activePositionKey)
+            }
+        }
+    }
 
     private let defaults = UserDefaults.standard
     private let tokensKey = "fp.tokens"
     private let appModeKey = "fp.appMode"
+    private let activePositionKey = "fp.activePosition"
     private var cancellable: AnyCancellable?
 
     init() {
@@ -36,6 +49,7 @@ final class AuthStore: ObservableObject {
         if let saved = defaults.string(forKey: appModeKey), let mode = AppMode(rawValue: saved) {
             appMode = mode
         }
+        activePosition = defaults.string(forKey: activePositionKey)
         if let data = defaults.data(forKey: tokensKey),
            let tokens = try? JSONDecoder().decode(TokenPair.self, from: data) {
             Task {
@@ -148,6 +162,14 @@ final class AuthStore: ObservableObject {
         user = nil
         isAuthenticated = false
         appMode = .customer
+        activePosition = nil
+    }
+
+    /// Xodim rejimiga o'tish — bitta kasbi bo'lsa shu avtomatik, bir
+    /// nechtasi bo'lsa RolePicker orqali tanlangan `position` beriladi.
+    func enterWorkerMode(_ position: String) {
+        activePosition = position
+        appMode = .worker
     }
 
     func refreshUser() async {

@@ -22,14 +22,20 @@ class AuthStore extends ChangeNotifier {
   bool isNewUser = false;
   String? errorMessage;
   AppMode appMode = AppMode.customer;
+  // Multi-role xodim qaysi kasb bilan ishlayotgani (web'dagi "active_position"
+  // bilan bir xil naqsh) — bitta kasbi bo'lsa avtomatik shu qiymat, bir
+  // nechtasi bo'lsa Profil ekranidagi RolePicker orqali tanlanadi.
+  String? activePosition;
 
   static const _tokensKey = 'fp.tokens';
   static const _appModeKey = 'fp.appMode';
+  static const _activePositionKey = 'fp.activePosition';
 
   Future<void> bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
     final savedMode = prefs.getString(_appModeKey);
     if (savedMode == 'worker') appMode = AppMode.worker;
+    activePosition = prefs.getString(_activePositionKey);
 
     final raw = prefs.getString(_tokensKey);
     if (raw != null) {
@@ -46,6 +52,18 @@ class AuthStore extends ChangeNotifier {
     SharedPreferences.getInstance().then(
       (p) => p.setString(_appModeKey, mode.name),
     );
+    notifyListeners();
+  }
+
+  /// Xodim rejimiga o'tish — bitta kasbi bo'lsa shu avtomatik, bir nechtasi
+  /// bo'lsa RolePicker orqali tanlangan `position` beriladi.
+  void enterWorkerMode(String position) {
+    appMode = AppMode.worker;
+    activePosition = position;
+    SharedPreferences.getInstance().then((p) {
+      p.setString(_appModeKey, AppMode.worker.name);
+      p.setString(_activePositionKey, position);
+    });
     notifyListeners();
   }
 
@@ -131,10 +149,12 @@ class AuthStore extends ChangeNotifier {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokensKey);
+    await prefs.remove(_activePositionKey);
     ApiClient.instance.setTokens(null);
     user = null;
     isAuthenticated = false;
     appMode = AppMode.customer;
+    activePosition = null;
     notifyListeners();
   }
 
