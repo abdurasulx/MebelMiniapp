@@ -201,6 +201,10 @@ class _ProfileBodyState extends State<_ProfileBody> {
           const SizedBox(height: 20),
 
           // Faqat biror firmada ishlagan/ishlayotgan foydalanuvchida ko'rinadi.
+          // Ikkinchi segment matni — hisobda hozir "usta" lavozimi bo'lsa aniq
+          // "Usta bilan kirish" deb chiqadi, boshqa lavozim(lar)da esa umumiy
+          // "Xodim" (ishchi rejimi hamon barcha lavozimlar uchun ishlaydi —
+          // masalan sotuvchi/haydovchi ham shu orqali buyurtmalarni boshqaradi).
           if (user.company != null || _career.isNotEmpty) ...[
             const Text(
               'Ko\'rinish rejimi',
@@ -208,9 +212,12 @@ class _ProfileBodyState extends State<_ProfileBody> {
             ),
             const SizedBox(height: 8),
             SegmentedButton<AppMode>(
-              segments: const [
-                ButtonSegment(value: AppMode.customer, label: Text('Xaridor')),
-                ButtonSegment(value: AppMode.worker, label: Text('Usta')),
+              segments: [
+                const ButtonSegment(value: AppMode.customer, label: Text('Xaridor')),
+                ButtonSegment(
+                  value: AppMode.worker,
+                  label: Text(user.positions.contains('usta') ? 'Usta bilan kirish' : 'Xodim'),
+                ),
               ],
               selected: {auth.appMode},
               onSelectionChanged: (s) => auth.setAppMode(s.first),

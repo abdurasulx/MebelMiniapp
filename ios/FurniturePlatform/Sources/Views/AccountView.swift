@@ -78,12 +78,15 @@ private struct ProfileView: View {
             }
 
             // Faqat biror firmada ishlagan/ishlayotgan foydalanuvchida ko'rinadi —
-            // xaridor sifatida ilovadan foydalanish yoki usta ish rejimiga o'tish.
+            // xaridor sifatida ilovadan foydalanish yoki ishchi rejimiga o'tish.
+            // Ikkinchi tugma matni — hisobda hozir "usta" lavozimi bo'lsa aniq
+            // "Usta bilan kirish" deb chiqadi, boshqa lavozim(lar)da esa umumiy
+            // "Xodim" (ishchi rejimi hamon barcha lavozimlar uchun ishlaydi).
             if user.company != nil || !career.isEmpty {
                 Section("Ko'rinish rejimi") {
                     Picker("Rejim", selection: $auth.appMode) {
                         Text("Xaridor").tag(AppMode.customer)
-                        Text("Usta").tag(AppMode.worker)
+                        Text((user.positions ?? []).contains("usta") ? "Usta bilan kirish" : "Xodim").tag(AppMode.worker)
                     }
                     .pickerStyle(.segmented)
                 }
