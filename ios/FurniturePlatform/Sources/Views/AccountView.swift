@@ -66,7 +66,10 @@ private struct ProfileView: View {
                     HStack {
                         Label(locale.t("profile_language"), systemImage: "globe")
                         Spacer()
-                        Text(appLocales.first { $0.code == locale.code }?.nativeName ?? "")
+                        Text({
+                            let current = appLocales.first { $0.code == locale.code }
+                            return current.map { "\($0.flag) \($0.nativeName)" } ?? ""
+                        }())
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -74,7 +77,7 @@ private struct ProfileView: View {
             }
             .confirmationDialog(locale.t("profile_language"), isPresented: $showLanguagePicker) {
                 ForEach(appLocales, id: \.code) { l in
-                    Button(l.nativeName) { locale.setLocale(l.code) }
+                    Button("\(l.flag) \(l.nativeName)") { locale.setLocale(l.code) }
                 }
             }
 

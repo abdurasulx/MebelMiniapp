@@ -93,10 +93,13 @@ private struct ShopStyleCard: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Text(product.nameUz).font(.subheadline).bold().lineLimit(1)
-            Text(product.companyName).font(.caption).foregroundStyle(.secondary)
+            if let attributeSummary = product.attributeSummary {
+                Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
+            }
+            Text(product.companyName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             if let first = product.variants.first {
                 Text("\(first.basePrice.formattedSom) so'm/m³ dan")
-                    .font(.caption).bold()
+                    .font(.caption).bold().lineLimit(1)
                     .foregroundStyle(Color.brandSecondary)
             }
         }

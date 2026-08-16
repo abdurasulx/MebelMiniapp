@@ -36,6 +36,7 @@ Future<void> _pickLanguage(BuildContext context) async {
         children: supportedLocales
             .map(
               (l) => ListTile(
+                leading: Text(l.flag, style: const TextStyle(fontSize: 22)),
                 title: Text(l.nativeName),
                 trailing: loc.code == l.code
                     ? const Icon(Icons.check, color: Color(0xFF4C2C24))
@@ -190,11 +191,14 @@ class _ProfileBodyState extends State<_ProfileBody> {
             child: ListTile(
               leading: const Icon(Icons.language_rounded),
               title: Text(loc.t('profile_language')),
-              trailing: Text(
-                supportedLocales
-                    .firstWhere((l) => l.code == loc.code)
-                    .nativeName,
-                style: const TextStyle(color: Color(0xFF8A7357)),
+              trailing: Builder(
+                builder: (_) {
+                  final current = supportedLocales.firstWhere((l) => l.code == loc.code);
+                  return Text(
+                    '${current.flag} ${current.nativeName}',
+                    style: const TextStyle(color: Color(0xFF8A7357)),
+                  );
+                },
               ),
               onTap: () => _pickLanguage(context),
             ),

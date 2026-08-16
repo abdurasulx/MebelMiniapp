@@ -85,7 +85,7 @@ class _LikesScreenState extends State<LikesScreen> {
                   crossAxisCount: 2,
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 14,
-                  childAspectRatio: 0.68,
+                  childAspectRatio: 0.62,
                 ),
                 itemCount: _items.length,
                 itemBuilder: (context, i) {

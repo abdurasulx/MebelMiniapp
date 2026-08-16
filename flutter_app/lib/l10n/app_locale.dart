@@ -4,19 +4,20 @@
 class AppLocale {
   final String code;
   final String nativeName;
-  const AppLocale(this.code, this.nativeName);
+  final String flag;
+  const AppLocale(this.code, this.nativeName, this.flag);
 }
 
 const List<AppLocale> supportedLocales = [
-  AppLocale('uz', "O'zbekcha"),
-  AppLocale('en', 'English'),
-  AppLocale('ru', 'Русский'),
-  AppLocale('tg', 'Тоҷикӣ'),
-  AppLocale('tr', 'Türkçe'),
-  AppLocale('ky', 'Кыргызча'),
-  AppLocale('kk', 'Қазақша'),
-  AppLocale('de', 'Deutsch'),
-  AppLocale('az', 'Azərbaycan'),
+  AppLocale('uz', "O'zbekcha", '🇺🇿'),
+  AppLocale('en', 'English', '🇬🇧'),
+  AppLocale('ru', 'Русский', '🇷🇺'),
+  AppLocale('tg', 'Тоҷикӣ', '🇹🇯'),
+  AppLocale('tr', 'Türkçe', '🇹🇷'),
+  AppLocale('ky', 'Кыргызча', '🇰🇬'),
+  AppLocale('kk', 'Қазақша', '🇰🇿'),
+  AppLocale('de', 'Deutsch', '🇩🇪'),
+  AppLocale('az', 'Azərbaycan', '🇦🇿'),
 ];
 
 const String defaultLocaleCode = 'uz';

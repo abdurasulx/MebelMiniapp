@@ -319,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisCount: 2,
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
-                childAspectRatio: 0.68,
+                childAspectRatio: 0.62,
               ),
               itemCount: items.length,
               itemBuilder: (context, i) => ProductCard(product: items[i]),

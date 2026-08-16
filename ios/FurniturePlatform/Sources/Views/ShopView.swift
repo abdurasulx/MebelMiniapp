@@ -360,10 +360,10 @@ private struct ShopProductCard: View {
             if let attributeSummary = product.attributeSummary {
                 Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
             }
-            Text(product.companyName).font(.caption).foregroundStyle(.secondary)
+            Text(product.companyName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             if let first = product.variants.first {
                 Text("\(first.basePrice.formattedSom) so'm/m³ dan")
-                    .font(.caption).bold()
+                    .font(.caption).bold().lineLimit(1)
                     .foregroundStyle(Color.brandSecondary)
             }
         }

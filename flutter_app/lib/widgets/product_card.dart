@@ -149,6 +149,8 @@ class ProductCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       '${formatSom(price.toStringAsFixed(0))} so\'m/m³',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,

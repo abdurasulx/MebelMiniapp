@@ -4,16 +4,16 @@ import Foundation
 /// bir xil kalitlar/tarjimalar (ikkala platformada bir xil so'zlar ishlatiladi).
 /// Hozircha navigatsiya, kirish (auth) va savat kabi eng ko'p ko'rinadigan
 /// matnlar qamrab olingan.
-let appLocales: [(code: String, nativeName: String)] = [
-    ("uz", "O'zbekcha"),
-    ("en", "English"),
-    ("ru", "Русский"),
-    ("tg", "Тоҷикӣ"),
-    ("tr", "Türkçe"),
-    ("ky", "Кыргызча"),
-    ("kk", "Қазақша"),
-    ("de", "Deutsch"),
-    ("az", "Azərbaycan"),
+let appLocales: [(code: String, nativeName: String, flag: String)] = [
+    ("uz", "O'zbekcha", "🇺🇿"),
+    ("en", "English", "🇬🇧"),
+    ("ru", "Русский", "🇷🇺"),
+    ("tg", "Тоҷикӣ", "🇹🇯"),
+    ("tr", "Türkçe", "🇹🇷"),
+    ("ky", "Кыргызча", "🇰🇬"),
+    ("kk", "Қазақша", "🇰🇿"),
+    ("de", "Deutsch", "🇩🇪"),
+    ("az", "Azərbaycan", "🇦🇿"),
 ]
 
 let defaultLocaleCode = "uz"

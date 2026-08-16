@@ -303,7 +303,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     crossAxisCount: 2,
                     mainAxisSpacing: 14,
                     crossAxisSpacing: 14,
-                    childAspectRatio: 0.68,
+                    childAspectRatio: 0.62,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, i) => ProductCard(product: _filtered[i]),
