@@ -324,6 +324,17 @@ private struct AuthFormView: View {
             }
             .disabled(busy)
             .frame(maxWidth: .infinity)
+
+            Button(action: loginWithTelegram) {
+                if busy {
+                    ProgressView()
+                } else {
+                    Label("Telegram orqali kirish", systemImage: "paperplane.fill")
+                        .foregroundStyle(Color(red: 0.15, green: 0.65, blue: 0.89))
+                }
+            }
+            .disabled(busy)
+            .frame(maxWidth: .infinity)
         }
     }
 
@@ -439,6 +450,19 @@ private struct AuthFormView: View {
             if auth.isAuthenticated && auth.isNewUser {
                 // Google berilgan ism/familiya bo'lsa oldindan to'ldiramiz —
                 // foydalanuvchi qayta yozib o'tirmasin.
+                firstName = auth.user?.firstName ?? ""
+                lastName = auth.user?.lastName ?? ""
+                step = .profile
+            }
+        }
+    }
+
+    private func loginWithTelegram() {
+        busy = true
+        Task {
+            await auth.loginWithTelegram()
+            busy = false
+            if auth.isAuthenticated && auth.isNewUser {
                 firstName = auth.user?.firstName ?? ""
                 lastName = auth.user?.lastName ?? ""
                 step = .profile

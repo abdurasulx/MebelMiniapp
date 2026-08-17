@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'api_client.dart';
 import 'google_auth_config.dart';
 import 'models.dart';
@@ -40,6 +41,13 @@ class AuthStore extends ChangeNotifier {
   // `false` bo'lib qolib, Profil "kirilmagan" ko'rinishida, Sevimlilar esa
   // hech qachon yuklanmay qolar edi.
   bool _hasStoredTokens = false;
+
+  // Google/Telegram orqali yaratilgan yangi hisob backendda
+  // `registration_completed=False` bilan boshlanadi — profil to'ldirish
+  // qadami shu holatda `/complete-registration/`ga (rol bilan) yuborishi
+  // kerak, OTP orqali yaratilganda esa (registration_completed allaqachon
+  // `True`) oddiy `/users/me/` PATCH bilan — qarang completeProfile().
+  bool _needsRoleCompletion = false;
 
   Future<void> bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
@@ -126,6 +134,7 @@ class AuthStore extends ChangeNotifier {
       );
       final tokens = TokenPair.fromJson(resp);
       isNewUser = resp['is_new_user'] == true;
+      _needsRoleCompletion = false; // OTP: registration_completed allaqachon true
       ApiClient.instance.setTokens(tokens);
       _hasStoredTokens = true;
       await _persist(tokens);
@@ -170,6 +179,7 @@ class AuthStore extends ChangeNotifier {
       );
       final tokens = TokenPair.fromJson(resp);
       isNewUser = resp['is_new_user'] == true;
+      _needsRoleCompletion = isNewUser;
       _hasStoredTokens = true;
       ApiClient.instance.setTokens(tokens);
       await _persist(tokens);
@@ -182,7 +192,76 @@ class AuthStore extends ChangeNotifier {
     return ok;
   }
 
+  /// Telegram orqali kirish — sessiya yaratadi, botni deep-link bilan
+  /// (`https://t.me/<bot>?start=<session_id>`) ochadi, so'ng natijani so'rab
+  /// turadi (polling). Callback/redirect kerak emas: Telegram bot webhook'i
+  /// orqa fonda sessiyani to'ldiradi, biz shu holatni tekshirib turamiz.
+  Future<bool> loginWithTelegram() async {
+    errorMessage = null;
+    try {
+      final session = await ApiClient.instance.post(
+        '/auth/telegram/session/',
+        (j) => j as Map<String, dynamic>,
+        auth: false,
+      );
+      final sessionId = session['session_id'] as String;
+
+      final botInfo = await ApiClient.instance.get(
+        '/auth/telegram/bot-info/',
+        (j) => j as Map<String, dynamic>,
+        auth: false,
+      );
+      final username = botInfo['username'] as String?;
+      if (username == null) {
+        errorMessage = "Telegram bot hozircha sozlanmagan";
+        notifyListeners();
+        return false;
+      }
+
+      final opened = await launchUrl(
+        Uri.parse('https://t.me/$username?start=$sessionId'),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) {
+        errorMessage = "Telegram ochilmadi";
+        notifyListeners();
+        return false;
+      }
+
+      // ~5 daqiqa, 2 soniya oralig'ida — botda "/start" bosilishini kutamiz.
+      for (var i = 0; i < 150; i++) {
+        await Future.delayed(const Duration(seconds: 2));
+        final poll = await ApiClient.instance.get(
+          '/auth/telegram/session/$sessionId/',
+          (j) => j as Map<String, dynamic>,
+          auth: false,
+        );
+        if (poll['status'] != 'done') continue;
+
+        final tokens = TokenPair.fromJson(poll);
+        isNewUser = poll['is_new_user'] == true;
+        _needsRoleCompletion = isNewUser;
+        ApiClient.instance.setTokens(tokens);
+        _hasStoredTokens = true;
+        await _persist(tokens);
+        await _loadMe();
+        notifyListeners();
+        return true;
+      }
+      errorMessage = "Kutish vaqti tugadi. Qayta urinib ko'ring";
+      notifyListeners();
+      return false;
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Birinchi marta kirgan foydalanuvchi ismini to'ldirishda ishlatiladi.
+  /// Google/Telegram orqali yaratilgan hisob uchun `/complete-registration/`
+  /// (rol bilan — mobil ilovada doim "customer"), OTP orqali yaratilgan
+  /// hisob uchun oddiy `/users/me/` PATCH (qarang `_needsRoleCompletion`).
   Future<bool> completeProfile({
     required String firstName,
     required String lastName,
@@ -190,16 +269,38 @@ class AuthStore extends ChangeNotifier {
   }) async {
     errorMessage = null;
     try {
-      final me = await ApiClient.instance.patch(
-        '/users/me/',
-        (j) => AppUser.fromJson(j),
-        body: {
-          'first_name': firstName,
-          'last_name': lastName,
-          if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
-        },
-        auth: true,
-      );
+      AppUser me;
+      if (_needsRoleCompletion) {
+        final resp = await ApiClient.instance.post(
+          '/users/me/complete-registration/',
+          (j) => j as Map<String, dynamic>,
+          body: {'role': 'customer', 'first_name': firstName, 'last_name': lastName},
+          auth: true,
+        );
+        me = AppUser.fromJson(resp);
+        _needsRoleCompletion = false;
+        // `/complete-registration/` tug'ilgan kunni qabul qilmaydi (rol/profil
+        // uchun mo'ljallangan) — kerak bo'lsa alohida PATCH bilan qo'shamiz.
+        if (dateOfBirth != null) {
+          me = await ApiClient.instance.patch(
+            '/users/me/',
+            (j) => AppUser.fromJson(j),
+            body: {'date_of_birth': dateOfBirth},
+            auth: true,
+          );
+        }
+      } else {
+        me = await ApiClient.instance.patch(
+          '/users/me/',
+          (j) => AppUser.fromJson(j),
+          body: {
+            'first_name': firstName,
+            'last_name': lastName,
+            if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
+          },
+          auth: true,
+        );
+      }
       user = me;
       isNewUser = false;
       notifyListeners();

@@ -48,6 +48,11 @@ final class AuthStore: ObservableObject {
     // qayta urinish kerak — aks holda `user`/`isAuthenticated` doim `nil`/
     // `false` bo'lib qolib, Profil "kirilmagan" ko'rinishida qolar edi.
     private var hasStoredTokens = false
+    // Google/Telegram orqali yaratilgan yangi hisob backendda
+    // `registration_completed=false` bilan boshlanadi — profil to'ldirish
+    // qadami shu holatda `/complete-registration/`ga (rol bilan) yuborishi
+    // kerak, OTP orqali yaratilganda esa oddiy `/users/me/` PATCH bilan.
+    private var needsRoleCompletion = false
 
     init() {
         // UITest'lar har bir test mustaqil bo'lishi uchun oldingi sessiyani tozalab boshlaydi.
@@ -97,24 +102,6 @@ final class AuthStore: ObservableObject {
         }
     }
 
-    func register(email: String, password: String, firstName: String, phone: String) async {
-        struct Body: Encodable {
-            let email: String; let password: String
-            let firstName: String; let phone: String; let role: String
-        }
-        errorMessage = nil
-        do {
-            let _: User = try await APIClient.shared.post(
-                "/auth/register/",
-                body: Body(email: email, password: password, firstName: firstName, phone: phone, role: "customer"),
-                auth: false
-            )
-            await login(email: email, password: password)
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
     /// SMS-tasdiqlash: kod so'raladi. Hozircha SMS provayder ulanmagani uchun
     /// backend kodni javobda ham qaytaradi (`debug_code`) — ekranda shu ko'rsatiladi.
     /// `resend_after` — qayta yuborishgacha eng kam kutish vaqti (countdown shundan boshlanadi).
@@ -144,6 +131,7 @@ final class AuthStore: ObservableObject {
             )
             let tokens = TokenPair(access: resp.access, refresh: resp.refresh)
             isNewUser = resp.isNewUser
+            needsRoleCompletion = false // OTP: registration_completed allaqachon true
             hasStoredTokens = true
             await APIClient.shared.setTokens(tokens)
             persist(tokens)
@@ -177,6 +165,7 @@ final class AuthStore: ObservableObject {
             )
             let tokens = TokenPair(access: resp.access, refresh: resp.refresh)
             isNewUser = resp.isNewUser
+            needsRoleCompletion = isNewUser
             hasStoredTokens = true
             await APIClient.shared.setTokens(tokens)
             persist(tokens)
@@ -188,17 +177,94 @@ final class AuthStore: ObservableObject {
         }
     }
 
+    /// Telegram orqali kirish — sessiya yaratadi, botni deep-link bilan
+    /// (`https://t.me/<bot>?start=<session_id>`) ochadi, so'ng natijani
+    /// so'rab turadi (polling). Callback/redirect kerak emas: Telegram bot
+    /// webhook'i orqa fonda sessiyani to'ldiradi, biz shu holatni tekshirib turamiz.
+    func loginWithTelegram() async {
+        errorMessage = nil
+        struct SessionResp: Decodable { let sessionId: String }
+        struct BotInfoResp: Decodable { let username: String? }
+        struct PollResp: Decodable {
+            let status: String
+            let access: String?
+            let refresh: String?
+            let isNewUser: Bool?
+        }
+        do {
+            let session: SessionResp = try await APIClient.shared.post("/auth/telegram/session/", auth: false)
+            let botInfo: BotInfoResp = try await APIClient.shared.get("/auth/telegram/bot-info/", auth: false)
+            guard let username = botInfo.username else {
+                errorMessage = "Telegram bot hozircha sozlanmagan"
+                return
+            }
+            guard let url = URL(string: "https://t.me/\(username)?start=\(session.sessionId)") else {
+                errorMessage = "Telegram ochilmadi"
+                return
+            }
+            let opened = await UIApplication.shared.open(url)
+            if !opened {
+                errorMessage = "Telegram ochilmadi"
+                return
+            }
+
+            // ~5 daqiqa, 2 soniya oralig'ida — botda "/start" bosilishini kutamiz.
+            for _ in 0..<150 {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                let poll: PollResp = try await APIClient.shared.get(
+                    "/auth/telegram/session/\(session.sessionId)/", auth: false
+                )
+                guard poll.status == "done", let access = poll.access, let refresh = poll.refresh else {
+                    continue
+                }
+                let tokens = TokenPair(access: access, refresh: refresh)
+                isNewUser = poll.isNewUser ?? false
+                needsRoleCompletion = isNewUser
+                hasStoredTokens = true
+                await APIClient.shared.setTokens(tokens)
+                persist(tokens)
+                await loadMe()
+                return
+            }
+            errorMessage = "Kutish vaqti tugadi. Qayta urinib ko'ring"
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     /// Birinchi marta kirgan foydalanuvchi ismini to'ldirishda ishlatiladi.
+    /// Google/Telegram orqali yaratilgan hisob uchun `/complete-registration/`
+    /// (rol bilan — mobil ilovada doim "customer"), OTP orqali yaratilgan
+    /// hisob uchun oddiy `/users/me/` PATCH (qarang `needsRoleCompletion`).
     @discardableResult
     func completeProfile(firstName: String, lastName: String, dateOfBirth: String?) async -> Bool {
-        struct Body: Encodable {
-            let firstName: String; let lastName: String; let dateOfBirth: String?
-        }
         errorMessage = nil
         do {
-            let me: User = try await APIClient.shared.patch(
-                "/users/me/", body: Body(firstName: firstName, lastName: lastName, dateOfBirth: dateOfBirth), auth: true
-            )
+            var me: User
+            if needsRoleCompletion {
+                struct Body: Encodable { let role: String; let firstName: String; let lastName: String }
+                me = try await APIClient.shared.post(
+                    "/users/me/complete-registration/",
+                    body: Body(role: "customer", firstName: firstName, lastName: lastName),
+                    auth: true
+                )
+                needsRoleCompletion = false
+                // `/complete-registration/` tug'ilgan kunni qabul qilmaydi (rol/profil
+                // uchun mo'ljallangan) — kerak bo'lsa alohida PATCH bilan qo'shamiz.
+                if let dateOfBirth {
+                    struct DobBody: Encodable { let dateOfBirth: String }
+                    me = try await APIClient.shared.patch(
+                        "/users/me/", body: DobBody(dateOfBirth: dateOfBirth), auth: true
+                    )
+                }
+            } else {
+                struct Body: Encodable {
+                    let firstName: String; let lastName: String; let dateOfBirth: String?
+                }
+                me = try await APIClient.shared.patch(
+                    "/users/me/", body: Body(firstName: firstName, lastName: lastName, dateOfBirth: dateOfBirth), auth: true
+                )
+            }
             user = me
             isNewUser = false
             return true

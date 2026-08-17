@@ -266,6 +266,16 @@ class _AuthScreenState extends State<AuthScreen> {
           icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
           label: const Text('Google orqali kirish'),
         ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _loginWithTelegram,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF26A5E4),
+            side: const BorderSide(color: Color(0xFF26A5E4)),
+          ),
+          icon: const Icon(Icons.send_rounded, size: 20),
+          label: const Text('Telegram orqali kirish'),
+        ),
       ],
     );
   }
@@ -279,6 +289,22 @@ class _AuthScreenState extends State<AuthScreen> {
     if (auth.isNewUser) {
       // Google berilgan ism/familiya bo'lsa oldindan to'ldiramiz — foydalanuvchi
       // qayta yozib o'tirmasin.
+      _firstNameController.text = auth.user?.firstName ?? '';
+      _lastNameController.text = auth.user?.lastName ?? '';
+      setState(() => _step = _Step.profile);
+    } else {
+      Navigator.of(context).maybePop();
+    }
+  }
+
+  Future<void> _loginWithTelegram() async {
+    setState(() => _busy = true);
+    final auth = context.read<AuthStore>();
+    final ok = await auth.loginWithTelegram();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!ok) return;
+    if (auth.isNewUser) {
       _firstNameController.text = auth.user?.firstName ?? '';
       _lastNameController.text = auth.user?.lastName ?? '';
       setState(() => _step = _Step.profile);
