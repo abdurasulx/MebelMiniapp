@@ -29,17 +29,11 @@ targets:
         NSLocationWhenInUseUsageDescription: "Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak."
         CFBundleDisplayName: "Furniture Platform"
         ITSAppUsesNonExemptEncryption: false
-        # Google Cloud Console > Credentials > OAuth Client ID (iOS turi)dan
-        # olinadi. TODO: Google Console ma'lumotlari kelgach shu ikkalasini
-        # to'ldiring — GIDClientID shu Client ID'ning o'zi, URL scheme esa
-        # SHU CLIENT ID'NING "TESKARI" SHAKLI (masalan Client ID
-        # "123-abc.apps.googleusercontent.com" bo'lsa, scheme
-        # "com.googleusercontent.apps.123-abc" bo'ladi — Console sahifasida
-        # "iOS URL scheme" nomi bilan tayyor holda ham beriladi).
-        GIDClientID: ""
+        # Google Cloud Console > Credentials > OAuth Client ID (iOS turi).
+        GIDClientID: "857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa.apps.googleusercontent.com"
         CFBundleURLTypes:
           - CFBundleURLSchemes:
-              - "REPLACE_WITH_REVERSED_IOS_CLIENT_ID"
+              - "com.googleusercontent.apps.857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa"
         # Faqat lokal dev backend uchun (Mac'ning LAN/Tailscale IP'si, haqiqiy
         # qurilma shu orqali ulanadi). Prodda domen.uz HTTPS bo'lgani uchun kerak emas.
         NSAppTransportSecurity:
