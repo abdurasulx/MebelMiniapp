@@ -1,10 +1,11 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import PhoneOTP, User
+from .models import GoogleAccount, PhoneOTP, User
 
 
 class OTPFlowTests(TestCase):
@@ -108,4 +109,92 @@ class OTPFlowTests(TestCase):
             {"phone": "+998901234567", "code": otp.code},
             content_type="application/json",
         )
+        self.assertEqual(resp.status_code, 400)
+
+
+class GoogleLoginTests(TestCase):
+    """Google Login — token verifikatsiyasi `verify_google_credential`
+    mock qilinadi (real Google'ga tarmoq so'rovi yubormaslik uchun), asosiy
+    e'tibor account-linking mantig'ida: `google_sub` asosiy kalit, email
+    hech qachon avtomatik bog'lash uchun ishlatilmaydi (hisobni egallab
+    olishning oldini olish — qarang GoogleLoginView docstring)."""
+
+    def _claims(self, sub="google-sub-1", email="user@example.com", **extra):
+        return {
+            "sub": sub,
+            "email": email,
+            "email_verified": True,
+            "given_name": "Ali",
+            "family_name": "Valiyev",
+            **extra,
+        }
+
+    def _login(self, **claims_kwargs):
+        with patch(
+            "apps.users.views.verify_google_credential",
+            return_value=self._claims(**claims_kwargs),
+        ):
+            return self.client.post(
+                reverse("google-login"),
+                {"credential": "fake-id-token"},
+                content_type="application/json",
+            )
+
+    def test_new_email_creates_user_and_links_google_account(self):
+        resp = self._login()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("access", data)
+        self.assertTrue(data["is_new_user"])
+
+        user = User.objects.get(email="user@example.com")
+        self.assertEqual(user.first_name, "Ali")
+        self.assertTrue(
+            GoogleAccount.objects.filter(user=user, google_sub="google-sub-1").exists()
+        )
+
+    def test_known_google_sub_logs_in_existing_user_without_creating_new_one(self):
+        user = User.objects.create(email="user@example.com", role=User.Role.CUSTOMER)
+        user.set_unusable_password()
+        user.save()
+        GoogleAccount.objects.create(user=user, google_sub="google-sub-1", email="user@example.com")
+
+        resp = self._login()
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.json()["is_new_user"])
+        self.assertEqual(User.objects.filter(email="user@example.com").count(), 1)
+
+    def test_email_collision_with_unlinked_account_is_rejected_not_auto_linked(self):
+        """Xavfsizlik regressiyasi: agar shu email bilan oddiy (parol/OTP)
+        hisob allaqachon mavjud bo'lsa-yu, hali Google bilan bog'lanmagan
+        bo'lsa — avtomatik bog'lanmasligi va yangi hisob ham
+        yaratilmasligi kerak (hisobni egallab olish xavfi)."""
+        User.objects.create_user(email="user@example.com", password="StrongPass123")
+
+        resp = self._login(sub="attacker-sub")
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(User.objects.count(), 1)
+        self.assertFalse(GoogleAccount.objects.exists())
+
+    def test_blocked_linked_user_cannot_login_via_google(self):
+        user = User.objects.create(email="user@example.com", role=User.Role.CUSTOMER, is_active=False)
+        user.set_unusable_password()
+        user.save()
+        GoogleAccount.objects.create(user=user, google_sub="google-sub-1", email="user@example.com")
+
+        resp = self._login()
+        self.assertEqual(resp.status_code, 400)
+
+    def test_unverified_email_is_rejected(self):
+        from rest_framework.exceptions import ValidationError
+
+        with patch(
+            "apps.users.views.verify_google_credential",
+            side_effect=ValidationError("Google email tasdiqlanmagan"),
+        ):
+            resp = self.client.post(
+                reverse("google-login"),
+                {"credential": "fake-id-token"},
+                content_type="application/json",
+            )
         self.assertEqual(resp.status_code, 400)

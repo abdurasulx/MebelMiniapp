@@ -9,6 +9,10 @@ psycopg2-binary==2.9.12
 PyJWT==2.13.0
 sqlparse==0.5.5
 
+# Google Login (ID token server-side verifikatsiyasi) — qarang apps/users/google_auth.py.
+google-auth==2.56.3
+requests==2.34.2
+
 # Vizual qidiruv (CLIP embedding + Qdrant) — qarang apps/products/embedding.py.
 # torch: CPU-only o'rnatish uchun --index-url https://download.pytorch.org/whl/cpu
 # ishlatilgan (GPU/CUDA kerak emas, katta hajmdagi CUDA wheel'lardan qochish uchun).

@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
+import 'google_auth_config.dart';
 import 'models.dart';
 
 /// Foydalanuvchi profilida tanlaydigan ko'rinish rejimi — bitta hisob ham
@@ -135,6 +138,50 @@ class AuthStore extends ChangeNotifier {
     return ok;
   }
 
+  final _googleSignIn = GoogleSignIn(
+    // Web Client ID beriladi — shunda native SDK backendimiz tekshira
+    // oladigan (`aud` = Web Client ID) ID token qaytaradi (qarang
+    // google_auth_config.dart).
+    serverClientId: GoogleAuthConfig.webClientId.isEmpty
+        ? null
+        : GoogleAuthConfig.webClientId,
+  );
+
+  /// Google orqali kirish — native Sign-In oqimidan olingan ID token
+  /// backendga (`/auth/google/`) yuboriladi, javob boshqa login usullari
+  /// bilan bir xil shaklda (`access`/`refresh`/`is_new_user`) keladi.
+  Future<bool> loginWithGoogle() async {
+    errorMessage = null;
+    var ok = false;
+    try {
+      final account = await _googleSignIn.signIn();
+      if (account == null) return false; // foydalanuvchi bekor qildi
+      final idToken = (await account.authentication).idToken;
+      if (idToken == null) {
+        errorMessage = "Google'dan token olinmadi. Qayta urinib ko'ring";
+        notifyListeners();
+        return false;
+      }
+      final resp = await ApiClient.instance.post(
+        '/auth/google/',
+        (j) => j as Map<String, dynamic>,
+        body: {'credential': idToken},
+        auth: false,
+      );
+      final tokens = TokenPair.fromJson(resp);
+      isNewUser = resp['is_new_user'] == true;
+      _hasStoredTokens = true;
+      ApiClient.instance.setTokens(tokens);
+      await _persist(tokens);
+      await _loadMe();
+      ok = true;
+    } catch (e) {
+      errorMessage = e.toString();
+    }
+    notifyListeners();
+    return ok;
+  }
+
   /// Birinchi marta kirgan foydalanuvchi ismini to'ldirishda ishlatiladi.
   Future<bool> completeProfile({
     required String firstName,
@@ -174,6 +221,9 @@ class AuthStore extends ChangeNotifier {
     isAuthenticated = false;
     appMode = AppMode.customer;
     activePosition = null;
+    // Keyingi "Google orqali kirish" bosilganda hisob tanlash oynasi qayta
+    // chiqishi uchun — aks holda oxirgi Google hisobiga jimgina kirib qolar edi.
+    unawaited(_googleSignIn.signOut());
     notifyListeners();
   }
 

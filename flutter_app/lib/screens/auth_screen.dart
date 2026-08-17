@@ -246,8 +246,45 @@ class _AuthScreenState extends State<AuthScreen> {
               ? const CircularProgressIndicator()
               : Text(loc.t('auth_send_code')),
         ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            const Expanded(child: Divider()),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                'yoki',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
+              ),
+            ),
+            const Expanded(child: Divider()),
+          ],
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _loginWithGoogle,
+          icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
+          label: const Text('Google orqali kirish'),
+        ),
       ],
     );
+  }
+
+  Future<void> _loginWithGoogle() async {
+    setState(() => _busy = true);
+    final auth = context.read<AuthStore>();
+    final ok = await auth.loginWithGoogle();
+    setState(() => _busy = false);
+    if (!ok || !mounted) return;
+    if (auth.isNewUser) {
+      // Google berilgan ism/familiya bo'lsa oldindan to'ldiramiz — foydalanuvchi
+      // qayta yozib o'tirmasin.
+      _firstNameController.text = auth.user?.firstName ?? '';
+      _lastNameController.text = auth.user?.lastName ?? '';
+      setState(() => _step = _Step.profile);
+    } else {
+      Navigator.of(context).maybePop();
+    }
   }
 
   Widget _codeStep(LocaleStore loc) {

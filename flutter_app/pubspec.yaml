@@ -27,6 +27,9 @@ dependencies:
   # Firma profilidagi ijtimoiy tarmoq havolalarini (Instagram/Telegram/h.k.)
   # tashqi brauzer/ilovada ochish uchun.
   url_launcher: ^6.3.1
+  # Google orqali kirish — native Sign-In oqimi, natijada olingan ID token
+  # backendga (`/auth/google/`) yuboriladi (qarang auth_store.dart).
+  google_sign_in: ^6.2.1
 
 dev_dependencies:
   flutter_test:

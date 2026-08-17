@@ -112,6 +112,11 @@ USE_TZ = True
 # Fayl yuklanganda rejim yozuvga muhrlanadi; rejim mos kelmagan fayllar API'da ko'rinmaydi.
 STORAGE_MODE = env("STORAGE_MODE", default="local")
 
+# Google Login (Sign in with Google) — qarang apps/users/google_auth.py.
+# Client Secret shart emas: faqat ID-token server-side verify qilinadi
+# (Authorization Code flow emas), shuning uchun bu yerda saqlanmaydi.
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"

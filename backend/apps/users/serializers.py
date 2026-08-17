@@ -50,6 +50,11 @@ class UserSerializer(serializers.ModelSerializer):
         return emp.positions if emp else []
 
 
+class GoogleLoginSerializer(serializers.Serializer):
+    # Google Identity Services JS SDK / native SDK'dan kelgan ID token (JWT).
+    credential = serializers.CharField()
+
+
 class OTPRequestSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
 

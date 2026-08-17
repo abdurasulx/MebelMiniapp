@@ -71,6 +71,29 @@ class User(AbstractUser):
         return self.email
 
 
+class GoogleAccount(models.Model):
+    """Google hisobini bizning `User`ga bog'lash — Google berilgan `sub`
+    (barqaror, o'zgarmas foydalanuvchi ID) asosida, **email emas**.
+
+    Email bo'yicha avtomatik bog'lash xavfsiz emas (hisobni egallab olish
+    xavfi — qarang GoogleLoginView): shuning uchun bog'lanish faqat shu
+    jadvaldagi aniq yozuv orqali amalga oshadi, hech qachon "email mos
+    keldi" degan taxmin bilan emas.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        "users.User", on_delete=models.CASCADE, related_name="google_accounts"
+    )
+    google_sub = models.CharField(max_length=255, unique=True, editable=False)
+    # Faqat ma'lumot/audit uchun — login qarorlari bunga emas, `google_sub`ga tayanadi.
+    email = models.EmailField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.email} <- google:{self.google_sub}"
+
+
 class PhoneOTP(models.Model):
     """SMS-tasdiqlash kodi (docs: telefon orqali kirish).
 

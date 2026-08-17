@@ -1,5 +1,7 @@
 import Combine
 import Foundation
+import GoogleSignIn
+import UIKit
 
 /// Foydalanuvchi profilida tanlaydigan ko'rinish rejimi — bitta hisob ham
 /// xaridor, ham (agar biror firmada ishlasa) usta sifatida ilovadan foydalana
@@ -153,6 +155,39 @@ final class AuthStore: ObservableObject {
         }
     }
 
+    /// Google orqali kirish — native Sign-In oqimidan olingan ID token
+    /// backendga (`/auth/google/`) yuboriladi, javob boshqa login usullari
+    /// bilan bir xil shaklda (`access`/`refresh`/`isNewUser`) keladi.
+    func loginWithGoogle() async {
+        errorMessage = nil
+        guard let presenter = UIApplication.topViewController else {
+            errorMessage = "Amalga oshmadi. Qayta urinib ko'ring"
+            return
+        }
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
+            guard let idToken = result.user.idToken?.tokenString else {
+                errorMessage = "Google'dan token olinmadi"
+                return
+            }
+            struct Body: Encodable { let credential: String }
+            struct Resp: Decodable { let access: String; let refresh: String; let isNewUser: Bool }
+            let resp: Resp = try await APIClient.shared.post(
+                "/auth/google/", body: Body(credential: idToken), auth: false
+            )
+            let tokens = TokenPair(access: resp.access, refresh: resp.refresh)
+            isNewUser = resp.isNewUser
+            hasStoredTokens = true
+            await APIClient.shared.setTokens(tokens)
+            persist(tokens)
+            await loadMe()
+        } catch let error as GIDSignInError where error.code == .canceled {
+            // foydalanuvchi bekor qildi — xato ko'rsatilmaydi
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     /// Birinchi marta kirgan foydalanuvchi ismini to'ldirishda ishlatiladi.
     @discardableResult
     func completeProfile(firstName: String, lastName: String, dateOfBirth: String?) async -> Bool {
@@ -176,6 +211,9 @@ final class AuthStore: ObservableObject {
     func logout() {
         defaults.removeObject(forKey: tokensKey)
         Task { await APIClient.shared.setTokens(nil) }
+        // Keyingi "Google orqali kirish" bosilganda hisob tanlash oynasi qayta
+        // chiqishi uchun — aks holda oxirgi Google hisobiga jimgina kirib qolar edi.
+        GIDSignIn.sharedInstance.signOut()
         hasStoredTokens = false
         user = nil
         isAuthenticated = false

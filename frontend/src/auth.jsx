@@ -23,6 +23,17 @@ export function AuthProvider({ children }) {
     return me;
   };
 
+  // `credential` — Google Identity Services'dan kelgan ID token (JWT).
+  // Backend uni server-side verify qilib, bizning JWT juftligimizni
+  // qaytaradi — bu yerdan keyingi qadamlar oddiy `login()` bilan bir xil.
+  const loginWithGoogle = async (credential) => {
+    const tokens = await api("/auth/google/", { method: "POST", body: { credential } });
+    setTokens(tokens);
+    const me = await api("/users/me/");
+    setUser(me);
+    return me;
+  };
+
   const register = async (payload) => {
     await api("/auth/register/", { method: "POST", body: payload });
     return login(payload.email, payload.password);
@@ -35,7 +46,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -48,6 +48,7 @@ from apps.users.views import (
     AdminUserListView,
     AdminUserToggleActiveView,
     CareerView,
+    GoogleLoginView,
     MeView,
     OTPRequestView,
     OTPVerifyView,
@@ -117,6 +118,7 @@ urlpatterns = [
     path("users/me/career/", CareerView.as_view(), name="career"),
     path("auth/otp/request/", OTPRequestView.as_view(), name="otp-request"),
     path("auth/otp/verify/", OTPVerifyView.as_view(), name="otp-verify"),
+    path("auth/google/", GoogleLoginView.as_view(), name="google-login"),
     path("admin/stats/", AdminStatsView.as_view(), name="admin-stats"),
     path("admin/users/", AdminUserListView.as_view(), name="admin-users"),
     path(

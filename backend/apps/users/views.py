@@ -13,9 +13,11 @@ from apps.companies.models import Company
 from apps.orders.models import Order
 from apps.products.models import Product
 
-from .models import PhoneOTP
+from .google_auth import verify_google_credential
+from .models import GoogleAccount, PhoneOTP
 from .serializers import (
     CareerEntrySerializer,
+    GoogleLoginSerializer,
     OTPRequestSerializer,
     OTPVerifySerializer,
     RegisterSerializer,
@@ -117,6 +119,67 @@ class CareerView(generics.ListAPIView):
             Employee.objects.filter(user=self.request.user, is_deleted=False)
             .select_related("company")
             .order_by("-created_at")
+        )
+
+
+class GoogleLoginView(APIView):
+    """Google Identity Services'dan kelgan ID token bilan kirish/ro'yxatdan
+    o'tish — parol/OTP flow bilan bir xil javob shaklini (`access`/
+    `refresh`/`is_new_user`) qaytaradi.
+
+    Bog'lash tartibi (hisobni egallab olishning oldini olish uchun,
+    email'ga emas, Google'ning barqaror `sub`iga tayanadi):
+    1. `google_sub` bo'yicha `GoogleAccount` topilsa — bevosita o'sha user
+       bilan kiriladi.
+    2. Topilmasa-yu, shu email bilan **allaqachon** oddiy (parol/OTP) `User`
+       mavjud bo'lsa — avtomatik bog'LANMAYDI (email ishonchli manba emas —
+       masalan qayta berilgan korporativ pochta orqali hisobni egallab
+       olish xavfi bor). Bunday holatda xatolik qaytariladi: foydalanuvchi
+       avval mavjud usul bilan kirib, keyin (kelajakdagi) profil sahifasidan
+       Google'ni o'zi ongli ravishda bog'lashi kerak.
+    3. Ikkalasi ham topilmasa — yangi `User` + `GoogleAccount` yaratiladi.
+    """
+
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        serializer = GoogleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        claims = verify_google_credential(serializer.validated_data["credential"])
+
+        sub = claims["sub"]
+        email = (claims.get("email") or "").strip().lower()
+
+        link = GoogleAccount.objects.select_related("user").filter(google_sub=sub).first()
+        if link is not None:
+            user = link.user
+            if not user.is_active:
+                raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+            is_new_user = False
+        else:
+            if email and User.objects.filter(email__iexact=email).exists():
+                raise ValidationError(
+                    "Bu email bilan hisob allaqachon mavjud. Avval parol yoki "
+                    "SMS-kod bilan kiring."
+                )
+            user = User(
+                email=email or f"google-{sub}@google.local",
+                first_name=(claims.get("given_name") or "").strip(),
+                last_name=(claims.get("family_name") or "").strip(),
+                role=User.Role.CUSTOMER,
+            )
+            user.set_unusable_password()
+            user.save()
+            GoogleAccount.objects.create(user=user, google_sub=sub, email=email)
+            is_new_user = True
+
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "is_new_user": is_new_user,
+            }
         )
 
 

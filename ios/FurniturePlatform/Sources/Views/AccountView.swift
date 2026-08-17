@@ -314,6 +314,17 @@ private struct AuthFormView: View {
             .listRowBackground(Color.brandDeep)
             .foregroundStyle(Color.brandPrimary)
         }
+        Section {
+            Button(action: loginWithGoogle) {
+                if busy {
+                    ProgressView()
+                } else {
+                    Label("Google orqali kirish", systemImage: "g.circle")
+                }
+            }
+            .disabled(busy)
+            .frame(maxWidth: .infinity)
+        }
     }
 
     @ViewBuilder
@@ -416,6 +427,21 @@ private struct AuthFormView: View {
                 otpCode = ""
                 step = .code
                 startCountdown(result.resendAfter)
+            }
+        }
+    }
+
+    private func loginWithGoogle() {
+        busy = true
+        Task {
+            await auth.loginWithGoogle()
+            busy = false
+            if auth.isAuthenticated && auth.isNewUser {
+                // Google berilgan ism/familiya bo'lsa oldindan to'ldiramiz —
+                // foydalanuvchi qayta yozib o'tirmasin.
+                firstName = auth.user?.firstName ?? ""
+                lastName = auth.user?.lastName ?? ""
+                step = .profile
             }
         }
     }

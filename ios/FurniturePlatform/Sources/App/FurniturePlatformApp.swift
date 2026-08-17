@@ -1,3 +1,4 @@
+import GoogleSignIn
 import SwiftUI
 
 @main
@@ -21,6 +22,11 @@ struct FurniturePlatformApp: App {
                 .task {
                     location.bootstrap()
                     cart.load()
+                }
+                // Google Sign-In oqimi tizim brauzeriga chiqib, natijani shu
+                // URL orqali ilovaga qaytaradi — GoogleSignIn SDK shu yerda ushlab olishi kerak.
+                .onOpenURL { url in
+                    GIDSignIn.sharedInstance.handle(url)
                 }
         }
     }
