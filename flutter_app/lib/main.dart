@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'api_client.dart';
 import 'auth_store.dart';
 import 'cart_store.dart';
 import 'likes_store.dart';
@@ -8,6 +9,7 @@ import 'location_store.dart';
 import 'screens/root_screen.dart';
 import 'screens/splash_screen.dart';
 import 'theme.dart';
+import 'widgets/offline_view.dart';
 
 void main() {
   runApp(const FurniturePlatformApp());
@@ -53,8 +55,32 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
         title: 'Furniture Platform',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
-        home: _ready ? const RootScreen() : const SplashScreen(),
+        home: _ready ? const _AppGate() : const SplashScreen(),
       ),
+    );
+  }
+}
+
+/// Butun ilova ustidan global ulanish holatini kuzatadi — oflayn bo'lganda
+/// `RootScreen` (tab menyusi bilan birga) butunlay to'liq ekranli
+/// [OfflineView]ga almashadi, shu bilan foydalanuvchi oflaynda menyu,
+/// katalog yoki profilga kira olmaydi (faqat "Qayta urinish" tugmasi ishlaydi).
+class _AppGate extends StatelessWidget {
+  const _AppGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: ApiClient.instance.isOffline,
+      builder: (context, offline, child) {
+        if (!offline) return child!;
+        return Scaffold(
+          body: SafeArea(
+            child: OfflineView(onRetry: ApiClient.instance.checkConnectivity),
+          ),
+        );
+      },
+      child: const RootScreen(),
     );
   }
 }

@@ -7,6 +7,7 @@ struct FurniturePlatformApp: App {
     @StateObject private var location = LocationStore()
     @StateObject private var cart = CartStore()
     @StateObject private var locale = LocaleStore()
+    @StateObject private var connectivity = ConnectivityStore()
 
     var body: some Scene {
         WindowGroup {
@@ -16,6 +17,7 @@ struct FurniturePlatformApp: App {
                 .environmentObject(location)
                 .environmentObject(cart)
                 .environmentObject(locale)
+                .environmentObject(connectivity)
                 .task {
                     location.bootstrap()
                     cart.load()

@@ -159,10 +159,16 @@ actor APIClient {
     /// Transport darajasidagi xatoni (server umuman topilmadi/javob bermadi)
     /// `.offline`ga aylantiradi — HTTP status kodli javoblar (400/401/500 va
     /// h.k.) bunga tegmaydi, chunki ular server ishlab turganini bildiradi.
+    /// Har bir chaqiruv natijasi `.connectivityChanged` orqali e'lon
+    /// qilinadi — `ConnectivityStore` shuni tinglab, oflaynda butun ilovani
+    /// (tab menyusi bilan birga) to'liq ekranli `OfflineView`ga almashtiradi.
     private func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
-            return try await URLSession.shared.data(for: request)
+            let result = try await URLSession.shared.data(for: request)
+            NotificationCenter.default.post(name: .connectivityChanged, object: true)
+            return result
         } catch let error as URLError where Self.connectivityErrorCodes.contains(error.code) {
+            NotificationCenter.default.post(name: .connectivityChanged, object: false)
             throw APIError.offline
         }
     }
@@ -181,7 +187,7 @@ actor APIClient {
     private func rawRequest(path: String, method: String, body: Data?, auth: Bool, isRetry: Bool = false) async throws -> Data {
         var request = URLRequest(url: APIConfig.url(for: path))
         request.httpMethod = method
-        request.timeoutInterval = 12
+        request.timeoutInterval = 3
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -243,4 +249,6 @@ actor APIClient {
 
 extension Notification.Name {
     static let authTokensRotated = Notification.Name("authTokensRotated")
+    /// `object` — `Bool` (`true`: so'rov muvaffaqiyatli, `false`: tarmoq xatosi).
+    static let connectivityChanged = Notification.Name("connectivityChanged")
 }

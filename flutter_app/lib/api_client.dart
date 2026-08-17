@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'models.dart';
 
@@ -25,17 +26,25 @@ class NetworkException implements Exception {
 /// Transport darajasidagi xatoni (server umuman topilmadi/javob bermadi)
 /// [NetworkException]ga, aks holda o'zgarishsiz qayta uloqtiradi — HTTP
 /// status kodli javoblar (400/401/500 va h.k.) bunga tegmaydi, chunki ular
-/// server ishlab turganini bildiradi.
+/// server ishlab turganini bildiradi. Har bir chaqiruv natijasi (muvaffaqiyat
+/// yoki tarmoq xatosi) [ApiClient.isOffline]ni yangilaydi — shu orqali
+/// butun ilova (qarang main.dart) global "oflayn" holatini biladi.
 Future<T> _guardNetwork<T>(Future<T> Function() action) async {
   try {
-    return await action();
+    final result = await action();
+    ApiClient.instance.isOffline.value = false;
+    return result;
   } on SocketException {
+    ApiClient.instance.isOffline.value = true;
     throw NetworkException();
   } on TimeoutException {
+    ApiClient.instance.isOffline.value = true;
     throw NetworkException();
   } on http.ClientException {
+    ApiClient.instance.isOffline.value = true;
     throw NetworkException();
   } on HandshakeException {
+    ApiClient.instance.isOffline.value = true;
     throw NetworkException();
   }
 }
@@ -66,6 +75,20 @@ class ApiClient {
   String? _accessToken;
   String? _refreshToken;
   void Function(TokenPair)? onTokensRotated;
+
+  /// Global ulanish holati — har qanday so'rov tarmoq xatosiga uchraganda
+  /// `true`, muvaffaqiyatli so'rovdan keyin `false` bo'ladi. `main.dart`
+  /// shu qiymatni tinglab, oflayn bo'lganda butun ilova (menyu/tablar
+  /// bilan birga) o'rniga to'liq ekranli [OfflineView]ni ko'rsatadi.
+  final ValueNotifier<bool> isOffline = ValueNotifier(false);
+
+  /// Qayta ulanishni tekshirish uchun yengil so'rov — natijasidan qat'iy
+  /// nazar [isOffline] `_guardNetwork` orqali avtomatik yangilanadi.
+  Future<void> checkConnectivity() async {
+    try {
+      await get('/categories/', (j) => j, auth: false);
+    } catch (_) {}
+  }
 
   void setTokens(TokenPair? tokens) {
     _accessToken = tokens?.access;
@@ -146,7 +169,7 @@ class ApiClient {
     late http.Response resp;
     final encoded = body != null ? jsonEncode(body) : null;
     resp = await _guardNetwork(() {
-      const timeout = Duration(seconds: 12);
+      const timeout = Duration(seconds: 3);
       switch (method) {
         case 'GET':
           return http.get(uri, headers: headers).timeout(timeout);
@@ -212,7 +235,7 @@ class ApiClient {
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({'refresh': _refreshToken}),
             )
-            .timeout(const Duration(seconds: 12)),
+            .timeout(const Duration(seconds: 3)),
       );
       if (resp.statusCode != 200) return false;
       final decoded = jsonDecode(resp.body);

@@ -7,6 +7,7 @@ struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var likes: LikesStore
     @EnvironmentObject private var cart: CartStore
+    @EnvironmentObject private var connectivity: ConnectivityStore
     @State private var showSplash = true
 
     var body: some View {
@@ -17,6 +18,11 @@ struct RootView: View {
                         try? await Task.sleep(nanoseconds: 1_300_000_000)
                         withAnimation { showSplash = false }
                     }
+            } else if connectivity.isOffline {
+                // Oflaynda butun ilova (tab menyusi bilan birga) to'liq
+                // ekranli OfflineView'ga almashadi — foydalanuvchi
+                // menyu/katalog/profilga kira olmaydi.
+                OfflineView(onRetry: connectivity.retry)
             } else {
                 mainTabs
             }
