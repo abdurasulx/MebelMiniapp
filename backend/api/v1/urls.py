@@ -53,6 +53,7 @@ from apps.users.views import (
     OTPRequestView,
     OTPVerifyView,
     RegisterView,
+    TelegramWebhookView,
 )
 from apps.workflow.views import (
     WorkflowCapacityView,
@@ -119,6 +120,7 @@ urlpatterns = [
     path("auth/otp/request/", OTPRequestView.as_view(), name="otp-request"),
     path("auth/otp/verify/", OTPVerifyView.as_view(), name="otp-verify"),
     path("auth/google/", GoogleLoginView.as_view(), name="google-login"),
+    path("auth/telegram/webhook/", TelegramWebhookView.as_view(), name="telegram-webhook"),
     path("admin/stats/", AdminStatsView.as_view(), name="admin-stats"),
     path("admin/users/", AdminUserListView.as_view(), name="admin-users"),
     path(

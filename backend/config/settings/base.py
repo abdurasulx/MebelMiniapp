@@ -117,6 +117,11 @@ STORAGE_MODE = env("STORAGE_MODE", default="local")
 # (Authorization Code flow emas), shuning uchun bu yerda saqlanmaydi.
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 
+# Telegram bot login (webhook) — qarang apps/users/telegram_bot.py.
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
+TELEGRAM_WEBHOOK_URL = env("TELEGRAM_WEBHOOK_URL", default="")
+TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", default="")
+
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"

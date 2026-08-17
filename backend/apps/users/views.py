@@ -1,6 +1,7 @@
 import random
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import generics, permissions
@@ -181,6 +182,26 @@ class GoogleLoginView(APIView):
                 "is_new_user": is_new_user,
             }
         )
+
+
+class TelegramWebhookView(APIView):
+    """Telegram bot yuborgan update'larni qabul qiladi (webhook rejimi —
+    qarang apps/users/telegram_bot.py: backend ishga tushganda shu
+    endpointga avtomatik `setWebhook` qilinadi).
+
+    Login/hisob-bog'lash logikasi hali loyihalanmagan — hozircha faqat
+    so'rov haqiqatan ham Telegram'dan kelganini tasdiqlab (maxfiy token),
+    200 bilan javob beradi. Kelgusida shu yerga session_id asosidagi
+    login-bog'lash mantig'i qo'shiladi.
+    """
+
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        secret = settings.TELEGRAM_WEBHOOK_SECRET
+        if secret and request.headers.get("X-Telegram-Bot-Api-Secret-Token") != secret:
+            return Response(status=403)
+        return Response({"ok": True})
 
 
 class OTPRequestView(APIView):
