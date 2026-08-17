@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import GoogleAccount, PhoneOTP, User
+from .models import GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession, User
 
 
 class OTPFlowTests(TestCase):
@@ -115,9 +115,10 @@ class OTPFlowTests(TestCase):
 class GoogleLoginTests(TestCase):
     """Google Login — token verifikatsiyasi `verify_google_credential`
     mock qilinadi (real Google'ga tarmoq so'rovi yubormaslik uchun), asosiy
-    e'tibor account-linking mantig'ida: `google_sub` asosiy kalit, email
-    hech qachon avtomatik bog'lash uchun ishlatilmaydi (hisobni egallab
-    olishning oldini olish — qarang GoogleLoginView docstring)."""
+    e'tibor account-linking mantig'ida: `google_sub` bo'yicha topilsa
+    to'g'ridan-to'g'ri, topilmasa-yu email mos kelsa avtomatik bog'lanadi
+    (Google `email_verified` orqali email egaligini tekshirgani sabab —
+    qarang GoogleLoginView docstring)."""
 
     def _claims(self, sub="google-sub-1", email="user@example.com", **extra):
         return {
@@ -149,6 +150,7 @@ class GoogleLoginTests(TestCase):
 
         user = User.objects.get(email="user@example.com")
         self.assertEqual(user.first_name, "Ali")
+        self.assertFalse(user.registration_completed)
         self.assertTrue(
             GoogleAccount.objects.filter(user=user, google_sub="google-sub-1").exists()
         )
@@ -164,17 +166,19 @@ class GoogleLoginTests(TestCase):
         self.assertFalse(resp.json()["is_new_user"])
         self.assertEqual(User.objects.filter(email="user@example.com").count(), 1)
 
-    def test_email_collision_with_unlinked_account_is_rejected_not_auto_linked(self):
-        """Xavfsizlik regressiyasi: agar shu email bilan oddiy (parol/OTP)
-        hisob allaqachon mavjud bo'lsa-yu, hali Google bilan bog'lanmagan
-        bo'lsa — avtomatik bog'lanmasligi va yangi hisob ham
-        yaratilmasligi kerak (hisobni egallab olish xavfi)."""
-        User.objects.create_user(email="user@example.com", password="StrongPass123")
+    def test_email_collision_with_verified_email_auto_links_existing_account(self):
+        """Email/parol bilan kirish endi faqat admin uchun qolgani sabab —
+        shu email bilan mavjud (parolli) hisobga Google `email_verified:
+        true` bilan kelsa, avtomatik bog'lanadi, yangi hisob YARATILMAYDI."""
+        existing = User.objects.create_user(email="user@example.com", password="StrongPass123")
 
-        resp = self._login(sub="attacker-sub")
-        self.assertEqual(resp.status_code, 400)
+        resp = self._login(sub="new-google-sub")
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.json()["is_new_user"])
         self.assertEqual(User.objects.count(), 1)
-        self.assertFalse(GoogleAccount.objects.exists())
+        self.assertTrue(
+            GoogleAccount.objects.filter(user=existing, google_sub="new-google-sub").exists()
+        )
 
     def test_blocked_linked_user_cannot_login_via_google(self):
         user = User.objects.create(email="user@example.com", role=User.Role.CUSTOMER, is_active=False)
@@ -198,3 +202,215 @@ class GoogleLoginTests(TestCase):
                 content_type="application/json",
             )
         self.assertEqual(resp.status_code, 400)
+
+
+class AdminOnlyPasswordLoginTests(TestCase):
+    """Email+parol bilan kirish endi faqat platforma admini uchun."""
+
+    def _login(self, email, password):
+        return self.client.post(
+            reverse("token_obtain_pair"),
+            {"email": email, "password": password},
+            content_type="application/json",
+        )
+
+    def test_platform_admin_can_login_with_password(self):
+        User.objects.create_user(
+            email="admin@example.com", password="StrongPass123", role=User.Role.PLATFORM_ADMIN
+        )
+        resp = self._login("admin@example.com", "StrongPass123")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("access", resp.json())
+
+    def test_customer_cannot_login_with_password(self):
+        User.objects.create_user(
+            email="customer@example.com", password="StrongPass123", role=User.Role.CUSTOMER
+        )
+        resp = self._login("customer@example.com", "StrongPass123")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_company_owner_cannot_login_with_password(self):
+        User.objects.create_user(
+            email="owner@example.com", password="StrongPass123", role=User.Role.COMPANY_OWNER
+        )
+        resp = self._login("owner@example.com", "StrongPass123")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_register_endpoint_no_longer_exists(self):
+        resp = self.client.post(
+            "/api/v1/auth/register/",
+            {"email": "x@example.com", "password": "StrongPass123"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 404)
+
+
+class CompleteRegistrationTests(TestCase):
+    """Google/Telegram orqali yangi hisob ochilgandan keyingi yakuniy qadam."""
+
+    def _new_user(self):
+        user = User(
+            email="new@example.com", role=User.Role.CUSTOMER, registration_completed=False
+        )
+        user.set_unusable_password()
+        user.save()
+        return user
+
+    def _auth_client(self, user):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        client = self.client
+        token = str(RefreshToken.for_user(user).access_token)
+        client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+        return client
+
+    def test_completes_as_customer(self):
+        user = self._new_user()
+        client = self._auth_client(user)
+        resp = client.post(
+            reverse("complete-registration"),
+            {"role": "customer", "first_name": "Ali", "phone": "+998901234567"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        user.refresh_from_db()
+        self.assertTrue(user.registration_completed)
+        self.assertEqual(user.role, User.Role.CUSTOMER)
+        self.assertEqual(user.first_name, "Ali")
+
+    def test_completes_as_company_owner_creates_company(self):
+        from apps.companies.models import Company
+
+        user = self._new_user()
+        client = self._auth_client(user)
+        resp = client.post(
+            reverse("complete-registration"),
+            {"role": "company_owner", "first_name": "Ali", "company_name": "Ali Mebel"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        user.refresh_from_db()
+        self.assertEqual(user.role, User.Role.COMPANY_OWNER)
+        self.assertTrue(Company.objects.filter(owner=user, name="Ali Mebel").exists())
+
+    def test_company_owner_without_company_name_rejected(self):
+        user = self._new_user()
+        client = self._auth_client(user)
+        resp = client.post(
+            reverse("complete-registration"),
+            {"role": "company_owner", "first_name": "Ali"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_already_completed_user_cannot_call_again(self):
+        """Regressiya: bu endpoint rol o'zgartirish vositasi emas — bir marta
+        ishlatilgandan keyin qayta chaqirilsa rad etilishi kerak."""
+        user = self._new_user()
+        user.registration_completed = True
+        user.save(update_fields=["registration_completed"])
+        client = self._auth_client(user)
+        resp = client.post(
+            reverse("complete-registration"),
+            {"role": "company_owner", "first_name": "Ali", "company_name": "Ali Mebel"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        user.refresh_from_db()
+        self.assertEqual(user.role, User.Role.CUSTOMER)
+
+
+class TelegramLoginTests(TestCase):
+    """Telegram login: session_id yaratish -> bot webhook orqali bog'lash
+    -> frontend poll qilib JWT olish."""
+
+    def test_create_session_returns_pending_id(self):
+        resp = self.client.post(reverse("telegram-session-create"))
+        self.assertEqual(resp.status_code, 200)
+        session_id = resp.json()["session_id"]
+        self.assertTrue(TelegramLoginSession.objects.filter(pk=session_id).exists())
+
+        poll = self.client.get(reverse("telegram-session-poll", args=[session_id]))
+        self.assertEqual(poll.status_code, 200)
+        self.assertEqual(poll.json()["status"], "pending")
+
+    def test_webhook_start_payload_links_session_then_poll_logs_in(self):
+        from django.test import override_settings
+
+        session = TelegramLoginSession.objects.create()
+        update = {
+            "message": {
+                "text": f"/start {session.id}",
+                "from": {"id": 555, "first_name": "Vali", "username": "vali_tg"},
+                "chat": {"id": 555},
+            }
+        }
+        with patch("apps.users.telegram_bot.send_message"), override_settings(
+            TELEGRAM_WEBHOOK_SECRET=""
+        ):
+            resp = self.client.post(
+                reverse("telegram-webhook"), update, content_type="application/json"
+            )
+        self.assertEqual(resp.status_code, 200)
+
+        session.refresh_from_db()
+        self.assertEqual(session.telegram_id, 555)
+
+        poll = self.client.get(reverse("telegram-session-poll", args=[session.id]))
+        self.assertEqual(poll.status_code, 200)
+        data = poll.json()
+        self.assertEqual(data["status"], "done")
+        self.assertIn("access", data)
+        self.assertTrue(data["is_new_user"])
+
+        user = TelegramAccount.objects.get(telegram_id=555).user
+        self.assertFalse(user.registration_completed)
+
+    def test_known_telegram_id_logs_in_existing_user(self):
+        user = User(email="existing@example.com", role=User.Role.CUSTOMER)
+        user.set_unusable_password()
+        user.save()
+        TelegramAccount.objects.create(user=user, telegram_id=777)
+
+        session = TelegramLoginSession.objects.create(telegram_id=777, telegram_first_name="Vali")
+        poll = self.client.get(reverse("telegram-session-poll", args=[session.id]))
+        self.assertEqual(poll.status_code, 200)
+        data = poll.json()
+        self.assertFalse(data["is_new_user"])
+        self.assertEqual(User.objects.filter(email="existing@example.com").count(), 1)
+
+    def test_consumed_session_cannot_be_polled_again(self):
+        session = TelegramLoginSession.objects.create(telegram_id=888, telegram_first_name="Vali")
+        first = self.client.get(reverse("telegram-session-poll", args=[session.id]))
+        self.assertEqual(first.status_code, 200)
+
+        second = self.client.get(reverse("telegram-session-poll", args=[session.id]))
+        self.assertEqual(second.status_code, 400)
+
+    def test_expired_session_rejected(self):
+        session = TelegramLoginSession.objects.create(telegram_id=999, telegram_first_name="Vali")
+        session.created_at = timezone.now() - timedelta(minutes=TelegramLoginSession.EXPIRY_MINUTES + 1)
+        session.save(update_fields=["created_at"])
+
+        resp = self.client.get(reverse("telegram-session-poll", args=[session.id]))
+        self.assertEqual(resp.status_code, 400)
+
+    def test_webhook_rejects_wrong_secret(self):
+        from django.test import override_settings
+
+        with override_settings(TELEGRAM_WEBHOOK_SECRET="expected-secret"):
+            resp = self.client.post(
+                reverse("telegram-webhook"),
+                {"message": {"text": "/start abc"}},
+                content_type="application/json",
+                HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN="wrong",
+            )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_bot_info_returns_configured_username(self):
+        from django.test import override_settings
+
+        with override_settings(TELEGRAM_BOT_USERNAME="test_bot"):
+            resp = self.client.get(reverse("telegram-bot-info"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["username"], "test_bot")

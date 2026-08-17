@@ -15,12 +15,20 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email, password) => {
-    const tokens = await api("/auth/token/", { method: "POST", body: { email, password } });
+  // Tokenlar qanday olinishidan qat'iy nazar (parol, Google, Telegram) —
+  // saqlash va profil yuklash bir xil.
+  const applyTokens = async (tokens) => {
     setTokens(tokens);
     const me = await api("/users/me/");
     setUser(me);
     return me;
+  };
+
+  // Email+parol — endi faqat admin portalida ishlatiladi (mijoz/firma
+  // egasi/xodim Google yoki Telegram orqali kiradi).
+  const login = async (email, password) => {
+    const tokens = await api("/auth/token/", { method: "POST", body: { email, password } });
+    return applyTokens(tokens);
   };
 
   // `credential` — Google Identity Services'dan kelgan ID token (JWT).
@@ -28,15 +36,19 @@ export function AuthProvider({ children }) {
   // qaytaradi — bu yerdan keyingi qadamlar oddiy `login()` bilan bir xil.
   const loginWithGoogle = async (credential) => {
     const tokens = await api("/auth/google/", { method: "POST", body: { credential } });
-    setTokens(tokens);
+    return applyTokens(tokens);
+  };
+
+  // Telegram — session-poll oqimi (qarang Login.jsx) tokenlarni to'g'ridan-
+  // to'g'ri qaytaradi, backendga qo'shimcha almashtirish so'rovi kerak emas.
+  const loginWithTokens = async (tokens) => applyTokens(tokens);
+
+  // `/complete-registration` sahifasi profilni to'ldirgandan keyin
+  // `user`ni (rol/registration_completed) yangilash uchun.
+  const refreshUser = async () => {
     const me = await api("/users/me/");
     setUser(me);
     return me;
-  };
-
-  const register = async (payload) => {
-    await api("/auth/register/", { method: "POST", body: payload });
-    return login(payload.email, payload.password);
   };
 
   const logout = () => {
@@ -46,7 +58,9 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, loginWithGoogle, loginWithTokens, refreshUser, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

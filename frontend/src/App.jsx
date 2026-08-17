@@ -15,6 +15,7 @@ import AdminPayStandards from "./pages/admin/AdminPayStandards";
 import AdminUsers from "./pages/admin/AdminUsers";
 import Cart from "./pages/Cart";
 import Catalog from "./pages/Catalog";
+import CompleteRegistration from "./pages/CompleteRegistration";
 import Liked from "./pages/Liked";
 import Employees from "./pages/Employees";
 import FirmaDashboard from "./pages/firma/FirmaDashboard";
@@ -34,7 +35,6 @@ import MyProjects from "./pages/MyProjects";
 import ProductDetail from "./pages/ProductDetail";
 import ProjectComposer from "./pages/ProjectComposer";
 import ProjectViewer from "./pages/ProjectViewer";
-import Register from "./pages/Register";
 import Shop from "./pages/Shop";
 import Viewer from "./pages/Viewer";
 import ThemeSwitch from "./components/ThemeSwitch";
@@ -192,18 +192,13 @@ function MarketLayout({ children }) {
               Chiqish
             </button>
           ) : (
-            <>
-              <Link to="/login" className="rounded-lg px-3 py-1.5 transition hover:bg-black/10">
-                Kirish
-              </Link>
-              <Link
-                to="/register"
-                className="ml-1 rounded-lg px-3 py-1.5 font-medium transition"
-                style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
-              >
-                Ro'yxatdan o'tish
-              </Link>
-            </>
+            <Link
+              to="/login"
+              className="ml-1 rounded-lg px-3 py-1.5 font-medium transition"
+              style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
+            >
+              Kirish
+            </Link>
           )}
           <ThemeSwitch dark={dark} onToggle={toggle} surface />
         </nav>
@@ -215,6 +210,7 @@ function MarketLayout({ children }) {
 
 export default function App() {
   const location = useLocation();
+  const { user, loading } = useAuth();
 
   // Mustaqil 3D-viewer havolasi — qaysi subdomen (portal)dan ochilishidan qat'i
   // nazar, portal chrome'siz to'g'ridan-to'g'ri ko'rsatiladi (bazissoft.ru uslubida).
@@ -254,7 +250,6 @@ export default function App() {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
         <Route
           element={
             <Protected roles={["company_owner", "employee"]}>
@@ -280,10 +275,24 @@ export default function App() {
       </Routes>
     );
 
+  // Google/Telegram orqali yangi hisob ochilgan-u, hali rol/profil
+  // to'ldirilmagan bo'lsa — qayerga borishga urinmasin, avval shuni
+  // yakunlashi kerak (faqat market'da: Google/Telegram tugmalari,
+  // demak yangi-hisob holati, faqat shu yerda paydo bo'ladi).
+  if (
+    !loading &&
+    user &&
+    !user.registration_completed &&
+    location.pathname !== "/complete-registration"
+  ) {
+    return <Navigate to="/complete-registration" replace />;
+  }
+
   return (
     <MarketLayout>
       <Routes>
         <Route path="/" element={<Catalog />} />
+        <Route path="/complete-registration" element={<CompleteRegistration />} />
         <Route path="/products/:id" element={<ProductDetail />} />
         <Route path="/shop/:slug" element={<Shop />} />
         <Route path="/cart" element={<Cart />} />
@@ -320,7 +329,6 @@ export default function App() {
           }
         />
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </MarketLayout>

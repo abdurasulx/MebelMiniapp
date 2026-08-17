@@ -1,11 +1,6 @@
-"""Telegram bot webhook boshqaruvi.
-
-Hozircha faqat webhook registratsiyasi (`set_webhook`) va uni qabul
-qiladigan endpoint (`TelegramWebhookView`, qarang views.py) mavjud — bot
-orqali login/hisob bog'lash logikasi (session_id asosida) hali
-loyihalanmagan, keyingi bosqichda shu joyga qo'shiladi. Hozirgi maqsad:
-backend ishga tushganda webhook'ni qo'lda emas, avtomatik bog'lab qo'yish.
-"""
+"""Telegram bot bilan ishlash: webhook registratsiyasi va Bot API'ga
+so'rovlar (`getMe`, `sendMessage`) — login/hisob bog'lash mantig'i esa
+`views.py`dagi `TelegramWebhookView`/`TelegramSessionPollView`da."""
 
 import logging
 
@@ -50,3 +45,39 @@ def set_webhook() -> bool:
 
     logger.info("Telegram webhook ro'yxatdan o'tkazildi: %s", webhook_url)
     return True
+
+
+def get_bot_username() -> str | None:
+    """Bot username'ini qaytaradi (`https://t.me/<username>?start=...`
+    deep-link uchun) — `TELEGRAM_BOT_USERNAME` sozlangan bo'lsa shundan,
+    aks holda Telegram'ning `getMe`sidan bir martalik so'raladi."""
+    if settings.TELEGRAM_BOT_USERNAME:
+        return settings.TELEGRAM_BOT_USERNAME
+    token = settings.TELEGRAM_BOT_TOKEN
+    if not token:
+        return None
+    try:
+        resp = requests.get(f"{TELEGRAM_API_BASE}/bot{token}/getMe", timeout=10)
+        data = resp.json()
+    except (requests.RequestException, ValueError):
+        logger.exception("Telegram getMe so'rovi muvaffaqiyatsiz tugadi")
+        return None
+    if not data.get("ok"):
+        return None
+    return data["result"].get("username")
+
+
+def send_message(chat_id: int, text: str) -> None:
+    """Foydalanuvchiga botdan xabar yuboradi (masalan sessiya bog'langanini
+    tasdiqlash) — xato bo'lsa jim log yozadi, chaqiruvchi oqimni buzmaydi."""
+    token = settings.TELEGRAM_BOT_TOKEN
+    if not token:
+        return
+    try:
+        requests.post(
+            f"{TELEGRAM_API_BASE}/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text},
+            timeout=10,
+        )
+    except requests.RequestException:
+        logger.exception("Telegram sendMessage so'rovi muvaffaqiyatsiz tugadi")

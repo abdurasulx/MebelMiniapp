@@ -49,6 +49,11 @@ class User(AbstractUser):
     # Doimiy, kompaniyalararo qidiruvchi ID (kamida 10 raqam) — firma egasi xodimni
     # ishga shu ID orqali taklif qiladi (roadmap: "Worker ID" — profilda ko'rsatiladi).
     worker_id = models.CharField(max_length=12, unique=True, editable=False, blank=True)
+    # Google/Telegram orqali yangi hisob yaratilganda `False` — foydalanuvchi
+    # rol (mijoz/firma egasi) va profil ma'lumotlarini to'ldirmaguncha
+    # (qarang CompleteRegistrationView) `True` bo'lmaydi. Eski (parolli)
+    # hisoblar va OTP orqali kirganlar uchun `True` (ular uchun bu qadam yo'q).
+    registration_completed = models.BooleanField(default=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -73,12 +78,13 @@ class User(AbstractUser):
 
 class GoogleAccount(models.Model):
     """Google hisobini bizning `User`ga bog'lash — Google berilgan `sub`
-    (barqaror, o'zgarmas foydalanuvchi ID) asosida, **email emas**.
+    (barqaror, o'zgarmas foydalanuvchi ID) asosida.
 
-    Email bo'yicha avtomatik bog'lash xavfsiz emas (hisobni egallab olish
-    xavfi — qarang GoogleLoginView): shuning uchun bog'lanish faqat shu
-    jadvaldagi aniq yozuv orqali amalga oshadi, hech qachon "email mos
-    keldi" degan taxmin bilan emas.
+    Email/parol bilan kirish endi faqat platforma admini uchun qolgani
+    sabab (qarang GoogleLoginView), shu email bilan mavjud-u hali
+    bog'lanmagan hisob topilsa va Google uni `email_verified: true` deb
+    tasdiqlasa — avtomatik bog'lanadi (bu, aslida, "Sign in with Google"da
+    standart amaliyot: Google email egaligini allaqachon tekshirgan).
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -92,6 +98,50 @@ class GoogleAccount(models.Model):
 
     def __str__(self):
         return f"{self.user.email} <- google:{self.google_sub}"
+
+
+class TelegramAccount(models.Model):
+    """Telegram hisobini bizning `User`ga bog'lash — Telegram'ning
+    barqaror foydalanuvchi ID'si (`telegram_id`) asosida, xuddi
+    `GoogleAccount` bilan bir xil naqsh."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        "users.User", on_delete=models.CASCADE, related_name="telegram_accounts"
+    )
+    telegram_id = models.BigIntegerField(unique=True, editable=False)
+    telegram_username = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.email} <- telegram:{self.telegram_id}"
+
+
+class TelegramLoginSession(models.Model):
+    """Veb-saytda "Telegram orqali kirish" tugmasi bosilganda yaratiladi.
+
+    Oqim: (1) frontend shu yozuvni yaratadi va `https://t.me/<bot>?start=
+    <session_id>` ochadi; (2) foydalanuvchi Telegram'da botga /start bosadi;
+    (3) bot webhook'i (qarang TelegramWebhookView) shu session_id'ni topib,
+    `telegram_id`/ism/username'ni to'ldiradi; (4) frontend shu orada
+    session holatini so'rab turadi (polling) — to'ldirilgach, backend login
+    qilib JWT qaytaradi va sessiyani "ishlatilgan" deb belgilaydi.
+
+    Bir martalik va qisqa muddatli (`EXPIRY_MINUTES`) — token o'g'irlab olib
+    boshqa birov hisobga kira olmasligi uchun.
+    """
+
+    EXPIRY_MINUTES = 10
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    telegram_id = models.BigIntegerField(null=True, blank=True)
+    telegram_first_name = models.CharField(max_length=150, blank=True)
+    telegram_username = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_consumed = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() - self.created_at > timedelta(minutes=self.EXPIRY_MINUTES)
 
 
 class PhoneOTP(models.Model):

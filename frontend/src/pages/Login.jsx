@@ -3,37 +3,23 @@ import { useNavigate } from "react-router-dom";
 import { Sofa } from "lucide-react";
 import { useAuth } from "../auth";
 import { PORTAL, portalForUser, portalURLFor } from "../portal";
-import { getTokens } from "../api";
-
-const TITLES = {
-  market: "Xush kelibsiz",
-  admin: "Platforma boshqaruviga kirish",
-  firma: "Firma kabinetiga kirish",
-};
+import { api, getTokens } from "../api";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-// Google faqat market (asosiy) domenda ko'rsatiladi — Google Console'ning
-// "Authorized JavaScript origins"i wildcard subdomenlarni (*.qrbite.uz)
-// qo'llab-quvvatlamaydi, har biri alohida qo'shilishi kerak. Admin/firma
-// egasi ham shu yerdan Google bilan kirsa, `afterLogin()` uni rolига qarab
-// avtomatik o'z subdomeniga (token bilan) o'tkazadi — shuning uchun
-// admin/firma subdomenlarida alohida Google tugmasi shart emas.
-const SHOW_GOOGLE = Boolean(GOOGLE_CLIENT_ID) && PORTAL === "market";
-
-export default function Login() {
-  const { login, loginWithGoogle } = useAuth();
+// Login qilingandan keyin — hisob boshqa portalga tegishli bo'lsa (masalan
+// firma egasi market'dan kirsa), avtomatik o'sha subdomenga o'tkaziladi,
+// token URL orqali "uzatiladi" (main.jsx shuni o'qib oladi). Ro'yxatdan
+// o'tish hali yakunlanmagan bo'lsa (yangi Google/Telegram hisob), portal
+// tanlashdan oldin profil to'ldirish sahifasiga yuboriladi (qarang App.jsx
+// top-level guard — bu yerda faqat market ichidagi navigatsiya kifoya).
+function useAfterLogin() {
   const nav = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const googleButtonRef = useRef(null);
-
-  // Login qilingandan keyin — hisob boshqa portalga tegishli bo'lsa
-  // (masalan firma egasi market'dan kirsa), avtomatik o'sha subdomenga
-  // o'tkaziladi, token URL orqali "uzatiladi" (main.jsx shuni o'qib oladi).
-  const afterLogin = (me) => {
+  return (me) => {
+    if (!me.registration_completed) {
+      nav("/complete-registration");
+      return;
+    }
     const target = portalForUser(me);
     if (target !== PORTAL) {
       const base = portalURLFor(target);
@@ -45,6 +31,22 @@ export default function Login() {
     }
     nav("/");
   };
+}
+
+export default function Login() {
+  if (PORTAL === "admin") return <AdminLogin />;
+  if (PORTAL === "firma") return <FirmaLoginRedirect />;
+  return <MarketLogin />;
+}
+
+// Admin — yagona email/parol bilan kiradigan rol, o'zgarishsiz qoldi.
+function AdminLogin() {
+  const { login } = useAuth();
+  const afterLogin = useAfterLogin();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -58,6 +60,75 @@ export default function Login() {
       setBusy(false);
     }
   };
+
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center p-4">
+      <form className="card flex w-full max-w-sm flex-col gap-4 p-8" onSubmit={submit}>
+        <div className="text-center">
+          <Sofa className="mx-auto mb-1" size={30} style={{ color: "var(--secondary)" }} />
+          <h1 className="text-lg font-bold">Platforma boshqaruviga kirish</h1>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Hisobingizga kiring
+          </p>
+        </div>
+        <div>
+          <label className="label">Email</label>
+          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+        </div>
+        <div>
+          <label className="label">Parol</label>
+          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </div>
+        {error && <div className="error">{error}</div>}
+        <button className="btn btn-brand w-full" type="submit" disabled={busy}>
+          {busy ? "Kirilmoqda…" : "Kirish"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// Firma — o'z login formasi yo'q: Google Console'ning "Authorized JavaScript
+// origins"i wildcard subdomenlarni (*.qrbite.uz) qo'llab-quvvatlamaydi,
+// shuning uchun Google/Telegram tugmalari faqat market'da. Firma egasi/
+// xodimi ham market orqali kiradi — kirgach avtomatik shu subdomenga
+// (token bilan) o'tkaziladi (qarang useAfterLogin).
+function FirmaLoginRedirect() {
+  const marketURL = portalURLFor("market");
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center p-4">
+      <div className="card flex w-full max-w-sm flex-col items-center gap-4 p-8 text-center">
+        <Sofa size={30} style={{ color: "var(--secondary)" }} />
+        <h1 className="text-lg font-bold">Firma kabinetiga kirish</h1>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          Kirish uchun asosiy saytga o'ting — Google yoki Telegram bilan kirgach, firma
+          kabinetiga avtomatik o'tkazilasiz.
+        </p>
+        <a className="btn btn-brand w-full" href={marketURL ? `${marketURL}/login` : "/login"}>
+          Asosiy saytga o'tish
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// Market — yagona login/ro'yxatdan o'tish nuqtasi: Google va Telegram.
+// Email/parol yo'q (faqat admin uchun qoldirilgan).
+function MarketLogin() {
+  const { loginWithGoogle, loginWithTokens } = useAuth();
+  const afterLogin = useAfterLogin();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [botUsername, setBotUsername] = useState(null);
+  const googleButtonRef = useRef(null);
+  const pollRef = useRef(null);
+
+  useEffect(() => {
+    api("/auth/telegram/bot-info/")
+      .then((d) => setBotUsername(d.username))
+      .catch(() => setBotUsername(null));
+    return () => clearInterval(pollRef.current);
+  }, []);
 
   const handleGoogleCredential = async (response) => {
     setError("");
@@ -73,10 +144,9 @@ export default function Login() {
 
   // Google Identity Services skriptini shu sahifada, kerak bo'lganda
   // yuklaymiz (index.html'ga qo'shmaymiz — faqat Login sahifasiga kerak).
-  // `VITE_GOOGLE_CLIENT_ID` hali sozlanmagan bo'lsa (Google Cloud Console
-  // ma'lumotlari kelmagan bo'lsa), tugma shunchaki ko'rsatilmaydi.
+  // `VITE_GOOGLE_CLIENT_ID` hali sozlanmagan bo'lsa, tugma ko'rsatilmaydi.
   useEffect(() => {
-    if (!SHOW_GOOGLE || !googleButtonRef.current) return;
+    if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return;
 
     const renderButton = () => {
       window.google.accounts.id.initialize({
@@ -110,39 +180,60 @@ export default function Login() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Telegram: sessiya yaratamiz, botni deep-link bilan ochamiz, so'ng
+  // foydalanuvchi botda "/start" bosishini kutib, natijani so'rab turamiz
+  // (polling) — bot webhook'i shu sessiyani orqa fonda to'ldiradi.
+  const startTelegramLogin = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      const { session_id } = await api("/auth/telegram/session/", { method: "POST" });
+      window.open(`https://t.me/${botUsername}?start=${session_id}`, "_blank", "noopener");
+
+      pollRef.current = setInterval(async () => {
+        try {
+          const data = await api(`/auth/telegram/session/${session_id}/`);
+          if (data.status === "done") {
+            clearInterval(pollRef.current);
+            setBusy(false);
+            afterLogin(await loginWithTokens({ access: data.access, refresh: data.refresh }));
+          }
+        } catch (err) {
+          clearInterval(pollRef.current);
+          setBusy(false);
+          setError(err.message);
+        }
+      }, 2000);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex min-h-[70vh] items-center justify-center p-4">
-      <form className="card flex w-full max-w-sm flex-col gap-4 p-8" onSubmit={submit}>
+      <div className="card flex w-full max-w-sm flex-col gap-4 p-8">
         <div className="text-center">
           <Sofa className="mx-auto mb-1" size={30} style={{ color: "var(--secondary)" }} />
-          <h1 className="text-lg font-bold">{TITLES[PORTAL]}</h1>
+          <h1 className="text-lg font-bold">Xush kelibsiz</h1>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Hisobingizga kiring
+            Google yoki Telegram bilan kiring — hisobingiz yo'q bo'lsa, avtomatik yaratiladi.
           </p>
         </div>
-        <div>
-          <label className="label">Email</label>
-          <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
-        </div>
-        <div>
-          <label className="label">Parol</label>
-          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        </div>
         {error && <div className="error">{error}</div>}
-        <button className="btn btn-brand w-full" type="submit" disabled={busy}>
-          {busy ? "Kirilmoqda…" : "Kirish"}
-        </button>
-        {SHOW_GOOGLE && (
-          <>
-            <div className="flex items-center gap-3 text-xs" style={{ color: "var(--muted)" }}>
-              <div className="h-px flex-1" style={{ background: "var(--border)" }} />
-              yoki
-              <div className="h-px flex-1" style={{ background: "var(--border)" }} />
-            </div>
-            <div ref={googleButtonRef} className="flex justify-center" />
-          </>
+        {GOOGLE_CLIENT_ID && <div ref={googleButtonRef} className="flex justify-center" />}
+        {botUsername && (
+          <button
+            type="button"
+            className="btn w-full"
+            style={{ background: "#26A5E4", color: "#fff" }}
+            onClick={startTelegramLogin}
+            disabled={busy}
+          >
+            {busy ? "Kutilmoqda…" : "Telegram orqali kirish"}
+          </button>
         )}
-      </form>
+      </div>
     </div>
   );
 }

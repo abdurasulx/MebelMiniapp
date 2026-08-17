@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.assets.views import Model3DViewerView, Model3DViewSet
 from apps.companies.views import (
@@ -45,14 +45,18 @@ from apps.projects.views import (
 )
 from apps.users.views import (
     AdminStatsView,
+    AdminTokenObtainPairView,
     AdminUserListView,
     AdminUserToggleActiveView,
     CareerView,
+    CompleteRegistrationView,
     GoogleLoginView,
     MeView,
     OTPRequestView,
     OTPVerifyView,
-    RegisterView,
+    TelegramBotInfoView,
+    TelegramSessionCreateView,
+    TelegramSessionPollView,
     TelegramWebhookView,
 )
 from apps.workflow.views import (
@@ -112,15 +116,22 @@ bom_detail = BillOfMaterialViewSet.as_view(
 manufactured_unit_list = ManufacturedUnitViewSet.as_view({"get": "list"})
 
 urlpatterns = [
-    path("auth/register/", RegisterView.as_view(), name="register"),
-    path("auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("auth/token/", AdminTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("users/me/", MeView.as_view(), name="me"),
     path("users/me/career/", CareerView.as_view(), name="career"),
+    path("users/me/complete-registration/", CompleteRegistrationView.as_view(), name="complete-registration"),
     path("auth/otp/request/", OTPRequestView.as_view(), name="otp-request"),
     path("auth/otp/verify/", OTPVerifyView.as_view(), name="otp-verify"),
     path("auth/google/", GoogleLoginView.as_view(), name="google-login"),
     path("auth/telegram/webhook/", TelegramWebhookView.as_view(), name="telegram-webhook"),
+    path("auth/telegram/session/", TelegramSessionCreateView.as_view(), name="telegram-session-create"),
+    path(
+        "auth/telegram/session/<uuid:session_id>/",
+        TelegramSessionPollView.as_view(),
+        name="telegram-session-poll",
+    ),
+    path("auth/telegram/bot-info/", TelegramBotInfoView.as_view(), name="telegram-bot-info"),
     path("admin/stats/", AdminStatsView.as_view(), name="admin-stats"),
     path("admin/users/", AdminUserListView.as_view(), name="admin-users"),
     path(

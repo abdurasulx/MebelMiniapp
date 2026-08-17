@@ -1,25 +1,24 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
 
 
-class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=8)
+class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Email+parol bilan kirish — endi faqat platforma admini uchun (mijoz/
+    firma egasi/xodim Google yoki Telegram orqali kiradi). `self.user` ni
+    `super().validate()` autentifikatsiyadan keyin o'rnatadi, shundan
+    keyingina rolni tekshiramiz — noto'g'ri parol bilan urinishlarda ham
+    "faqat admin uchun" deb emas, oddiy autentifikatsiya xatosi chiqadi."""
 
-    class Meta:
-        model = User
-        fields = ("id", "email", "password", "first_name", "last_name", "phone", "role")
-        read_only_fields = ("id",)
-
-    def validate_role(self, value):
-        # ro'yxatdan faqat customer yoki company_owner bo'lib o'tish mumkin
-        if value not in (User.Role.CUSTOMER, User.Role.COMPANY_OWNER):
-            raise serializers.ValidationError("Bu rol bilan ro'yxatdan o'tib bo'lmaydi")
-        return value
-
-    def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        if self.user.role != User.Role.PLATFORM_ADMIN:
+            raise serializers.ValidationError(
+                "Bu usul faqat administratorlar uchun. Google yoki Telegram orqali kiring."
+            )
+        return data
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -31,9 +30,11 @@ class UserSerializer(serializers.ModelSerializer):
         fields = (
             "id", "email", "first_name", "last_name", "phone", "date_of_birth", "role",
             "worker_id", "company", "positions", "is_active", "date_joined",
+            "registration_completed",
         )
         read_only_fields = (
             "id", "email", "role", "worker_id", "company", "positions", "is_active", "date_joined",
+            "registration_completed",
         )
 
     def get_company(self, obj):
@@ -53,6 +54,25 @@ class UserSerializer(serializers.ModelSerializer):
 class GoogleLoginSerializer(serializers.Serializer):
     # Google Identity Services JS SDK / native SDK'dan kelgan ID token (JWT).
     credential = serializers.CharField()
+
+
+class CompleteRegistrationSerializer(serializers.Serializer):
+    """Google/Telegram orqali yangi hisob ochilgandan keyingi yakuniy qadam
+    — qarang CompleteRegistrationView. Faqat `registration_completed=False`
+    bo'lgan hisob uchun bir marta ishlaydi (rol keyinchalik shu orqali
+    o'zgartirib bo'lmaydi — bu ro'yxatdan o'tishning davomi, huquq
+    ko'tarish vositasi emas)."""
+
+    role = serializers.ChoiceField(choices=(User.Role.CUSTOMER, User.Role.COMPANY_OWNER))
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    company_name = serializers.CharField(max_length=200, required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        if attrs["role"] == User.Role.COMPANY_OWNER and not attrs.get("company_name", "").strip():
+            raise serializers.ValidationError({"company_name": "Kompaniya nomini kiriting"})
+        return attrs
 
 
 class OTPRequestSerializer(serializers.Serializer):
