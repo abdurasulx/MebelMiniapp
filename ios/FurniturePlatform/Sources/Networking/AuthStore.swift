@@ -181,6 +181,14 @@ final class AuthStore: ObservableObject {
             let me: User = try await APIClient.shared.get("/users/me/", auth: true)
             self.user = me
             self.isAuthenticated = true
+        } catch let error as APIError where error == .offline {
+            // Internet/serverga ulanib bo'lmadi — bu sessiya eskirgani degani
+            // emas. Tokenni saqlab qolamiz (chiqarib yubormaymiz), aloqa
+            // tiklanganda keyingi urinishda qayta tekshiriladi. Ilgari
+            // muvaffaqiyatli kirilgan bo'lsa, foydalanuvchi hamon "kirgan"
+            // holatda qoladi — individual ekranlar oflayn holatini o'zi
+            // ko'rsatadi (qarang OfflineView).
+            if user != nil { isAuthenticated = true }
         } catch {
             logout()
         }

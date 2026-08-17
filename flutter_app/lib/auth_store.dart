@@ -169,6 +169,13 @@ class AuthStore extends ChangeNotifier {
       );
       user = me;
       isAuthenticated = true;
+    } on NetworkException {
+      // Internet/serverga ulanib bo'lmadi — bu sessiya eskirgani degani emas.
+      // Tokenni saqlab qolamiz (chiqarib yubormaymiz), aloqa tiklanganda
+      // keyingi urinishda qayta tekshiriladi. Ilgari muvaffaqiyatli kirilgan
+      // bo'lsa, foydalanuvchi hamon "kirgan" holatda qoladi — individual
+      // ekranlar o'zi oflayn holatini ko'rsatadi (qarang OfflineView).
+      if (user != null) isAuthenticated = true;
     } catch (_) {
       await logout();
       return;

@@ -1,6 +1,6 @@
 import Foundation
 
-enum APIError: LocalizedError {
+enum APIError: LocalizedError, Equatable {
     case server(String)
     case decoding
     case unauthorized
@@ -122,6 +122,7 @@ actor APIClient {
 
         var request = URLRequest(url: APIConfig.url(for: path))
         request.httpMethod = "POST"
+        request.timeoutInterval = 20
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         if auth, let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
@@ -180,6 +181,7 @@ actor APIClient {
     private func rawRequest(path: String, method: String, body: Data?, auth: Bool, isRetry: Bool = false) async throws -> Data {
         var request = URLRequest(url: APIConfig.url(for: path))
         request.httpMethod = method
+        request.timeoutInterval = 12
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -193,8 +195,19 @@ actor APIClient {
             throw APIError.server("Server bilan bog'lanib bo'lmadi")
         }
 
-        if http.statusCode == 401, auth, !isRetry, await refreshAccessToken() {
-            return try await rawRequest(path: path, method: method, body: body, auth: auth, isRetry: true)
+        if http.statusCode == 401, auth, !isRetry {
+            let refreshed = await refreshAccessToken()
+            if refreshed == true {
+                return try await rawRequest(path: path, method: method, body: body, auth: auth, isRetry: true)
+            }
+            if refreshed == nil {
+                // Yangilash so'rovi tarmoq xatosi bilan muvaffaqiyatsiz tugadi —
+                // sessiya haqiqatan ham eskirganini bilmaymiz, shuning uchun bu
+                // holatni "chiqib ketilgan" emas, "oflayn" deb hisoblaymiz.
+                throw APIError.offline
+            }
+            // refreshed == false: refresh tokeni haqiqatan ham eskirgan/yaroqsiz —
+            // pastda asl 401 javobi bo'yicha APIError.server tashlanadi.
         }
 
         guard (200..<300).contains(http.statusCode) else {
@@ -204,7 +217,10 @@ actor APIClient {
         return data
     }
 
-    private func refreshAccessToken() async -> Bool {
+    /// `true` — yangilandi. `false` — refresh tokeni haqiqatan ham yaroqsiz
+    /// (chiqib ketish kerak). `nil` — tarmoq xatosi bilan tekshirib
+    /// bo'lmadi (oflayn — chiqib yubormaslik kerak, keyinroq qayta urinamiz).
+    private func refreshAccessToken() async -> Bool? {
         guard let refreshToken else { return false }
         struct Body: Encodable { let refresh: String }
         // ROTATE_REFRESH_TOKENS=True bo'lgani uchun javobda yangi refresh ham kelishi mumkin.
@@ -217,6 +233,8 @@ actor APIClient {
                 NotificationCenter.default.post(name: .authTokensRotated, object: TokenPair(access: tokens.access, refresh: newRefresh))
             }
             return true
+        } catch let error as APIError where error == .offline {
+            return nil
         } catch {
             return false
         }

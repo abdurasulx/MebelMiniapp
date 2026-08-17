@@ -161,11 +161,20 @@ class ApiClient {
       }
     });
 
-    if (resp.statusCode == 401 &&
-        auth &&
-        !isRetry &&
-        await _refreshAccessToken()) {
-      return _send(method, path, body, fromJson, auth: auth, isRetry: true);
+    if (resp.statusCode == 401 && auth && !isRetry) {
+      final refreshed = await _refreshAccessToken();
+      if (refreshed == true) {
+        return _send(method, path, body, fromJson, auth: auth, isRetry: true);
+      }
+      if (refreshed == null) {
+        // Yangilash so'rovi tarmoq xatosi bilan muvaffaqiyatsiz tugadi —
+        // sessiya haqiqatan ham eskirganini bilmaymiz, shuning uchun bu
+        // holatni "chiqib ketilgan" emas, "oflayn" deb hisoblaymiz (token
+        // saqlanib qoladi, keyingi urinishda qayta tekshiriladi).
+        throw NetworkException();
+      }
+      // refreshed == false: refresh tokeni haqiqatan ham eskirgan/yaroqsiz —
+      // pastda asl 401 javobi bo'yicha ApiException tashlanadi.
     }
 
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
@@ -189,14 +198,21 @@ class ApiClient {
     return 'Xatolik ($statusCode)';
   }
 
-  Future<bool> _refreshAccessToken() async {
+  /// `true` — yangilandi. `false` — refresh tokeni haqiqatan ham yaroqsiz
+  /// (chiqib ketish kerak). `null` — tarmoq xatosi bilan tekshirib
+  /// bo'lmadi (oflayn — chiqib yubormaslik kerak, keyinroq qayta urinamiz).
+  Future<bool?> _refreshAccessToken() async {
     if (_refreshToken == null) return false;
     try {
       final uri = Uri.parse('${ApiConfig.baseUrl}/auth/token/refresh/');
-      final resp = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refresh': _refreshToken}),
+      final resp = await _guardNetwork(
+        () => http
+            .post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'refresh': _refreshToken}),
+            )
+            .timeout(const Duration(seconds: 12)),
       );
       if (resp.statusCode != 200) return false;
       final decoded = jsonDecode(resp.body);
@@ -209,6 +225,8 @@ class ApiClient {
         );
       }
       return true;
+    } on NetworkException {
+      return null;
     } catch (_) {
       return false;
     }
