@@ -13,6 +13,14 @@ const TITLES = {
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
+// Google faqat market (asosiy) domenda ko'rsatiladi — Google Console'ning
+// "Authorized JavaScript origins"i wildcard subdomenlarni (*.qrbite.uz)
+// qo'llab-quvvatlamaydi, har biri alohida qo'shilishi kerak. Admin/firma
+// egasi ham shu yerdan Google bilan kirsa, `afterLogin()` uni rolига qarab
+// avtomatik o'z subdomeniga (token bilan) o'tkazadi — shuning uchun
+// admin/firma subdomenlarida alohida Google tugmasi shart emas.
+const SHOW_GOOGLE = Boolean(GOOGLE_CLIENT_ID) && PORTAL === "market";
+
 export default function Login() {
   const { login, loginWithGoogle } = useAuth();
   const nav = useNavigate();
@@ -68,7 +76,7 @@ export default function Login() {
   // `VITE_GOOGLE_CLIENT_ID` hali sozlanmagan bo'lsa (Google Cloud Console
   // ma'lumotlari kelmagan bo'lsa), tugma shunchaki ko'rsatilmaydi.
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return;
+    if (!SHOW_GOOGLE || !googleButtonRef.current) return;
 
     const renderButton = () => {
       window.google.accounts.id.initialize({
@@ -124,7 +132,7 @@ export default function Login() {
         <button className="btn btn-brand w-full" type="submit" disabled={busy}>
           {busy ? "Kirilmoqda…" : "Kirish"}
         </button>
-        {GOOGLE_CLIENT_ID && (
+        {SHOW_GOOGLE && (
           <>
             <div className="flex items-center gap-3 text-xs" style={{ color: "var(--muted)" }}>
               <div className="h-px flex-1" style={{ background: "var(--border)" }} />
