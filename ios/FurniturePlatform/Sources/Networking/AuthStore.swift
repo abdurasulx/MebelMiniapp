@@ -40,6 +40,12 @@ final class AuthStore: ObservableObject {
     private let appModeKey = "fp.appMode"
     private let activePositionKey = "fp.activePosition"
     private var cancellable: AnyCancellable?
+    private var connectivityCancellable: AnyCancellable?
+    // Tokenlar saqlangan, lekin `/users/me/` hali muvaffaqiyatli yuklanmagan
+    // (masalan ilova oflaynda ochilgan). Shu holatda ulanish tiklanganda
+    // qayta urinish kerak — aks holda `user`/`isAuthenticated` doim `nil`/
+    // `false` bo'lib qolib, Profil "kirilmagan" ko'rinishida qolar edi.
+    private var hasStoredTokens = false
 
     init() {
         // UITest'lar har bir test mustaqil bo'lishi uchun oldingi sessiyani tozalab boshlaydi.
@@ -52,6 +58,7 @@ final class AuthStore: ObservableObject {
         activePosition = defaults.string(forKey: activePositionKey)
         if let data = defaults.data(forKey: tokensKey),
            let tokens = try? JSONDecoder().decode(TokenPair.self, from: data) {
+            hasStoredTokens = true
             Task {
                 await APIClient.shared.setTokens(tokens)
                 await self.loadMe()
@@ -62,6 +69,14 @@ final class AuthStore: ObservableObject {
             .compactMap { $0.object as? TokenPair }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] tokens in self?.persist(tokens) }
+        connectivityCancellable = NotificationCenter.default
+            .publisher(for: .connectivityChanged)
+            .compactMap { $0.object as? Bool }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] online in
+                guard let self, online, self.hasStoredTokens, self.user == nil else { return }
+                Task { await self.loadMe() }
+            }
     }
 
     func login(email: String, password: String) async {
@@ -71,6 +86,7 @@ final class AuthStore: ObservableObject {
             let tokens: TokenPair = try await APIClient.shared.post(
                 "/auth/token/", body: Body(email: email, password: password), auth: false
             )
+            hasStoredTokens = true
             await APIClient.shared.setTokens(tokens)
             persist(tokens)
             await loadMe()
@@ -126,6 +142,7 @@ final class AuthStore: ObservableObject {
             )
             let tokens = TokenPair(access: resp.access, refresh: resp.refresh)
             isNewUser = resp.isNewUser
+            hasStoredTokens = true
             await APIClient.shared.setTokens(tokens)
             persist(tokens)
             await loadMe()
@@ -159,6 +176,7 @@ final class AuthStore: ObservableObject {
     func logout() {
         defaults.removeObject(forKey: tokensKey)
         Task { await APIClient.shared.setTokens(nil) }
+        hasStoredTokens = false
         user = nil
         isAuthenticated = false
         appMode = .customer

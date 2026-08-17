@@ -31,6 +31,13 @@ class AuthStore extends ChangeNotifier {
   static const _appModeKey = 'fp.appMode';
   static const _activePositionKey = 'fp.activePosition';
 
+  // Tokenlar saqlangan, lekin `/users/me/` hali muvaffaqiyatli yuklanmagan
+  // (masalan ilova oflaynda ochilgan). Shu holatda ulanish tiklanganda
+  // qayta urinish kerak — aks holda `user`/`isAuthenticated` doim `null`/
+  // `false` bo'lib qolib, Profil "kirilmagan" ko'rinishida, Sevimlilar esa
+  // hech qachon yuklanmay qolar edi.
+  bool _hasStoredTokens = false;
+
   Future<void> bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
     final savedMode = prefs.getString(_appModeKey);
@@ -42,9 +49,19 @@ class AuthStore extends ChangeNotifier {
       final tokens = TokenPair.fromJson(jsonDecode(raw));
       ApiClient.instance.setTokens(tokens);
       ApiClient.instance.onTokensRotated = _persist;
+      _hasStoredTokens = true;
       await _loadMe();
     }
+    ApiClient.instance.isOffline.addListener(_onConnectivityChanged);
     notifyListeners();
+  }
+
+  void _onConnectivityChanged() {
+    if (!ApiClient.instance.isOffline.value &&
+        _hasStoredTokens &&
+        user == null) {
+      _loadMe();
+    }
   }
 
   void setAppMode(AppMode mode) {
@@ -107,6 +124,7 @@ class AuthStore extends ChangeNotifier {
       final tokens = TokenPair.fromJson(resp);
       isNewUser = resp['is_new_user'] == true;
       ApiClient.instance.setTokens(tokens);
+      _hasStoredTokens = true;
       await _persist(tokens);
       await _loadMe();
       ok = true;
@@ -151,6 +169,7 @@ class AuthStore extends ChangeNotifier {
     await prefs.remove(_tokensKey);
     await prefs.remove(_activePositionKey);
     ApiClient.instance.setTokens(null);
+    _hasStoredTokens = false;
     user = null;
     isAuthenticated = false;
     appMode = AppMode.customer;
