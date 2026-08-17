@@ -9,8 +9,9 @@ export default defineConfig({
     // subdomen portallari: lvh.me, admin.lvh.me, firma.lvh.me -> 127.0.0.1
     // nip.io/sslip.io -> so'ralgan IP (masalan firma.100.69.182.71.nip.io ->
     // 100.69.182.71), shu orqali boshqa qurilmalardan ham subdomen-portal
-    // aniqlash ishlaydi.
+    // aniqlash ishlaydi. qrbite.uz — haqiqiy domen, VPS'dagi nginx Tailscale
+    // orqali shu Mac'ga reverse-proxy qiladi (qarang deploy/nginx/qrbite.uz.conf).
     host: true,
-    allowedHosts: ['.lvh.me', '.nip.io', '.sslip.io'],
+    allowedHosts: ['.lvh.me', '.nip.io', '.sslip.io', '.qrbite.uz'],
   },
 })

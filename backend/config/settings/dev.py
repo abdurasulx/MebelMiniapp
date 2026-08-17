@@ -10,7 +10,9 @@ CORS_ALLOW_ALL_ORIGINS = True
 # o'rniga Tailscale VPN orqali ulanadi (Mac'ning Tailscale manzili).
 # .ngrok-free.app — Telegram webhook sinovlari uchun (bepul tarifda subdomen
 # har ishga tushirishda o'zgaradi, shuning uchun butun domen ruxsat etiladi).
+# .qrbite.uz — haqiqiy domen, VPS'dagi nginx Tailscale orqali shu Mac'ga
+# reverse-proxy qiladi (qarang deploy/nginx/qrbite.uz.conf).
 ALLOWED_HOSTS = [
     ".lvh.me", "localhost", "127.0.0.1", "192.168.100.185", "100.69.182.71",
-    ".ngrok-free.app",
+    ".ngrok-free.app", ".qrbite.uz",
 ]
