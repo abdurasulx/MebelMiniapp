@@ -31,14 +31,6 @@ export function AuthProvider({ children }) {
     return applyTokens(tokens);
   };
 
-  // `credential` — Google Identity Services'dan kelgan ID token (JWT).
-  // Backend uni server-side verify qilib, bizning JWT juftligimizni
-  // qaytaradi — bu yerdan keyingi qadamlar oddiy `login()` bilan bir xil.
-  const loginWithGoogle = async (credential) => {
-    const tokens = await api("/auth/google/", { method: "POST", body: { credential } });
-    return applyTokens(tokens);
-  };
-
   // Telegram — session-poll oqimi (qarang Login.jsx) tokenlarni to'g'ridan-
   // to'g'ri qaytaradi, backendga qo'shimcha almashtirish so'rovi kerak emas.
   const loginWithTokens = async (tokens) => applyTokens(tokens);
@@ -59,7 +51,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, loginWithGoogle, loginWithTokens, refreshUser, logout }}
+      value={{ user, loading, login, loginWithTokens, refreshUser, logout }}
     >
       {children}
     </AuthContext.Provider>

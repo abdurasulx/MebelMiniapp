@@ -1,11 +1,16 @@
 import random
 from datetime import timedelta
+from urllib.parse import quote
 from uuid import UUID
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.http import HttpResponseBadRequest, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -196,24 +201,60 @@ class CareerView(generics.ListAPIView):
         )
 
 
-class GoogleLoginView(APIView):
-    """Google Identity Services'dan kelgan ID token bilan kirish/ro'yxatdan
-    o'tish — parol/OTP flow bilan bir xil javob shaklini (`access`/
-    `refresh`/`is_new_user`) qaytaradi.
+def _resolve_google_user(claims: dict) -> tuple:
+    """Google claims'dan foydalanuvchini topadi/yaratadi — `GoogleLoginView`
+    (mobil native SDK, JSON) va `GoogleLoginCallbackView` (veb, redirect
+    rejimi) ikkalasi ham shu bir xil mantiqni ishlatadi.
 
     Bog'lash tartibi:
-    1. `google_sub` bo'yicha `GoogleAccount` topilsa — bevosita o'sha user
-       bilan kiriladi.
+    1. `google_sub` bo'yicha `GoogleAccount` topilsa — bevosita o'sha user.
     2. Topilmasa-yu, shu email bilan **allaqachon** `User` mavjud bo'lsa —
        avtomatik bog'lanadi. Bu xavfsiz, chunki `verify_google_credential`
        email mavjud bo'lgan har qanday tokenni faqat `email_verified: true`
-       bo'lsagina o'tkazadi (aks holda pastga hech qachon yetib kelmaydi) —
-       ya'ni Google email egaligini allaqachon tekshirgan; email/parol
-       bilan kirish endi faqat admin uchun qolgani sabab bu yo'l ishonchli.
+       bo'lsagina o'tkazadi — ya'ni Google email egaligini allaqachon
+       tekshirgan; email/parol bilan kirish endi faqat admin uchun qolgani
+       sabab bu yo'l ishonchli.
     3. Ikkalasi ham topilmasa — yangi `User` yaratiladi, `registration_completed
-       =False` bilan (frontend uni `/complete-registration`ga yo'naltiradi —
-       qarang CompleteRegistrationView).
+       =False` bilan (frontend uni `/complete-registration`ga yo'naltiradi).
+
+    Qaytaradi: `(user, is_new_user)`.
     """
+    sub = claims["sub"]
+    email = (claims.get("email") or "").strip().lower()
+
+    link = GoogleAccount.objects.select_related("user").filter(google_sub=sub).first()
+    if link is not None:
+        user = link.user
+        if not user.is_active:
+            raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+        return user, False
+
+    existing = User.objects.filter(email__iexact=email).first() if email else None
+    if existing is not None:
+        if not existing.is_active:
+            raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+        GoogleAccount.objects.create(user=existing, google_sub=sub, email=email)
+        return existing, False
+
+    user = User(
+        email=email or f"google-{sub}@google.local",
+        first_name=(claims.get("given_name") or "").strip(),
+        last_name=(claims.get("family_name") or "").strip(),
+        role=User.Role.CUSTOMER,
+        registration_completed=False,
+        phone_verified=False,
+    )
+    user.set_unusable_password()
+    user.save()
+    GoogleAccount.objects.create(user=user, google_sub=sub, email=email)
+    return user, True
+
+
+class GoogleLoginView(APIView):
+    """Google Identity Services'dan kelgan ID token bilan kirish/ro'yxatdan
+    o'tish (mobil native SDK — JSON) — parol/OTP flow bilan bir xil javob
+    shaklini (`access`/`refresh`/`is_new_user`) qaytaradi. Veb esa redirect
+    rejimini ishlatadi — qarang GoogleLoginCallbackView."""
 
     permission_classes = (permissions.AllowAny,)
 
@@ -221,36 +262,7 @@ class GoogleLoginView(APIView):
         serializer = GoogleLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         claims = verify_google_credential(serializer.validated_data["credential"])
-
-        sub = claims["sub"]
-        email = (claims.get("email") or "").strip().lower()
-
-        link = GoogleAccount.objects.select_related("user").filter(google_sub=sub).first()
-        if link is not None:
-            user = link.user
-            if not user.is_active:
-                raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
-            is_new_user = False
-        else:
-            existing = User.objects.filter(email__iexact=email).first() if email else None
-            if existing is not None:
-                if not existing.is_active:
-                    raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
-                user = existing
-                is_new_user = False
-            else:
-                user = User(
-                    email=email or f"google-{sub}@google.local",
-                    first_name=(claims.get("given_name") or "").strip(),
-                    last_name=(claims.get("family_name") or "").strip(),
-                    role=User.Role.CUSTOMER,
-                    registration_completed=False,
-                    phone_verified=False,
-                )
-                user.set_unusable_password()
-                user.save()
-                is_new_user = True
-            GoogleAccount.objects.create(user=user, google_sub=sub, email=email)
+        user, is_new_user = _resolve_google_user(claims)
 
         refresh = RefreshToken.for_user(user)
         return Response(
@@ -259,6 +271,56 @@ class GoogleLoginView(APIView):
                 "refresh": str(refresh),
                 "is_new_user": is_new_user,
             }
+        )
+
+
+class GoogleLoginCallbackView(View):
+    """Google Identity Services'ning **redirect** rejimi (`ux_mode:
+    'redirect'`) uchun qabul qiluvchi endpoint — veb popup rejimida ishlatadi
+    (qarang Login.jsx). Popup+uchinchi-tomon-cookie muammolaridan (Chrome'da
+    ko'p uchraydigan, `gsi/transform` sahifasida abadiy osilib qolish bilan
+    namoyon bo'ladi) butunlay qochadi: Google ID token'ni to'g'ridan-to'g'ri
+    shu yerga **to'liq sahifa POST** qiladi (hech qanday popup/cookie
+    muammosiz), biz tokenlarni chiqarib, foydalanuvchini frontendga token
+    bilan qaytarib yuboramiz (`?access=&refresh=` — main.jsx'dagi mavjud
+    portal-o'tkazish mexanizmi bilan bir xil naqsh).
+
+    CSRF: bu DRF emas, oddiy Django View — Google'ning o'zi tavsiya qilgan
+    "double-submit cookie" usuli bilan tekshiriladi: Google `g_csrf_token`ni
+    HAM cookie, HAM form-maydon sifatida yuboradi, ikkalasi mos kelishi
+    kerak (shuning uchun `csrf_exempt` — Django'ning standart CSRF middleware
+    bu yerga mos kelmaydi, chunki so'rov Google domenidan keladi)."""
+
+    @method_decorator(csrf_exempt)
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
+    def post(self, request):
+        cookie_token = request.COOKIES.get("g_csrf_token")
+        body_token = request.POST.get("g_csrf_token")
+        if not cookie_token or not body_token or cookie_token != body_token:
+            return HttpResponseBadRequest("CSRF token mos kelmadi")
+
+        credential = request.POST.get("credential")
+        if not credential:
+            return HttpResponseBadRequest("credential yo'q")
+
+        error_message = None
+        try:
+            claims = verify_google_credential(credential)
+            user, _ = _resolve_google_user(claims)
+        except ValidationError as exc:
+            error_message = str(exc.detail[0]) if isinstance(exc.detail, list) else str(exc.detail)
+            user = None
+
+        base = settings.FRONTEND_URL.rstrip("/")
+        if error_message or user is None:
+            return HttpResponseRedirect(f"{base}/login?error={quote(error_message or 'Google xatolik')}")
+
+        refresh = RefreshToken.for_user(user)
+        access = str(refresh.access_token)
+        return HttpResponseRedirect(
+            f"{base}/?access={quote(access)}&refresh={quote(str(refresh))}"
         )
 
 

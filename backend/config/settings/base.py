@@ -117,6 +117,12 @@ STORAGE_MODE = env("STORAGE_MODE", default="local")
 # (Authorization Code flow emas), shuning uchun bu yerda saqlanmaydi.
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 
+# Market (asosiy) frontend'ning ochiq manzili — Google redirect-rejimidagi
+# callback (qarang apps/users/views.py: GoogleLoginCallbackView) shu yerga
+# JWT bilan qaytarib yuboradi (`?access=&refresh=` — main.jsx'dagi mavjud
+# portal-o'tkazish mexanizmi bilan bir xil naqsh).
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+
 # Telegram bot login (webhook) — qarang apps/users/telegram_bot.py.
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")

@@ -206,6 +206,60 @@ class GoogleLoginTests(TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class GoogleLoginCallbackTests(TestCase):
+    """Google Identity Services'ning redirect rejimi (`ux_mode: 'redirect'`)
+    uchun qabul qiluvchi endpoint — popup+uchinchi-tomon-cookie
+    muammolaridan qochish uchun veb shuni ishlatadi (qarang
+    GoogleLoginCallbackView docstring). `g_csrf_token` double-submit
+    cookie orqali tekshiriladi (Google'ning o'zi tavsiya qilgan usul)."""
+
+    def _claims(self, sub="google-sub-1", email="user@example.com"):
+        return {
+            "sub": sub, "email": email, "email_verified": True,
+            "given_name": "Ali", "family_name": "Valiyev",
+        }
+
+    def _post(self, *, credential="fake-id-token", cookie_token="tok-1", body_token="tok-1"):
+        if cookie_token is not None:
+            self.client.cookies["g_csrf_token"] = cookie_token
+        data = {}
+        if credential is not None:
+            data["credential"] = credential
+        if body_token is not None:
+            data["g_csrf_token"] = body_token
+        return self.client.post(reverse("google-login-callback"), data)
+
+    def test_valid_callback_redirects_with_tokens(self):
+        with patch("apps.users.views.verify_google_credential", return_value=self._claims()):
+            resp = self._post()
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.url.startswith("https://qrbite.uz/?access="))
+        self.assertIn("refresh=", resp.url)
+        self.assertTrue(User.objects.filter(email="user@example.com").exists())
+
+    def test_csrf_token_mismatch_rejected(self):
+        with patch("apps.users.views.verify_google_credential", return_value=self._claims()):
+            resp = self._post(cookie_token="tok-1", body_token="tok-2")
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(User.objects.filter(email="user@example.com").exists())
+
+    def test_missing_csrf_cookie_rejected(self):
+        with patch("apps.users.views.verify_google_credential", return_value=self._claims()):
+            resp = self._post(cookie_token=None, body_token="tok-1")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_invalid_credential_redirects_to_login_with_error(self):
+        from rest_framework.exceptions import ValidationError
+
+        with patch(
+            "apps.users.views.verify_google_credential",
+            side_effect=ValidationError("Google token noto'g'ri yoki muddati o'tgan"),
+        ):
+            resp = self._post()
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.url.startswith("https://qrbite.uz/login?error="))
+
+
 class AdminOnlyPasswordLoginTests(TestCase):
     """Email+parol bilan kirish endi faqat platforma admini uchun."""
 

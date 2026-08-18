@@ -6,6 +6,7 @@ import { PORTAL, portalForUser, portalURLFor } from "../portal";
 import { api, getTokens } from "../api";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
 
 // Login qilingandan keyin — hisob boshqa portalga tegishli bo'lsa (masalan
 // firma egasi market'dan kirsa), avtomatik o'sha subdomenga o'tkaziladi,
@@ -115,7 +116,7 @@ function FirmaLoginRedirect() {
 // Market — yagona login/ro'yxatdan o'tish nuqtasi: Google va Telegram.
 // Email/parol yo'q (faqat admin uchun qoldirilgan).
 function MarketLogin() {
-  const { loginWithGoogle, loginWithTokens } = useAuth();
+  const { loginWithTokens } = useAuth();
   const afterLogin = useAfterLogin();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -130,28 +131,38 @@ function MarketLogin() {
     return () => clearInterval(pollRef.current);
   }, []);
 
-  const handleGoogleCredential = async (response) => {
-    setError("");
-    setBusy(true);
-    try {
-      afterLogin(await loginWithGoogle(response.credential));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
+  // Backend `auth/google/callback/` xatolik bilan qaytarsa (masalan token
+  // yaroqsiz), `?error=`ni shu yerda ko'rsatamiz va URL'ni tozalaymiz.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("error");
+    if (err) {
+      setError(err);
+      params.delete("error");
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
     }
-  };
+  }, []);
 
   // Google Identity Services skriptini shu sahifada, kerak bo'lganda
   // yuklaymiz (index.html'ga qo'shmaymiz — faqat Login sahifasiga kerak).
   // `VITE_GOOGLE_CLIENT_ID` hali sozlanmagan bo'lsa, tugma ko'rsatilmaydi.
+  //
+  // MUHIM: popup rejimi (`ux_mode: 'popup'`, standart) Chrome'da uchinchi
+  // tomon cookie bloklanganda `accounts.google.com/gsi/transform`
+  // sahifasida abadiy osilib qolishi mumkin (hech qanday xato ko'rsatmasdan
+  // — foydalanuvchiga "aylanaveradi" bo'lib ko'rinadi). Shuning uchun
+  // REDIRECT rejimi ishlatiladi — Google ID token'ni to'g'ridan-to'g'ri
+  // backendga (`login_uri`) to'liq sahifa POST orqali yuboradi, popup/
+  // cookie muammosi umuman bo'lmaydi (qarang GoogleLoginCallbackView).
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return;
 
     const renderButton = () => {
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredential,
+        ux_mode: "redirect",
+        login_uri: `${API_BASE}/auth/google/callback/`,
       });
       window.google.accounts.id.renderButton(googleButtonRef.current, {
         theme: "outline",
@@ -177,7 +188,6 @@ function MarketLogin() {
     }
     script.addEventListener("load", renderButton);
     return () => script.removeEventListener("load", renderButton);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Telegram: sessiya yaratamiz, botni deep-link bilan ochamiz, so'ng
