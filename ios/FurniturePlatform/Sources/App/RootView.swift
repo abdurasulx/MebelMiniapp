@@ -18,13 +18,21 @@ struct RootView: View {
                         try? await Task.sleep(nanoseconds: 1_300_000_000)
                         withAnimation { showSplash = false }
                     }
-            } else if connectivity.isOffline {
-                // Oflaynda butun ilova (tab menyusi bilan birga) to'liq
-                // ekranli OfflineView'ga almashadi — foydalanuvchi
-                // menyu/katalog/profilga kira olmaydi.
-                OfflineView(onRetry: connectivity.retry)
             } else {
-                mainTabs
+                // `mainTabs` doim daraxtda qoladi (hech qachon yo'q
+                // qilinmaydi) — oflaynda `OfflineView` faqat USTIDAN
+                // qoplanadi. Ilgari bu `if/else` bilan almashtirilardi,
+                // natijada har safar oflayn holati tebransa (masalan bitta
+                // sekin so'rov tufayli), barcha tablarning keshlangan
+                // holati yo'qolib, ulanish tiklanganda hammasi qaytadan
+                // "Loading..." holatidan boshlanardi.
+                ZStack {
+                    mainTabs
+                    if connectivity.isOffline {
+                        OfflineView(onRetry: connectivity.retry)
+                            .background(Color(uiColor: .systemBackground))
+                    }
+                }
             }
         }
     }

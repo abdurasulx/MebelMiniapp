@@ -187,7 +187,10 @@ actor APIClient {
     private func rawRequest(path: String, method: String, body: Data?, auth: Bool, isRetry: Bool = false) async throws -> Data {
         var request = URLRequest(url: APIConfig.url(for: path))
         request.httpMethod = method
-        request.timeoutInterval = 3
+        // 3s juda tez edi — mobil tarmoqda oddiy kechikish ham "oflayn" deb
+        // noto'g'ri aniqlanardi (endi zararsiz bo'lsa ham — RootView'ni
+        // yo'q qilmaydi — keraksiz to'liq ekranli uzilishlarni oldini olamiz).
+        request.timeoutInterval = 6
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

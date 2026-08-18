@@ -169,7 +169,11 @@ class ApiClient {
     late http.Response resp;
     final encoded = body != null ? jsonEncode(body) : null;
     resp = await _guardNetwork(() {
-      const timeout = Duration(seconds: 3);
+      // 3s juda tez edi — mobil tarmoqda (ayniqsa Tailscale VPN orqali)
+      // oddiy kechikish ham "oflayn" deb noto'g'ri aniqlanib, endi
+      // zararsiz bo'lsa ham (RootScreen'ni yo'q qilmaydi) keraksiz
+      // to'liq ekranli uzilishlarni keltirib chiqarardi.
+      const timeout = Duration(seconds: 6);
       switch (method) {
         case 'GET':
           return http.get(uri, headers: headers).timeout(timeout);
@@ -235,7 +239,7 @@ class ApiClient {
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({'refresh': _refreshToken}),
             )
-            .timeout(const Duration(seconds: 3)),
+            .timeout(const Duration(seconds: 6)),
       );
       if (resp.statusCode != 200) return false;
       final decoded = jsonDecode(resp.body);

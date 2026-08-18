@@ -62,25 +62,32 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
 }
 
 /// Butun ilova ustidan global ulanish holatini kuzatadi — oflayn bo'lganda
-/// `RootScreen` (tab menyusi bilan birga) butunlay to'liq ekranli
-/// [OfflineView]ga almashadi, shu bilan foydalanuvchi oflaynda menyu,
-/// katalog yoki profilga kira olmaydi (faqat "Qayta urinish" tugmasi ishlaydi).
+/// to'liq ekranli [OfflineView] `RootScreen` USTIDAN qoplanadi (shu bilan
+/// foydalanuvchi menyu/katalog/profilga kira olmaydi), lekin `RootScreen`ning
+/// o'zi HECH QACHON yo'q qilinmaydi — aks holda (avvalgi versiyada bo'lgani
+/// kabi) barcha tablarning keshlangan holati yo'qolib, ulanish tiklanganda
+/// hammasi qaytadan "Loading..." holatidan boshlanardi (bitta tabning
+/// birgina sekin so'rovi butun ilovani qayta tug'ilishga majburlardi).
 class _AppGate extends StatelessWidget {
   const _AppGate();
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: ApiClient.instance.isOffline,
-      builder: (context, offline, child) {
-        if (!offline) return child!;
-        return Scaffold(
-          body: SafeArea(
-            child: OfflineView(onRetry: ApiClient.instance.checkConnectivity),
-          ),
-        );
-      },
-      child: const RootScreen(),
+    return Stack(
+      children: [
+        const RootScreen(),
+        ValueListenableBuilder<bool>(
+          valueListenable: ApiClient.instance.isOffline,
+          builder: (context, offline, child) {
+            if (!offline) return const SizedBox.shrink();
+            return Scaffold(
+              body: SafeArea(
+                child: OfflineView(onRetry: ApiClient.instance.checkConnectivity),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
