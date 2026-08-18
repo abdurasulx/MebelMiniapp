@@ -206,12 +206,25 @@ class GoogleLoginTests(TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class GoogleLoginStartTests(TestCase):
+    """"Google orqali kirish" tugmasi shu endpointga oddiy `<a href>` bilan
+    yo'naltiradi (JS SDK yo'q) — Google consent sahifasiga redirect qiladi
+    va `state`ni cookie'ga yozadi (qarang GoogleLoginStartView)."""
+
+    def test_redirects_to_google_with_state_cookie(self):
+        resp = self.client.get(reverse("google-login-start"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.url.startswith("https://accounts.google.com/o/oauth2/v2/auth?"))
+        self.assertIn("google_oauth_state", resp.client.cookies)
+        self.assertIn(f"state={resp.client.cookies['google_oauth_state'].value}", resp.url)
+
+
 class GoogleLoginCallbackTests(TestCase):
-    """Google Identity Services'ning redirect rejimi (`ux_mode: 'redirect'`)
-    uchun qabul qiluvchi endpoint — popup+uchinchi-tomon-cookie
-    muammolaridan qochish uchun veb shuni ishlatadi (qarang
-    GoogleLoginCallbackView docstring). `g_csrf_token` double-submit
-    cookie orqali tekshiriladi (Google'ning o'zi tavsiya qilgan usul)."""
+    """Klassik OAuth 2.0 Authorization Code flow'ning qaytish nuqtasi —
+    GIS JS SDK popup/iframe muammolaridan (Chrome'da uchinchi tomon cookie
+    bloklanganda `gsi/transform`da abadiy osilib qolish) butunlay qochadi,
+    chunki bu yerda hech qanday Google JS kodi ishlatilmaydi — faqat
+    to'liq-sahifa redirectlar (qarang GoogleLoginStartView/CallbackView)."""
 
     def _claims(self, sub="google-sub-1", email="user@example.com"):
         return {
@@ -219,43 +232,64 @@ class GoogleLoginCallbackTests(TestCase):
             "given_name": "Ali", "family_name": "Valiyev",
         }
 
-    def _post(self, *, credential="fake-id-token", cookie_token="tok-1", body_token="tok-1"):
-        if cookie_token is not None:
-            self.client.cookies["g_csrf_token"] = cookie_token
-        data = {}
-        if credential is not None:
-            data["credential"] = credential
-        if body_token is not None:
-            data["g_csrf_token"] = body_token
-        return self.client.post(reverse("google-login-callback"), data)
+    def _start_state(self):
+        resp = self.client.get(reverse("google-login-start"))
+        return self.client.cookies["google_oauth_state"].value
+
+    def _callback(self, *, code="fake-code", state="use-cookie", set_cookie=True):
+        if set_cookie:
+            cookie_state = self._start_state()
+            if state == "use-cookie":
+                state = cookie_state
+        params = {}
+        if code is not None:
+            params["code"] = code
+        if state is not None:
+            params["state"] = state
+        return self.client.get(reverse("google-login-callback"), params)
 
     def test_valid_callback_redirects_with_tokens(self):
-        with patch("apps.users.views.verify_google_credential", return_value=self._claims()):
-            resp = self._post()
+        with (
+            patch("apps.users.views.exchange_google_code", return_value="fake-id-token"),
+            patch("apps.users.views.verify_google_credential", return_value=self._claims()),
+        ):
+            resp = self._callback()
         self.assertEqual(resp.status_code, 302)
         self.assertTrue(resp.url.startswith("https://qrbite.uz/?access="))
         self.assertIn("refresh=", resp.url)
         self.assertTrue(User.objects.filter(email="user@example.com").exists())
 
-    def test_csrf_token_mismatch_rejected(self):
-        with patch("apps.users.views.verify_google_credential", return_value=self._claims()):
-            resp = self._post(cookie_token="tok-1", body_token="tok-2")
-        self.assertEqual(resp.status_code, 400)
+    def test_state_mismatch_rejected(self):
+        with (
+            patch("apps.users.views.exchange_google_code", return_value="fake-id-token"),
+            patch("apps.users.views.verify_google_credential", return_value=self._claims()),
+        ):
+            resp = self._callback(state="wrong-state")
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.url.startswith("https://qrbite.uz/login?error="))
         self.assertFalse(User.objects.filter(email="user@example.com").exists())
 
-    def test_missing_csrf_cookie_rejected(self):
-        with patch("apps.users.views.verify_google_credential", return_value=self._claims()):
-            resp = self._post(cookie_token=None, body_token="tok-1")
-        self.assertEqual(resp.status_code, 400)
+    def test_missing_state_cookie_rejected(self):
+        resp = self._callback(set_cookie=False, state="anything")
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.url.startswith("https://qrbite.uz/login?error="))
+
+    def test_google_error_param_redirects_to_login(self):
+        resp = self.client.get(reverse("google-login-callback"), {"error": "access_denied"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.url.startswith("https://qrbite.uz/login?error="))
 
     def test_invalid_credential_redirects_to_login_with_error(self):
         from rest_framework.exceptions import ValidationError
 
-        with patch(
-            "apps.users.views.verify_google_credential",
-            side_effect=ValidationError("Google token noto'g'ri yoki muddati o'tgan"),
+        with (
+            patch("apps.users.views.exchange_google_code", return_value="fake-id-token"),
+            patch(
+                "apps.users.views.verify_google_credential",
+                side_effect=ValidationError("Google token noto'g'ri yoki muddati o'tgan"),
+            ),
         ):
-            resp = self._post()
+            resp = self._callback()
         self.assertEqual(resp.status_code, 302)
         self.assertTrue(resp.url.startswith("https://qrbite.uz/login?error="))
 

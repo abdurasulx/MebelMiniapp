@@ -1,6 +1,7 @@
 import random
+import secrets
 from datetime import timedelta
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from uuid import UUID
 
 from django.conf import settings
@@ -8,9 +9,7 @@ from django.contrib.auth import get_user_model
 from django.http import HttpResponseBadRequest, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.utils.decorators import method_decorator
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -23,7 +22,7 @@ from apps.orders.models import Order
 from apps.products.models import Product
 
 from . import telegram_bot
-from .google_auth import verify_google_credential
+from .google_auth import exchange_google_code, verify_google_credential
 from .models import GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession
 from .serializers import (
     AdminTokenObtainPairSerializer,
@@ -274,54 +273,94 @@ class GoogleLoginView(APIView):
         )
 
 
+def _google_redirect_uri() -> str:
+    return f"{settings.BACKEND_URL.rstrip('/')}/api/v1/auth/google/callback/"
+
+
+class GoogleLoginStartView(View):
+    """"Google orqali kirish" tugmasi (Login.jsx) shu yerga oddiy `<a href>`
+    bilan yo'naltiradi — hech qanday Google JS SDK yuklanmaydi (GIS SDK'ning
+    iframe/popup-asosidagi bog'lanishi Chrome'da uchinchi tomon cookie
+    bloklanganda `accounts.google.com/gsi/transform` sahifasida abadiy
+    osilib qolishi mumkin edi — shu SDK butunlay olib tashlandi).
+
+    Klassik OAuth 2.0 Authorization Code flow: tasodifiy `state`ni qisqa
+    muddatli cookie'ga yozib, foydalanuvchini to'g'ridan-to'g'ri Google'ning
+    consent sahifasiga to'liq-sahifa redirect qiladi. `state` keyin
+    `GoogleLoginCallbackView`da login-CSRF'dan himoya uchun tekshiriladi."""
+
+    def get(self, request):
+        if not settings.GOOGLE_CLIENT_ID:
+            return HttpResponseBadRequest("Google Login hali sozlanmagan")
+        state = secrets.token_urlsafe(24)
+        params = {
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "redirect_uri": _google_redirect_uri(),
+            "response_type": "code",
+            "scope": "openid email profile",
+            "state": state,
+            "prompt": "select_account",
+        }
+        response = HttpResponseRedirect(
+            f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+        )
+        response.set_cookie(
+            "google_oauth_state",
+            state,
+            max_age=300,
+            httponly=True,
+            samesite="Lax",
+            secure=not settings.DEBUG,
+        )
+        return response
+
+
 class GoogleLoginCallbackView(View):
-    """Google Identity Services'ning **redirect** rejimi (`ux_mode:
-    'redirect'`) uchun qabul qiluvchi endpoint — veb popup rejimida ishlatadi
-    (qarang Login.jsx). Popup+uchinchi-tomon-cookie muammolaridan (Chrome'da
-    ko'p uchraydigan, `gsi/transform` sahifasida abadiy osilib qolish bilan
-    namoyon bo'ladi) butunlay qochadi: Google ID token'ni to'g'ridan-to'g'ri
-    shu yerga **to'liq sahifa POST** qiladi (hech qanday popup/cookie
-    muammosiz), biz tokenlarni chiqarib, foydalanuvchini frontendga token
-    bilan qaytarib yuboramiz (`?access=&refresh=` — main.jsx'dagi mavjud
-    portal-o'tkazish mexanizmi bilan bir xil naqsh).
+    """Google'ning OAuth consent sahifasidan keyingi qaytish nuqtasi (qarang
+    GoogleLoginStartView) — `code`ni ID token'ga almashtiradi
+    (`exchange_google_code`), foydalanuvchini aniqlaydi/yaratadi va uni
+    JWT bilan frontendga qaytaradi (`?access=&refresh=` — main.jsx'dagi
+    mavjud portal-o'tkazish mexanizmi bilan bir xil naqsh)."""
 
-    CSRF: bu DRF emas, oddiy Django View — Google'ning o'zi tavsiya qilgan
-    "double-submit cookie" usuli bilan tekshiriladi: Google `g_csrf_token`ni
-    HAM cookie, HAM form-maydon sifatida yuboradi, ikkalasi mos kelishi
-    kerak (shuning uchun `csrf_exempt` — Django'ning standart CSRF middleware
-    bu yerga mos kelmaydi, chunki so'rov Google domenidan keladi)."""
+    def get(self, request):
+        base = settings.FRONTEND_URL.rstrip("/")
 
-    @method_decorator(csrf_exempt)
-    def dispatch(self, *args, **kwargs):
-        return super().dispatch(*args, **kwargs)
+        if request.GET.get("error"):
+            return HttpResponseRedirect(
+                f"{base}/login?error={quote('Google bilan kirish bekor qilindi')}"
+            )
 
-    def post(self, request):
-        cookie_token = request.COOKIES.get("g_csrf_token")
-        body_token = request.POST.get("g_csrf_token")
-        if not cookie_token or not body_token or cookie_token != body_token:
-            return HttpResponseBadRequest("CSRF token mos kelmadi")
-
-        credential = request.POST.get("credential")
-        if not credential:
-            return HttpResponseBadRequest("credential yo'q")
+        code = request.GET.get("code")
+        state = request.GET.get("state")
+        cookie_state = request.COOKIES.get("google_oauth_state")
+        if not code or not state or not cookie_state or state != cookie_state:
+            return HttpResponseRedirect(
+                f"{base}/login?error={quote('Google so‘rovi yaroqsiz. Qayta urining')}"
+            )
 
         error_message = None
+        user = None
         try:
-            claims = verify_google_credential(credential)
+            id_token_str = exchange_google_code(code, _google_redirect_uri())
+            claims = verify_google_credential(id_token_str)
             user, _ = _resolve_google_user(claims)
         except ValidationError as exc:
             error_message = str(exc.detail[0]) if isinstance(exc.detail, list) else str(exc.detail)
-            user = None
 
-        base = settings.FRONTEND_URL.rstrip("/")
         if error_message or user is None:
-            return HttpResponseRedirect(f"{base}/login?error={quote(error_message or 'Google xatolik')}")
+            response = HttpResponseRedirect(
+                f"{base}/login?error={quote(error_message or 'Google xatolik')}"
+            )
+            response.delete_cookie("google_oauth_state")
+            return response
 
         refresh = RefreshToken.for_user(user)
         access = str(refresh.access_token)
-        return HttpResponseRedirect(
+        response = HttpResponseRedirect(
             f"{base}/?access={quote(access)}&refresh={quote(str(refresh))}"
         )
+        response.delete_cookie("google_oauth_state")
+        return response
 
 
 class TelegramWebhookView(APIView):

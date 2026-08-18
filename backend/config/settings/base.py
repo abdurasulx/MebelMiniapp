@@ -113,15 +113,23 @@ USE_TZ = True
 STORAGE_MODE = env("STORAGE_MODE", default="local")
 
 # Google Login (Sign in with Google) — qarang apps/users/google_auth.py.
-# Client Secret shart emas: faqat ID-token server-side verify qilinadi
-# (Authorization Code flow emas), shuning uchun bu yerda saqlanmaydi.
+# Klassik OAuth 2.0 Authorization Code flow ishlatiladi (GIS JS SDK'siz —
+# uning iframe/popup asosidagi bog'lanishi Chrome'da uchinchi tomon cookie
+# bloklanganda `gsi/transform`da abadiy osilib qolishi mumkin edi). Shuning
+# uchun Client Secret HAM kerak (kod-tokenga almashtirish uchun).
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
 
-# Market (asosiy) frontend'ning ochiq manzili — Google redirect-rejimidagi
-# callback (qarang apps/users/views.py: GoogleLoginCallbackView) shu yerga
-# JWT bilan qaytarib yuboradi (`?access=&refresh=` — main.jsx'dagi mavjud
-# portal-o'tkazish mexanizmi bilan bir xil naqsh).
+# Market (asosiy) frontend'ning ochiq manzili — Google callback (qarang
+# apps/users/views.py: GoogleLoginCallbackView) shu yerga JWT bilan qaytarib
+# yuboradi (`?access=&refresh=` — main.jsx'dagi mavjud portal-o'tkazish
+# mexanizmi bilan bir xil naqsh).
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
+
+# Backend'ning tashqi dunyoga ochiq manzili — Google'ga `redirect_uri`
+# sifatida beriladi (Google Console'dagi "Authorized redirect URIs" bilan
+# ANIQ mos kelishi shart).
+BACKEND_URL = env("BACKEND_URL", default="http://127.0.0.1:8000")
 
 # Telegram bot login (webhook) — qarang apps/users/telegram_bot.py.
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")

@@ -7,10 +7,39 @@ kalitlaridan avtomatik tekshiradi, shuning uchun frontenddan kelgan hech
 qanday claim'ga to'g'ridan-to'g'ri ishonilmaydi.
 """
 
+import requests
 from django.conf import settings
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 from rest_framework.exceptions import ValidationError
+
+
+def exchange_google_code(code: str, redirect_uri: str) -> str:
+    """Authorization Code flow'dagi `code`ni Google'ning token endpoint'ida
+    ID token'ga almashtiradi (server-to-server so'rov, Client Secret bilan).
+
+    Qaytaradi: `id_token` (JWT string) — keyin `verify_google_credential`
+    orqali tekshiriladi (imzo/audience/muddat), xuddi mobil SDK'dan kelgan
+    token kabi.
+    """
+    resp = requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "client_secret": settings.GOOGLE_CLIENT_SECRET,
+            "redirect_uri": redirect_uri,
+            "grant_type": "authorization_code",
+        },
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        raise ValidationError("Google kodi yaroqsiz yoki muddati o'tgan")
+    data = resp.json()
+    token = data.get("id_token")
+    if not token:
+        raise ValidationError("Google javobida id_token yo'q")
+    return token
 
 
 def verify_google_credential(credential: str) -> dict:
