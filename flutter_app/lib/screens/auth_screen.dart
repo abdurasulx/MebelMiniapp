@@ -10,6 +10,12 @@ import '../widgets/otp_box_input.dart';
 
 enum _Step { phone, code, profile }
 
+// Har bir tugma faqat O'ZI bosilganda spinner ko'rsatishi uchun — bitta
+// umumiy `_busy` bo'lsa, masalan Google bosilganda "Kod yuborish" tugmasi
+// ham (aslida bosilmagan bo'lsa-da) spinner'ga aylanib qolardi (barcha
+// tugmalar bitta flagga qarab spinner chizardi).
+enum _BusyAction { otp, verify, google, telegram, profile }
+
 /// Faqat telefon+SMS-OTP orqali kirish (email/parol olib tashlandi — bitta,
 /// oddiy oqim). Bosqichlar: davlat+raqam → 6-xonali kod (qayta yuborish
 /// countdown bilan) → (agar birinchi marta kirsa) ism/familiya so'raladi.
@@ -30,7 +36,8 @@ class _AuthScreenState extends State<AuthScreen> {
   DateTime? _dob;
   String? _debugCode;
   _Step _step = _Step.phone;
-  bool _busy = false;
+  _BusyAction? _busyAction;
+  bool get _busy => _busyAction != null;
   int _resendSeconds = 0;
   Timer? _resendTimer;
 
@@ -74,11 +81,11 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _sendCode() async {
-    setState(() => _busy = true);
+    setState(() => _busyAction = _BusyAction.otp);
     final auth = context.read<AuthStore>();
     final result = await auth.requestOTP(_fullPhone);
     setState(() {
-      _busy = false;
+      _busyAction = null;
       if (result != null) {
         _debugCode = result.debugCode;
         _step = _Step.code;
@@ -89,10 +96,10 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _verify(String code) async {
-    setState(() => _busy = true);
+    setState(() => _busyAction = _BusyAction.verify);
     final auth = context.read<AuthStore>();
     final ok = await auth.verifyOTP(_fullPhone, code);
-    setState(() => _busy = false);
+    setState(() => _busyAction = null);
     if (!ok) return;
     if (auth.isNewUser) {
       setState(() => _step = _Step.profile);
@@ -102,7 +109,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _saveProfile() async {
-    setState(() => _busy = true);
+    setState(() => _busyAction = _BusyAction.profile);
     final auth = context.read<AuthStore>();
     final ok = await auth.completeProfile(
       firstName: _firstNameController.text.trim(),
@@ -111,7 +118,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ? '${_dob!.year.toString().padLeft(4, '0')}-${_dob!.month.toString().padLeft(2, '0')}-${_dob!.day.toString().padLeft(2, '0')}'
           : null,
     );
-    setState(() => _busy = false);
+    setState(() => _busyAction = null);
     if (ok && mounted) Navigator.of(context).maybePop();
   }
 
@@ -242,7 +249,7 @@ class _AuthScreenState extends State<AuthScreen> {
         const SizedBox(height: 16),
         ElevatedButton(
           onPressed: _busy || !_phoneValid ? null : _sendCode,
-          child: _busy
+          child: _busyAction == _BusyAction.otp
               ? const CircularProgressIndicator()
               : Text(loc.t('auth_send_code')),
         ),
@@ -281,10 +288,10 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _loginWithGoogle() async {
-    setState(() => _busy = true);
+    setState(() => _busyAction = _BusyAction.google);
     final auth = context.read<AuthStore>();
     final ok = await auth.loginWithGoogle();
-    setState(() => _busy = false);
+    setState(() => _busyAction = null);
     if (!ok || !mounted) return;
     if (auth.isNewUser) {
       // Google berilgan ism/familiya bo'lsa oldindan to'ldiramiz — foydalanuvchi
@@ -298,11 +305,11 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _loginWithTelegram() async {
-    setState(() => _busy = true);
+    setState(() => _busyAction = _BusyAction.telegram);
     final auth = context.read<AuthStore>();
     final ok = await auth.loginWithTelegram();
     if (!mounted) return;
-    setState(() => _busy = false);
+    setState(() => _busyAction = null);
     if (!ok) return;
     if (auth.isNewUser) {
       _firstNameController.text = auth.user?.firstName ?? '';

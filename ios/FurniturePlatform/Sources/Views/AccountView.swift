@@ -245,7 +245,13 @@ private struct AuthFormView: View {
     @State private var showDobPicker = false
     @State private var debugCode: String?
     @State private var step: Step = .phone
-    @State private var busy = false
+    // Har bir tugma faqat O'ZI bosilganda spinner ko'rsatishi uchun —
+    // bitta umumiy `busy` bo'lsa, masalan Google bosilganda Telegram
+    // tugmasi ham (aslida bosilmagan bo'lsa-da) "yuklanmoqda" bo'lib
+    // ko'rinardi (barcha tugmalar bitta flagga qarab spinner chizardi).
+    private enum BusyAction { case otp, verify, google, telegram, profile }
+    @State private var busyAction: BusyAction?
+    private var busy: Bool { busyAction != nil }
     @State private var resendSeconds = 0
     @State private var resendTimer: Timer?
 
@@ -306,7 +312,7 @@ private struct AuthFormView: View {
         }
         Section {
             Button(action: sendOTP) {
-                if busy { ProgressView() } else { Text(locale.t("auth_send_code")).bold() }
+                if busyAction == .otp { ProgressView() } else { Text(locale.t("auth_send_code")).bold() }
             }
             .accessibilityIdentifier("authSendCodeButton")
             .disabled(!phoneValid || busy)
@@ -316,7 +322,7 @@ private struct AuthFormView: View {
         }
         Section {
             Button(action: loginWithGoogle) {
-                if busy {
+                if busyAction == .google {
                     ProgressView()
                 } else {
                     HStack {
@@ -329,7 +335,7 @@ private struct AuthFormView: View {
             .frame(maxWidth: .infinity)
 
             Button(action: loginWithTelegram) {
-                if busy {
+                if busyAction == .telegram {
                     ProgressView()
                 } else {
                     HStack {
@@ -356,7 +362,7 @@ private struct AuthFormView: View {
             .frame(maxWidth: .infinity)
             .listRowInsets(EdgeInsets())
             .padding(.vertical, 6)
-            if busy {
+            if busyAction == .verify {
                 ProgressView().frame(maxWidth: .infinity)
             }
         }
@@ -409,7 +415,7 @@ private struct AuthFormView: View {
         }
         Section {
             Button(action: saveProfile) {
-                if busy { ProgressView() } else { Text(locale.t("auth_save")).bold() }
+                if busyAction == .profile { ProgressView() } else { Text(locale.t("auth_save")).bold() }
             }
             .disabled(firstName.trimmingCharacters(in: .whitespaces).isEmpty || busy)
             .frame(maxWidth: .infinity)
@@ -434,10 +440,10 @@ private struct AuthFormView: View {
     }
 
     private func sendOTP() {
-        busy = true
+        busyAction = .otp
         Task {
             let result = await auth.requestOTP(phone: "\(country.dialCode)\(phone)")
-            busy = false
+            busyAction = nil
             if let result {
                 debugCode = result.debugCode
                 otpCode = ""
@@ -448,10 +454,10 @@ private struct AuthFormView: View {
     }
 
     private func loginWithGoogle() {
-        busy = true
+        busyAction = .google
         Task {
             await auth.loginWithGoogle()
-            busy = false
+            busyAction = nil
             if auth.isAuthenticated && auth.isNewUser {
                 // Google berilgan ism/familiya bo'lsa oldindan to'ldiramiz —
                 // foydalanuvchi qayta yozib o'tirmasin.
@@ -463,10 +469,10 @@ private struct AuthFormView: View {
     }
 
     private func loginWithTelegram() {
-        busy = true
+        busyAction = .telegram
         Task {
             await auth.loginWithTelegram()
-            busy = false
+            busyAction = nil
             if auth.isAuthenticated && auth.isNewUser {
                 firstName = auth.user?.firstName ?? ""
                 lastName = auth.user?.lastName ?? ""
@@ -476,10 +482,10 @@ private struct AuthFormView: View {
     }
 
     private func verifyOTP(_ code: String) {
-        busy = true
+        busyAction = .verify
         Task {
             let ok = await auth.verifyOTP(phone: "\(country.dialCode)\(phone)", code: code)
-            busy = false
+            busyAction = nil
             if ok && auth.isNewUser {
                 step = .profile
             }
@@ -487,7 +493,7 @@ private struct AuthFormView: View {
     }
 
     private func saveProfile() {
-        busy = true
+        busyAction = .profile
         let dobString: String? = dob.map {
             let f = DateFormatter()
             f.dateFormat = "yyyy-MM-dd"
@@ -499,7 +505,7 @@ private struct AuthFormView: View {
                 lastName: lastName.trimmingCharacters(in: .whitespaces),
                 dateOfBirth: dobString
             )
-            busy = false
+            busyAction = nil
         }
     }
 }
