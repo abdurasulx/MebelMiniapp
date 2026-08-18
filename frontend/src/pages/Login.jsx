@@ -183,28 +183,55 @@ function MarketLogin() {
   // Telegram: sessiya yaratamiz, botni deep-link bilan ochamiz, so'ng
   // foydalanuvchi botda "/start" bosishini kutib, natijani so'rab turamiz
   // (polling) — bot webhook'i shu sessiyani orqa fonda to'ldiradi.
+  //
+  // MUHIM: `window.open()` shu funksiyaning ENG BOSHIDA, hech qanday
+  // `await`dan OLDIN chaqirilishi shart — aks holda (masalan tarmoq
+  // so'rovidan keyin chaqirilsa) brauzer buni "foydalanuvchi bevosita
+  // bosgani" deb hisoblamay, popup'ni jimgina bloklab qo'yadi (tugma
+  // "Kutilmoqda…" holatida cheksiz osilib qoladi, hech qanday xato
+  // ko'rsatilmaydi — aynan shu bug bo'lgan).
   const startTelegramLogin = async () => {
     setError("");
     setBusy(true);
+    const tgWindow = window.open("about:blank", "_blank");
+    if (!tgWindow) {
+      setError("Brauzer popup oynani bloklab qo'ydi. Popup blokerni o'chirib, qayta urining.");
+      setBusy(false);
+      return;
+    }
     try {
       const { session_id } = await api("/auth/telegram/session/", { method: "POST" });
-      window.open(`https://t.me/${botUsername}?start=${session_id}`, "_blank", "noopener");
+      tgWindow.location.href = `https://t.me/${botUsername}?start=${session_id}`;
 
       pollRef.current = setInterval(async () => {
         try {
           const data = await api(`/auth/telegram/session/${session_id}/`);
           if (data.status === "done") {
             clearInterval(pollRef.current);
+            pollRef.current = null;
             setBusy(false);
             afterLogin(await loginWithTokens({ access: data.access, refresh: data.refresh }));
           }
         } catch (err) {
           clearInterval(pollRef.current);
+          pollRef.current = null;
           setBusy(false);
           setError(err.message);
         }
       }, 2000);
+
+      // ~5 daqiqadan so'ng hali "done" bo'lmasa — abadiy kutib turishning
+      // oldini olamiz (masalan foydalanuvchi botda /start bosmasa).
+      setTimeout(() => {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setBusy(false);
+          setError("Kutish vaqti tugadi. Qayta urining.");
+        }
+      }, 5 * 60 * 1000);
     } catch (err) {
+      tgWindow.close();
       setError(err.message);
       setBusy(false);
     }
