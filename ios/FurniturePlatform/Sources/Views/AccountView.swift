@@ -319,7 +319,10 @@ private struct AuthFormView: View {
                 if busy {
                     ProgressView()
                 } else {
-                    Label("Google orqali kirish", systemImage: "g.circle")
+                    HStack {
+                        Image("google_logo").resizable().scaledToFit().frame(width: 20, height: 20)
+                        Text("Google orqali kirish")
+                    }
                 }
             }
             .disabled(busy)
@@ -329,8 +332,10 @@ private struct AuthFormView: View {
                 if busy {
                     ProgressView()
                 } else {
-                    Label("Telegram orqali kirish", systemImage: "paperplane.fill")
-                        .foregroundStyle(Color(red: 0.15, green: 0.65, blue: 0.89))
+                    HStack {
+                        Image("telegram_logo").resizable().scaledToFit().frame(width: 20, height: 20)
+                        Text("Telegram orqali kirish")
+                    }
                 }
             }
             .disabled(busy)

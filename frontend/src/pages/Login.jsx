@@ -229,11 +229,19 @@ function MarketLogin() {
         {botUsername && (
           <button
             type="button"
-            className="btn w-full"
-            style={{ background: "#26A5E4", color: "#fff" }}
+            className="btn w-full flex items-center justify-center gap-2"
+            style={{ background: "#29B6F6", color: "#fff" }}
             onClick={startTelegramLogin}
             disabled={busy}
           >
+            {!busy && (
+              <svg width="18" height="18" viewBox="0 0 240 240" aria-hidden="true">
+                <path
+                  fill="#fff"
+                  d="M53.9 122.4l100.6-38.8c4.7-1.9 8.8 1.1 7.3 8.2l-.1.1-17.1 80.6c-1.3 5.7-4.7 7.1-9.5 4.4l-26.2-19.3-12.6 12.2c-1.4 1.4-2.6 2.6-5.3 2.6l1.9-26.9 49-44.3c2.1-1.9-.5-2.9-3.3-1l-60.6 38.2-26.1-8.2c-5.7-1.8-5.8-5.7 1.2-8.5z"
+                />
+              </svg>
+            )}
             {busy ? "Kutilmoqda…" : "Telegram orqali kirish"}
           </button>
         )}

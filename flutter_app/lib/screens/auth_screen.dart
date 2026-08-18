@@ -263,7 +263,7 @@ class _AuthScreenState extends State<AuthScreen> {
         const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: _busy ? null : _loginWithGoogle,
-          icon: const Icon(Icons.g_mobiledata_rounded, size: 26),
+          icon: Image.asset('assets/icons/google_logo.png', width: 20, height: 20),
           label: const Text('Google orqali kirish'),
         ),
         const SizedBox(height: 10),
@@ -273,7 +273,7 @@ class _AuthScreenState extends State<AuthScreen> {
             foregroundColor: const Color(0xFF26A5E4),
             side: const BorderSide(color: Color(0xFF26A5E4)),
           ),
-          icon: const Icon(Icons.send_rounded, size: 20),
+          icon: Image.asset('assets/icons/telegram_logo.png', width: 20, height: 20),
           label: const Text('Telegram orqali kirish'),
         ),
       ],
