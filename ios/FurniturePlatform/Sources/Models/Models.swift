@@ -288,25 +288,44 @@ struct Paginated<T: Codable>: Codable {
     let results: [T]
 }
 
-// Backend (DRF) `ValidationError("xabar")` ko'targanda `detail`ni matn EMAS,
-// ro'yxat sifatida qaytaradi (`{"detail": ["xabar"]}` — DRF'ning o'zi shunday
-// normallashtiradi). Shu sabab oddiy `String?` bilan decode qilinganda
-// muvaffaqiyatsiz bo'lib, asl xabar o'rniga umumiy "Xatolik (kod)" ko'rsatilar
-// edi — shuning uchun bu yerda ham matn, ham ro'yxat holatini qo'lda
-// qo'llab-quvvatlaymiz.
+private struct DynamicCodingKey: CodingKey {
+    var stringValue: String
+    init?(stringValue: String) { self.stringValue = stringValue }
+    var intValue: Int? { nil }
+    init?(intValue: Int) { nil }
+}
+
+// Backend (DRF) xato javobi ikki xil shaklda kelishi mumkin:
+// 1. View'da qo'lda `ValidationError("xabar")` ko'tarilganda — `{"detail":
+//    ["xabar"]}` (matn EMAS, ro'yxat — DRF shunday normallashtiradi).
+// 2. Serializer maydon validatsiyasi muvaffaqiyatsiz bo'lganda (masalan
+//    bo'sh telefon) — `"detail"` kaliti umuman yo'q, javob to'g'ridan-to'g'ri
+//    `{"phone": ["Bu maydon bo'sh bo'lmasligi kerak."]}` kabi maydon
+//    xatolari lug'ati. Ikkalasini ham hisobga olmasa, asl xabar o'rniga
+//    umumiy "Xatolik (kod)" ko'rsatilib qolardi.
 struct APIErrorPayload: Decodable {
     let detail: String?
 
-    enum CodingKeys: String, CodingKey { case detail }
-
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        if let text = try? container.decode(String.self, forKey: .detail) {
-            detail = text
-        } else if let list = try? container.decode([String].self, forKey: .detail) {
-            detail = list.first
-        } else {
-            detail = nil
+        let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+        if let key = DynamicCodingKey(stringValue: "detail") {
+            if let text = try? container.decode(String.self, forKey: key) {
+                detail = text
+                return
+            }
+            if let list = try? container.decode([String].self, forKey: key), let first = list.first {
+                detail = first
+                return
+            }
         }
+        var parts: [String] = []
+        for key in container.allKeys {
+            if let list = try? container.decode([String].self, forKey: key) {
+                parts.append("\(key.stringValue): \(list.joined(separator: ", "))")
+            } else if let text = try? container.decode(String.self, forKey: key) {
+                parts.append("\(key.stringValue): \(text)")
+            }
+        }
+        detail = parts.isEmpty ? nil : parts.joined(separator: "; ")
     }
 }

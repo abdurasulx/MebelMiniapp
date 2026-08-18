@@ -227,7 +227,14 @@ class ApiClient {
       if (decoded is List && decoded.isNotEmpty)
         return decoded.first.toString();
       if (decoded is Map) {
-        return decoded.entries.map((e) => '${e.key}: ${e.value}').join('; ');
+        // Serializer maydon xatolari — masalan {"phone": ["Bu maydon
+        // bo'sh bo'lmasligi kerak."]} — qiymatlar ro'yxat bo'lgani uchun
+        // qavssiz, o'qilishi qulay ko'rinishga birlashtiriladi.
+        return decoded.entries.map((e) {
+          final v = e.value;
+          final text = v is List ? v.join(', ') : v.toString();
+          return '${e.key}: $text';
+        }).join('; ');
       }
     } catch (_) {}
     return 'Xatolik ($statusCode)';
