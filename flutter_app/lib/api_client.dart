@@ -212,11 +212,18 @@ class ApiClient {
     return fromJson(jsonDecode(resp.body));
   }
 
+  // Backend (DRF) `ValidationError("xabar")` ko'targanda `detail`ni matn
+  // EMAS, ro'yxat sifatida qaytaradi (`{"detail": ["xabar"]}` — DRF'ning
+  // o'zi shunday normallashtiradi). Shuni hisobga olmasa, xato matni
+  // o'rniga "[xabar]" kabi qavsli chiqindi ko'rinardi.
   String _extractError(String body, int statusCode) {
     try {
       final decoded = jsonDecode(body);
-      if (decoded is Map && decoded['detail'] != null)
-        return decoded['detail'].toString();
+      if (decoded is Map && decoded['detail'] != null) {
+        final detail = decoded['detail'];
+        if (detail is List && detail.isNotEmpty) return detail.first.toString();
+        return detail.toString();
+      }
       if (decoded is List && decoded.isNotEmpty)
         return decoded.first.toString();
       if (decoded is Map) {

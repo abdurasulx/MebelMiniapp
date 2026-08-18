@@ -288,6 +288,25 @@ struct Paginated<T: Codable>: Codable {
     let results: [T]
 }
 
-struct APIErrorPayload: Codable {
+// Backend (DRF) `ValidationError("xabar")` ko'targanda `detail`ni matn EMAS,
+// ro'yxat sifatida qaytaradi (`{"detail": ["xabar"]}` — DRF'ning o'zi shunday
+// normallashtiradi). Shu sabab oddiy `String?` bilan decode qilinganda
+// muvaffaqiyatsiz bo'lib, asl xabar o'rniga umumiy "Xatolik (kod)" ko'rsatilar
+// edi — shuning uchun bu yerda ham matn, ham ro'yxat holatini qo'lda
+// qo'llab-quvvatlaymiz.
+struct APIErrorPayload: Decodable {
     let detail: String?
+
+    enum CodingKeys: String, CodingKey { case detail }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let text = try? container.decode(String.self, forKey: .detail) {
+            detail = text
+        } else if let list = try? container.decode([String].self, forKey: .detail) {
+            detail = list.first
+        } else {
+            detail = nil
+        }
+    }
 }
