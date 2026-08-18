@@ -7,7 +7,8 @@ import 'models.dart';
 
 class ApiException implements Exception {
   final String message;
-  ApiException(this.message);
+  final int? statusCode;
+  ApiException(this.message, {this.statusCode});
   @override
   String toString() => message;
 }
@@ -147,7 +148,7 @@ class ApiClient {
     );
     final resp = await http.Response.fromStream(streamed);
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw ApiException(_extractError(resp.body, resp.statusCode));
+      throw ApiException(_extractError(resp.body, resp.statusCode), statusCode: resp.statusCode);
     }
     return fromJson(jsonDecode(resp.body));
   }
@@ -205,7 +206,7 @@ class ApiClient {
     }
 
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw ApiException(_extractError(resp.body, resp.statusCode));
+      throw ApiException(_extractError(resp.body, resp.statusCode), statusCode: resp.statusCode);
     }
     if (resp.body.isEmpty) return fromJson(null);
     return fromJson(jsonDecode(resp.body));

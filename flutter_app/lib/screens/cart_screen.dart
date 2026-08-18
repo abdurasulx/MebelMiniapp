@@ -6,6 +6,7 @@ import '../cart_store.dart';
 import '../locale_store.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/phone_verify_dialog.dart';
 import 'auth_screen.dart';
 
 /// Savat — web `Cart.jsx` bilan bir xil oqim: bitta buyurtmada faqat bitta
@@ -32,6 +33,38 @@ class _CartScreenState extends State<CartScreen> {
     super.dispose();
   }
 
+  Future<void> _placeOrders(CartStore cart) async {
+    for (final group in cart.byCompany.values) {
+      await ApiClient.instance.post(
+        '/orders/',
+        (j) => j,
+        body: {
+          'phone': _phoneCtrl.text.trim(),
+          'address': _addressCtrl.text.trim(),
+          'note': _noteCtrl.text.trim(),
+          'items': group
+              .map(
+                (i) => {
+                  'variant': i.variantId,
+                  'width': i.width,
+                  'height': i.height,
+                  'depth': i.depth,
+                  'quantity': i.qty,
+                },
+              )
+              .toList(),
+        },
+      );
+    }
+    cart.clear();
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Buyurtma qabul qilindi')));
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _checkout(CartStore cart) async {
     final auth = context.read<AuthStore>();
     if (!auth.isAuthenticated) {
@@ -49,35 +82,31 @@ class _CartScreenState extends State<CartScreen> {
       _error = null;
     });
     try {
-      for (final group in cart.byCompany.values) {
-        await ApiClient.instance.post(
-          '/orders/',
-          (j) => j,
-          body: {
-            'phone': _phoneCtrl.text.trim(),
-            'address': _addressCtrl.text.trim(),
-            'note': _noteCtrl.text.trim(),
-            'items': group
-                .map(
-                  (i) => {
-                    'variant': i.variantId,
-                    'width': i.width,
-                    'height': i.height,
-                    'depth': i.depth,
-                    'quantity': i.qty,
-                  },
-                )
-                .toList(),
-          },
-        );
-      }
-      cart.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(
+      await _placeOrders(cart);
+    } on ApiException catch (e) {
+      // Google/Telegram orqali kirgan-u hali telefonini tasdiqlamagan
+      // foydalanuvchi uchun backend 403 qaytaradi — shu holatda tasdiqlash
+      // oynasini ochib, muvaffaqiyatli bo'lsa buyurtmani qayta yuboramiz.
+      if (e.statusCode == 403 && e.message.contains('tasdiqlang')) {
+        setState(() => _busy = false);
+        final verified = await showPhoneVerifyDialog(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Buyurtma qabul qilindi')));
-        Navigator.of(context).pop();
+          initialPhone: _phoneCtrl.text.trim(),
+        );
+        if (verified == true && mounted) {
+          await auth.refreshUser();
+          setState(() => _busy = true);
+          try {
+            await _placeOrders(cart);
+          } catch (e2) {
+            setState(() => _error = e2.toString());
+          } finally {
+            if (mounted) setState(() => _busy = false);
+          }
+        }
+        return;
       }
+      setState(() => _error = e.toString());
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {

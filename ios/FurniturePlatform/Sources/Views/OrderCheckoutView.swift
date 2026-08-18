@@ -16,6 +16,9 @@ struct OrderCheckoutView: View {
     @State private var busy = false
     @State private var errorMessage: String?
     @State private var didSucceed = false
+    // Google/Telegram orqali kirgan-u hali telefonini tasdiqlamagan
+    // foydalanuvchi uchun backend 403 qaytaradi — qarang submit().
+    @State private var showPhoneVerify = false
 
     var body: some View {
         NavigationStack {
@@ -56,6 +59,9 @@ struct OrderCheckoutView: View {
             } message: {
                 Text("Kompaniya siz bilan tez orada bog'lanadi.")
             }
+            .sheet(isPresented: $showPhoneVerify) {
+                PhoneVerifySheet(initialPhone: phone, onVerified: submit)
+            }
         }
     }
 
@@ -76,6 +82,12 @@ struct OrderCheckoutView: View {
                 struct AnyOrder: Decodable { let id: String }
                 let _: AnyOrder = try await APIClient.shared.post("/orders/", body: body, auth: true)
                 didSucceed = true
+            } catch let error as APIError {
+                if case .server(let msg, let statusCode) = error, statusCode == 403, msg.contains("tasdiqlang") {
+                    showPhoneVerify = true
+                } else {
+                    errorMessage = error.localizedDescription
+                }
             } catch {
                 errorMessage = error.localizedDescription
             }

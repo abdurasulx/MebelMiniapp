@@ -1,7 +1,9 @@
 import Foundation
 
 enum APIError: LocalizedError, Equatable {
-    case server(String)
+    // `statusCode` — masalan 403'ni aniq tekshirish uchun (qarang
+    // CartView.checkout: telefon tasdiqlanmagan xatosini ushlash).
+    case server(String, statusCode: Int)
     case decoding
     case unauthorized
     // Server umuman javob bermadi (internet yo'q, backend o'chiq, DNS
@@ -11,7 +13,7 @@ enum APIError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .server(let msg): return msg
+        case .server(let msg, _): return msg
         case .decoding: return "Ma'lumotni o'qib bo'lmadi"
         case .unauthorized: return "Avval tizimga kiring"
         case .offline: return "Internetga ulanib bo'lmadi"
@@ -131,11 +133,11 @@ actor APIClient {
 
         let (data, response) = try await performRequest(request)
         guard let http = response as? HTTPURLResponse else {
-            throw APIError.server("Server bilan bog'lanib bo'lmadi")
+            throw APIError.server("Server bilan bog'lanib bo'lmadi", statusCode: 0)
         }
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil
-            throw APIError.server(message ?? "Xatolik (\(http.statusCode))")
+            throw APIError.server(message ?? "Xatolik (\(http.statusCode))", statusCode: http.statusCode)
         }
         do {
             return try decoder.decode(T.self, from: data)
@@ -201,7 +203,7 @@ actor APIClient {
 
         let (data, response) = try await performRequest(request)
         guard let http = response as? HTTPURLResponse else {
-            throw APIError.server("Server bilan bog'lanib bo'lmadi")
+            throw APIError.server("Server bilan bog'lanib bo'lmadi", statusCode: 0)
         }
 
         if http.statusCode == 401, auth, !isRetry {
@@ -221,7 +223,7 @@ actor APIClient {
 
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil
-            throw APIError.server(message ?? "Xatolik (\(http.statusCode))")
+            throw APIError.server(message ?? "Xatolik (\(http.statusCode))", statusCode: http.statusCode)
         }
         return data
     }
