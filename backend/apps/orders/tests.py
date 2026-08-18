@@ -79,6 +79,26 @@ class OrderFlowTests(APITestCase):
         resp = self.client.post(f"/api/v1/orders/{order.id}/set_status/", {"status": "accepted"}, format="json")
         self.assertEqual(resp.status_code, 200)
 
+    def test_unverified_phone_cannot_create_order(self):
+        """Google/Telegram orqali kirgan-u hali telefonini tasdiqlamagan
+        foydalanuvchi (`phone_verified=False`) buyurtma bera olmasligi kerak."""
+        self.customer.phone_verified = False
+        self.customer.save(update_fields=["phone_verified"])
+        self.client.force_authenticate(self.customer)
+        resp = self.client.post(
+            "/api/v1/orders/",
+            {
+                "phone": "+998900000000",
+                "address": "Toshkent",
+                "items": [
+                    {"variant": str(self.variant.id), "width": "1", "height": "1", "depth": "1", "quantity": 1}
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.assertEqual(Order.objects.count(), 0)
+
     def test_stranger_cannot_touch_order(self):
         # Boshqa mijozning queryset'ida bu buyurtma umuman ko'rinmaydi, shuning
         # uchun 403 emas 404 qaytadi (mavjudligini ham tasdiqlamaydi).

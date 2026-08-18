@@ -4,6 +4,7 @@ import { ShoppingBasket, Sofa, X, Package } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { cartTotal, clearCart, getCart, itemSubtotal, removeFromCart, setQty } from "../cart";
+import PhoneVerifyModal from "../components/PhoneVerifyModal";
 
 export default function Cart() {
   const { user } = useAuth();
@@ -12,12 +13,42 @@ export default function Cart() {
   const [form, setForm] = useState({ phone: "", address: "", note: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Google/Telegram orqali kirgan-u hali telefonini tasdiqlamagan
+  // foydalanuvchi buyurtma berishga urinsa backend 403 qaytaradi — shu
+  // holatda tasdiqlash oynasi ochiladi, tasdiqlangach xuddi shu buyurtma
+  // avtomatik qayta yuboriladi.
+  const [showPhoneVerify, setShowPhoneVerify] = useState(false);
 
   useEffect(() => {
     const onChange = () => setItems(getCart());
     window.addEventListener("cart-changed", onChange);
     return () => window.removeEventListener("cart-changed", onChange);
   }, []);
+
+  const placeOrders = async () => {
+    // har bir kompaniya uchun alohida buyurtma
+    const byCompany = {};
+    items.forEach((i) => {
+      (byCompany[i.companyId] ||= []).push(i);
+    });
+    for (const group of Object.values(byCompany)) {
+      await api("/orders/", {
+        method: "POST",
+        body: {
+          ...form,
+          items: group.map((i) => ({
+            variant: i.variantId,
+            width: i.width,
+            height: i.height,
+            depth: i.depth,
+            quantity: i.qty,
+          })),
+        },
+      });
+    }
+    clearCart();
+    nav("/orders");
+  };
 
   const checkout = async (e) => {
     e.preventDefault();
@@ -28,28 +59,24 @@ export default function Cart() {
     setError("");
     setBusy(true);
     try {
-      // har bir kompaniya uchun alohida buyurtma
-      const byCompany = {};
-      items.forEach((i) => {
-        (byCompany[i.companyId] ||= []).push(i);
-      });
-      for (const group of Object.values(byCompany)) {
-        await api("/orders/", {
-          method: "POST",
-          body: {
-            ...form,
-            items: group.map((i) => ({
-              variant: i.variantId,
-              width: i.width,
-              height: i.height,
-              depth: i.depth,
-              quantity: i.qty,
-            })),
-          },
-        });
+      await placeOrders();
+    } catch (err) {
+      if (err.status === 403 && err.body?.detail?.includes("tasdiqlang")) {
+        setShowPhoneVerify(true);
+      } else {
+        setError(err.message);
       }
-      clearCart();
-      nav("/orders");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const afterPhoneVerified = async () => {
+    setShowPhoneVerify(false);
+    setError("");
+    setBusy(true);
+    try {
+      await placeOrders();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -149,6 +176,13 @@ export default function Cart() {
           </button>
         </form>
       </div>
+      {showPhoneVerify && (
+        <PhoneVerifyModal
+          initialPhone={form.phone}
+          onVerified={afterPhoneVerified}
+          onClose={() => setShowPhoneVerify(false)}
+        />
+      )}
     </div>
   );
 }

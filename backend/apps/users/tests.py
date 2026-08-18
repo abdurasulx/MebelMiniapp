@@ -36,7 +36,8 @@ class OTPFlowTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("access", resp.json())
         self.assertTrue(resp.json()["is_new_user"])
-        self.assertTrue(User.objects.filter(phone="+998901234567").exists())
+        user = User.objects.get(phone="+998901234567")
+        self.assertTrue(user.phone_verified)
 
     def test_wrong_code_increments_attempts_and_eventually_locks(self):
         self._request_otp()
@@ -151,6 +152,7 @@ class GoogleLoginTests(TestCase):
         user = User.objects.get(email="user@example.com")
         self.assertEqual(user.first_name, "Ali")
         self.assertFalse(user.registration_completed)
+        self.assertFalse(user.phone_verified)
         self.assertTrue(
             GoogleAccount.objects.filter(user=user, google_sub="google-sub-1").exists()
         )
@@ -365,6 +367,7 @@ class TelegramLoginTests(TestCase):
 
         user = TelegramAccount.objects.get(telegram_id=555).user
         self.assertFalse(user.registration_completed)
+        self.assertFalse(user.phone_verified)
 
     def test_known_telegram_id_logs_in_existing_user(self):
         user = User(email="existing@example.com", role=User.Role.CUSTOMER)
@@ -414,3 +417,83 @@ class TelegramLoginTests(TestCase):
             resp = self.client.get(reverse("telegram-bot-info"))
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["username"], "test_bot")
+
+
+class PhoneVerifyTests(TestCase):
+    """Google/Telegram orqali kirgan (`phone_verified=False`) foydalanuvchi
+    checkout paytida telefonini SMS-kod bilan tasdiqlashi — qarang
+    PhoneVerifyRequestView/PhoneVerifyConfirmView va OrderViewSet.perform_create."""
+
+    def _auth_client(self, user):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        token = str(RefreshToken.for_user(user).access_token)
+        self.client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+
+    def _new_unverified_user(self):
+        user = User(email="social@example.com", role=User.Role.CUSTOMER, phone_verified=False)
+        user.set_unusable_password()
+        user.save()
+        return user
+
+    def test_unauthenticated_cannot_request_or_confirm(self):
+        resp = self.client.post(
+            reverse("phone-verify-request"), {"phone": "+998901234567"}, content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 401)
+
+    def test_request_then_confirm_verifies_phone(self):
+        user = self._new_unverified_user()
+        self._auth_client(user)
+
+        resp = self.client.post(
+            reverse("phone-verify-request"), {"phone": "+998901234567"}, content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 200)
+        otp = PhoneOTP.objects.filter(phone="+998901234567").order_by("-created_at").first()
+        self.assertIsNotNone(otp)
+
+        resp = self.client.post(
+            reverse("phone-verify-confirm"),
+            {"phone": "+998901234567", "code": otp.code},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        user.refresh_from_db()
+        self.assertTrue(user.phone_verified)
+        self.assertEqual(user.phone, "+998901234567")
+
+    def test_phone_already_linked_to_another_account_is_rejected(self):
+        User.objects.create_user(
+            email="existing@example.com", password="StrongPass123", phone="+998901234567"
+        )
+        user = self._new_unverified_user()
+        self._auth_client(user)
+
+        self.client.post(
+            reverse("phone-verify-request"), {"phone": "+998901234567"}, content_type="application/json"
+        )
+        otp = PhoneOTP.objects.filter(phone="+998901234567").order_by("-created_at").first()
+        resp = self.client.post(
+            reverse("phone-verify-confirm"),
+            {"phone": "+998901234567", "code": otp.code},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        user.refresh_from_db()
+        self.assertFalse(user.phone_verified)
+
+    def test_wrong_code_is_rejected(self):
+        user = self._new_unverified_user()
+        self._auth_client(user)
+        self.client.post(
+            reverse("phone-verify-request"), {"phone": "+998901234567"}, content_type="application/json"
+        )
+        resp = self.client.post(
+            reverse("phone-verify-confirm"),
+            {"phone": "+998901234567", "code": "000000"},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        user.refresh_from_db()
+        self.assertFalse(user.phone_verified)

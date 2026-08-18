@@ -145,6 +145,42 @@ class CompleteRegistrationView(APIView):
         return Response(UserSerializer(user, context={"request": request}).data)
 
 
+class PhoneVerifyRequestView(APIView):
+    """Autentifikatsiyalangan foydalanuvchi telefonini tasdiqlash uchun SMS
+    kod so'raydi. Google/Telegram orqali kirib `phone_verified=False`
+    bo'lgan foydalanuvchi buyurtma berishdan oldin shu orqali telefonini
+    tasdiqlashi kerak (qarang OrderViewSet.perform_create)."""
+
+    def post(self, request):
+        serializer = OTPRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        phone = serializer.validated_data["phone"].strip()
+        return Response(_request_otp(phone))
+
+
+class PhoneVerifyConfirmView(APIView):
+    """Kodni tasdiqlab, joriy foydalanuvchining telefonini bog'laydi va
+    `phone_verified=True` qiladi. Boshqa hisobga allaqachon bog'langan
+    raqam bilan urinish rad etiladi — bitta raqam bitta hisobga tegishli
+    bo'lishi kerak."""
+
+    def post(self, request):
+        serializer = OTPVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        phone = serializer.validated_data["phone"].strip()
+        code = serializer.validated_data["code"].strip()
+        _consume_otp(phone, code)
+
+        if User.objects.filter(phone=phone).exclude(phone="").exclude(pk=request.user.pk).exists():
+            raise ValidationError("Bu telefon raqami boshqa hisobga bog'langan")
+
+        user = request.user
+        user.phone = phone
+        user.phone_verified = True
+        user.save(update_fields=["phone", "phone_verified"])
+        return Response(UserSerializer(user, context={"request": request}).data)
+
+
 class CareerView(generics.ListAPIView):
     """Foydalanuvchining barcha kompaniyalardagi ish tarixi (karyera)."""
 
@@ -209,6 +245,7 @@ class GoogleLoginView(APIView):
                     last_name=(claims.get("family_name") or "").strip(),
                     role=User.Role.CUSTOMER,
                     registration_completed=False,
+                    phone_verified=False,
                 )
                 user.set_unusable_password()
                 user.save()
@@ -324,6 +361,7 @@ class TelegramSessionPollView(APIView):
                 first_name=session.telegram_first_name,
                 role=User.Role.CUSTOMER,
                 registration_completed=False,
+                phone_verified=False,
             )
             user.set_unusable_password()
             user.save()
@@ -357,68 +395,92 @@ class TelegramBotInfoView(APIView):
         return Response({"username": username})
 
 
+MAX_OTP_PER_HOUR = 5
+
+
+def _request_otp(phone: str) -> dict:
+    """SMS kod yaratadi va suiiste'moldan himoya qiladi (rate-limit) — OTP
+    orqali kirish (OTPRequestView) va allaqachon autentifikatsiyalangan
+    foydalanuvchi telefon tasdiqlashi (PhoneVerifyRequestView) ikkalasi
+    ham shu funksiyani ishlatadi."""
+    # `is_used=False`: allaqachon tasdiqlangan (login uchun ishlatilgan) kod
+    # cooldownga hisoblanmaydi — aks holda muvaffaqiyatli kirgan foydalanuvchi
+    # chiqib darhol qayta kirmoqchi bo'lsa, 60 soniya davomida yangi kod
+    # so'rolmay, 400 xatolikka uchraydi.
+    last = (
+        PhoneOTP.objects.filter(phone=phone, is_used=False)
+        .order_by("-created_at")
+        .first()
+    )
+    if last is not None:
+        elapsed = (timezone.now() - last.created_at).total_seconds()
+        if elapsed < PhoneOTP.RESEND_COOLDOWN_SECONDS:
+            wait = round(PhoneOTP.RESEND_COOLDOWN_SECONDS - elapsed)
+            raise ValidationError(f"Biroz kuting, {wait} soniyadan so'ng qayta urining")
+
+    recent_count = PhoneOTP.objects.filter(
+        phone=phone, created_at__gte=timezone.now() - timedelta(hours=1)
+    ).count()
+    if recent_count >= MAX_OTP_PER_HOUR:
+        raise ValidationError("Juda ko'p urinish. Bir soatdan so'ng qayta urinib ko'ring")
+
+    code = "".join(random.choices("0123456789", k=6))
+    PhoneOTP.objects.create(phone=phone, code=code)
+    return {
+        "detail": "SMS yuborildi",
+        "debug_code": code,
+        "resend_after": PhoneOTP.RESEND_COOLDOWN_SECONDS,
+    }
+
+
+def _consume_otp(phone: str, code: str) -> None:
+    """Kodni tekshiradi va ishlatilgan deb belgilaydi — muvaffaqiyatsiz
+    bo'lsa `ValidationError` ko'taradi. Har bir noto'g'ri urinish
+    `PhoneOTP.attempts`ga yoziladi — `MAX_ATTEMPTS`dan oshsa kod bekor
+    qilinadi (brute-force himoyasi: kod 6 xonali bo'lgani uchun
+    cheklovsiz taxmin qilib bo'lmaydi)."""
+    otp = (
+        PhoneOTP.objects.filter(phone=phone, is_used=False)
+        .order_by("-created_at")
+        .first()
+    )
+    if not otp or timezone.now() - otp.created_at >= timedelta(minutes=5):
+        raise ValidationError("Kod muddati o'tgan. Yangi kod so'rang")
+    if otp.attempts >= PhoneOTP.MAX_ATTEMPTS:
+        otp.is_used = True
+        otp.save(update_fields=["is_used"])
+        raise ValidationError("Juda ko'p urinish. Yangi kod so'rang")
+    if otp.code != code:
+        otp.attempts += 1
+        otp.save(update_fields=["attempts"])
+        remaining = PhoneOTP.MAX_ATTEMPTS - otp.attempts
+        raise ValidationError(f"Kod noto'g'ri. {remaining} ta urinish qoldi")
+
+    otp.is_used = True
+    otp.save(update_fields=["is_used"])
+
+
 class OTPRequestView(APIView):
     """Telefon raqamga SMS kod yuborish (hozircha SMS provayder yo'q — kod
     javobda `debug_code` sifatida qaytariladi).
 
     Suiiste'moldan himoya: bir raqamga ketma-ket so'rovlar orasida eng kam
-    `RESEND_COOLDOWN_SECONDS`, bir soatda esa ko'pi bilan `MAX_PER_HOUR` marta
-    so'rash mumkin — aks holda 429 (Throttled) qaytariladi.
+    `RESEND_COOLDOWN_SECONDS`, bir soatda esa ko'pi bilan `MAX_OTP_PER_HOUR`
+    marta so'rash mumkin — aks holda 429 (Throttled) qaytariladi.
     """
 
     permission_classes = (permissions.AllowAny,)
-    MAX_PER_HOUR = 5
 
     def post(self, request):
         serializer = OTPRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone = serializer.validated_data["phone"].strip()
-
-        # `is_used=False`: allaqachon tasdiqlangan (login uchun ishlatilgan) kod
-        # cooldownga hisoblanmaydi — aks holda muvaffaqiyatli kirgan foydalanuvchi
-        # chiqib darhol qayta kirmoqchi bo'lsa, 60 soniya davomida yangi kod
-        # so'rolmay, 400 xatolikka uchraydi.
-        last = (
-            PhoneOTP.objects.filter(phone=phone, is_used=False)
-            .order_by("-created_at")
-            .first()
-        )
-        if last is not None:
-            elapsed = (timezone.now() - last.created_at).total_seconds()
-            if elapsed < PhoneOTP.RESEND_COOLDOWN_SECONDS:
-                wait = round(PhoneOTP.RESEND_COOLDOWN_SECONDS - elapsed)
-                raise ValidationError(
-                    f"Biroz kuting, {wait} soniyadan so'ng qayta urining"
-                )
-
-        recent_count = PhoneOTP.objects.filter(
-            phone=phone, created_at__gte=timezone.now() - timedelta(hours=1)
-        ).count()
-        if recent_count >= self.MAX_PER_HOUR:
-            raise ValidationError(
-                "Juda ko'p urinish. Bir soatdan so'ng qayta urinib ko'ring"
-            )
-
-        code = "".join(random.choices("0123456789", k=6))
-        PhoneOTP.objects.create(phone=phone, code=code)
-        return Response(
-            {
-                "detail": "SMS yuborildi",
-                "debug_code": code,
-                "resend_after": PhoneOTP.RESEND_COOLDOWN_SECONDS,
-            }
-        )
+        return Response(_request_otp(phone))
 
 
 class OTPVerifyView(APIView):
     """Kodni tasdiqlab kiradi — foydalanuvchi mavjud bo'lmasa avtomatik
-    ro'yxatdan o'tkaziladi (customer sifatida).
-
-    Har bir noto'g'ri urinish shu raqamning eng so'nggi faol kodiga
-    (`PhoneOTP.attempts`) yoziladi — `MAX_ATTEMPTS`dan oshsa kod bekor
-    qilinadi va foydalanuvchi yangi kod so'rashga majbur bo'ladi (brute-force
-    himoyasi: kod 6 xonali bo'lgani uchun cheklovsiz taxmin qilib bo'lmaydi).
-    """
+    ro'yxatdan o'tkaziladi (customer sifatida)."""
 
     permission_classes = (permissions.AllowAny,)
 
@@ -427,31 +489,15 @@ class OTPVerifyView(APIView):
         serializer.is_valid(raise_exception=True)
         phone = serializer.validated_data["phone"].strip()
         code = serializer.validated_data["code"].strip()
-
-        otp = (
-            PhoneOTP.objects.filter(phone=phone, is_used=False)
-            .order_by("-created_at")
-            .first()
-        )
-        if not otp or timezone.now() - otp.created_at >= timedelta(minutes=5):
-            raise ValidationError("Kod muddati o'tgan. Yangi kod so'rang")
-        if otp.attempts >= PhoneOTP.MAX_ATTEMPTS:
-            otp.is_used = True
-            otp.save(update_fields=["is_used"])
-            raise ValidationError("Juda ko'p urinish. Yangi kod so'rang")
-        if otp.code != code:
-            otp.attempts += 1
-            otp.save(update_fields=["attempts"])
-            remaining = PhoneOTP.MAX_ATTEMPTS - otp.attempts
-            raise ValidationError(f"Kod noto'g'ri. {remaining} ta urinish qoldi")
-
-        otp.is_used = True
-        otp.save(update_fields=["is_used"])
+        _consume_otp(phone, code)
 
         user = User.objects.filter(phone=phone).exclude(phone="").first()
         is_new_user = user is None
         if user is None:
-            user = User(phone=phone, email=f"{phone}@phone.local", role=User.Role.CUSTOMER)
+            user = User(
+                phone=phone, email=f"{phone}@phone.local", role=User.Role.CUSTOMER,
+                phone_verified=True,
+            )
             user.set_unusable_password()
             user.save()
         elif not user.is_active:

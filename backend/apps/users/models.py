@@ -44,6 +44,12 @@ class User(AbstractUser):
     username = None
     email = models.EmailField("email", unique=True)
     phone = models.CharField(max_length=20, blank=True)
+    # Telefon raqam SMS-kod bilan tasdiqlangan-tasdiqlanmaganini bildiradi.
+    # OTP orqali kirganlarda avtomatik `True` (kirishning o'zi tasdiqlash
+    # edi); Google/Telegram orqali yangi hisobda `False` — bunday
+    # foydalanuvchi buyurtma bera olmaydi, avval `/users/me/phone/verify-
+    # otp/` orqali raqamini tasdiqlashi kerak (qarang OrderViewSet.perform_create).
+    phone_verified = models.BooleanField(default=True)
     date_of_birth = models.DateField(null=True, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.CUSTOMER)
     # Doimiy, kompaniyalararo qidiruvchi ID (kamida 10 raqam) — firma egasi xodimni

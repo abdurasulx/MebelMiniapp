@@ -31,11 +31,16 @@ async function refreshAccess() {
 }
 
 export async function api(path, { method = "GET", body, isForm = false } = {}) {
+  // DRF pagination'ning `next`/`previous` maydonlari to'liq absolyut URL
+  // qaytaradi (masalan "http://host/api/v1/products/?page=2") — shuni
+  // to'g'ridan-to'g'ri shu yerga uzatish mumkin bo'lishi uchun, BASE prefiksi
+  // faqat path hali to'liq URL bo'lmagan holatdagina qo'shiladi.
+  const url = /^https?:\/\//.test(path) ? path : `${BASE}${path}`;
   const doFetch = async (access) => {
     const headers = {};
     if (access) headers.Authorization = `Bearer ${access}`;
     if (body && !isForm) headers["Content-Type"] = "application/json";
-    return fetch(`${BASE}${path}`, {
+    return fetch(url, {
       method,
       headers,
       body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
@@ -59,6 +64,7 @@ export async function api(path, { method = "GET", body, isForm = false } = {}) {
         : "Xatolik yuz berdi");
     const err = new Error(msg);
     err.body = data;
+    err.status = res.status;
     throw err;
   }
   return data;

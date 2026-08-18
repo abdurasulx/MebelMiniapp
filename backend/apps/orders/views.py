@@ -30,6 +30,16 @@ class OrderViewSet(
     def get_serializer_class(self):
         return OrderCreateSerializer if self.action == "create" else OrderSerializer
 
+    def perform_create(self, serializer):
+        # Google/Telegram orqali kirgan-u hali telefonini tasdiqlamagan
+        # foydalanuvchi buyurtma bera olmaydi — qarang
+        # apps/users/views.py: PhoneVerifyRequestView/PhoneVerifyConfirmView.
+        if not self.request.user.phone_verified:
+            raise PermissionDenied(
+                "Buyurtma berish uchun avval telefon raqamingizni SMS-kod bilan tasdiqlang."
+            )
+        serializer.save()
+
     def get_queryset(self):
         qs = Order.objects.filter(is_deleted=False).select_related(
             "company", "customer"
