@@ -28,6 +28,18 @@ struct ProductDetailView: View {
     /// AR'da modelga shu nisbatda qo'llaniladi, shunda AR'da ko'rilgan buyum
     /// sahifadagi narxga mos o'lchamda ko'rinadi (aks holda AR har doim faylning
     /// standart o'lchamini ko'rsatardi, kiritilgan o'lchamdan qat'iy nazar).
+    // Tanlangan variant o'zining alohida (tayyor) 3D modeliga ega bo'lsa —
+    // shuni, aks holda mahsulotning umumiy modelini ishlatamiz (web'dagi
+    // ProductDetail.jsx: `hasOwnModel`/`activeModel3d` bilan bir xil naqsh —
+    // avval bu yerda unutilgan bo'lib, variant darajasidagi yuklangan
+    // fayllar iOS AR'da hech qachon ko'rinmas edi).
+    private var activeModel3d: Model3D? {
+        if let vm = selectedVariant?.model3d, vm.status == "ready" {
+            return vm
+        }
+        return product?.model3d
+    }
+
     private var arScaleFactors: SIMD3<Float> {
         guard let variant = selectedVariant,
               let w = Double(width), let h = Double(height), let d = Double(depth),
@@ -109,7 +121,7 @@ struct ProductDetailView: View {
                             // matni ATAYIN variant nomini o'z ichiga olmaydi (sodda va
                             // barqaror matn) — variant almashgani `.id()` orqali sahna
                             // qayta yaratilishida aks etadi.
-                            if let usdz = product.model3d?.usdzUrl {
+                            if let usdz = activeModel3d?.usdzUrl {
                                 Button {
                                     showAR = true
                                 } label: {
@@ -122,7 +134,7 @@ struct ProductDetailView: View {
                                 }
                                 .accessibilityIdentifier("arButton-\(selectedVariant?.id ?? "")")
                                 .id("\(usdz)-\(selectedVariant?.id ?? "")") // variant almashsa tugma qayta yaratiladi
-                            } else if product.model3d?.glbUrl != nil {
+                            } else if activeModel3d?.glbUrl != nil {
                                 Text("🧊 3D model mavjud (AR uchun iOS'da USDZ kerak)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -197,7 +209,7 @@ struct ProductDetailView: View {
             depth = v.depth
         }
         .fullScreenCover(isPresented: $showAR) {
-            if let urlString = product?.model3d?.usdzUrl, let url = URL(string: urlString) {
+            if let urlString = activeModel3d?.usdzUrl, let url = URL(string: urlString) {
                 ARPlacementView(
                     usdzURL: url,
                     title: "\(product?.nameUz ?? "") — \(selectedVariant?.name ?? "")",

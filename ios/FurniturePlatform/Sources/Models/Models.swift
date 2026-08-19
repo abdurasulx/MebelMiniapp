@@ -70,13 +70,16 @@ struct Variant: Codable, Identifiable {
     let width: String
     let height: String
     let depth: String
-    // Geometriya mahsulot darajasida bitta (Product.model3d) — har rang uchun
-    // alohida model shart emas. Variant faqat shu bitta modelga runtime'da
-    // qo'llanadigan material ma'lumotini olib yuradi: `colorHex` (oddiy rang
-    // tint) yoki `textureUrl` (yog'och naqshi surati) — ARni ModelLoader
-    // shu ikkalasini RealityKit material sifatida qo'llaydi.
+    // Odatda geometriya mahsulot darajasida bitta (Product.model3d) — har
+    // rang uchun alohida model shart emas, `colorHex`/`textureUrl` runtime
+    // tint sifatida yetarli. Lekin ko'p materialli mahsulotlarda firma
+    // ma'lum bir variant uchun butunlay alohida 3D fayl yuklashi mumkin —
+    // shu holatda `model3d` (variant darajasida, `status == "ready"`)
+    // Product.model3d o'rniga ishlatiladi (qarang ProductDetailView.activeModel3d,
+    // web'dagi ProductDetail.jsx bilan bir xil naqsh).
     let colorHex: String?
     let textureUrl: String?
+    let model3d: Model3D?
 
     var basePriceValue: Double { Double(basePrice) ?? 0 }
     var widthValue: Double { Double(width) ?? 1 }

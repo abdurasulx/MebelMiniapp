@@ -77,6 +77,13 @@ class Variant {
   final String depth;
   final String? colorHex;
   final String? textureUrl;
+  // Odatda geometriya mahsulot darajasida bitta (Product.model3d) — har
+  // rang uchun alohida model shart emas. Lekin ko'p materialli
+  // mahsulotlarda firma ma'lum bir variant uchun alohida 3D fayl
+  // yuklashi mumkin — shu holatda (`status == 'ready'`) Product.model3d
+  // o'rniga shu ishlatiladi (qarang product_detail_screen.dart'dagi
+  // `_activeModel3d`, web'dagi ProductDetail.jsx bilan bir xil naqsh).
+  final Model3D? model3d;
 
   Variant({
     required this.id,
@@ -87,6 +94,7 @@ class Variant {
     this.depth = '1',
     this.colorHex,
     this.textureUrl,
+    this.model3d,
   });
 
   double get basePriceValue => double.tryParse(basePrice) ?? 0;
@@ -103,6 +111,7 @@ class Variant {
     depth: (j['depth'] ?? 1).toString(),
     colorHex: j['color_hex'],
     textureUrl: j['texture_url'],
+    model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
   );
 }
 
@@ -117,9 +126,10 @@ class ProductImage {
 class Model3D {
   final String? glbUrl;
   final String? usdzUrl;
-  Model3D({this.glbUrl, this.usdzUrl});
+  final String? status;
+  Model3D({this.glbUrl, this.usdzUrl, this.status});
   factory Model3D.fromJson(Map<String, dynamic> j) =>
-      Model3D(glbUrl: j['glb_url'], usdzUrl: j['usdz_url']);
+      Model3D(glbUrl: j['glb_url'], usdzUrl: j['usdz_url'], status: j['status']);
 }
 
 class CompanyTier {

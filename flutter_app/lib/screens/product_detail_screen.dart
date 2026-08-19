@@ -39,6 +39,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.dispose();
   }
 
+  // Tanlangan variant o'zining alohida (tayyor) 3D modeliga ega bo'lsa —
+  // shuni, aks holda mahsulotning umumiy modelini ishlatamiz (web'dagi
+  // ProductDetail.jsx: `hasOwnModel`/`activeModel3d` bilan bir xil naqsh —
+  // avval bu yerda unutilgan bo'lib, variant darajasidagi yuklangan
+  // fayllar Flutter AR'da hech qachon ko'rinmas edi).
+  Model3D? get _activeModel3d {
+    final vm = _selectedVariant?.model3d;
+    if (vm != null && vm.status == 'ready') return vm;
+    return _product?.model3d;
+  }
+
   Future<void> _load() async {
     try {
       final p = await ApiClient.instance.get(
@@ -225,7 +236,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
           ),
-        if (p.model3d?.glbUrl != null)
+        if (_activeModel3d?.glbUrl != null)
           Positioned(bottom: 12, right: 12, child: _view3dButton(p)),
       ],
     );
@@ -321,7 +332,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: ModelViewer(
-                    src: p.model3d!.glbUrl!,
+                    src: _activeModel3d!.glbUrl!,
                     alt: p.nameUz,
                     autoRotate: true,
                     cameraControls: true,
