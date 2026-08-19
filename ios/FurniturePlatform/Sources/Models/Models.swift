@@ -27,6 +27,9 @@ struct User: Codable {
     let workerId: String?
     let company: CompanyRef?
     let positions: [String]?
+    let phoneVerified: Bool?
+    let hasGoogle: Bool?
+    let hasTelegram: Bool?
 }
 
 struct EmployeeInvitation: Codable, Identifiable {

@@ -258,6 +258,94 @@ class AuthStore extends ChangeNotifier {
     }
   }
 
+  /// Profildan Google hisobini BOG'LASH (login EMAS) — allaqachon
+  /// autentifikatsiyalangan foydalanuvchi ilova ichida qo'shimcha kirish
+  /// usuli sifatida Google'ni ulaydi. Muvaffaqiyatli bo'lsa `user`ni
+  /// yangilaydi (`hasGoogle` true bo'lib qoladi).
+  Future<bool> linkGoogle() async {
+    errorMessage = null;
+    var ok = false;
+    try {
+      final account = await _googleSignIn.signIn();
+      if (account == null) return false; // foydalanuvchi bekor qildi
+      final idToken = (await account.authentication).idToken;
+      if (idToken == null) {
+        errorMessage = "Google'dan token olinmadi. Qayta urinib ko'ring";
+        notifyListeners();
+        return false;
+      }
+      final resp = await ApiClient.instance.post(
+        '/users/me/google/link/',
+        (j) => AppUser.fromJson(j),
+        body: {'credential': idToken},
+        auth: true,
+      );
+      user = resp;
+      ok = true;
+    } catch (e) {
+      errorMessage = e.toString();
+    }
+    notifyListeners();
+    return ok;
+  }
+
+  /// Profildan Telegram hisobini BOG'LASH — `loginWithTelegram` bilan bir
+  /// xil deep-link+poll naqshi, lekin authenticated "link" endpointlariga
+  /// so'rov yuboradi (login emas, joriy hisobga qo'shimcha bog'lash).
+  Future<bool> linkTelegram() async {
+    errorMessage = null;
+    try {
+      final session = await ApiClient.instance.post(
+        '/users/me/telegram/link/session/',
+        (j) => j as Map<String, dynamic>,
+        auth: true,
+      );
+      final sessionId = session['session_id'] as String;
+
+      final botInfo = await ApiClient.instance.get(
+        '/auth/telegram/bot-info/',
+        (j) => j as Map<String, dynamic>,
+        auth: false,
+      );
+      final username = botInfo['username'] as String?;
+      if (username == null) {
+        errorMessage = "Telegram bot hozircha sozlanmagan";
+        notifyListeners();
+        return false;
+      }
+
+      final opened = await launchUrl(
+        Uri.parse('https://t.me/$username?start=$sessionId'),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened) {
+        errorMessage = "Telegram ochilmadi";
+        notifyListeners();
+        return false;
+      }
+
+      for (var i = 0; i < 150; i++) {
+        await Future.delayed(const Duration(seconds: 2));
+        final poll = await ApiClient.instance.get(
+          '/users/me/telegram/link/session/$sessionId/',
+          (j) => j as Map<String, dynamic>,
+          auth: true,
+        );
+        if (poll['status'] != 'done') continue;
+        await _loadMe();
+        notifyListeners();
+        return true;
+      }
+      errorMessage = "Kutish vaqti tugadi. Qayta urinib ko'ring";
+      notifyListeners();
+      return false;
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Birinchi marta kirgan foydalanuvchi ismini to'ldirishda ishlatiladi.
   /// Google/Telegram orqali yaratilgan hisob uchun `/complete-registration/`
   /// (rol bilan — mobil ilovada doim "customer"), OTP orqali yaratilgan

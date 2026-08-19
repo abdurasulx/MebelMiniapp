@@ -7,6 +7,7 @@ import '../l10n/app_locale.dart';
 import '../locale_store.dart';
 import '../models.dart';
 import '../positions.dart';
+import '../widgets/phone_verify_dialog.dart';
 import 'auth_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -184,6 +185,78 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 20),
+
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        user.phoneVerified ? Icons.verified : Icons.error_outline,
+                        color: user.phoneVerified ? Colors.green : Colors.orange,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          user.phoneVerified ? 'Tasdiqlangan profil' : 'Tasdiqlanmagan profil',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      if (!user.phoneVerified)
+                        TextButton(
+                          onPressed: () async {
+                            final ok = await showPhoneVerifyDialog(context, initialPhone: user.phone);
+                            if (ok == true && context.mounted) auth.refreshUser();
+                          },
+                          child: const Text('Tasdiqlash'),
+                        ),
+                    ],
+                  ),
+                  if (!user.phoneVerified)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Text(
+                        'Tasdiqlanmagan profil bilan buyurtma bera olmaysiz.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
+                      ),
+                    ),
+                  const Divider(height: 24),
+                  const Text("Bog'langan hisoblar", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  _LinkedAccountRow(
+                    iconAsset: 'assets/icons/google_logo.png',
+                    label: 'Google',
+                    linked: user.hasGoogle,
+                    onLink: () async {
+                      final ok = await auth.linkGoogle();
+                      if (!ok && auth.errorMessage != null && context.mounted) {
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _LinkedAccountRow(
+                    iconAsset: 'assets/icons/telegram_logo.png',
+                    label: 'Telegram',
+                    linked: user.hasTelegram,
+                    onLink: () async {
+                      final ok = await auth.linkTelegram();
+                      if (!ok && auth.errorMessage != null && context.mounted) {
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 20),
 
@@ -398,6 +471,66 @@ class _ProfileBodyState extends State<_ProfileBody> {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// "Bog'langan hisoblar" ro'yxatidagi bitta qator (Google/Telegram) —
+/// bog'langan bo'lsa belgi, aks holda "Bog'lash" tugmasi (o'zining
+/// alohida `_busy` holati bilan, boshqa qatorga ta'sir qilmasligi uchun).
+class _LinkedAccountRow extends StatefulWidget {
+  final String iconAsset;
+  final String label;
+  final bool linked;
+  final Future<void> Function() onLink;
+  const _LinkedAccountRow({
+    required this.iconAsset,
+    required this.label,
+    required this.linked,
+    required this.onLink,
+  });
+
+  @override
+  State<_LinkedAccountRow> createState() => _LinkedAccountRowState();
+}
+
+class _LinkedAccountRowState extends State<_LinkedAccountRow> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Image.asset(widget.iconAsset, width: 20, height: 20),
+        const SizedBox(width: 8),
+        Expanded(child: Text(widget.label)),
+        if (widget.linked)
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle, color: Colors.green, size: 16),
+              SizedBox(width: 4),
+              Text("Bog'langan", style: TextStyle(color: Colors.green, fontSize: 12)),
+            ],
+          )
+        else
+          TextButton(
+            onPressed: _busy
+                ? null
+                : () async {
+                    setState(() => _busy = true);
+                    await widget.onLink();
+                    if (mounted) setState(() => _busy = false);
+                  },
+            child: _busy
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text("Bog'lash"),
+          ),
+      ],
     );
   }
 }

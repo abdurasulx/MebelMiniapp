@@ -232,6 +232,83 @@ final class AuthStore: ObservableObject {
         }
     }
 
+    /// Profildan Google hisobini BOG'LASH (login EMAS) — allaqachon
+    /// autentifikatsiyalangan foydalanuvchi ilova ichida qo'shimcha kirish
+    /// usuli sifatida Google'ni ulaydi. Muvaffaqiyatli bo'lsa `user`ni
+    /// yangilaydi (`hasGoogle` true bo'lib qoladi).
+    @discardableResult
+    func linkGoogle() async -> Bool {
+        errorMessage = nil
+        guard let presenter = UIApplication.topViewController else {
+            errorMessage = "Amalga oshmadi. Qayta urinib ko'ring"
+            return false
+        }
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
+            guard let idToken = result.user.idToken?.tokenString else {
+                errorMessage = "Google'dan token olinmadi"
+                return false
+            }
+            struct Body: Encodable { let credential: String }
+            let me: User = try await APIClient.shared.post(
+                "/users/me/google/link/", body: Body(credential: idToken), auth: true
+            )
+            user = me
+            return true
+        } catch let error as GIDSignInError where error.code == .canceled {
+            return false // foydalanuvchi bekor qildi — xato ko'rsatilmaydi
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Profildan Telegram hisobini BOG'LASH — `loginWithTelegram` bilan
+    /// bir xil deep-link+poll naqshi, lekin authenticated "link"
+    /// endpointlariga so'rov yuboradi (login emas, joriy hisobga
+    /// qo'shimcha bog'lash).
+    @discardableResult
+    func linkTelegram() async -> Bool {
+        errorMessage = nil
+        struct SessionResp: Decodable { let sessionId: String }
+        struct BotInfoResp: Decodable { let username: String? }
+        struct PollResp: Decodable { let status: String }
+        do {
+            let session: SessionResp = try await APIClient.shared.post(
+                "/users/me/telegram/link/session/", auth: true
+            )
+            let botInfo: BotInfoResp = try await APIClient.shared.get("/auth/telegram/bot-info/", auth: false)
+            guard let username = botInfo.username else {
+                errorMessage = "Telegram bot hozircha sozlanmagan"
+                return false
+            }
+            guard let url = URL(string: "https://t.me/\(username)?start=\(session.sessionId)") else {
+                errorMessage = "Telegram ochilmadi"
+                return false
+            }
+            let opened = await UIApplication.shared.open(url)
+            if !opened {
+                errorMessage = "Telegram ochilmadi"
+                return false
+            }
+
+            for _ in 0..<150 {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                let poll: PollResp = try await APIClient.shared.get(
+                    "/users/me/telegram/link/session/\(session.sessionId)/", auth: true
+                )
+                guard poll.status == "done" else { continue }
+                await loadMe()
+                return true
+            }
+            errorMessage = "Kutish vaqti tugadi. Qayta urinib ko'ring"
+            return false
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     /// Birinchi marta kirgan foydalanuvchi ismini to'ldirishda ishlatiladi.
     /// Google/Telegram orqali yaratilgan hisob uchun `/complete-registration/`
     /// (rol bilan — mobil ilovada doim "customer"), OTP orqali yaratilgan

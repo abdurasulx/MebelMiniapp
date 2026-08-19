@@ -30,6 +30,9 @@ class AppUser {
   final String? workerId;
   final CompanyRef? company;
   final List<String> positions;
+  final bool phoneVerified;
+  final bool hasGoogle;
+  final bool hasTelegram;
 
   AppUser({
     required this.id,
@@ -42,6 +45,9 @@ class AppUser {
     this.workerId,
     this.company,
     this.positions = const [],
+    this.phoneVerified = true,
+    this.hasGoogle = false,
+    this.hasTelegram = false,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
@@ -56,6 +62,9 @@ class AppUser {
     company: j['company'] != null ? CompanyRef.fromJson(j['company']) : null,
     positions:
         (j['positions'] as List?)?.map((e) => e.toString()).toList() ?? [],
+    phoneVerified: j['phone_verified'] ?? true,
+    hasGoogle: j['has_google'] ?? false,
+    hasTelegram: j['has_telegram'] ?? false,
   );
 }
 

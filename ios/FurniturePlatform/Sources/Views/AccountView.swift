@@ -33,6 +33,13 @@ private struct ProfileView: View {
     @State private var busyInvitationId: String?
     @State private var showLanguagePicker = false
     @State private var showRolePicker = false
+    @State private var showPhoneVerify = false
+    // Google/Telegram bog'lash tugmalari alohida-alohida holat kuzatadi —
+    // bitta umumiy flag bo'lsa, Google bosilganda Telegram tugmasi ham
+    // (aslida bosilmagan bo'lsa-da) spinner ko'rsatib qolishi mumkin edi
+    // (xuddi shu xato oldin login tugmalarida bo'lgan — qarang AuthFormView).
+    @State private var linkingGoogle = false
+    @State private var linkingTelegram = false
 
     var body: some View {
         List {
@@ -56,6 +63,75 @@ private struct ProfileView: View {
                             }
                         }
                     }
+                }
+            }
+
+            Section("Tasdiqlash holati") {
+                HStack {
+                    Image(systemName: (user.phoneVerified ?? true) ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle((user.phoneVerified ?? true) ? .green : .orange)
+                    Text((user.phoneVerified ?? true) ? "Tasdiqlangan profil" : "Tasdiqlanmagan profil")
+                    Spacer()
+                    if !(user.phoneVerified ?? true) {
+                        Button("Tasdiqlash") { showPhoneVerify = true }.font(.caption)
+                    }
+                }
+                if !(user.phoneVerified ?? true) {
+                    Text("Tasdiqlanmagan profil bilan buyurtma bera olmaysiz.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .sheet(isPresented: $showPhoneVerify) {
+                PhoneVerifySheet(initialPhone: user.phone ?? "") {
+                    Task { await auth.refreshUser() }
+                }
+            }
+
+            Section("Bog'langan hisoblar") {
+                HStack {
+                    Image("google_logo").resizable().scaledToFit().frame(width: 20, height: 20)
+                    Text("Google")
+                    Spacer()
+                    if user.hasGoogle ?? false {
+                        Label("Bog'langan", systemImage: "checkmark.circle.fill")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption).foregroundStyle(.green)
+                    } else if linkingGoogle {
+                        ProgressView()
+                    } else {
+                        Button("Bog'lash") {
+                            linkingGoogle = true
+                            Task {
+                                await auth.linkGoogle()
+                                linkingGoogle = false
+                            }
+                        }
+                        .font(.caption)
+                    }
+                }
+                HStack {
+                    Image("telegram_logo").resizable().scaledToFit().frame(width: 20, height: 20)
+                    Text("Telegram")
+                    Spacer()
+                    if user.hasTelegram ?? false {
+                        Label("Bog'langan", systemImage: "checkmark.circle.fill")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption).foregroundStyle(.green)
+                    } else if linkingTelegram {
+                        ProgressView()
+                    } else {
+                        Button("Bog'lash") {
+                            linkingTelegram = true
+                            Task {
+                                await auth.linkTelegram()
+                                linkingTelegram = false
+                            }
+                        }
+                        .font(.caption)
+                    }
+                }
+                if let error = auth.errorMessage {
+                    Text(error).font(.caption).foregroundStyle(.red)
                 }
             }
 
