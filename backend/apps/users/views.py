@@ -6,6 +6,7 @@ from uuid import UUID
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core import signing
 from django.http import HttpResponseBadRequest, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -273,6 +274,35 @@ class GoogleLoginView(APIView):
         )
 
 
+def _link_google_account(user, claims: dict) -> None:
+    """Google hisobini (login uchun EMAS) joriy autentifikatsiyalangan
+    foydalanuvchiga bog'laydi — profil sahifasidagi "Google'ni bog'lash"
+    uchun. Shu `google_sub` allaqachon BOSHQA foydalanuvchiga bog'langan
+    bo'lsa rad etiladi; xuddi shu foydalanuvchiga bog'langan bo'lsa
+    (masalan qayta bosilgan) — jim o'tkazib yuboriladi."""
+    sub = claims["sub"]
+    existing = GoogleAccount.objects.filter(google_sub=sub).first()
+    if existing is not None:
+        if existing.user_id != user.id:
+            raise ValidationError("Bu Google hisobi allaqachon boshqa foydalanuvchiga bog'langan")
+        return
+    email = (claims.get("email") or "").strip().lower()
+    GoogleAccount.objects.create(user=user, google_sub=sub, email=email)
+
+
+class GoogleLinkView(APIView):
+    """Mobil ilovalar uchun — profildan "Google'ni bog'lash" (login EMAS,
+    joriy hisobga qo'shimcha bog'lash). Native SDK to'g'ridan-to'g'ri ID
+    token beradi, redirect kerak emas — qarang GoogleLinkStartView (veb)."""
+
+    def post(self, request):
+        serializer = GoogleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        claims = verify_google_credential(serializer.validated_data["credential"])
+        _link_google_account(request.user, claims)
+        return Response(UserSerializer(request.user, context={"request": request}).data)
+
+
 def _google_redirect_uri() -> str:
     return f"{settings.BACKEND_URL.rstrip('/')}/api/v1/auth/google/callback/"
 
@@ -360,6 +390,109 @@ class GoogleLoginCallbackView(View):
             f"{base}/?access={quote(access)}&refresh={quote(str(refresh))}"
         )
         response.delete_cookie("google_oauth_state")
+        return response
+
+
+GOOGLE_LINK_PREPARE_SALT = "google-link-prepare"
+GOOGLE_LINK_CALLBACK_SALT = "google-link-callback"
+
+
+def _google_link_redirect_uri() -> str:
+    return f"{settings.BACKEND_URL.rstrip('/')}/api/v1/auth/google/link/callback/"
+
+
+class GoogleLinkPrepareView(APIView):
+    """Veb: profildagi "Google'ni bog'lash" tugmasi bosilishidan OLDIN
+    chaqiriladi (oddiy autentifikatsiyalangan fetch, Authorization header
+    bilan). Joriy foydalanuvchi ID'sini imzolangan (signed), qisqa
+    muddatli token ichiga joylaydi — bu token keyin oddiy `<a href>`
+    to'liq-sahifa navigatsiyasi orqali (Authorization header OLIB
+    KETOLMAYDI) GoogleLinkStartView'ga uzatiladi."""
+
+    def post(self, request):
+        token = signing.dumps({"uid": str(request.user.id)}, salt=GOOGLE_LINK_PREPARE_SALT)
+        return Response({"link_token": token})
+
+
+class GoogleLinkStartView(View):
+    """`GoogleLinkPrepareView`dan olingan `link_token` (`?lt=`) orqali
+    foydalanuvchini aniqlaydi (imzo tekshiriladi), so'ng o'zining
+    (uzoqroq muddatli) imzolangan `state`'ini yaratib Google consent
+    sahifasiga to'liq-sahifa redirect qiladi."""
+
+    def get(self, request):
+        if not settings.GOOGLE_CLIENT_ID:
+            return HttpResponseBadRequest("Google Login hali sozlanmagan")
+        token = request.GET.get("lt", "")
+        try:
+            data = signing.loads(token, salt=GOOGLE_LINK_PREPARE_SALT, max_age=300)
+        except signing.BadSignature:
+            return HttpResponseBadRequest("Havola yaroqsiz yoki muddati o'tgan")
+
+        state = signing.dumps({"uid": data["uid"]}, salt=GOOGLE_LINK_CALLBACK_SALT)
+        params = {
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "redirect_uri": _google_link_redirect_uri(),
+            "response_type": "code",
+            "scope": "openid email profile",
+            "state": state,
+            "prompt": "select_account",
+        }
+        response = HttpResponseRedirect(
+            f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+        )
+        response.set_cookie(
+            "google_link_state",
+            state,
+            max_age=600,
+            httponly=True,
+            samesite="Lax",
+            secure=not settings.DEBUG,
+        )
+        return response
+
+
+class GoogleLinkCallbackView(View):
+    """Google consent sahifasidan qaytish nuqtasi — kodni ID token'ga
+    almashtiradi, `state` ichidagi (imzolangan) `uid`ga tegishli
+    foydalanuvchiga Google hisobini bog'laydi, so'ng profil sahifasiga
+    (`?linked=google` yoki `?link_error=...` bilan) qaytaradi."""
+
+    def get(self, request):
+        base = settings.FRONTEND_URL.rstrip("/")
+
+        if request.GET.get("error"):
+            return HttpResponseRedirect(f"{base}/profile?link_error={quote('Bekor qilindi')}")
+
+        code = request.GET.get("code")
+        state = request.GET.get("state")
+        cookie_state = request.COOKIES.get("google_link_state")
+        if not code or not state or not cookie_state or state != cookie_state:
+            return HttpResponseRedirect(f"{base}/profile?link_error={quote('So‘rov yaroqsiz')}")
+
+        try:
+            data = signing.loads(state, salt=GOOGLE_LINK_CALLBACK_SALT, max_age=600)
+            user = User.objects.get(pk=data["uid"])
+        except (signing.BadSignature, User.DoesNotExist):
+            response = HttpResponseRedirect(f"{base}/profile?link_error={quote('So‘rov yaroqsiz')}")
+            response.delete_cookie("google_link_state")
+            return response
+
+        error_message = None
+        try:
+            id_token_str = exchange_google_code(code, _google_link_redirect_uri())
+            claims = verify_google_credential(id_token_str)
+            _link_google_account(user, claims)
+        except ValidationError as exc:
+            error_message = str(exc.detail[0]) if isinstance(exc.detail, list) else str(exc.detail)
+
+        redirect_url = (
+            f"{base}/profile?link_error={quote(error_message)}"
+            if error_message
+            else f"{base}/profile?linked=google"
+        )
+        response = HttpResponseRedirect(redirect_url)
+        response.delete_cookie("google_link_state")
         return response
 
 
@@ -483,6 +616,51 @@ class TelegramSessionPollView(APIView):
                 "is_new_user": is_new_user,
             }
         )
+
+
+class TelegramLinkSessionCreateView(APIView):
+    """Profildagi "Telegram'ni bog'lash" tugmasi bosilganda chaqiriladi —
+    `TelegramSessionCreateView`ga o'xshash, lekin `link_to_user`ga joriy
+    autentifikatsiyalangan foydalanuvchi yoziladi (webhook mantig'i bir
+    xil — qarang TelegramWebhookView; farq faqat poll bosqichida)."""
+
+    def post(self, request):
+        session = TelegramLoginSession.objects.create(link_to_user=request.user)
+        return Response({"session_id": str(session.id)})
+
+
+class TelegramLinkSessionPollView(APIView):
+    """Frontend/mobil shu yerni so'rab turadi — bot foydalanuvchini
+    aniqlagach Telegram hisobini JORIY foydalanuvchiga bog'laydi (login
+    QILMAYDI — yangi token yo'q, faqat bog'lash)."""
+
+    def get(self, request, session_id):
+        session = get_object_or_404(TelegramLoginSession, pk=session_id)
+        if session.link_to_user_id != request.user.id:
+            raise ValidationError("Bu sessiya sizga tegishli emas")
+        if session.is_consumed:
+            raise ValidationError("Bu sessiya allaqachon ishlatilgan")
+        if session.is_expired():
+            raise ValidationError("Sessiya muddati o'tgan. Qayta urinib ko'ring")
+        if session.telegram_id is None:
+            return Response({"status": "pending"})
+
+        existing = TelegramAccount.objects.filter(telegram_id=session.telegram_id).first()
+        if existing is not None and existing.user_id != request.user.id:
+            session.is_consumed = True
+            session.save(update_fields=["is_consumed"])
+            raise ValidationError("Bu Telegram hisobi allaqachon boshqa foydalanuvchiga bog'langan")
+
+        if existing is None:
+            TelegramAccount.objects.create(
+                user=request.user,
+                telegram_id=session.telegram_id,
+                telegram_username=session.telegram_username,
+            )
+
+        session.is_consumed = True
+        session.save(update_fields=["is_consumed"])
+        return Response({"status": "done"})
 
 
 class TelegramBotInfoView(APIView):

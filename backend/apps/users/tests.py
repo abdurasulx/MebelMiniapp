@@ -544,6 +544,164 @@ class TelegramLoginTests(TestCase):
         self.assertEqual(resp.json()["username"], "test_bot")
 
 
+class AccountLinkTestMixin:
+    def _auth_client(self, user):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        token = str(RefreshToken.for_user(user).access_token)
+        self.client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+
+    def _new_user(self, email="phoneuser@example.com"):
+        user = User(email=email, role=User.Role.CUSTOMER)
+        user.set_unusable_password()
+        user.save()
+        return user
+
+
+class GoogleLinkViewTests(AccountLinkTestMixin, TestCase):
+    """Mobil: autentifikatsiyalangan foydalanuvchi profilidan Google
+    hisobini bog'lash (`GoogleLinkView`) — login emas."""
+
+    def _claims(self, sub="google-sub-1", email="linked@example.com"):
+        return {"sub": sub, "email": email, "email_verified": True}
+
+    def test_links_google_account_to_current_user(self):
+        user = self._new_user()
+        self._auth_client(user)
+        with patch("apps.users.views.verify_google_credential", return_value=self._claims()):
+            resp = self.client.post(
+                reverse("google-link"), {"credential": "fake"}, content_type="application/json"
+            )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["has_google"])
+        self.assertTrue(GoogleAccount.objects.filter(user=user, google_sub="google-sub-1").exists())
+
+    def test_rejects_google_account_already_linked_to_another_user(self):
+        other = self._new_user(email="other@example.com")
+        GoogleAccount.objects.create(user=other, google_sub="google-sub-1", email="other@example.com")
+
+        user = self._new_user()
+        self._auth_client(user)
+        with patch("apps.users.views.verify_google_credential", return_value=self._claims()):
+            resp = self.client.post(
+                reverse("google-link"), {"credential": "fake"}, content_type="application/json"
+            )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_unauthenticated_cannot_link(self):
+        resp = self.client.post(
+            reverse("google-link"), {"credential": "fake"}, content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, 401)
+
+
+class GoogleLinkWebFlowTests(AccountLinkTestMixin, TestCase):
+    """Veb: Prepare -> Start -> Callback (imzolangan `state` orqali
+    foydalanuvchi identifikatsiyasi to'liq-sahifa redirect bo'ylab
+    saqlanadi — qarang GoogleLinkStartView/CallbackView docstring)."""
+
+    def _claims(self, sub="google-sub-2", email="weblinked@example.com"):
+        return {"sub": sub, "email": email, "email_verified": True}
+
+    def test_prepare_requires_auth(self):
+        resp = self.client.post(reverse("google-link-prepare"))
+        self.assertEqual(resp.status_code, 401)
+
+    def test_full_prepare_start_callback_links_account(self):
+        user = self._new_user()
+        self._auth_client(user)
+
+        prepare = self.client.post(reverse("google-link-prepare"))
+        self.assertEqual(prepare.status_code, 200)
+        link_token = prepare.json()["link_token"]
+
+        # Start: keyingi so'rovlarda Authorization header endi kerak emas —
+        # butun oqim `link_token`/`state`ga tayanadi (haqiqiy brauzerda
+        # to'liq-sahifa redirect Authorization header'ini olib ketolmaydi).
+        del self.client.defaults["HTTP_AUTHORIZATION"]
+        start = self.client.get(reverse("google-link-start"), {"lt": link_token})
+        self.assertEqual(start.status_code, 302)
+        self.assertTrue(start.url.startswith("https://accounts.google.com/o/oauth2/v2/auth?"))
+        state = self.client.cookies["google_link_state"].value
+
+        with (
+            patch("apps.users.views.exchange_google_code", return_value="fake-id-token"),
+            patch("apps.users.views.verify_google_credential", return_value=self._claims()),
+        ):
+            callback = self.client.get(
+                reverse("google-link-callback"), {"code": "fake-code", "state": state}
+            )
+        self.assertEqual(callback.status_code, 302)
+        self.assertTrue(callback.url.startswith("https://qrbite.uz/profile?linked=google"))
+        self.assertTrue(
+            GoogleAccount.objects.filter(user=user, google_sub="google-sub-2").exists()
+        )
+
+    def test_callback_rejects_tampered_state(self):
+        resp = self.client.get(
+            reverse("google-link-callback"), {"code": "fake-code", "state": "not-a-real-signed-value"}
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.url.startswith("https://qrbite.uz/profile?link_error="))
+
+
+class TelegramLinkSessionTests(AccountLinkTestMixin, TestCase):
+    """Profildan Telegram bog'lash — TelegramLoginSession'ning
+    `link_to_user`li varianti (webhook mantig'i login bilan bir xil)."""
+
+    def test_create_session_requires_auth(self):
+        resp = self.client.post(reverse("telegram-link-session-create"))
+        self.assertEqual(resp.status_code, 401)
+
+    def test_full_flow_links_telegram_account(self):
+        user = self._new_user()
+        self._auth_client(user)
+
+        create = self.client.post(reverse("telegram-link-session-create"))
+        self.assertEqual(create.status_code, 200)
+        session_id = create.json()["session_id"]
+
+        session = TelegramLoginSession.objects.get(pk=session_id)
+        self.assertEqual(session.link_to_user_id, user.id)
+
+        session.telegram_id = 4242
+        session.telegram_username = "linked_tg"
+        session.save(update_fields=["telegram_id", "telegram_username"])
+
+        poll = self.client.get(reverse("telegram-link-session-poll", args=[session_id]))
+        self.assertEqual(poll.status_code, 200)
+        self.assertEqual(poll.json()["status"], "done")
+        self.assertTrue(
+            TelegramAccount.objects.filter(user=user, telegram_id=4242).exists()
+        )
+
+    def test_rejects_telegram_account_already_linked_to_another_user(self):
+        other = self._new_user(email="other-tg@example.com")
+        TelegramAccount.objects.create(user=other, telegram_id=999)
+
+        user = self._new_user()
+        self._auth_client(user)
+        create = self.client.post(reverse("telegram-link-session-create"))
+        session_id = create.json()["session_id"]
+        session = TelegramLoginSession.objects.get(pk=session_id)
+        session.telegram_id = 999
+        session.save(update_fields=["telegram_id"])
+
+        poll = self.client.get(reverse("telegram-link-session-poll", args=[session_id]))
+        self.assertEqual(poll.status_code, 400)
+
+    def test_cannot_poll_another_users_link_session(self):
+        owner = self._new_user()
+        intruder = self._new_user(email="intruder@example.com")
+
+        self._auth_client(owner)
+        session_id = self.client.post(reverse("telegram-link-session-create")).json()["session_id"]
+
+        self._auth_client(intruder)
+        resp = self.client.get(reverse("telegram-link-session-poll", args=[session_id]))
+        self.assertEqual(resp.status_code, 400)
+
+
 class PhoneVerifyTests(TestCase):
     """Google/Telegram orqali kirgan (`phone_verified=False`) foydalanuvchi
     checkout paytida telefonini SMS-kod bilan tasdiqlashi — qarang

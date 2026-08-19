@@ -135,6 +135,12 @@ class TelegramLoginSession(models.Model):
 
     Bir martalik va qisqa muddatli (`EXPIRY_MINUTES`) — token o'g'irlab olib
     boshqa birov hisobga kira olmasligi uchun.
+
+    `link_to_user` bo'sh bo'lmasa — bu login uchun EMAS, balki
+    allaqachon autentifikatsiyalangan foydalanuvchi profilidan Telegram
+    hisobini BOG'LASH uchun yaratilgan sessiya (qarang
+    TelegramLinkSessionCreateView/PollView). Webhook mantig'i ikkalasi
+    uchun ham bir xil — faqat poll bosqichida farqlanadi.
     """
 
     EXPIRY_MINUTES = 10
@@ -145,6 +151,9 @@ class TelegramLoginSession(models.Model):
     telegram_username = models.CharField(max_length=64, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     is_consumed = models.BooleanField(default=False)
+    link_to_user = models.ForeignKey(
+        "users.User", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
 
     def is_expired(self):
         return timezone.now() - self.created_at > timedelta(minutes=self.EXPIRY_MINUTES)

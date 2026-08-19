@@ -24,18 +24,26 @@ class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
 class UserSerializer(serializers.ModelSerializer):
     company = serializers.SerializerMethodField()
     positions = serializers.SerializerMethodField()
+    has_google = serializers.SerializerMethodField()
+    has_telegram = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
             "id", "email", "first_name", "last_name", "phone", "date_of_birth", "role",
             "worker_id", "company", "positions", "is_active", "date_joined",
-            "registration_completed", "phone_verified",
+            "registration_completed", "phone_verified", "has_google", "has_telegram",
         )
         read_only_fields = (
             "id", "email", "role", "worker_id", "company", "positions", "is_active", "date_joined",
-            "registration_completed", "phone_verified",
+            "registration_completed", "phone_verified", "has_google", "has_telegram",
         )
+
+    def get_has_google(self, obj):
+        return obj.google_accounts.exists()
+
+    def get_has_telegram(self, obj):
+        return obj.telegram_accounts.exists()
 
     def get_company(self, obj):
         from apps.companies.views import user_company
