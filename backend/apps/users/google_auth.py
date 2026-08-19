@@ -50,9 +50,18 @@ def verify_google_credential(credential: str) -> dict:
     """
     if not settings.GOOGLE_CLIENT_ID:
         raise ValidationError("Google Login hali sozlanmagan")
+
+    # Native ilovalar (iOS `GIDClientID`, Android `serverClientId` orqali
+    # bo'lmagan holatlar) o'zlarining platformaviy Client ID'i bilan token
+    # qaytarishi mumkin — shuning uchun bir nechta ruxsat etilgan audience
+    # qabul qilinadi (Web + iOS). `google-auth` audience sifatida ro'yxatni
+    # ham qabul qiladi.
+    allowed_audiences = [
+        cid for cid in (settings.GOOGLE_CLIENT_ID, settings.GOOGLE_IOS_CLIENT_ID) if cid
+    ]
     try:
         claims = id_token.verify_oauth2_token(
-            credential, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+            credential, google_requests.Request(), allowed_audiences
         )
     except ValueError:
         raise ValidationError("Google token noto'g'ri yoki muddati o'tgan")

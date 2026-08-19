@@ -206,6 +206,43 @@ class GoogleLoginTests(TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class VerifyGoogleCredentialTests(TestCase):
+    """`verify_google_credential`ning o'zi (view emas) — iOS'dagi
+    `GoogleSignIn` SDK'si har doim o'zining native Client ID'sini `aud`
+    (audience) sifatida qaytaradi, Web Client ID'ni EMAS (Android'dan
+    farqli, u `serverClientId` orqali web-audience token qaytaradi).
+    Shuning uchun `verify_oauth2_token`ga bitta emas, RUXSAT ETILGAN
+    audience'lar RO'YXATI berilishi kerak — aks holda iOS'dan kelgan
+    haqiqiy token ham rad etilib, 400 qaytar edi (qarang google_auth.py)."""
+
+    def test_passes_list_of_allowed_audiences_to_google_verify(self):
+        from django.test import override_settings
+
+        from .google_auth import verify_google_credential
+
+        with override_settings(
+            GOOGLE_CLIENT_ID="web-client-id", GOOGLE_IOS_CLIENT_ID="ios-client-id"
+        ), patch("apps.users.google_auth.id_token.verify_oauth2_token") as mock_verify:
+            mock_verify.return_value = {"sub": "1", "email": "a@b.com", "email_verified": True}
+            verify_google_credential("fake-token")
+
+        called_audience = mock_verify.call_args[0][2]
+        self.assertEqual(called_audience, ["web-client-id", "ios-client-id"])
+
+    def test_ios_only_audience_configured_when_web_client_id_blank(self):
+        from django.test import override_settings
+
+        from .google_auth import verify_google_credential
+
+        with override_settings(
+            GOOGLE_CLIENT_ID="web-client-id", GOOGLE_IOS_CLIENT_ID=""
+        ), patch("apps.users.google_auth.id_token.verify_oauth2_token") as mock_verify:
+            mock_verify.return_value = {"sub": "1", "email": "a@b.com", "email_verified": True}
+            verify_google_credential("fake-token")
+
+        self.assertEqual(mock_verify.call_args[0][2], ["web-client-id"])
+
+
 class GoogleLoginStartTests(TestCase):
     """"Google orqali kirish" tugmasi shu endpointga oddiy `<a href>` bilan
     yo'naltiradi (JS SDK yo'q) — Google consent sahifasiga redirect qiladi

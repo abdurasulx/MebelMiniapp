@@ -120,6 +120,16 @@ STORAGE_MODE = env("STORAGE_MODE", default="local")
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
 
+# Native ilovalar (iOS/Android) platformaning o'z (native) OAuth Client ID'i
+# bilan Google Sign-In qiladi — bu ID token'ning `aud` (audience) qiymati
+# HAR DOIM shu native Client ID bo'ladi, `GOOGLE_CLIENT_ID` (Web) EMAS
+# (Android'da Flutter `google_sign_in` paketi `serverClientId` bergani uchun
+# istisno — u web audience'li token qaytaradi, lekin iOS'dagi `GoogleSignIn`
+# SDK bunday emas: `GIDClientID` doim o'zining audience'i bo'lib qoladi).
+# Shuning uchun `verify_google_credential` bir nechta audience'ni qabul
+# qiladi — qarang apps/users/google_auth.py.
+GOOGLE_IOS_CLIENT_ID = env("GOOGLE_IOS_CLIENT_ID", default="")
+
 # Market (asosiy) frontend'ning ochiq manzili — Google callback (qarang
 # apps/users/views.py: GoogleLoginCallbackView) shu yerga JWT bilan qaytarib
 # yuboradi (`?access=&refresh=` — main.jsx'dagi mavjud portal-o'tkazish
