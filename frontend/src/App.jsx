@@ -33,6 +33,7 @@ import Login from "./pages/Login";
 import MyOrders from "./pages/MyOrders";
 import MyProjects from "./pages/MyProjects";
 import ProductDetail from "./pages/ProductDetail";
+import Profile from "./pages/Profile";
 import ProjectComposer from "./pages/ProjectComposer";
 import ProjectViewer from "./pages/ProjectViewer";
 import Shop from "./pages/Shop";
@@ -59,6 +60,7 @@ import {
   Warehouse,
   TrendingUp,
   Truck,
+  UserCircle,
 } from "lucide-react";
 
 const ADMIN_MENU = [
@@ -185,6 +187,9 @@ function MarketLayout({ children }) {
               <Link to="/orders" className="rounded-lg px-3 py-1.5 transition hover:bg-black/10">
                 Buyurtmalarim
               </Link>
+              <Link to="/profile" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition hover:bg-black/10">
+                <UserCircle size={16} /> Profil
+              </Link>
             </>
           )}
           {user ? (
@@ -309,6 +314,14 @@ export default function App() {
           element={
             <Protected>
               <MyOrders />
+            </Protected>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <Protected>
+              <Profile />
             </Protected>
           }
         />
