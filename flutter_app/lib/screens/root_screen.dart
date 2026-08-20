@@ -10,6 +10,7 @@ import 'likes_screen.dart';
 import 'profile_screen.dart';
 import 'worker/worker_home_screen.dart';
 import 'worker/worker_orders_screen.dart';
+import 'worker/worker_payslips_screen.dart';
 
 /// Xaridor — Bosh sahifa / Katalog / Sevimlilar / Savat / Profil (savat
 /// tabida checkout, buyurtma tarixi Profil ichida ko'rsatiladi);
@@ -33,7 +34,12 @@ class _RootScreenState extends State<RootScreen> {
     final loc = context.watch<LocaleStore>();
 
     final tabs = isWorker
-        ? const [WorkerHomeScreen(), WorkerOrdersScreen(), ProfileScreen()]
+        ? const [
+            WorkerHomeScreen(),
+            WorkerOrdersScreen(),
+            WorkerPayslipsScreen(),
+            ProfileScreen(),
+          ]
         : const [
             HomeScreen(),
             CatalogScreen(),
@@ -51,6 +57,10 @@ class _RootScreenState extends State<RootScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.assignment),
               label: 'Buyurtmalar',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.payments_outlined),
+              label: 'Ish haqim',
             ),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
           ]

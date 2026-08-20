@@ -372,6 +372,8 @@ class OrderItemSummary {
 class WorkflowStepInstance {
   final String id;
   final String name;
+  final String description;
+  final String? stageDisplay;
   final String? roleDisplay;
   final String status;
   final String statusDisplay;
@@ -388,6 +390,8 @@ class WorkflowStepInstance {
   WorkflowStepInstance({
     required this.id,
     required this.name,
+    this.description = '',
+    this.stageDisplay,
     this.roleDisplay,
     required this.status,
     required this.statusDisplay,
@@ -410,6 +414,8 @@ class WorkflowStepInstance {
       WorkflowStepInstance(
         id: j['id'],
         name: j['name'],
+        description: j['description'] ?? '',
+        stageDisplay: j['stage_display'],
         roleDisplay: j['role_display'],
         status: j['status'],
         statusDisplay: j['status_display'],
@@ -420,6 +426,69 @@ class WorkflowStepInstance {
         orderStatus: j['order_status'],
         deadline: j['deadline'],
         isManual: j['is_manual'] ?? false,
+      );
+}
+
+/// Xodimning oylik ish haqi hisob-kitobi — web'dagi `MyPayslips`
+/// (FirmaPayroll.jsx) bilan bir xil maydonlar, faqat o'ziniki
+/// (`GET /payslips/` xodim uchun avtomatik shu bilan cheklangan).
+class Payslip {
+  final String id;
+  final String period;
+  final String payType;
+  final String payTypeDisplay;
+  final String baseSalary;
+  final int tasksCompleted;
+  final String bonusPerTask;
+  final String bonusAmount;
+  final String commissionSales;
+  final String commissionAmount;
+  final String manualHours;
+  final String hourlyAmount;
+  final String workflowEarnings;
+  final bool kpiMet;
+  final String kpiBonusAmount;
+  final String totalAmount;
+  final bool isPaid;
+
+  Payslip({
+    required this.id,
+    required this.period,
+    required this.payType,
+    required this.payTypeDisplay,
+    required this.baseSalary,
+    required this.tasksCompleted,
+    required this.bonusPerTask,
+    required this.bonusAmount,
+    required this.commissionSales,
+    required this.commissionAmount,
+    required this.manualHours,
+    required this.hourlyAmount,
+    required this.workflowEarnings,
+    required this.kpiMet,
+    required this.kpiBonusAmount,
+    required this.totalAmount,
+    required this.isPaid,
+  });
+
+  factory Payslip.fromJson(Map<String, dynamic> j) => Payslip(
+        id: j['id'],
+        period: j['period'],
+        payType: j['pay_type'] ?? '',
+        payTypeDisplay: j['pay_type_display'] ?? '',
+        baseSalary: j['base_salary']?.toString() ?? '0',
+        tasksCompleted: j['tasks_completed'] ?? 0,
+        bonusPerTask: j['bonus_per_task']?.toString() ?? '0',
+        bonusAmount: j['bonus_amount']?.toString() ?? '0',
+        commissionSales: j['commission_sales']?.toString() ?? '0',
+        commissionAmount: j['commission_amount']?.toString() ?? '0',
+        manualHours: j['manual_hours']?.toString() ?? '0',
+        hourlyAmount: j['hourly_amount']?.toString() ?? '0',
+        workflowEarnings: j['workflow_earnings']?.toString() ?? '0',
+        kpiMet: j['kpi_met'] ?? false,
+        kpiBonusAmount: j['kpi_bonus_amount']?.toString() ?? '0',
+        totalAmount: j['total_amount']?.toString() ?? '0',
+        isPaid: j['is_paid'] ?? false,
       );
 }
 

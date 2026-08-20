@@ -78,6 +78,22 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
     }
   }
 
+  Future<void> _startTask(WorkflowStepInstance step) async {
+    try {
+      await ApiClient.instance.patch(
+        '/workflow-instances/${step.id}/',
+        (j) => j,
+        body: {'status': 'in_progress'},
+        auth: true,
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
   Future<void> _postProgress(WorkflowStepInstance step, {required bool complete}) async {
     final commentController = TextEditingController();
     XFile? photo;
@@ -178,7 +194,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           child: Column(
                             children: manualTasks
-                                .map((step) => _StepTile(step: step, onProgress: _postProgress))
+                                .map((step) => _StepTile(step: step, onProgress: _postProgress, onStart: _startTask))
                                 .toList(),
                           ),
                         ),
@@ -194,6 +210,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                           mySteps: _myStepsFor(order),
                           onSetStatus: _setStatus,
                           onProgress: _postProgress,
+                          onStart: _startTask,
                         ),
                     ],
                   ),
@@ -207,11 +224,13 @@ class _OrderCard extends StatefulWidget {
   final List<WorkflowStepInstance> mySteps;
   final Future<void> Function(Order, String) onSetStatus;
   final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
+  final Future<void> Function(WorkflowStepInstance) onStart;
   const _OrderCard({
     required this.order,
     required this.mySteps,
     required this.onSetStatus,
     required this.onProgress,
+    required this.onStart,
   });
 
   @override
@@ -263,7 +282,9 @@ class _OrderCardState extends State<_OrderCard> {
               ],
             ),
             if (_expanded)
-              ...widget.mySteps.map((step) => _StepTile(step: step, onProgress: widget.onProgress)),
+              ...widget.mySteps.map(
+                (step) => _StepTile(step: step, onProgress: widget.onProgress, onStart: widget.onStart),
+              ),
           ],
         ),
       ),
@@ -274,13 +295,19 @@ class _OrderCardState extends State<_OrderCard> {
 class _StepTile extends StatelessWidget {
   final WorkflowStepInstance step;
   final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
-  const _StepTile({required this.step, required this.onProgress});
+  final Future<void> Function(WorkflowStepInstance) onStart;
+  const _StepTile({required this.step, required this.onProgress, required this.onStart});
 
   @override
   Widget build(BuildContext context) {
     final canAct = step.status != 'completed' && (step.status == 'in_progress' || step.isAvailable);
+    // Faqat qo'lda qo'shilgan (manual) va hali kutilayotgan vazifalarga
+    // aniq "Boshlash" (pending -> in_progress) tugmasi ko'rsatiladi — web'dagi
+    // TaskCard.advance() bilan bir xil naqsh (FirmaProduction.jsx).
+    final canStart = step.isManual && step.status == 'pending' && step.isAvailable;
     return ListTile(
       dense: true,
+      isThreeLine: step.description.isNotEmpty,
       leading: Icon(
         step.status == 'completed'
             ? Icons.check_circle
@@ -294,31 +321,47 @@ class _StepTile extends StatelessWidget {
             : Colors.grey,
       ),
       title: Text(step.name),
-      subtitle: Text(
-        [
-          if (step.roleDisplay != null) step.roleDisplay!,
-          step.statusDisplay,
-          if (step.deadline != null) 'muddat: ${step.deadline}',
-        ].join(' · '),
-        style: step.isOverdue ? const TextStyle(color: Colors.red, fontWeight: FontWeight.w600) : null,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (step.description.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(step.description, style: const TextStyle(fontSize: 12.5)),
+            ),
+          Text(
+            [
+              if (step.stageDisplay != null) step.stageDisplay!,
+              if (step.roleDisplay != null) step.roleDisplay!,
+              step.statusDisplay,
+              if (step.deadline != null) 'muddat: ${step.deadline}',
+            ].join(' · '),
+            style: step.isOverdue ? const TextStyle(color: Colors.red, fontWeight: FontWeight.w600) : null,
+          ),
+        ],
       ),
-      trailing: canAct
-          ? Wrap(
-              spacing: 4,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.send, size: 18),
-                  tooltip: 'Yangilanish qo\'shish',
-                  onPressed: () => onProgress(step, complete: false),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.check, size: 18),
-                  tooltip: 'Yakunlash',
-                  onPressed: () => onProgress(step, complete: true),
-                ),
-              ],
+      trailing: canStart
+          ? OutlinedButton(
+              onPressed: () => onStart(step),
+              child: const Text('Boshlash'),
             )
-          : null,
+          : canAct
+              ? Wrap(
+                  spacing: 4,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.send, size: 18),
+                      tooltip: 'Yangilanish qo\'shish',
+                      onPressed: () => onProgress(step, complete: false),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.check, size: 18),
+                      tooltip: 'Yakunlash',
+                      onPressed: () => onProgress(step, complete: true),
+                    ),
+                  ],
+                )
+              : null,
     );
   }
 }

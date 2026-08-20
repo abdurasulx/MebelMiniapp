@@ -232,6 +232,8 @@ struct OrderItemSummary: Codable, Identifiable {
 struct WorkflowStepInstance: Codable, Identifiable {
     let id: String
     let name: String
+    let description: String?
+    let stageDisplay: String?
     let roleDisplay: String?
     let status: String
     let statusDisplay: String
@@ -252,6 +254,29 @@ struct WorkflowStepInstance: Codable, Identifiable {
         guard let date = formatter.date(from: deadline) else { return false }
         return date < Calendar.current.startOfDay(for: Date())
     }
+}
+
+/// Xodimning oylik ish haqi hisob-kitobi — web'dagi `MyPayslips`
+/// (FirmaPayroll.jsx) bilan bir xil maydonlar, faqat o'ziniki
+/// (`GET /payslips/` xodim uchun avtomatik shu bilan cheklangan).
+struct Payslip: Codable, Identifiable {
+    let id: String
+    let period: String
+    let payType: String
+    let payTypeDisplay: String
+    let baseSalary: String
+    let tasksCompleted: Int
+    let bonusPerTask: String
+    let bonusAmount: String
+    let commissionSales: String
+    let commissionAmount: String
+    let manualHours: String
+    let hourlyAmount: String
+    let workflowEarnings: String
+    let kpiMet: Bool
+    let kpiBonusAmount: String
+    let totalAmount: String
+    let isPaid: Bool
 }
 
 /// Buyurtma statusi bo'yicha kompaniya tomonidan ruxsat etilgan keyingi

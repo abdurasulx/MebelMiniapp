@@ -45,6 +45,9 @@ struct RootView: View {
 
                 WorkerOrdersView()
                     .tabItem { Label("Buyurtmalar", systemImage: "list.bullet.clipboard.fill") }
+
+                PayslipsView()
+                    .tabItem { Label("Ish haqim", systemImage: "banknote.fill") }
             } else {
                 HomeView()
                     .tabItem { Label("Bosh sahifa", systemImage: "house.fill") }

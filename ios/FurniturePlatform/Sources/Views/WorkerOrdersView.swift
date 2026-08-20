@@ -163,20 +163,35 @@ private struct StepRowView: View {
 
     @State private var showSheet = false
     @State private var completing = false
+    @State private var starting = false
 
     private var canAct: Bool {
         step.status != "completed" && (step.status == "in_progress" || step.isAvailable)
     }
 
+    // Faqat qo'lda qo'shilgan (manual) va hali kutilayotgan vazifalarga
+    // aniq "Boshlash" (pending -> in_progress) tugmasi ko'rsatiladi — web'dagi
+    // TaskCard.advance() bilan bir xil naqsh (FirmaProduction.jsx).
+    private var canStart: Bool {
+        (step.isManual ?? false) && step.status == "pending" && step.isAvailable
+    }
+
     var body: some View {
         HStack {
             Image(systemName: icon).foregroundStyle(color)
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(step.name).font(.subheadline)
+                if let description = step.description, !description.isEmpty {
+                    Text(description).font(.caption).foregroundStyle(.secondary)
+                }
                 Text(subtitle).font(.caption2).foregroundStyle(step.isOverdue ? .red : .secondary)
             }
             Spacer()
-            if canAct {
+            if canStart {
+                Button(starting ? "..." : "Boshlash") { Task { await start() } }
+                    .font(.caption)
+                    .disabled(starting)
+            } else if canAct {
                 Button("Yangilash") { completing = false; showSheet = true }.font(.caption)
                 Button("Yakunlash") { completing = true; showSheet = true }.font(.caption).bold()
             }
@@ -187,8 +202,22 @@ private struct StepRowView: View {
         }
     }
 
+    private func start() async {
+        starting = true
+        struct Body: Encodable { let status: String }
+        do {
+            let _: WorkflowStepInstance = try await APIClient.shared.patch(
+                "/workflow-instances/\(step.id)/", body: Body(status: "in_progress")
+            )
+            onChanged()
+        } catch {
+            // Ro'yxat qayta yuklanganda holat baribir yangilanadi; xato bo'lsa jim o'tkazamiz.
+        }
+        starting = false
+    }
+
     private var subtitle: String {
-        var parts = [step.roleDisplay ?? "", step.statusDisplay]
+        var parts = [step.stageDisplay ?? "", step.roleDisplay ?? "", step.statusDisplay]
         if let deadline = step.deadline { parts.append("muddat: \(deadline)") }
         return parts.filter { !$0.isEmpty }.joined(separator: " · ")
     }
