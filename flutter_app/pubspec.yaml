@@ -21,7 +21,7 @@ dependencies:
   # ko'rsatish filtri).
   geolocator: ^13.0.1
   # Mahsulot sahifasidagi "Ulashish" tugmasi uchun.
-  share_plus: ^7.2.2
+  share_plus: ^13.3.0
   # Bosh sahifadagi "rasm bilan qidirish" uchun kamera/galereyadan rasm tanlash.
   image_picker: ^1.1.2
   # Firma profilidagi ijtimoiy tarmoq havolalarini (Instagram/Telegram/h.k.)

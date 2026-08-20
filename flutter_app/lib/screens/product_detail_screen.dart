@@ -348,8 +348,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   void _share(Product p) {
-    Share.share(
-      '${p.nameUz} — ${p.companyName}\nFurniture Platform ilovasida ko\'ring.',
+    SharePlus.instance.share(
+      ShareParams(
+        text: '${p.nameUz} — ${p.companyName}\nFurniture Platform ilovasida ko\'ring.',
+      ),
     );
   }
 
