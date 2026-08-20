@@ -1,5 +1,7 @@
 from django.utils import timezone
 
+from apps.notifications.services import notify_order_status, notify_task_assigned
+
 from .models import StepStatus, WorkflowStepInstance
 
 
@@ -19,6 +21,7 @@ def sync_order_status_on_step_completion(order):
         return
     order.status = Order.Status.READY
     order.save(update_fields=["status", "updated_at"])
+    notify_order_status(order)
 
 
 def create_workflow_instances(order, product):
@@ -66,5 +69,7 @@ def create_workflow_instances(order, product):
             instance.status = StepStatus.IN_PROGRESS
             instance.started_at = now
             instance.save(update_fields=["status", "started_at"])
+        if instance.employee_id:
+            notify_task_assigned(instance)
 
     return instances

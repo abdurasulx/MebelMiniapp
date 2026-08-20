@@ -9,6 +9,7 @@ import '../models.dart';
 import '../positions.dart';
 import '../widgets/phone_verify_dialog.dart';
 import 'auth_screen.dart';
+import 'notifications_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -18,7 +19,10 @@ class ProfileScreen extends StatelessWidget {
     final auth = context.watch<AuthStore>();
     final loc = context.watch<LocaleStore>();
     return Scaffold(
-      appBar: AppBar(title: Text(loc.t('profile_title'))),
+      appBar: AppBar(
+        title: Text(loc.t('profile_title')),
+        actions: [if (auth.user != null) const NotificationBellButton()],
+      ),
       body: auth.user == null
           ? const AuthScreen()
           : _ProfileBody(user: auth.user!),

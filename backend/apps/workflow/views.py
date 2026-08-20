@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.companies.views import is_company_owner, user_company
+from apps.notifications.services import notify_task_assigned, notify_task_available
 from apps.products.models import Product
 from apps.products.views import can_manage
 
@@ -141,7 +142,9 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
         order = serializer.validated_data.get("order")
         if order is not None and order.company_id != company.id:
             raise ValidationError("Bu buyurtma sizning kompaniyangizga tegishli emas")
-        serializer.save(company=company)
+        instance = serializer.save(company=company)
+        if instance.employee_id:
+            notify_task_assigned(instance)
 
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -175,7 +178,10 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
         elif new_status and new_status != StepStatus.COMPLETED:
             extra["completed_at"] = None
 
+        previous_employee_id = instance.employee_id
         updated = serializer.save(**extra)
+        if updated.employee_id and updated.employee_id != previous_employee_id:
+            notify_task_assigned(updated)
         if new_status == StepStatus.COMPLETED and updated.order_id:
             sync_order_status_on_step_completion(updated.order)
 
@@ -228,7 +234,9 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
         instance.completed_at = timezone.now()
         instance.completed_by = request.user
         instance.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
-        instance.activate_dependents()
+        for activated_step in instance.activate_dependents():
+            if activated_step.employee_id:
+                notify_task_available(activated_step)
         if instance.order_id:
             sync_order_status_on_step_completion(instance.order)
 

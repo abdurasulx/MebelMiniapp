@@ -4,7 +4,9 @@ import { Menu, Sofa } from "lucide-react";
 import { useAuth } from "../auth";
 import { POSITIONS, setActivePosition } from "../positions";
 import { useTheme } from "../theme";
+import { BRAND_NAME } from "../portal";
 import ThemeSwitch from "../components/ThemeSwitch";
+import NotificationBell from "../components/NotificationBell";
 
 /**
  * ERP uslubidagi layout (Dream ERP tuzilishiga mos): chapda brend sidebar
@@ -13,7 +15,7 @@ import ThemeSwitch from "../components/ThemeSwitch";
  * sarlavhalar ostida bo'linadi (masalan "Asosiy", "Boshqaruv").
  * activePosition: multi-role xodimning hozir tanlagan roli.
  */
-export default function PortalLayout({ title, menu, activePosition, onSwitchPosition }) {
+export default function PortalLayout({ title, menu, activePosition, onSwitchPosition, showNotifications }) {
   const { user, logout } = useAuth();
   const { dark, toggle } = useTheme();
   const [open, setOpen] = useState(false);
@@ -36,10 +38,12 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar — desktopda mustaqil o'z holicha scroll bo'ladi (butun
+          sahifa bilan birga emas), shuning uchun uzun ro'yxatli
+          sahifalarda ham navigatsiya doim ko'rinib turadi. */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 flex-col p-4 transition-transform lg:static lg:flex lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 flex-col overflow-y-auto p-4 transition-transform lg:sticky lg:top-0 lg:flex lg:h-screen lg:translate-x-0 ${
           open ? "flex translate-x-0" : "hidden lg:flex -translate-x-full"
         }`}
         style={{ background: "var(--brand-surface)" }}
@@ -48,7 +52,7 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
           <Sofa size={26} style={{ color: "var(--brand-surface-text)" }} />
           <div>
             <div className="text-sm font-bold" style={{ color: "var(--brand-surface-text)" }}>
-              Furniture Platform
+              {BRAND_NAME}
             </div>
             <div className="text-xs" style={{ color: "var(--brand-surface-muted)" }}>
               {title}
@@ -86,7 +90,7 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
           ))}
         </nav>
         <div className="px-2 pb-2 text-xs" style={{ color: "var(--brand-surface-muted)" }}>
-          © {new Date().getFullYear()} Furniture Platform
+          © {new Date().getFullYear()} {BRAND_NAME}
         </div>
       </aside>
 
@@ -95,10 +99,11 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
         <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />
       )}
 
-      {/* Content */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* Content — o'zining alohida scroll konteksti, sidebar bilan
+          sinxronlanmaydi. */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header
-          className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 lg:px-6"
+          className="z-20 flex shrink-0 items-center gap-3 px-4 py-3 lg:px-6"
           style={{
             background: "var(--card)",
             borderBottom: "1px solid var(--border)",
@@ -130,6 +135,7 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
                 ))}
               </select>
             )}
+            {showNotifications && <NotificationBell />}
             <ThemeSwitch dark={dark} onToggle={toggle} />
             {user && (
               <div className="flex items-center gap-2">
@@ -152,7 +158,7 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
             )}
           </div>
         </header>
-        <main className="flex-1 p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <Outlet />
         </main>
       </div>

@@ -162,8 +162,17 @@ class WorkflowStepInstance(BaseModel):
             self.save(update_fields=["status", "started_at", "updated_at"])
 
     def activate_dependents(self):
+        """`required_by` orasida shu bosqich tugashi bilan boshlanishga tayyor
+        bo'lgan bosqichlarni faollashtiradi va ularni qaytaradi — chaqiruvchi
+        (`views.py::complete`) shu ro'yxat orqali tegishli xodimlarga
+        xabarnoma yuboradi (qarang apps.notifications.services.notify_task_available)."""
+        activated = []
         for dependent in self.required_by.filter(is_deleted=False):
+            was_pending = dependent.status == StepStatus.PENDING
             dependent.activate_if_ready()
+            if was_pending and dependent.status == StepStatus.IN_PROGRESS:
+                activated.append(dependent)
+        return activated
 
 
 class ProgressUpdate(BaseModel, StoredFileMixin):

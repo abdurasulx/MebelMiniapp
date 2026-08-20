@@ -39,6 +39,7 @@ import ProjectViewer from "./pages/ProjectViewer";
 import Shop from "./pages/Shop";
 import Viewer from "./pages/Viewer";
 import ThemeSwitch from "./components/ThemeSwitch";
+import NotificationBell from "./components/NotificationBell";
 import { cartCount, getCart } from "./cart";
 import { useEffect } from "react";
 import {
@@ -124,6 +125,7 @@ function FirmaShell() {
       menu={FIRMA_MENU}
       activePosition={user.role === "employee" ? active : null}
       onSwitchPosition={setActive}
+      showNotifications
     />
   );
 }
@@ -190,6 +192,7 @@ function MarketLayout({ children }) {
               <Link to="/profile" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition hover:bg-black/10">
                 <UserCircle size={16} /> Profil
               </Link>
+              <NotificationBell surface />
             </>
           )}
           {user ? (

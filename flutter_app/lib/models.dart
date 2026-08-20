@@ -618,6 +618,40 @@ class Paginated<T> {
   }
 }
 
+/// Ilova-ichi xabarnoma — mijozga buyurtma holati, xodimga vazifa
+/// tayinlash/tayyorlik xabarlari (qarang backend apps.notifications).
+/// Dart'ning o'z `Notification` bazaviy klassi bilan chalkashmasligi
+/// uchun `AppNotification` deb nomlangan.
+class AppNotification {
+  final String id;
+  final String notifType;
+  final String notifTypeDisplay;
+  final String title;
+  final String body;
+  final bool isRead;
+  final String createdAt;
+
+  AppNotification({
+    required this.id,
+    required this.notifType,
+    required this.notifTypeDisplay,
+    required this.title,
+    required this.body,
+    required this.isRead,
+    required this.createdAt,
+  });
+
+  factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
+        id: j['id'],
+        notifType: j['notif_type'] ?? '',
+        notifTypeDisplay: j['notif_type_display'] ?? '',
+        title: j['title'] ?? '',
+        body: j['body'] ?? '',
+        isRead: j['is_read'] ?? false,
+        createdAt: j['created_at'] ?? '',
+      );
+}
+
 /// "1500000.00" -> "1 500 000"
 String formatSom(String raw) {
   final value = double.tryParse(raw);

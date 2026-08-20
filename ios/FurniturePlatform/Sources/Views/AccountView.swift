@@ -18,6 +18,13 @@ struct AccountView: View {
                 }
             }
             .navigationTitle("Profil")
+            .toolbar {
+                if auth.user != nil {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        NotificationBellButton()
+                    }
+                }
+            }
         }
     }
 }

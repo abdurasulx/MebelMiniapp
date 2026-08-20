@@ -256,6 +256,18 @@ struct WorkflowStepInstance: Codable, Identifiable {
     }
 }
 
+/// Ilova-ichi xabarnoma — mijozga buyurtma holati, xodimga vazifa
+/// tayinlash/tayyorlik xabarlari (qarang backend apps.notifications).
+struct AppNotification: Codable, Identifiable {
+    let id: String
+    let notifType: String
+    let notifTypeDisplay: String
+    let title: String
+    let body: String
+    let isRead: Bool
+    let createdAt: String
+}
+
 /// Xodimning oylik ish haqi hisob-kitobi — web'dagi `MyPayslips`
 /// (FirmaPayroll.jsx) bilan bir xil maydonlar, faqat o'ziniki
 /// (`GET /payslips/` xodim uchun avtomatik shu bilan cheklangan).

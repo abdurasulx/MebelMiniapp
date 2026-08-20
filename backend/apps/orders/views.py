@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.companies.views import is_company_owner, user_company
+from apps.notifications.services import notify_order_status
 from apps.workflow.models import StepStatus, WorkflowStepInstance
 
 from .models import Order
@@ -77,6 +78,7 @@ class OrderViewSet(
             )
         order.status = new_status
         order.save(update_fields=["status", "updated_at"])
+        notify_order_status(order)
         return Response(OrderSerializer(order, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
