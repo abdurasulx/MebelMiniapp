@@ -19,6 +19,13 @@ struct WorkerHomeView: View {
                 }
             }
             .navigationTitle("Usta paneli")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: WarehousesView()) {
+                        Image(systemName: "shippingbox")
+                    }
+                }
+            }
         }
     }
 

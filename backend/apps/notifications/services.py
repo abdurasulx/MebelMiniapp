@@ -29,6 +29,23 @@ def notify_task_assigned(step):
     )
 
 
+def notify_material_suggestion(user, material, remnant_width, remnant_length, cut_width, cut_length):
+    """Ishlab chiqarishda VARAQ material kerakli bo'lakka mavjud qoldiqdan
+    moslashtirilganda yuboriladi — kimga qaysi o'lchamdagi qoldiqdan
+    foydalanilgani (isrofni kamaytirish uchun) ma'lum bo'lishi uchun
+    (qarang apps.inventory.views._consume_cut_pieces/ProduceView)."""
+    Notification.objects.create(
+        recipient=user,
+        notif_type=NotificationType.MATERIAL_SUGGESTION,
+        title="Material qoldig'idan foydalanildi",
+        body=(
+            f"{material.name}: {cut_width}x{cut_length}{material.unit} bo'lak uchun omborda "
+            f"{remnant_width}x{remnant_length}{material.unit} qoldiq topilib ishlatildi — "
+            "isrofgarchilik kamaydi."
+        ),
+    )
+
+
 def notify_task_available(step):
     """Bog'liq bosqich tugab, keyingi bosqich boshlanishga tayyor bo'lganda
     biriktirilgan xodimga yuboriladi (qarang

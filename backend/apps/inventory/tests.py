@@ -4,8 +4,10 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient, APITestCase
 
 from apps.companies.models import Company, Employee
+from apps.notifications.models import Notification, NotificationType
+from apps.products.models import Category, Product
 
-from .models import Material, MaterialStock, PurchaseOrder, Supplier, Warehouse
+from .models import BillOfMaterial, Material, MaterialRemnant, MaterialStock, PurchaseOrder, Supplier, Warehouse
 
 User = get_user_model()
 
@@ -187,3 +189,126 @@ class ProcurementTests(APITestCase):
         self.client.post(f"/api/v1/purchase-orders/{order_id}/receive/")
         second = self.client.post(f"/api/v1/purchase-orders/{order_id}/receive/")
         self.assertEqual(second.status_code, 400)
+
+
+class SheetMaterialTests(APITestCase):
+    """VARAQ (fanera/DVP kabi) materiallar — eni x bo'yi bo'yicha kirim
+    qilinadi va ishlab chiqarishda eng mos (best-fit) qoldiqdan
+    foydalaniladi, isrofni kamaytirish tavsiyasi bilan (Notification)."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+        )
+        self.company = Company.objects.create(owner=self.owner, name="Shop", slug="shop")
+        self.omborchi_user = User.objects.create_user(
+            email="ombor@shop.uz", password="pass12345", role=User.Role.EMPLOYEE
+        )
+        Employee.objects.create(company=self.company, user=self.omborchi_user, positions=["omborchi"])
+        self.material = Material.objects.create(
+            company=self.company, name="Fanera 4mm", unit="m2", unit_cost=100000,
+            dimension_type=Material.DimensionType.SHEET,
+        )
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, name="Xom ashyo ombori", kind=Warehouse.Kind.RAW_MATERIAL, address="Chilonzor",
+        )
+        self.finished_warehouse = Warehouse.objects.create(
+            company=self.company, name="Tayyor mahsulot ombori", kind=Warehouse.Kind.FINISHED_GOODS,
+            address="Chilonzor",
+        )
+        self.category = Category.objects.create(name_uz="Stullar", slug="stullar")
+        self.product = Product.objects.create(
+            company=self.company, category=self.category, name_uz="Stul", is_published=True
+        )
+        BillOfMaterial.objects.create(
+            product=self.product, material=self.material, quantity_per_unit=1,
+            cut_length=Decimal("0.4"), cut_width=Decimal("0.3"),
+        )
+        self.client = APIClient()
+
+    def test_receive_creates_remnant_and_movement(self):
+        self.client.force_authenticate(self.omborchi_user)
+        resp = self.client.post(
+            f"/api/v1/warehouses/{self.warehouse.id}/material-remnants/receive/",
+            {"material": str(self.material.id), "length": "1.22", "width": "2.44", "quantity": 3},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        remnant = MaterialRemnant.objects.get(warehouse=self.warehouse, material=self.material)
+        self.assertEqual(remnant.quantity, 3)
+        self.assertEqual(remnant.width, Decimal("2.44"))
+
+    def test_plain_employee_cannot_receive(self):
+        plain_user = User.objects.create_user(
+            email="usta@shop.uz", password="pass12345", role=User.Role.EMPLOYEE
+        )
+        Employee.objects.create(company=self.company, user=plain_user, positions=["usta"])
+        self.client.force_authenticate(plain_user)
+        resp = self.client.post(
+            f"/api/v1/warehouses/{self.warehouse.id}/material-remnants/receive/",
+            {"material": str(self.material.id), "length": "1.22", "width": "2.44", "quantity": 1},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_bom_validation_rejects_cut_width_without_sheet_material(self):
+        linear_material = Material.objects.create(
+            company=self.company, name="Reyka", unit="m", unit_cost=5000,
+            dimension_type=Material.DimensionType.LINEAR, stock_unit_length=Decimal("3"),
+        )
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(
+            f"/api/v1/products/{self.product.id}/bill-of-materials/",
+            {"material": str(linear_material.id), "quantity_per_unit": 1, "cut_length": "0.4", "cut_width": "0.3"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_produce_picks_best_fit_remnant_and_creates_leftovers(self):
+        # Kerak: 0.3x0.4. Ikkita nomzod qoldiq bor — 0.5x0.5 (kattaroq, ko'proq
+        # isrof) va 0.35x0.45 (aniqroq mos, kamroq isrof) — best-fit
+        # eng kichik yetarlisini (0.35x0.45) tanlashi kerak.
+        MaterialRemnant.objects.create(
+            warehouse=self.warehouse, material=self.material, length=Decimal("0.5"), width=Decimal("0.5"), quantity=1,
+        )
+        MaterialRemnant.objects.create(
+            warehouse=self.warehouse, material=self.material, length=Decimal("0.45"), width=Decimal("0.35"), quantity=1,
+        )
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(
+            f"/api/v1/warehouses/{self.finished_warehouse.id}/produce/",
+            {
+                "product": str(self.product.id), "quantity": 1,
+                "material_warehouse": str(self.warehouse.id),
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+
+        # Aniqroq mos (0.35x0.45) qoldiq butunlay ishlatilgan bo'lishi kerak.
+        self.assertFalse(
+            MaterialRemnant.objects.filter(warehouse=self.warehouse, length=Decimal("0.45"), width=Decimal("0.35")).exists()
+        )
+        # Kattaroq (0.5x0.5) qoldiq tegilmagan bo'lishi kerak.
+        self.assertTrue(
+            MaterialRemnant.objects.filter(warehouse=self.warehouse, length=Decimal("0.5"), width=Decimal("0.5"), quantity=1).exists()
+        )
+        # Yangi qoldiq(lar) hosil bo'lgan bo'lishi kerak (guillotine kesim).
+        self.assertTrue(MaterialRemnant.objects.filter(warehouse=self.warehouse, length=Decimal("0.45")).exclude(width=Decimal("0.35")).exists() or
+                         MaterialRemnant.objects.filter(warehouse=self.warehouse, width=Decimal("0.35")).exclude(length=Decimal("0.45")).exists())
+
+        notif = Notification.objects.get(recipient=self.owner, notif_type=NotificationType.MATERIAL_SUGGESTION)
+        self.assertIn("0.350x0.450", notif.body)
+
+    def test_produce_fails_when_no_remnant_fits(self):
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(
+            f"/api/v1/warehouses/{self.finished_warehouse.id}/produce/",
+            {
+                "product": str(self.product.id), "quantity": 1,
+                "material_warehouse": str(self.warehouse.id),
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("qoldig'i yo'q", str(resp.data))

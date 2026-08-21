@@ -60,10 +60,26 @@ class Material(BaseModel):
     """Xom ashyo katalogi — bitta firmaga tegishli (masalan taxta, mix, mato).
     `unit_cost` keyingi bosqichda mahsulot tannarxini hisoblashda ishlatiladi."""
 
+    class DimensionType(models.TextChoices):
+        # Oddiy — o'lcham kuzatilmaydi (dona/kg/litr/m3 va h.k., avvalgi xatti-harakat).
+        NONE = "none", "Oddiy (o'lchamsiz)"
+        # Bir o'lchamli (masalan reyka, brusok) — `stock_unit_length` + BOM
+        # `cut_length` + `MaterialRemnant.length` orqali kesish-qoldiq
+        # mantig'i ishlaydi (avvaldan mavjud, o'zgarishsiz).
+        LINEAR = "linear", "Chiziqli (uzunlik bo'yicha)"
+        # Ikki o'lchamli varaq (masalan fanera, DVP) — har bir kirim
+        # partiyasi o'z eni/bo'yi bilan `MaterialRemnant`ga to'g'ridan-to'g'ri
+        # kiritiladi (materialning o'zida qat'iy standart o'lcham yo'q — turli
+        # o'lchamdagi listlar bitta material nomi ostida bo'lishi mumkin).
+        SHEET = "sheet", "Varaq (eni x bo'yi)"
+
     company = models.ForeignKey("companies.Company", on_delete=models.CASCADE, related_name="materials")
     name = models.CharField(max_length=255)
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES, default="dona")
     unit_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    dimension_type = models.CharField(
+        max_length=10, choices=DimensionType.choices, default=DimensionType.NONE
+    )
     # Faqat "m" (uzunlik) birligidagi materiallar uchun ma'noli: bitta yaxlit
     # birlik (masalan taxta) qancha uzunlikda kelishi. Belgilansa, ishlab
     # chiqarishda kesish-qoldiq (offcut) mantig'i ishga tushadi — aks holda
@@ -142,33 +158,48 @@ class BillOfMaterial(BaseModel):
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name="used_in")
     quantity_per_unit = models.DecimalField(max_digits=12, decimal_places=4, validators=[MinValueValidator(0.0001)])
     cut_length = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    # Faqat `Material.dimension_type == SHEET` uchun: `cut_length` bilan
+    # birga berilganda bu bosqich VARAQ bo'lagini bildiradi (`cut_width` x
+    # `cut_length` o'lchamli to'g'ri burchak), `quantity_per_unit` — kerakli
+    # bo'laklar soni (`cut_length` yolg'iz bo'lganidagi CHIZIQLI rejimdan farqli).
+    cut_width = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
 
     class Meta:
         unique_together = ("product", "material")
         ordering = ("material__name",)
 
     def __str__(self):
+        if self.cut_width:
+            return f"{self.product.name_uz}: {self.quantity_per_unit} dona x {self.cut_width}x{self.cut_length}{self.material.unit} ({self.material.name})"
         if self.cut_length:
             return f"{self.product.name_uz}: {self.quantity_per_unit} dona x {self.cut_length}{self.material.unit} ({self.material.name})"
         return f"{self.product.name_uz}: {self.quantity_per_unit} {self.material.unit} {self.material.name}"
 
 
 class MaterialRemnant(BaseModel):
-    """Kesishdan qolgan qayta ishlatsa bo'ladigan bo'lak (offcut) — masalan
-    1m taxtadan 0.7m kesilsa, qolgan 0.3m shu yerda alohida saqlanadi va
-    keyingi ishlab chiqarishda avval shundan foydalanishga harakat qilinadi."""
+    """Qayta ishlatsa bo'ladigan bo'lak — CHIZIQLI materiallar uchun faqat
+    kesishdan qoladi (offcut, masalan 1m taxtadan 0.7m kesilsa qolgan 0.3m),
+    VARAQ materiallar uchun esa bevosita omborga kirim qilinganda ham
+    yaratiladi (`width` to'ldirilgan bo'lsa — chunki varaqlarning materialda
+    qat'iy standart o'lchami yo'q, har bir partiya o'z eni/bo'yi bilan
+    keladi). Keyingi ishlab chiqarishda avval shundan foydalanishga
+    harakat qilinadi (best-fit)."""
 
     warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE, related_name="material_remnants")
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name="remnants")
     length = models.DecimalField(max_digits=10, decimal_places=3, validators=[MinValueValidator(0.001)])
+    # Faqat VARAQ materiallar uchun to'ldiriladi — CHIZIQLI qoldiqlarda
+    # bo'sh (`None`) qoladi, shu bilan ikkalasi bir modelda ajratiladi.
+    width = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
     quantity = models.PositiveIntegerField(default=0)
 
     class Meta:
-        unique_together = ("warehouse", "material", "length")
+        unique_together = ("warehouse", "material", "length", "width")
         ordering = ("length",)
 
     def __str__(self):
-        return f"{self.material.name} qoldig'i {self.length}{self.material.unit} x{self.quantity} @ {self.warehouse.name}"
+        size = f"{self.width}x{self.length}" if self.width else f"{self.length}"
+        return f"{self.material.name} qoldig'i {size}{self.material.unit} x{self.quantity} @ {self.warehouse.name}"
 
 
 class ManufacturedUnit(BaseModel):

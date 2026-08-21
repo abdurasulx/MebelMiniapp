@@ -4,6 +4,7 @@ import '../../api_client.dart';
 import '../../auth_store.dart';
 import '../../models.dart';
 import '../product_detail_screen.dart';
+import 'warehouses_screen.dart';
 
 /// Usta ish rejimi: faqat o'z firmasining mahsulotlari (va ularning 3D
 /// modellari) ko'rinadi — uy loyihalashda butun bozor emas, faqat o'z firmasi
@@ -53,7 +54,18 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   Widget build(BuildContext context) {
     final company = context.watch<AuthStore>().user?.company;
     return Scaffold(
-      appBar: AppBar(title: const Text('Usta paneli')),
+      appBar: AppBar(
+        title: const Text('Usta paneli'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.warehouse_outlined),
+            tooltip: 'Omborlar',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const WarehousesScreen()),
+            ),
+          ),
+        ],
+      ),
       body: company == null
           ? const Center(child: Text('Siz hali biror firmada ishlamayapsiz'))
           : RefreshIndicator(

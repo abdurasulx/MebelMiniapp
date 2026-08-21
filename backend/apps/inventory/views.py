@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import F, Sum
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 
 from apps.companies.models import Employee
 from apps.companies.views import is_company_owner, user_company, user_has_position
+from apps.notifications.services import notify_material_suggestion
 from apps.orders.models import Order
 from apps.products.models import Product, Variant
 from apps.products.views import can_manage
@@ -40,24 +41,72 @@ from .serializers import (
     ProductMovementSerializer,
     ProductStockSerializer,
     PurchaseOrderSerializer,
+    ReceiveRemnantSerializer,
     SellUnitsSerializer,
     SupplierSerializer,
     WarehouseSerializer,
 )
 
 
-def _consume_cut_pieces(warehouse, material, cut_length, total_pieces):
-    """`total_pieces` dona `cut_length` uzunlikdagi bo'lak kerak bo'lganda:
-    avval mos keladigan mavjud qoldiqlardan (eng kichik yetarli — best-fit)
-    foydalanadi, ular tugagach yangi yaxlit birlikdan (`stock_unit_length`)
-    kesadi. Har safar kesishdan qolgan musbat qoldiq alohida saqlanadi.
-    Qaytaradi: yangi yaxlit birlikdan kesilgan donalar soni (audit/xarajat uchun)."""
+def _consume_cut_pieces(warehouse, material, cut_length, total_pieces, cut_width=None):
+    """`total_pieces` dona `cut_length` (CHIZIQLI) yoki `cut_width` x
+    `cut_length` (VARAQ, `cut_width` berilganda) o'lchamdagi bo'lak kerak
+    bo'lganda: avval mos keladigan mavjud qoldiqlardan (eng kichik yetarli —
+    best-fit) foydalanadi. CHIZIQLI uchun ular tugagach yangi yaxlit
+    birlikdan (`stock_unit_length`) kesadi — VARAQ uchun bunday "yaxlit
+    birlik" tushunchasi yo'q (har bir partiya o'z o'lchami bilan omborga
+    to'g'ridan-to'g'ri kirim qilinadi, qarang `MaterialRemnantViewSet.receive`),
+    shuning uchun mos qoldiq topilmasa xato beriladi. Har safar kesishdan
+    qolgan musbat qoldiq(lar) alohida saqlanadi. Qaytaradi:
+    (yangi yaxlit birlikdan kesilgan donalar soni, ishlatilgan qoldiqlar
+    ro'yxati — bildirishnoma uchun)."""
 
     fresh_units_used = 0
+    matched_remnants = []
     for _ in range(total_pieces):
+        if cut_width:
+            remnant = (
+                MaterialRemnant.objects.select_for_update()
+                .filter(
+                    warehouse=warehouse, material=material, quantity__gt=0,
+                    width__gte=cut_width, length__gte=cut_length,
+                )
+                .annotate(_area=F("width") * F("length"))
+                .order_by("_area")
+                .first()
+            )
+            if remnant is None:
+                raise ValidationError(
+                    f"'{material.name}' omborida {cut_width}x{cut_length}{material.unit} yoki "
+                    f"kattaroq varaq qoldig'i yo'q — avval kirim qiling"
+                )
+            matched_remnants.append((remnant.width, remnant.length))
+            leftover_width, leftover_length = remnant.width, remnant.length
+            remnant.quantity -= 1
+            if remnant.quantity == 0:
+                remnant.delete()
+            else:
+                remnant.save(update_fields=["quantity"])
+
+            # Oddiy ikki kesimli (guillotine) qoldiq: kesilgan bo'lak
+            # o'ng-yuqori burchakka joylashtirilgan deb hisoblanadi — o'ng
+            # tomondagi (asl bo'yi bo'yicha to'liq) va past tomondagi (kesilgan
+            # bo'lak eniga teng) ikkita to'g'ri burchakli qoldiq hosil bo'ladi.
+            for w, l in (
+                (leftover_width - cut_width, leftover_length),
+                (cut_width, leftover_length - cut_length),
+            ):
+                if w > 0 and l > 0:
+                    new_remnant, _created = MaterialRemnant.objects.select_for_update().get_or_create(
+                        warehouse=warehouse, material=material, length=l, width=w, defaults={"quantity": 0}
+                    )
+                    new_remnant.quantity += 1
+                    new_remnant.save(update_fields=["quantity"])
+            continue
+
         remnant = (
             MaterialRemnant.objects.select_for_update()
-            .filter(warehouse=warehouse, material=material, length__gte=cut_length, quantity__gt=0)
+            .filter(warehouse=warehouse, material=material, width__isnull=True, length__gte=cut_length, quantity__gt=0)
             .order_by("length")
             .first()
         )
@@ -84,12 +133,12 @@ def _consume_cut_pieces(warehouse, material, cut_length, total_pieces):
 
         if leftover > 0:
             new_remnant, created = MaterialRemnant.objects.select_for_update().get_or_create(
-                warehouse=warehouse, material=material, length=leftover, defaults={"quantity": 0}
+                warehouse=warehouse, material=material, length=leftover, width=None, defaults={"quantity": 0}
             )
             new_remnant.quantity += 1
             new_remnant.save(update_fields=["quantity"])
 
-    return fresh_units_used
+    return fresh_units_used, matched_remnants
 
 
 class CompanyScopedViewSet(viewsets.ModelViewSet):
@@ -211,8 +260,10 @@ class MaterialStockViewSet(WarehouseNestedMixin, viewsets.ReadOnlyModelViewSet):
 
 
 class MaterialRemnantViewSet(WarehouseNestedMixin, viewsets.ReadOnlyModelViewSet):
-    """Qayta ishlatsa bo'ladigan kesish qoldiqlari (offcut) — faqat ko'rish,
-    yozuvlar avtomatik `ProduceView` orqali yaratiladi/sarflanadi."""
+    """Qayta ishlatsa bo'ladigan bo'laklar (offcut/varaq) — CHIZIQLI
+    qoldiqlar avtomatik `ProduceView` orqali yaratiladi/sarflanadi, VARAQ
+    bo'laklar esa `receive` orqali bevosita omborga kirim ham qilinadi
+    (chunki ularning materialda qat'iy standart o'lchami yo'q)."""
 
     serializer_class = MaterialRemnantSerializer
     permission_classes = (permissions.IsAuthenticated,)
@@ -220,6 +271,51 @@ class MaterialRemnantViewSet(WarehouseNestedMixin, viewsets.ReadOnlyModelViewSet
     def get_queryset(self):
         warehouse = self._get_warehouse(Warehouse.Kind.RAW_MATERIAL)
         return MaterialRemnant.objects.filter(warehouse=warehouse, quantity__gt=0).select_related("material")
+
+    @action(detail=False, methods=["post"])
+    def receive(self, request, warehouse_pk=None):
+        """VARAQ (yoki oldindan tayyor kesilgan) bo'lakni to'g'ridan-to'g'ri
+        omborga kirim qilish — `width` berilsa VARAQ, berilmasa CHIZIQLI
+        qoldiq sifatida saqlanadi."""
+        warehouse = self._get_warehouse(Warehouse.Kind.RAW_MATERIAL)
+        if not user_has_position(request.user, warehouse.company, Employee.Position.OMBORCHI):
+            raise PermissionDenied("Ombordagi kirimni faqat omborchi (yoki firma egasi) boshqaradi")
+
+        serializer = ReceiveRemnantSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            material = Material.objects.get(
+                pk=data["material"], company=warehouse.company, is_deleted=False
+            )
+        except Material.DoesNotExist:
+            raise ValidationError("Bu material sizning kompaniyangizga tegishli emas")
+
+        width = data.get("width")
+        length = data["length"]
+        qty = data["quantity"]
+
+        with transaction.atomic():
+            remnant, _created = MaterialRemnant.objects.select_for_update().get_or_create(
+                warehouse=warehouse, material=material, length=length, width=width,
+                defaults={"quantity": 0},
+            )
+            remnant.quantity += qty
+            remnant.save(update_fields=["quantity"])
+
+            movement_quantity = (width * length * qty) if width else (length * qty)
+            MaterialMovement.objects.create(
+                warehouse=warehouse, material=material, movement_type=MaterialMovement.Type.IN,
+                quantity=movement_quantity,
+                note=(
+                    f"Kirim: {qty} ta {width}x{length}{material.unit} varaq" if width
+                    else f"Kirim: {qty} ta {length}{material.unit} bo'lak"
+                ),
+                created_by=request.user,
+            )
+
+        return Response(MaterialRemnantSerializer(remnant).data, status=status.HTTP_201_CREATED)
 
 
 class MaterialMovementViewSet(WarehouseNestedMixin, viewsets.ModelViewSet):
@@ -381,8 +477,9 @@ class ProduceView(WarehouseNestedMixin, APIView):
                             f"'{material.name}' uchun kesiladigan bo'laklar soni butun son "
                             f"bo'lishi kerak (hisoblandi: {raw_total_pieces})"
                         )
-                    fresh_units_used = _consume_cut_pieces(
-                        material_warehouse, material, line.cut_length, total_pieces
+                    fresh_units_used, matched_remnants = _consume_cut_pieces(
+                        material_warehouse, material, line.cut_length, total_pieces,
+                        cut_width=line.cut_width,
                     )
                     if fresh_units_used:
                         MaterialMovement.objects.create(
@@ -396,7 +493,17 @@ class ProduceView(WarehouseNestedMixin, APIView):
                             ),
                             created_by=request.user,
                         )
-                    material_cost_per_unit += line.quantity_per_unit * line.cut_length * material.unit_cost
+                    for remnant_width, remnant_length in matched_remnants:
+                        notify_material_suggestion(
+                            request.user, material, remnant_width, remnant_length,
+                            line.cut_width, line.cut_length,
+                        )
+                    if line.cut_width:
+                        material_cost_per_unit += (
+                            line.quantity_per_unit * line.cut_width * line.cut_length * material.unit_cost
+                        )
+                    else:
+                        material_cost_per_unit += line.quantity_per_unit * line.cut_length * material.unit_cost
                 else:
                     needed = line.quantity_per_unit * quantity
                     stock, _ = MaterialStock.objects.select_for_update().get_or_create(

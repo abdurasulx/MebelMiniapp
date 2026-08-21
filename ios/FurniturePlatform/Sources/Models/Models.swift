@@ -256,6 +256,35 @@ struct WorkflowStepInstance: Codable, Identifiable {
     }
 }
 
+/// Ombor — faqat ko'rish uchun (mobil'da hozircha faqat o'qish, boshqaruv
+/// veb-portalda).
+struct Warehouse: Codable, Identifiable {
+    let id: String
+    let name: String
+    let kind: String
+    let kindDisplay: String
+    let address: String
+}
+
+struct MaterialStock: Codable, Identifiable {
+    let id: String
+    let materialName: String
+    let materialUnit: String
+    let quantity: String
+    let materialUnitCost: String
+}
+
+/// Qayta ishlatsa bo'ladigan bo'lak — `width` bo'lsa VARAQ (eni x bo'yi),
+/// bo'lmasa CHIZIQLI (faqat uzunlik) qoldiq.
+struct MaterialRemnantItem: Codable, Identifiable {
+    let id: String
+    let materialName: String
+    let materialUnit: String
+    let length: String
+    let width: String?
+    let quantity: Int
+}
+
 /// Ilova-ichi xabarnoma — mijozga buyurtma holati, xodimga vazifa
 /// tayinlash/tayyorlik xabarlari (qarang backend apps.notifications).
 struct AppNotification: Codable, Identifiable {

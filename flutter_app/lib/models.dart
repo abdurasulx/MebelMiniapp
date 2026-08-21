@@ -652,6 +652,85 @@ class AppNotification {
       );
 }
 
+/// Ombor (xom ashyo yoki tayyor mahsulot) — faqat ko'rish uchun (mobil'da
+/// hozircha faqat o'qish, boshqaruv veb-portalda).
+class Warehouse {
+  final String id;
+  final String name;
+  final String kind;
+  final String kindDisplay;
+  final String address;
+
+  Warehouse({
+    required this.id,
+    required this.name,
+    required this.kind,
+    required this.kindDisplay,
+    required this.address,
+  });
+
+  factory Warehouse.fromJson(Map<String, dynamic> j) => Warehouse(
+        id: j['id'],
+        name: j['name'],
+        kind: j['kind'],
+        kindDisplay: j['kind_display'] ?? '',
+        address: j['address'] ?? '',
+      );
+}
+
+class MaterialStock {
+  final String id;
+  final String materialName;
+  final String materialUnit;
+  final String quantity;
+  final String materialUnitCost;
+
+  MaterialStock({
+    required this.id,
+    required this.materialName,
+    required this.materialUnit,
+    required this.quantity,
+    required this.materialUnitCost,
+  });
+
+  factory MaterialStock.fromJson(Map<String, dynamic> j) => MaterialStock(
+        id: j['id'],
+        materialName: j['material_name'] ?? '',
+        materialUnit: j['material_unit'] ?? '',
+        quantity: j['quantity']?.toString() ?? '0',
+        materialUnitCost: j['material_unit_cost']?.toString() ?? '0',
+      );
+}
+
+/// Qayta ishlatsa bo'ladigan bo'lak — `width` bo'lsa VARAQ (eni x bo'yi),
+/// bo'lmasa CHIZIQLI (faqat uzunlik) qoldiq.
+class MaterialRemnantItem {
+  final String id;
+  final String materialName;
+  final String materialUnit;
+  final String length;
+  final String? width;
+  final int quantity;
+
+  MaterialRemnantItem({
+    required this.id,
+    required this.materialName,
+    required this.materialUnit,
+    required this.length,
+    this.width,
+    required this.quantity,
+  });
+
+  factory MaterialRemnantItem.fromJson(Map<String, dynamic> j) => MaterialRemnantItem(
+        id: j['id'],
+        materialName: j['material_name'] ?? '',
+        materialUnit: j['material_unit'] ?? '',
+        length: j['length']?.toString() ?? '0',
+        width: j['width']?.toString(),
+        quantity: j['quantity'] ?? 0,
+      );
+}
+
 /// "1500000.00" -> "1 500 000"
 String formatSom(String raw) {
   final value = double.tryParse(raw);

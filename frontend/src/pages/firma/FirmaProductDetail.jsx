@@ -1,31 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, ArrowUp, ArrowDown, Boxes, Check, CheckCircle2,
+  ArrowLeft, ArrowUp, ArrowDown, Check, CheckCircle2,
   Circle, Eye, ExternalLink, FileBox, Image as ImageIcon, Images, Layers, Link2,
-  Lock, MoreHorizontal, Palette, Share2, Sparkles, Tag, TrendingUp, Trash2, Unlock, Upload,
+  Lock, MoreHorizontal, Palette, Pencil, Share2, Sparkles, Tag, TrendingUp, Trash2, Unlock, Upload,
   Workflow,
 } from "lucide-react";
 import { api } from "../../api";
 import { portalURLFor } from "../../portal";
-import ModelViewer from "../../components/ModelViewer";
 import { POSITIONS } from "../../positions";
 
 // Bu sahifa o'z ichida mustaqil "enterprise" rang tizimidan foydalanadi —
 // platformaning umumiy amber brendi (sidebar, boshqa sahifalar) o'zgarishsiz
-// qoladi. CSS custom property'larni shu sahifa ildizida qayta belgilab,
-// mavjud .btn/.input/.card/.label util klasslarining o'zini qayta ishlatamiz
-// (ular allaqachon shu o'zgaruvchilarga bog'langan) — global uslubga tegmasdan.
+// qoladi. Har bir rang CSS custom property'ga ISHORA (masalan "var(--ent-bg)")
+// sifatida yozilgan, o'zi emas — haqiqiy qiymatlar pastdagi <style> blokida
+// ".ent-root"/".dark-mode .ent-root" orqali belgilanadi. Shu tufayli tungi
+// rejim shu sahifa ichida ham ishlaydi (avval qiymatlar to'g'ridan-to'g'ri
+// hex bo'lib, tungi rejimni butunlay e'tiborsiz qoldirar edi), va ~30+ joyda
+// `ENT.text` kabi ishlatilgan barcha komponentlarni o'zgartirish shart emas.
 const ENT = {
-  bg: "#F7F8FA",
-  card: "#FFFFFF",
-  border: "#E5E7EB",
-  primary: "#2563EB",
-  success: "#16A34A",
-  warning: "#F59E0B",
-  danger: "#DC2626",
-  text: "#111827",
-  muted: "#6B7280",
+  bg: "var(--ent-bg)",
+  card: "var(--ent-card)",
+  border: "var(--ent-border)",
+  primary: "var(--ent-primary)",
+  success: "var(--ent-success)",
+  warning: "var(--ent-warning)",
+  danger: "var(--ent-danger)",
+  text: "var(--ent-text)",
+  muted: "var(--ent-muted)",
 };
 
 const ENT_VARS = {
@@ -36,9 +38,9 @@ const ENT_VARS = {
   "--muted": ENT.muted,
   "--secondary": ENT.primary,
   "--primary": ENT.primary,
-  "--primary-deep": "#FFFFFF",
+  "--primary-deep": "var(--ent-primary-deep)",
   "--brand-cta-bg": ENT.primary,
-  "--brand-cta-text": "#FFFFFF",
+  "--brand-cta-text": "var(--ent-primary-deep)",
   "--shadow": "0 1px 2px rgba(16,24,40,0.04)",
 };
 
@@ -50,8 +52,6 @@ const PHOTO_REQUIREMENT = {
 
 const TABS = [
   { key: "general", label: "Umumiy", icon: FileBox },
-  { key: "media", label: "Media", icon: ImageIcon },
-  { key: "model", label: "3D model", icon: Boxes },
   { key: "variants", label: "Variantlar", icon: Palette },
   { key: "production", label: "Ishlab chiqarish", icon: Workflow },
   { key: "sharing", label: "Ulashish", icon: Share2 },
@@ -62,14 +62,17 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString("uz-UZ", { year: "numeric", month: "short", day: "numeric" });
 }
 
+function hasReadyModel3d(product) {
+  return product.model3d?.status === "ready" || product.variants.some((v) => v.model3d?.status === "ready");
+}
+
 function computeCompleteness(product, steps) {
   const items = [
     { key: "general", label: "Umumiy ma'lumot", done: !!(product.name_uz && product.category) },
     { key: "images", label: "Rasmlar", done: !!product.image_url },
     { key: "variants", label: "Variantlar", done: product.variants.length > 0 },
-    { key: "model", label: "3D model", done: product.model3d?.status === "ready" },
+    { key: "model", label: "3D model", done: hasReadyModel3d(product) },
     { key: "production", label: "Ishlab chiqarish bosqichlari", done: (steps || []).length > 0 },
-    { key: "video", label: "Video", done: !!product.video_url },
   ];
   const done = items.filter((i) => i.done).length;
   return { items, done, total: items.length, percent: Math.round((done / items.length) * 100) };
@@ -134,7 +137,7 @@ export default function FirmaProductDetail() {
   const completeness = computeCompleteness(product, steps);
 
   return (
-    <div style={{ ...ENT_VARS, background: ENT.bg, margin: "-24px", minHeight: "100%" }}>
+    <div className="ent-root" style={{ ...ENT_VARS, background: ENT.bg, margin: "-24px", minHeight: "100%" }}>
       <HeroHeader
         product={product}
         completeness={completeness}
@@ -149,8 +152,6 @@ export default function FirmaProductDetail() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 20, padding: "20px 24px 60px", maxWidth: 1400, margin: "0 auto" }} className="ent-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
           {tab === "general" && <GeneralTab product={product} categories={categories} onDone={load} />}
-          {tab === "media" && <MediaTab product={product} onDone={load} />}
-          {tab === "model" && <ModelTab product={product} onDone={load} />}
           {tab === "variants" && <VariantsTab product={product} onDone={load} />}
           {tab === "production" && (
             <>
@@ -165,6 +166,30 @@ export default function FirmaProductDetail() {
       </div>
 
       <style>{`
+        .ent-root {
+          --ent-bg: #F7F8FA;
+          --ent-card: #FFFFFF;
+          --ent-border: #E5E7EB;
+          --ent-primary: #2563EB;
+          --ent-primary-deep: #FFFFFF;
+          --ent-success: #16A34A;
+          --ent-warning: #F59E0B;
+          --ent-danger: #DC2626;
+          --ent-text: #111827;
+          --ent-muted: #6B7280;
+        }
+        .dark-mode .ent-root {
+          --ent-bg: #0f1115;
+          --ent-card: #1a1c22;
+          --ent-border: rgba(255,255,255,0.1);
+          --ent-primary: #3b82f6;
+          --ent-primary-deep: #FFFFFF;
+          --ent-success: #22c55e;
+          --ent-warning: #f59e0b;
+          --ent-danger: #f87171;
+          --ent-text: #e5e7eb;
+          --ent-muted: #9ca3af;
+        }
         @media (min-width: 1080px) {
           .ent-grid { grid-template-columns: 1fr 320px !important; align-items: start; }
         }
@@ -312,8 +337,9 @@ function Dropzone({ hint, accept, onFile, previewUrl, currentLabel, busy }) {
 // ============================== Header / Nav / Right panel ==============================
 
 function HeroHeader({ product, completeness, menuOpen, setMenuOpen, onTogglePublish, onDelete }) {
-  const m = product.model3d;
-  const arReady = !!(m?.usdz_url && m?.status === "ready");
+  const readyVariantModels = product.variants.filter((v) => v.model3d?.status === "ready");
+  const modelReady = hasReadyModel3d(product);
+  const arReady = !!(product.model3d?.usdz_url && product.model3d?.status === "ready") || readyVariantModels.some((v) => v.model3d?.usdz_url);
   const marketOrigin = portalURLFor("market");
   const previewHref = marketOrigin ? `${marketOrigin}/products/${product.id}` : `/products/${product.id}?portal=market`;
 
@@ -346,7 +372,7 @@ function HeroHeader({ product, completeness, menuOpen, setMenuOpen, onTogglePubl
             <span>Slug: {product.slug}</span>
             <span>{product.variants.length} ta variant</span>
             <span>{(product.images?.length || 0) + (product.image_url ? 1 : 0)} ta rasm</span>
-            <span>3D: {m ? m.status_display : "Yo'q"}</span>
+            <span>3D: {modelReady ? "Tayyor" : "Yo'q"}</span>
             <span>Yaratilgan: {formatDate(product.created_at)}</span>
           </div>
         </div>
@@ -405,10 +431,8 @@ function HeroHeader({ product, completeness, menuOpen, setMenuOpen, onTogglePubl
 }
 
 function TabsNav({ tab, setTab, product, steps }) {
-  const m = product.model3d;
   const counts = {
     variants: product.variants.length,
-    media: (product.images?.length || 0) + (product.image_url ? 1 : 0),
     production: (steps || []).length,
   };
   return (
@@ -434,7 +458,6 @@ function TabsNav({ tab, setTab, product, steps }) {
                   {count}
                 </span>
               )}
-              {t.key === "model" && m?.status === "ready" && <CheckCircle2 size={13} style={{ color: ENT.success }} />}
             </button>
           );
         })}
@@ -444,8 +467,9 @@ function TabsNav({ tab, setTab, product, steps }) {
 }
 
 function RightPanel({ product, completeness }) {
-  const m = product.model3d;
-  const arReady = !!(m?.usdz_url && m?.status === "ready");
+  const readyVariantModels = product.variants.filter((v) => v.model3d?.status === "ready");
+  const modelReady = hasReadyModel3d(product);
+  const arReady = !!(product.model3d?.usdz_url && product.model3d?.status === "ready") || readyVariantModels.some((v) => v.model3d?.usdz_url);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, position: "sticky", top: 130 }}>
       <Card title="Mahsulot ko'rinishi">
@@ -461,18 +485,12 @@ function RightPanel({ product, completeness }) {
           <Row label="Holat"><Pill tone={product.is_published ? "success" : "muted"}>{product.is_published ? "Sotuvda" : "Yashirin"}</Pill></Row>
           <Row label="Variantlar"><span style={{ fontWeight: 600, color: ENT.text }}>{product.variants.length}</span></Row>
           <Row label="3D model">
-            {m ? <Pill tone={m.status === "ready" ? "success" : m.status === "failed" ? "danger" : "warning"}>{m.status_display}</Pill> : <Pill>Yo'q</Pill>}
+            <Pill tone={modelReady ? "success" : "muted"}>{modelReady ? `Tayyor (${readyVariantModels.length || 1} ta)` : "Yo'q"}</Pill>
           </Row>
           <Row label="AR (iOS)"><Pill tone={arReady ? "success" : "muted"} icon={arReady ? Sparkles : undefined}>{arReady ? "Tayyor" : "Yo'q"}</Pill></Row>
           <Row label="Yaratilgan"><span style={{ color: ENT.text }}>{formatDate(product.created_at)}</span></Row>
         </div>
       </Card>
-
-      {m?.glb_url && m.status !== "processing" && (
-        <Card title="3D oldindan ko'rish">
-          <ModelViewer glb={m.glb_url} usdz={m.usdz_url} poster={product.image_url} style={{ height: "160px" }} />
-        </Card>
-      )}
 
       <Card title="Mahsulot to'liqligi" description={`${completeness.done}/${completeness.total} bosqich bajarilgan`}>
         <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
@@ -502,12 +520,9 @@ function Row({ label, children }) {
 function GeneralTab({ product, categories, onDone }) {
   const [form, setForm] = useState({
     name_uz: product.name_uz,
-    name_ru: product.name_ru || "",
     category: product.category || "",
     description: product.description || "",
-    video_url: product.video_url || "",
   });
-  const [image, setImage] = useState(null);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -518,11 +533,7 @@ function GeneralTab({ product, categories, onDone }) {
     setError("");
     setBusy(true);
     try {
-      const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
-      if (image) fd.append("image", image);
-      await api(`/products/${product.id}/`, { method: "PATCH", body: fd, isForm: true });
-      setImage(null);
+      await api(`/products/${product.id}/`, { method: "PATCH", body: form });
       setMsg("Saqlandi");
       setTimeout(() => setMsg(""), 2500);
       onDone();
@@ -534,56 +545,43 @@ function GeneralTab({ product, categories, onDone }) {
   };
 
   return (
-    <form onSubmit={submit}>
-      <Card title="Umumiy ma'lumot" description="Mahsulot nomi, kategoriyasi va tavsifi — katalogda shu ma'lumot ko'rsatiladi.">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label">Nomi (uz) *</label>
-            <input className="input" value={form.name_uz} onChange={set("name_uz")} required />
-          </div>
-          <div>
-            <label className="label">Nomi (ru)</label>
-            <input className="input" value={form.name_ru} onChange={set("name_ru")} />
-          </div>
-          <div>
-            <label className="label">Kategoriya *</label>
-            <select className="input" value={form.category} onChange={set("category")} required>
-              <option value="">Tanlang…</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{c.name_uz}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">Video URL (YouTube)</label>
-            <input className="input" value={form.video_url} onChange={set("video_url")} placeholder="https://youtube.com/…" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="label">Tavsif</label>
-            <textarea className="input" rows={4} value={form.description} onChange={set("description")} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="label">Asosiy rasm</label>
-            <div style={{ maxWidth: 320 }}>
-              <Dropzone accept="image/*" onFile={setImage} previewUrl={image ? URL.createObjectURL(image) : product.image_url} hint="PNG, JPG — katalog kartochkasida ko'rinadi" />
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <form onSubmit={submit}>
+        <Card title="Umumiy ma'lumot" description="Mahsulot nomi, kategoriyasi va tavsifi — katalogda shu ma'lumot ko'rsatiladi.">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">Nomi (uz) *</label>
+              <input className="input" value={form.name_uz} onChange={set("name_uz")} required />
+            </div>
+            <div>
+              <label className="label">Kategoriya *</label>
+              <select className="input" value={form.category} onChange={set("category")} required>
+                <option value="">Tanlang…</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name_uz}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">Tavsif</label>
+              <textarea className="input" rows={4} value={form.description} onChange={set("description")} />
             </div>
           </div>
-        </div>
 
-        {error && <div className="error" style={{ marginTop: 14 }}>{error}</div>}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16 }}>
-          <EntButton type="submit" disabled={busy}>{busy ? "Saqlanmoqda…" : "Saqlash"}</EntButton>
-          {msg && <Pill tone="success" icon={Check}>{msg}</Pill>}
-        </div>
-      </Card>
-    </form>
+          {error && <div className="error" style={{ marginTop: 14 }}>{error}</div>}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 16 }}>
+            <EntButton type="submit" disabled={busy}>{busy ? "Saqlanmoqda…" : "Saqlash"}</EntButton>
+            {msg && <Pill tone="success" icon={Check}>{msg}</Pill>}
+          </div>
+        </Card>
+      </form>
+
+      <ImagesCard product={product} onDone={onDone} />
+    </div>
   );
 }
 
-// ============================== Media (Gallery) ==============================
-
-function MediaTab({ product, onDone }) {
-  const [file, setFile] = useState(null);
+function ImagesCard({ product, onDone }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -595,7 +593,6 @@ function MediaTab({ product, onDone }) {
       fd.append("image", f);
       fd.append("sort_order", product.images?.length || 0);
       await api(`/products/${product.id}/images/`, { method: "POST", body: fd, isForm: true });
-      setFile(null);
       onDone();
     } catch (err) {
       setError(err.message);
@@ -613,34 +610,46 @@ function MediaTab({ product, onDone }) {
     }
   };
 
+  const makePrimary = async (imageId) => {
+    setError("");
+    try {
+      await api(`/products/${product.id}/set-primary-image/`, { method: "POST", body: { image: imageId } });
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   return (
     <Card
-      title="Galereya"
-      description="Asosiy rasmdan tashqari qo'shimcha rasmlar — mahsulot sahifasida sudrab ko'rish (swipe) uchun ishlatiladi."
+      title="Rasmlar"
+      description="Yuklangan rasmlardan istalganini asosiy rasm sifatida belgilashingiz mumkin — u katalog kartochkasida ko'rsatiladi."
       icon={Images}
     >
-      {product.image_url && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: ENT.muted, marginBottom: 8 }}>Asosiy rasm</div>
-          <div style={{ position: "relative", width: 96 }}>
-            <img src={product.image_url} alt="" style={{ width: 96, height: 96, borderRadius: 10, objectFit: "cover", border: `1px solid ${ENT.border}` }} />
-            <div style={{ position: "absolute", top: 6, left: 6 }}><Pill tone="primary">Asosiy</Pill></div>
-          </div>
-          <p style={{ fontSize: 11.5, color: ENT.muted, marginTop: 6 }}>Asosiy rasmni "Umumiy" bo'limidan almashtiring.</p>
-        </div>
-      )}
-
-      {product.images?.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: ENT.muted, marginBottom: 8 }}>Qo'shimcha rasmlar ({product.images.length})</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 10 }}>
-            {product.images.map((img) => (
-              <div key={img.id} className="group" style={{ position: "relative", aspectRatio: "1/1", borderRadius: 10, overflow: "hidden", border: `1px solid ${ENT.border}` }}>
+      {product.images?.length > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10, marginBottom: 16 }}>
+          {product.images.map((img) => {
+            // Asosiy rasm serverda alohida faylga nusxalanadi (boshqa
+            // upload_to papkaga) — to'liq URL hech qachon mos kelmaydi,
+            // shuning uchun taqqoslash fayl nomi (oxirgi segment) bo'yicha.
+            const isPrimary = product.image_url && img.image_url?.split("/").pop() === product.image_url.split("/").pop();
+            return (
+              <div key={img.id} className="group" style={{ position: "relative", aspectRatio: "1/1", borderRadius: 10, overflow: "hidden", border: `1px solid ${isPrimary ? ENT.primary : ENT.border}` }}>
                 <img src={img.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                {isPrimary && <div style={{ position: "absolute", top: 6, left: 6 }}><Pill tone="primary">Asosiy</Pill></div>}
                 <div
                   className="opacity-0 group-hover:opacity-100"
-                  style={{ position: "absolute", inset: 0, background: "rgba(17,24,39,0.45)", display: "flex", alignItems: "center", justifyContent: "center", transition: "opacity .12s" }}
+                  style={{ position: "absolute", inset: 0, background: "rgba(17,24,39,0.5)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "opacity .12s" }}
                 >
+                  {!isPrimary && (
+                    <button
+                      onClick={() => makePrimary(img.id)}
+                      title="Asosiy qilish"
+                      style={{ width: 30, height: 30, borderRadius: 8, background: "#fff", border: "none", color: ENT.primary, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                    >
+                      <Check size={14} />
+                    </button>
+                  )}
                   <button
                     onClick={() => remove(img.id)}
                     title="O'chirish"
@@ -650,9 +659,11 @@ function MediaTab({ product, onDone }) {
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
+      ) : (
+        <p style={{ fontSize: 13, color: ENT.muted, marginBottom: 16 }}>Hali rasm yuklanmagan.</p>
       )}
 
       <div style={{ maxWidth: 340 }}>
@@ -664,124 +675,26 @@ function MediaTab({ product, onDone }) {
   );
 }
 
-// ============================== 3D model ==============================
-
-const GLB_SOURCE_EXTENSIONS = [".glb", ".gltf"];
-
-function ModelTab({ product, onDone }) {
-  const [glb, setGlb] = useState(null);
-  const [usdz, setUsdz] = useState(null);
-  const [textureArchive, setTextureArchive] = useState(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const m = product.model3d;
-
-  useEffect(() => {
-    if (m?.status !== "processing") return;
-    const timer = setInterval(onDone, 3000);
-    return () => clearInterval(timer);
-  }, [m?.status, onDone]);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (!glb && !usdz && !m) {
-      setError("Kamida 3D fayl tanlang");
-      return;
-    }
-    setBusy(true);
-    try {
-      const fd = new FormData();
-      if (!m) fd.append("product", product.id);
-      if (glb) fd.append("glb_file", glb);
-      if (usdz) fd.append("usdz_file", usdz);
-      if (textureArchive) fd.append("texture_archive", textureArchive);
-      await api(m ? `/models3d/${m.id}/` : "/models3d/", { method: m ? "PATCH" : "POST", body: fd, isForm: true });
-      setGlb(null);
-      setUsdz(null);
-      setTextureArchive(null);
-      onDone();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async () => {
-    if (!confirm("3D model o'chirilsinmi?")) return;
-    try {
-      await api(`/models3d/${m.id}/`, { method: "DELETE" });
-      onDone();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const isGlbSource = glb && GLB_SOURCE_EXTENSIONS.some((ext) => glb.name.toLowerCase().endsWith(ext));
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <Card
-        title="3D model"
-        description="Bitta 3D model butun mahsulotga tegishli — har rang variant o'z rangini variantlar jadvalidan oladi."
-        icon={Boxes}
-        actions={m && <Pill tone={m.status === "ready" ? "success" : m.status === "failed" ? "danger" : "warning"}>{m.status === "processing" ? "Qayta ishlanmoqda…" : m.status_display}</Pill>}
-      >
-        {m?.glb_url && m.status !== "processing" && (
-          <div style={{ marginBottom: 16, maxWidth: 360 }}>
-            <ModelViewer glb={m.glb_url} usdz={m.usdz_url} poster={product.image_url} style={{ height: "220px" }} />
-          </div>
-        )}
-
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <div className="label">3D fayl (GLB, FBX/OBJ yoki .zip/.rar) *</div>
-              <Dropzone
-                accept=".glb,.gltf,.fbx,.obj,.zip,.rar"
-                onFile={setGlb}
-                previewUrl={!glb && m?.glb_url ? product.image_url : null}
-                currentLabel="Mavjud — almashtirish uchun bosing"
-                hint="Marketplace arxivini (.rar) ochmasdan to'g'ridan-to'g'ri tashlang"
-              />
-            </div>
-            <div>
-              <div className="label">USDZ fayl (iOS AR) — qo'lda ustunlik berish, ixtiyoriy</div>
-              <Dropzone accept=".usdz" onFile={setUsdz} hint="Bo'sh qoldirsangiz, GLB'dan server avtomatik yasaydi" />
-            </div>
-            <div className="sm:col-span-2">
-              <div className="label">Tekstura arxivi (.zip yoki .rar) — alohida yuklangan bo'lsa, ixtiyoriy</div>
-              <div style={{ maxWidth: 360 }}>
-                <Dropzone accept=".zip,.rar" onFile={setTextureArchive} hint={isGlbSource ? "GLB tanlandi — bu safar ta'sir qilmaydi" : "Faqat FBX/OBJ bilan bir vaqtda yuklaganda ishlaydi"} />
-              </div>
-            </div>
-          </div>
-
-          {error && <div className="error">{error}</div>}
-          <div style={{ display: "flex", gap: 10 }}>
-            <EntButton type="submit" disabled={busy}>{busy ? "Yuklanmoqda…" : m ? "Yangilash" : "Yuklash"}</EntButton>
-            {m && <EntButton variant="danger" onClick={remove}>3D ni o'chirish</EntButton>}
-          </div>
-          <p style={{ fontSize: 12, color: ENT.muted, margin: 0 }}>
-            GLB, FBX, OBJ yoki shularni o'z ichiga olgan arxiv yuklashingiz mumkin — server FBX/OBJ bo'lsa avtomatik
-            GLB'ga aylantiradi, so'ng iOS AR uchun USDZ faylni ham o'zi yasaydi (bir necha soniya).
-          </p>
-        </form>
-      </Card>
-
-      {m && <SharingTab product={product} onDone={onDone} embedded />}
-    </div>
-  );
-}
-
 // ============================== Variantlar ==============================
 
 function VariantsTab({ product: p, onDone }) {
   const [error, setError] = useState("");
   const [variant, setVariant] = useState({ name: "", base_price: "", width: 1, height: 1, depth: 1 });
+  const [modelFile, setModelFile] = useState(null);
   const [showVariant, setShowVariant] = useState(false);
-  const [editColorFor, setEditColorFor] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  // Konvertatsiya (Blender) fonda ishlaydi — biror variant "processing"
+  // holatida bo'lsa, tayyor bo'lganda ko'rinishi uchun avtomatik yangilab
+  // turamiz (aks holda foydalanuvchi qo'lda sahifani yangilamaguncha
+  // "Qayta ishlanmoqda..." abadiy osilib qolganday ko'rinadi).
+  const isProcessing = p.variants.some((v) => v.model3d?.status === "processing");
+  useEffect(() => {
+    if (!isProcessing) return;
+    const timer = setInterval(onDone, 3000);
+    return () => clearInterval(timer);
+  }, [isProcessing, onDone]);
 
   const call = async (fn) => {
     try {
@@ -793,12 +706,41 @@ function VariantsTab({ product: p, onDone }) {
     }
   };
 
-  const addVariant = (e) => {
+  const addVariant = async (e) => {
     e.preventDefault();
-    call(() => api(`/products/${p.id}/variants/`, { method: "POST", body: variant })).then(() => {
+    if (!modelFile) {
+      setError("3D fayl majburiy — variant uchun model tanlang");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    let created = null;
+    try {
+      created = await api(`/products/${p.id}/variants/`, { method: "POST", body: variant });
+      const fd = new FormData();
+      fd.append("variant", created.id);
+      fd.append("glb_file", modelFile);
+      await api("/models3d/", { method: "POST", body: fd, isForm: true });
       setVariant({ name: "", base_price: "", width: 1, height: 1, depth: 1 });
+      setModelFile(null);
       setShowVariant(false);
-    });
+      onDone();
+    } catch (err) {
+      // Model yuklash muvaffaqiyatsiz bo'lsa — 3D faylsiz variant qolib
+      // ketmasligi uchun (majburiy talab) endigina yaratilgan variantni
+      // ham bekor qilamiz.
+      if (created) {
+        await api(`/products/${p.id}/variants/${created.id}/`, { method: "DELETE" }).catch(() => {});
+      }
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeVariant = (v) => {
+    if (!confirm(`"${v.name}" varianti o'chirilsinmi?`)) return;
+    call(() => api(`/products/${p.id}/variants/${v.id}/`, { method: "DELETE" }));
   };
 
   return (
@@ -814,22 +756,51 @@ function VariantsTab({ product: p, onDone }) {
             <div key={v.id}>
               <div style={{ border: `1px solid ${ENT.border}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: ENT.text }}>{v.name}</span>
-                  <button
-                    onClick={() => setEditColorFor(editColorFor === v.id ? null : v.id)}
-                    title="Rangni tahrirlash"
-                    style={{
-                      width: 26, height: 26, borderRadius: "50%", cursor: "pointer",
-                      background: v.texture_url ? `url(${v.texture_url}) center/cover` : v.color_hex || ENT.border,
-                      border: `1px solid ${ENT.border}`,
-                    }}
-                  />
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      style={{
+                        width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                        background: v.texture_url ? `url(${v.texture_url}) center/cover` : v.color_hex || ENT.border,
+                        border: `1px solid ${ENT.border}`,
+                      }}
+                    />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: ENT.text }}>{v.name}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button
+                      onClick={() => setEditingId(editingId === v.id ? null : v.id)}
+                      title="Tahrirlash"
+                      style={{ background: "transparent", border: "none", color: ENT.muted, cursor: "pointer", display: "flex", padding: 4 }}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => removeVariant(v)}
+                      title="O'chirish"
+                      style={{ background: "transparent", border: "none", color: ENT.danger, cursor: "pointer", display: "flex", padding: 4 }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
                 <Row label="Narx (m³)"><span style={{ fontWeight: 600, color: ENT.text }}>{Number(v.base_price).toLocaleString()} so'm</span></Row>
                 <Row label="O'lcham"><span style={{ color: ENT.text }}>{v.width} × {v.height} × {v.depth} m</span></Row>
                 <Row label="Rang / material"><span style={{ color: ENT.text }}>{v.color_hex || "Tanlanmagan"}</span></Row>
+                <Row label="3D model">
+                  {v.model3d ? (
+                    <Pill tone={v.model3d.status === "ready" ? "success" : v.model3d.status === "failed" ? "danger" : "warning"}>
+                      {v.model3d.status === "processing" ? "Qayta ishlanmoqda…" : v.model3d.status_display}
+                    </Pill>
+                  ) : (
+                    <Pill tone="danger">3D fayl yo'q</Pill>
+                  )}
+                </Row>
               </div>
-              {editColorFor === v.id && <div style={{ marginTop: 8 }}><VariantColorForm variant={v} onDone={onDone} /></div>}
+              {editingId === v.id && (
+                <div style={{ marginTop: 8 }}>
+                  <VariantEditForm productId={p.id} variant={v} onDone={onDone} onClose={() => setEditingId(null)} />
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -853,7 +824,17 @@ function VariantsTab({ product: p, onDone }) {
               <input className="input" type="number" step="0.1" min="0.1" value={variant[k]} onChange={(e) => setVariant({ ...variant, [k]: e.target.value })} />
             </div>
           ))}
-          <EntButton type="submit">Qo'shish</EntButton>
+          <div style={{ minWidth: 220 }}>
+            <label className="label">3D fayl (GLB/FBX/OBJ/DAE yoki .zip/.rar) *</label>
+            <input
+              className="input"
+              type="file"
+              accept=".glb,.gltf,.fbx,.obj,.dae,.zip,.rar"
+              onChange={(e) => setModelFile(e.target.files[0])}
+              required
+            />
+          </div>
+          <EntButton type="submit" disabled={busy}>{busy ? "Yaratilmoqda…" : "Qo'shish"}</EntButton>
         </form>
       )}
       {error && <div className="error" style={{ marginTop: 12 }}>{error}</div>}
@@ -861,7 +842,14 @@ function VariantsTab({ product: p, onDone }) {
   );
 }
 
-function VariantColorForm({ variant, onDone }) {
+function VariantEditForm({ productId, variant, onDone, onClose }) {
+  const [form, setForm] = useState({
+    name: variant.name,
+    base_price: variant.base_price,
+    width: variant.width,
+    height: variant.height,
+    depth: variant.depth,
+  });
   const [colorHex, setColorHex] = useState(variant.color_hex || "#8B5A2B");
   const [texture, setTexture] = useState(null);
   const [error, setError] = useState("");
@@ -873,11 +861,13 @@ function VariantColorForm({ variant, onDone }) {
     setBusy(true);
     try {
       const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
       fd.append("color_hex", colorHex);
       if (texture) fd.append("texture", texture);
-      await api(`/products/${variant.product}/variants/${variant.id}/`, { method: "PATCH", body: fd, isForm: true });
+      await api(`/products/${productId}/variants/${variant.id}/`, { method: "PATCH", body: fd, isForm: true });
       setTexture(null);
       onDone();
+      onClose();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -887,6 +877,20 @@ function VariantColorForm({ variant, onDone }) {
 
   return (
     <form onSubmit={submit} style={{ border: `1px dashed ${ENT.border}`, borderRadius: 10, padding: 12, background: ENT.bg, display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 10 }}>
+      <div style={{ minWidth: 130 }}>
+        <label className="label">Nomi</label>
+        <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+      </div>
+      <div style={{ minWidth: 130 }}>
+        <label className="label">Narx (1 m³, so'm)</label>
+        <input className="input" type="number" min="0" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: e.target.value })} required />
+      </div>
+      {[["width", "Eni"], ["height", "Bo'yi"], ["depth", "Chuquri"]].map(([k, label]) => (
+        <div key={k} style={{ width: 88 }}>
+          <label className="label">{label} (m)</label>
+          <input className="input" type="number" step="0.1" min="0.1" value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+        </div>
+      ))}
       <div>
         <label className="label">Rang</label>
         <input className="input !w-14 !p-1" type="color" value={colorHex} onChange={(e) => setColorHex(e.target.value)} />
@@ -896,8 +900,65 @@ function VariantColorForm({ variant, onDone }) {
         <input className="input" type="file" accept="image/*" onChange={(e) => setTexture(e.target.files[0])} />
       </div>
       {error && <div className="error">{error}</div>}
-      <EntButton small type="submit" disabled={busy}>{busy ? "Saqlanmoqda…" : "Saqlash"}</EntButton>
+      <div style={{ display: "flex", gap: 8 }}>
+        <EntButton small type="submit" disabled={busy}>{busy ? "Saqlanmoqda…" : "Saqlash"}</EntButton>
+        <EntButton small variant="ghost" type="button" onClick={onClose}>Bekor</EntButton>
+      </div>
+      <div style={{ width: "100%", marginTop: 4, paddingTop: 10, borderTop: `1px solid ${ENT.border}` }}>
+        <VariantModelSection variant={variant} onDone={onDone} />
+      </div>
     </form>
+  );
+}
+
+function VariantModelSection({ variant, onDone }) {
+  const [file, setFile] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const m = variant.model3d;
+
+  const upload = async (e) => {
+    e.preventDefault();
+    if (!file) return;
+    setError("");
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("variant", variant.id);
+      fd.append("glb_file", file);
+      await api(m ? `/models3d/${m.id}/` : "/models3d/", { method: m ? "PATCH" : "POST", body: fd, isForm: true });
+      setFile(null);
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 10 }}>
+      <div style={{ flex: "1 1 260px" }}>
+        <label className="label">
+          3D fayl (majburiy)
+          {m ? (
+            <Pill tone={m.status === "ready" ? "success" : m.status === "failed" ? "danger" : "warning"}>{m.status === "processing" ? "Qayta ishlanmoqda…" : m.status_display}</Pill>
+          ) : (
+            <Pill tone="danger">Yo'q</Pill>
+          )}
+        </label>
+        <input className="input" type="file" accept=".glb,.gltf,.fbx,.obj,.dae,.zip,.rar" onChange={(e) => setFile(e.target.files[0])} />
+        <p style={{ fontSize: 11, color: ENT.muted, margin: "4px 0 0" }}>
+          Har bir variant o'zining alohida 3D faylini oladi — bu ko'p materialli mahsulotlarda (masalan
+          eshikli shkaf) rang almashtirish barcha qismlarga (tutqich, temir qismlarga ham) bir xilda
+          ta'sir qilib qo'yishining oldini oladi. Faylni faqat almashtirish mumkin, o'chirib bo'lmaydi.
+        </p>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <EntButton small onClick={upload} disabled={busy || !file}>{busy ? "Yuklanmoqda…" : m ? "Yangilash" : "Yuklash"}</EntButton>
+      </div>
+      {error && <div className="error">{error}</div>}
+    </div>
   );
 }
 
@@ -1037,7 +1098,7 @@ function BomTab({ product }) {
   const [materials, setMaterials] = useState([]);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ material: "", quantity_per_unit: "" });
+  const [form, setForm] = useState({ material: "", quantity_per_unit: "", cut_length: "", cut_width: "" });
 
   const load = () =>
     Promise.all([
@@ -1059,8 +1120,18 @@ function BomTab({ product }) {
     e.preventDefault();
     setError("");
     try {
-      await api(`/products/${product.id}/bill-of-materials/`, { method: "POST", body: form });
-      setForm({ material: "", quantity_per_unit: "" });
+      const material = materials.find((m) => m.id === form.material);
+      const isSheet = material?.dimension_type === "sheet";
+      const isLinear = material?.dimension_type === "linear" && material?.stock_unit_length;
+      await api(`/products/${product.id}/bill-of-materials/`, {
+        method: "POST",
+        body: {
+          ...form,
+          cut_length: isSheet || isLinear ? (form.cut_length || null) : null,
+          cut_width: isSheet ? (form.cut_width || null) : null,
+        },
+      });
+      setForm({ material: "", quantity_per_unit: "", cut_length: "", cut_width: "" });
       setShowForm(false);
       load();
     } catch (err) {
@@ -1078,7 +1149,13 @@ function BomTab({ product }) {
     }
   };
 
-  const totalCost = lines.reduce((n, l) => n + Number(l.quantity_per_unit) * Number(l.material_unit_cost), 0);
+  const selectedMaterial = materials.find((m) => m.id === form.material);
+  const lineCost = (l) => {
+    if (l.cut_width) return Number(l.quantity_per_unit) * Number(l.cut_width) * Number(l.cut_length) * Number(l.material_unit_cost);
+    if (l.cut_length) return Number(l.quantity_per_unit) * Number(l.cut_length) * Number(l.material_unit_cost);
+    return Number(l.quantity_per_unit) * Number(l.material_unit_cost);
+  };
+  const totalCost = lines.reduce((n, l) => n + lineCost(l), 0);
 
   return (
     <Card
@@ -1099,10 +1176,33 @@ function BomTab({ product }) {
             </select>
           </div>
           <div>
-            <label className="label">1 dona uchun miqdor</label>
-            <input className="input" type="number" step="0.0001" min="0" value={form.quantity_per_unit}
+            <label className="label">
+              {selectedMaterial?.dimension_type === "sheet" || selectedMaterial?.stock_unit_length
+                ? "1 dona uchun bo'laklar soni" : "1 dona uchun miqdor"}
+            </label>
+            <input className="input" type="number" step={selectedMaterial?.dimension_type === "sheet" || selectedMaterial?.stock_unit_length ? "1" : "0.0001"} min="0" value={form.quantity_per_unit}
               onChange={(e) => setForm({ ...form, quantity_per_unit: e.target.value })} required />
           </div>
+          {selectedMaterial?.dimension_type === "sheet" ? (
+            <>
+              <div>
+                <label className="label">Har bir bo'lak eni (m)</label>
+                <input className="input" type="number" step="0.001" min="0"
+                  value={form.cut_width} onChange={(e) => setForm({ ...form, cut_width: e.target.value })} required />
+              </div>
+              <div>
+                <label className="label">Har bir bo'lak bo'yi (m)</label>
+                <input className="input" type="number" step="0.001" min="0"
+                  value={form.cut_length} onChange={(e) => setForm({ ...form, cut_length: e.target.value })} required />
+              </div>
+            </>
+          ) : selectedMaterial?.stock_unit_length && (
+            <div>
+              <label className="label">Har bir bo'lak uzunligi (m)</label>
+              <input className="input" type="number" step="0.001" min="0" placeholder={`max ${selectedMaterial.stock_unit_length}`}
+                value={form.cut_length} onChange={(e) => setForm({ ...form, cut_length: e.target.value })} required />
+            </div>
+          )}
           <EntButton small type="submit">Qo'shish</EntButton>
         </form>
       )}
@@ -1116,10 +1216,16 @@ function BomTab({ product }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {lines.map((l) => (
               <div key={l.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", border: `1px solid ${ENT.border}`, borderRadius: 8 }}>
-                <span style={{ fontSize: 13, color: ENT.text }}>{l.material_name} — {l.quantity_per_unit} {l.material_unit}</span>
+                <span style={{ fontSize: 13, color: ENT.text }}>
+                  {l.cut_width
+                    ? `${l.material_name} — ${l.quantity_per_unit} dona x ${l.cut_width}x${l.cut_length}${l.material_unit}`
+                    : l.cut_length
+                      ? `${l.material_name} — ${l.quantity_per_unit} dona x ${l.cut_length}${l.material_unit}`
+                      : `${l.material_name} — ${l.quantity_per_unit} ${l.material_unit}`}
+                </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 12, color: ENT.muted }}>
-                    {(Number(l.quantity_per_unit) * Number(l.material_unit_cost)).toLocaleString()} so'm
+                    {lineCost(l).toLocaleString()} so'm
                   </span>
                   <button onClick={() => removeLine(l.id)} style={{ background: "transparent", border: "none", color: ENT.danger, cursor: "pointer", display: "flex" }}>
                     <Trash2 size={13} />

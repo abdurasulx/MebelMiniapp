@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from .models import (
@@ -37,12 +39,14 @@ class SupplierSerializer(serializers.ModelSerializer):
 
 class MaterialSerializer(serializers.ModelSerializer):
     unit_display = serializers.CharField(source="get_unit_display", read_only=True)
+    dimension_type_display = serializers.CharField(source="get_dimension_type_display", read_only=True)
     default_supplier_name = serializers.CharField(source="default_supplier.name", read_only=True, default=None)
 
     class Meta:
         model = Material
         fields = (
             "id", "company", "name", "unit", "unit_display", "unit_cost",
+            "dimension_type", "dimension_type_display",
             "stock_unit_length", "min_stock", "default_supplier", "default_supplier_name",
             "is_active", "created_at",
         )
@@ -87,17 +91,27 @@ class BillOfMaterialSerializer(serializers.ModelSerializer):
         model = BillOfMaterial
         fields = (
             "id", "product", "material", "material_name", "material_unit",
-            "material_unit_cost", "quantity_per_unit", "cut_length",
+            "material_unit_cost", "quantity_per_unit", "cut_length", "cut_width",
         )
         read_only_fields = ("id", "product")
 
     def validate(self, attrs):
         material = attrs.get("material") or getattr(self.instance, "material", None)
         cut_length = attrs.get("cut_length", getattr(self.instance, "cut_length", None))
-        if cut_length and (not material or material.unit != "m" or not material.stock_unit_length):
-            raise serializers.ValidationError(
-                "cut_length faqat 'metr' birligida va stock_unit_length belgilangan material uchun qo'llaniladi"
-            )
+        cut_width = attrs.get("cut_width", getattr(self.instance, "cut_width", None))
+        if cut_width and not cut_length:
+            raise serializers.ValidationError("cut_width faqat cut_length bilan birga beriladi")
+        if cut_width:
+            if not material or material.dimension_type != Material.DimensionType.SHEET:
+                raise serializers.ValidationError(
+                    "cut_width faqat 'varaq' turidagi material uchun qo'llaniladi"
+                )
+        elif cut_length:
+            if not material or material.dimension_type != Material.DimensionType.LINEAR or not material.stock_unit_length:
+                raise serializers.ValidationError(
+                    "cut_length (cut_width'siz) faqat 'chiziqli' turidagi va stock_unit_length "
+                    "belgilangan material uchun qo'llaniladi"
+                )
         return attrs
 
 
@@ -107,8 +121,25 @@ class MaterialRemnantSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MaterialRemnant
-        fields = ("id", "warehouse", "material", "material_name", "material_unit", "length", "quantity")
+        fields = (
+            "id", "warehouse", "material", "material_name", "material_unit",
+            "length", "width", "quantity",
+        )
         read_only_fields = fields
+
+
+class ReceiveRemnantSerializer(serializers.Serializer):
+    """`/warehouses/<pk>/material-remnants/receive/` — VARAQ (yoki oldindan
+    kesilgan CHIZIQLI) bo'lakni to'g'ridan-to'g'ri omborga kirim qilish
+    uchun kirish ma'lumoti. Varaq materiallarda standart o'lcham yo'q,
+    shuning uchun har bir partiya o'z eni/bo'yi bilan shu yerda kiritiladi."""
+
+    material = serializers.UUIDField()
+    length = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.001"))
+    width = serializers.DecimalField(
+        max_digits=10, decimal_places=3, min_value=Decimal("0.001"), required=False, allow_null=True
+    )
+    quantity = serializers.IntegerField(min_value=1)
 
 
 class ManufacturedUnitSerializer(serializers.ModelSerializer):

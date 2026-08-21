@@ -8,6 +8,7 @@ class NotificationType(models.TextChoices):
     ORDER_STATUS = "order_status", "Buyurtma holati"
     TASK_ASSIGNED = "task_assigned", "Vazifa tayinlandi"
     TASK_AVAILABLE = "task_available", "Vazifa boshlashga tayyor"
+    MATERIAL_SUGGESTION = "material_suggestion", "Material tavsiyasi"
 
 
 class Notification(BaseModel):
