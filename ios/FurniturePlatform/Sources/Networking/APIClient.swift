@@ -146,30 +146,34 @@ actor APIClient {
         }
     }
 
-    // Faqat haqiqiy ulanish yo'qligini bildiradigan kodlar — `.cancelled`
-    // BUNGA KIRMAYDI: u so'rov eskirib (masalan ekran qayta render bo'lganda
-    // yangi so'rov eskisini almashtirganda) URLSession tomonidan bekor
-    // qilinganda tashlanadi, server bilan aloqa yo'qligini anglatmaydi.
-    // Buni ham `.offline`ga aylantirsak, oddiy ekran o'tishida ham (hatto
-    // server 404/200 qaytarayotgan bo'lsa ham) noto'g'ri "oflayn" ko'rsatilar edi.
-    private static let connectivityErrorCodes: Set<URLError.Code> = [
-        .notConnectedToInternet, .networkConnectionLost, .cannotConnectToHost,
-        .cannotFindHost, .dnsLookupFailed, .timedOut, .internationalRoamingOff,
-        .dataNotAllowed, .secureConnectionFailed,
-    ]
+    // `.cancelled` bundan mustasno: u so'rov eskirib (masalan ekran qayta
+    // render bo'lganda yangi so'rov eskisini almashtirganda) URLSession
+    // tomonidan bekor qilinganda tashlanadi, server bilan aloqa yo'qligini
+    // anglatmaydi. Buni ham `.offline`ga aylantirsak, oddiy ekran o'tishida
+    // ham (hatto server 404/200 qaytarayotgan bo'lsa ham) noto'g'ri
+    // "oflayn" ko'rsatilar edi.
+    private static let nonConnectivityErrorCodes: Set<URLError.Code> = [.cancelled]
 
     /// Transport darajasidagi xatoni (server umuman topilmadi/javob bermadi)
     /// `.offline`ga aylantiradi — HTTP status kodli javoblar (400/401/500 va
-    /// h.k.) bunga tegmaydi, chunki ular server ishlab turganini bildiradi.
-    /// Har bir chaqiruv natijasi `.connectivityChanged` orqali e'lon
-    /// qilinadi — `ConnectivityStore` shuni tinglab, oflaynda butun ilovani
-    /// (tab menyusi bilan birga) to'liq ekranli `OfflineView`ga almashtiradi.
+    /// h.k.) bunga tegmaydi, chunki ular `URLSession.data(for:)` muvaffaqiyatli
+    /// qaytgandan KEYIN alohida tekshiriladi (qarang `rawRequest`), bu yerga
+    /// umuman kirmaydi. Oldin faqat bir nechta aniq `URLError.Code` (masalan
+    /// `.notConnectedToInternet`) ushlanardi — Tailscale VPN qayta ulanish
+    /// paytida boshqa kodlar (yoki hatto boshqa xato turlari) ham chiqishi
+    /// mumkin edi, ular ushlanmasdan yuqoriga chiqib, `AuthStore.loadMe()`ning
+    /// umumiy `catch` blokida "sessiya eskirgan" deb noto'g'ri talqin
+    /// qilinib, foydalanuvchi bekorga chiqarib yuborilardi — shuning uchun
+    /// endi ro'yxatga OLINMAGAN har qanday xato "oflayn" deb hisoblanadi
+    /// (faqat `.cancelled` bundan mustasno).
     private func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
         do {
             let result = try await URLSession.shared.data(for: request)
             NotificationCenter.default.post(name: .connectivityChanged, object: true)
             return result
-        } catch let error as URLError where Self.connectivityErrorCodes.contains(error.code) {
+        } catch let error as URLError where Self.nonConnectivityErrorCodes.contains(error.code) {
+            throw error
+        } catch {
             NotificationCenter.default.post(name: .connectivityChanged, object: false)
             throw APIError.offline
         }

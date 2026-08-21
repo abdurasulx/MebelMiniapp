@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'models.dart';
@@ -25,26 +24,24 @@ class NetworkException implements Exception {
 }
 
 /// Transport darajasidagi xatoni (server umuman topilmadi/javob bermadi)
-/// [NetworkException]ga, aks holda o'zgarishsiz qayta uloqtiradi — HTTP
-/// status kodli javoblar (400/401/500 va h.k.) bunga tegmaydi, chunki ular
-/// server ishlab turganini bildiradi. Har bir chaqiruv natijasi (muvaffaqiyat
-/// yoki tarmoq xatosi) [ApiClient.isOffline]ni yangilaydi — shu orqali
-/// butun ilova (qarang main.dart) global "oflayn" holatini biladi.
+/// [NetworkException]ga aylantiradi — HTTP status kodli javoblar (400/401/500
+/// va h.k.) bunga tegmaydi, chunki ular server ishlab turganini bildiradi.
+/// `action` faqat xom HTTP so'rovni bajaradi (`http.get/post/...`), shuning
+/// uchun undan chiqadigan HAR QANDAY istisno transport muammosi hisoblanadi —
+/// oldin faqat bir nechta aniq tur (`SocketException`/`TimeoutException`/...)
+/// ushlanardi, biroq Tailscale VPN qayta ulanish paytida boshqa turdagi
+/// (masalan tasodifiy `OSError`/`URI parse` xatolari) istisnolar ham chiqishi
+/// mumkin edi — ular ushlanmasdan yuqoriga chiqib, `AuthStore._loadMe()`ning
+/// umumiy `catch` blokida "sessiya eskirgan" deb noto'g'ri talqin qilinib,
+/// foydalanuvchi bekorga chiqarib yuborilardi. Har bir chaqiruv natijasi
+/// (muvaffaqiyat yoki tarmoq xatosi) [ApiClient.isOffline]ni yangilaydi —
+/// shu orqali butun ilova (qarang main.dart) global "oflayn" holatini biladi.
 Future<T> _guardNetwork<T>(Future<T> Function() action) async {
   try {
     final result = await action();
     ApiClient.instance.isOffline.value = false;
     return result;
-  } on SocketException {
-    ApiClient.instance.isOffline.value = true;
-    throw NetworkException();
-  } on TimeoutException {
-    ApiClient.instance.isOffline.value = true;
-    throw NetworkException();
-  } on http.ClientException {
-    ApiClient.instance.isOffline.value = true;
-    throw NetworkException();
-  } on HandshakeException {
+  } catch (_) {
     ApiClient.instance.isOffline.value = true;
     throw NetworkException();
   }

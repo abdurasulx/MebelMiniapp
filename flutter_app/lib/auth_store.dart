@@ -427,16 +427,25 @@ class AuthStore extends ChangeNotifier {
       );
       user = me;
       isAuthenticated = true;
-    } on NetworkException {
-      // Internet/serverga ulanib bo'lmadi — bu sessiya eskirgani degani emas.
-      // Tokenni saqlab qolamiz (chiqarib yubormaymiz), aloqa tiklanganda
-      // keyingi urinishda qayta tekshiriladi. Ilgari muvaffaqiyatli kirilgan
-      // bo'lsa, foydalanuvchi hamon "kirgan" holatda qoladi — individual
-      // ekranlar o'zi oflayn holatini ko'rsatadi (qarang OfflineView).
+    } on ApiException catch (e) {
+      // Faqat server aniq "401 — token yaroqsiz" deb javob berganda
+      // haqiqatan ham chiqarib yuboramiz. Boshqa har qanday xato (500,
+      // kutilmagan javob shakli va h.k.) sessiya eskirganini bildirmaydi —
+      // tokenni saqlab qolamiz, aks holda vaqtinchalik server xatosi ham
+      // foydalanuvchini bekorga chiqarib yuborardi.
+      if (e.statusCode == 401) {
+        await logout();
+        return;
+      }
       if (user != null) isAuthenticated = true;
     } catch (_) {
-      await logout();
-      return;
+      // NetworkException yoki boshqa kutilmagan xato — internet/serverga
+      // ulanib bo'lmadi degani, sessiya eskirgani emas. Tokenni saqlab
+      // qolamiz, aloqa tiklanganda keyingi urinishda qayta tekshiriladi.
+      // Ilgari muvaffaqiyatli kirilgan bo'lsa, foydalanuvchi hamon "kirgan"
+      // holatda qoladi — individual ekranlar o'zi oflayn holatini
+      // ko'rsatadi (qarang OfflineView).
+      if (user != null) isAuthenticated = true;
     }
     notifyListeners();
   }
