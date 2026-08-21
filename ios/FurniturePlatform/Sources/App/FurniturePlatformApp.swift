@@ -22,6 +22,10 @@ struct FurniturePlatformApp: App {
                 .task {
                     location.bootstrap()
                     cart.load()
+                    // Splash paytida darhol chaqiriladi (qisqa timeout bilan)
+                    // — oflayn holatini biror ekranning oddiy so'rovi 6s
+                    // timeout bilan sekin aniqlashini kutmasdan.
+                    await APIClient.shared.probeConnectivity()
                 }
                 // Google Sign-In oqimi tizim brauzeriga chiqib, natijani shu
                 // URL orqali ilovaga qaytaradi — GoogleSignIn SDK shu yerda ushlab olishi kerak.

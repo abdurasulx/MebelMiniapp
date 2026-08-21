@@ -88,6 +88,25 @@ class ApiClient {
     } catch (_) {}
   }
 
+  /// Ilova ochilishida (splash paytida) darhol chaqiriladi — oddiy
+  /// so'rovlar (VPN kechikishiga chidamli bo'lishi uchun) 6s timeout
+  /// ishlatadi, bu birinchi taassurot uchun juda sekin: oflayn holatda
+  /// foydalanuvchi splash tugagach ham bir necha soniya "osilib qolgan"
+  /// ekranni ko'rardi, oflayn banner esa faqat biror ekran haqiqiy so'rov
+  /// yuborib, muddati tugagach paydo bo'lardi. Shu sabab qisqa (2.5s)
+  /// timeout bilan alohida, tezkor tekshiruv — natija darhol [isOffline]ga
+  /// yoziladi.
+  Future<void> probeConnectivity() async {
+    try {
+      await http
+          .get(Uri.parse('${ApiConfig.baseUrl}/categories/'))
+          .timeout(const Duration(seconds: 2, milliseconds: 500));
+      isOffline.value = false;
+    } catch (_) {
+      isOffline.value = true;
+    }
+  }
+
   void setTokens(TokenPair? tokens) {
     _accessToken = tokens?.access;
     _refreshToken = tokens?.refresh;

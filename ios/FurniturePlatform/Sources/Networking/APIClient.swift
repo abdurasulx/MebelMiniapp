@@ -254,6 +254,24 @@ actor APIClient {
             return false
         }
     }
+
+    /// Ilova ochilishida (splash paytida) darhol chaqiriladi — oddiy
+    /// so'rovlar (VPN kechikishiga chidamli bo'lish uchun) 6s timeout
+    /// ishlatadi, bu birinchi taassurot uchun juda sekin: oflayn holatda
+    /// foydalanuvchi splash tugagach ham bir necha soniya "osilib qolgan"
+    /// ekranni ko'rardi. Shu sabab qisqa (2.5s) timeout bilan alohida,
+    /// tezkor tekshiruv — natija darhol `.connectivityChanged` orqali
+    /// e'lon qilinadi (`ConnectivityStore` shuni tinglaydi).
+    func probeConnectivity() async {
+        var request = URLRequest(url: APIConfig.url(for: "/categories/"))
+        request.timeoutInterval = 2.5
+        do {
+            _ = try await URLSession.shared.data(for: request)
+            NotificationCenter.default.post(name: .connectivityChanged, object: true)
+        } catch {
+            NotificationCenter.default.post(name: .connectivityChanged, object: false)
+        }
+    }
 }
 
 extension Notification.Name {

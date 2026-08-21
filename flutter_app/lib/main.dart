@@ -32,13 +32,24 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
   @override
   void initState() {
     super.initState();
-    _auth.bootstrap().then((_) => setState(() => _ready = true));
+    // To'liq bootstrap (tokenlarni o'qish + `/users/me/`) VPN kechikishiga
+    // chidamli bo'lish uchun uzunroq timeout ishlatadi — oflaynda splash
+    // shuncha vaqt osilib qolmasligi uchun, tezkor (qisqa timeout'li)
+    // ulanish tekshiruvi bilan PARALLEL yuboriladi: qaysi biri OLDIN
+    // tugasa, splash o'shanda yopiladi (ikkalasi ham bir marta
+    // `setState`ni ishga tushiradi, keyingisi shunchaki e'tiborsiz qoladi).
+    _auth.bootstrap().then((_) => _finishSplash());
+    ApiClient.instance.probeConnectivity().then((_) => _finishSplash());
     _auth.addListener(() {
       if (!_auth.isAuthenticated) _likes.clear();
     });
     _location.init();
     _cart.load();
     _locale.init();
+  }
+
+  void _finishSplash() {
+    if (!_ready && mounted) setState(() => _ready = true);
   }
 
   @override
