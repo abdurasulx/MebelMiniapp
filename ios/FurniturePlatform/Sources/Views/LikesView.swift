@@ -80,7 +80,7 @@ private struct ShopStyleCard: View {
     let product: Product
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .center, spacing: 6) {
             AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
                 if let image = phase.image {
                     image.resizable().aspectRatio(contentMode: .fill)
@@ -92,17 +92,21 @@ private struct ShopStyleCard: View {
             .clipped()
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            Text(product.nameUz).font(.subheadline).bold().lineLimit(1)
+            Text(product.nameUz).font(.subheadline).bold().lineLimit(1).multilineTextAlignment(.center)
             if let attributeSummary = product.attributeSummary {
                 Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
+                    .multilineTextAlignment(.center)
             }
             Text(product.companyName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                .multilineTextAlignment(.center)
             if let first = product.variants.first {
                 Text("\(first.basePrice.formattedSom) so'm/m³ dan")
                     .font(.caption).bold().lineLimit(1)
+                    .multilineTextAlignment(.center)
                     .foregroundStyle(Color.brandSecondary)
             }
         }
+        .padding(.leading, 4)
     }
 }
 

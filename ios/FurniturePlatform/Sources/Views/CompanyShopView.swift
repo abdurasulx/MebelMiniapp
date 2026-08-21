@@ -93,7 +93,7 @@ struct CompanyShopView: View {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
                     ForEach(products) { product in
                         NavigationLink(destination: ProductDetailView(productId: product.id)) {
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .center, spacing: 4) {
                                 AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
                                     if let image = phase.image {
                                         image.resizable().aspectRatio(contentMode: .fill)
@@ -104,7 +104,9 @@ struct CompanyShopView: View {
                                 .frame(height: 110)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                                 Text(product.nameUz).font(.caption).bold().lineLimit(1)
+                                    .multilineTextAlignment(.center)
                             }
+                            .padding(.leading, 4)
                         }
                         .buttonStyle(.plain)
                     }
