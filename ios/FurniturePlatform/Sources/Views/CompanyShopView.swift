@@ -90,7 +90,7 @@ struct CompanyShopView: View {
             if products.isEmpty {
                 Text("Hozircha mahsulotlar yo'q").font(.caption).foregroundStyle(.secondary).padding(.horizontal)
             } else {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
                     ForEach(products) { product in
                         NavigationLink(destination: ProductDetailView(productId: product.id)) {
                             VStack(alignment: .leading, spacing: 4) {

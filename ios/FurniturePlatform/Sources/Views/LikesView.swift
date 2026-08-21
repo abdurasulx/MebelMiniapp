@@ -31,7 +31,7 @@ struct LikesView: View {
                         if let errorMessage {
                             Text(errorMessage).foregroundStyle(.red).padding()
                         }
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
                             ForEach(items) { like in
                                 // LikeButton `NavigationLink`ning label'i ICHIDA emas, sibling
                                 // sifatida joylashtiriladi — aks holda yurakchaga bosish, tugma

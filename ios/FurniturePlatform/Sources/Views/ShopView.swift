@@ -122,7 +122,7 @@ struct ShopView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 60)
                 } else {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
                         ForEach(filtered) { product in
                             // LikeButton `NavigationLink`ning label'i ICHIDA emas, sibling
                             // sifatida joylashtiriladi — aks holda yurakchaga bosish, tugma

@@ -155,7 +155,7 @@ struct HomeView: View {
                     .padding(.horizontal)
                     .padding(.top, 20)
             } else {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
                     ForEach(items) { product in
                         ZStack(alignment: .topTrailing) {
                             NavigationLink(destination: ProductDetailView(productId: product.id)) {
