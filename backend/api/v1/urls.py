@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from apps.ar_collections.views import ARCollectionItemViewSet, ARCollectionViewSet
 from apps.assets.views import Model3DViewerView, Model3DViewSet
 from apps.companies.views import (
     CompanyViewSet,
@@ -90,6 +91,7 @@ router.register("leads", LeadViewSet, basename="lead")
 router.register("payslips", PayslipViewSet, basename="payslip")
 router.register("likes", LikeViewSet, basename="like")
 router.register("notifications", NotificationViewSet, basename="notification")
+router.register("ar-collections", ARCollectionViewSet, basename="ar-collection")
 router.register("cart-items", CartItemViewSet, basename="cart-item")
 router.register("reviews", ReviewViewSet, basename="review")
 router.register("workflow-instances", WorkflowStepInstanceViewSet, basename="workflow-instance")
@@ -127,6 +129,8 @@ bom_detail = BillOfMaterialViewSet.as_view(
     {"get": "retrieve", "put": "update", "patch": "partial_update", "delete": "destroy"}
 )
 manufactured_unit_list = ManufacturedUnitViewSet.as_view({"get": "list"})
+ar_collection_item_list = ARCollectionItemViewSet.as_view({"get": "list", "post": "create"})
+ar_collection_item_detail = ARCollectionItemViewSet.as_view({"delete": "destroy"})
 
 urlpatterns = [
     path("auth/token/", AdminTokenObtainPairView.as_view(), name="token_obtain_pair"),
@@ -203,6 +207,16 @@ urlpatterns = [
     path("products/<uuid:product_pk>/bill-of-materials/<uuid:pk>/", bom_detail, name="bom-detail"),
     path("products/<uuid:product_pk>/manufactured-units/", manufactured_unit_list, name="manufactured-unit-list"),
     path("products/<uuid:product_pk>/sell-units/", SellUnitsView.as_view(), name="product-sell-units"),
+    path(
+        "ar-collections/<uuid:collection_pk>/items/",
+        ar_collection_item_list,
+        name="ar-collection-item-list",
+    ),
+    path(
+        "ar-collections/<uuid:collection_pk>/items/<uuid:pk>/",
+        ar_collection_item_detail,
+        name="ar-collection-item-detail",
+    ),
 ]
 
 urlpatterns += router.urls

@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "apps.inventory",
     "apps.cart",
     "apps.notifications",
+    "apps.ar_collections",
 ]
 
 MIDDLEWARE = [

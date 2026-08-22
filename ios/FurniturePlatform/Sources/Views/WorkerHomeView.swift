@@ -22,7 +22,7 @@ struct WorkerHomeView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if let slug = auth.user?.company?.slug {
-                        NavigationLink(destination: ARModelPickerView(companySlug: slug)) {
+                        NavigationLink(destination: LoyihalarimView(companySlug: slug)) {
                             Image(systemName: "arkit")
                         }
                     }

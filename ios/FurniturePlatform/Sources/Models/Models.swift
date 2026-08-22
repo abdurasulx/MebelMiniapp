@@ -285,6 +285,39 @@ struct MaterialRemnantItem: Codable, Identifiable {
     let quantity: Int
 }
 
+/// AR uchun bir marta yaratilib, keyin qayta-qayta ochib turiladigan
+/// mahsulotlar to'plami ("loyiha") — FAZOVIY (position/rotation) ma'lumot
+/// ATAYIN saqlanmaydi: ARKit dunyo koordinatasi har safar yangi seansda
+/// noldan boshlanadi va faqat o'sha fizik xonada ma'noli, shuning uchun har
+/// safar AR ochilganda foydalanuvchi mahsulotlarni xonaga qaytadan
+/// joylashtiradi (qarang MultiARPlacementView).
+struct ARCollection: Codable, Identifiable {
+    let id: String
+    let name: String
+    let items: [ARCollectionItem]
+    let itemCount: Int
+    let createdAt: String
+}
+
+struct ARCollectionItem: Codable, Identifiable {
+    let id: String
+    let product: Product
+    let variantId: String?
+    let createdAt: String
+
+    var variant: Variant? {
+        guard let variantId else { return product.variants.first }
+        return product.variants.first(where: { $0.id == variantId }) ?? product.variants.first
+    }
+
+    /// Ko'p materialli mahsulotlarda variant o'zining alohida 3D faylini
+    /// olishi mumkin (qarang ProductDetailView.activeModel3d bilan bir xil naqsh).
+    var activeModel3d: Model3D? {
+        if let vm = variant?.model3d, vm.status == "ready" { return vm }
+        return product.model3d
+    }
+}
+
 /// Ilova-ichi xabarnoma — mijozga buyurtma holati, xodimga vazifa
 /// tayinlash/tayyorlik xabarlari (qarang backend apps.notifications).
 struct AppNotification: Codable, Identifiable {

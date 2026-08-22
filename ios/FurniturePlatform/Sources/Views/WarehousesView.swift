@@ -9,32 +9,34 @@ struct WarehousesView: View {
     @State private var isOffline = false
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if isOffline && warehouses.isEmpty && !isLoading {
-                    OfflineView(onRetry: { Task { await load() } })
-                } else if isLoading {
-                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red).padding()
-                } else if warehouses.isEmpty {
-                    Text("Hali ombor yo'q.").foregroundStyle(.secondary)
-                } else {
-                    List(warehouses) { w in
-                        NavigationLink(destination: WarehouseDetailView(warehouse: w)) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(w.name).bold()
-                                Text("\(w.kindDisplay) · \(w.address)").font(.caption).foregroundStyle(.secondary)
-                            }
+        // DIQQAT: WorkerHomeView'ning NavigationStack'i ichidan NavigationLink
+        // orqali ochiladi — shuning uchun bu yerda YANA NavigationStack
+        // o'ralmaydi (ichma-ich NavigationStack ichidagi NavigationLink
+        // jimgina ishlamay qoladi — qarang LoyihalarimView'dagi bir xil izoh).
+        Group {
+            if isOffline && warehouses.isEmpty && !isLoading {
+                OfflineView(onRetry: { Task { await load() } })
+            } else if isLoading {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMessage {
+                Text(errorMessage).foregroundStyle(.red).padding()
+            } else if warehouses.isEmpty {
+                Text("Hali ombor yo'q.").foregroundStyle(.secondary)
+            } else {
+                List(warehouses) { w in
+                    NavigationLink(destination: WarehouseDetailView(warehouse: w)) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(w.name).bold()
+                            Text("\(w.kindDisplay) · \(w.address)").font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    .listStyle(.plain)
                 }
+                .listStyle(.plain)
             }
-            .navigationTitle("Omborlar")
-            .task { await load() }
-            .refreshable { await load() }
         }
+        .navigationTitle("Omborlar")
+        .task { await load() }
+        .refreshable { await load() }
     }
 
     private func load() async {

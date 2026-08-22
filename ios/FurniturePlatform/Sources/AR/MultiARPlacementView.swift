@@ -1,5 +1,15 @@
 import SwiftUI
 
+/// AR'ga joylashtiriladigan model — mahsulot 3D fayli (bitta) + tanlangan
+/// variantning rang/naqsh ma'lumoti bilan.
+struct ARModelItem: Identifiable {
+    let id: String
+    let title: String
+    let usdzURL: URL
+    let colorHex: String?
+    let textureURL: URL?
+}
+
 /// Bir nechta mahsulotni AR orqali xonaga joylashtirish ekrani —
 /// `ARPlacementView`dan farqli, bir vaqtda bir nechta obyekt qo'yish va
 /// ularni alohida boshqarish/o'chirish imkonini beradi.
