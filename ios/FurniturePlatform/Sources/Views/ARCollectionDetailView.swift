@@ -125,6 +125,7 @@ private struct ARCollectionItemCard: View {
                     }
                 }
                 .frame(height: 120)
+                .frame(maxWidth: .infinity)
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
@@ -145,5 +146,14 @@ private struct ARCollectionItemCard: View {
                 }
             }
         }
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(.secondarySystemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+        )
     }
 }
