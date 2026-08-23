@@ -169,6 +169,14 @@ private struct ProfileView: View {
             // bilan kirish"), bosilganda to'g'ridan-to'g'ri o'sha rolga
             // o'tadi. Bir nechta kasbi bo'lsa "Xodim sifatida kirish" —
             // bosilganda qaysi rolda ishlashini so'raydi (RolePickerSheet).
+            if auth.appMode == .worker {
+                Section {
+                    NavigationLink(destination: PayslipsView()) {
+                        Label("Ish haqim", systemImage: "banknote.fill")
+                    }
+                }
+            }
+
             if let positions = user.positions, !positions.isEmpty {
                 Section("Ko'rinish rejimi") {
                     Picker("Rejim", selection: Binding<AppMode>(

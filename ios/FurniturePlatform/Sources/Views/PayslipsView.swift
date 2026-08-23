@@ -40,31 +40,31 @@ struct PayslipsView: View {
     @State private var isOffline = false
 
     var body: some View {
-        NavigationStack {
+        // DIQQAT: bu View endi AccountView'ning NavigationStack'i ichidan
+        // NavigationLink orqali ochiladi — shuning uchun bu yerda YANA
+        // NavigationStack o'ralmaydi (qarang LoyihalarimView/WarehousesView'dagi
+        // bir xil izoh — ichma-ich NavigationStack NavigationLink'larni
+        // jimgina ishlamay qoldiradi).
+        Group {
             if isOffline && payslips.isEmpty && !isLoading {
                 OfflineView(onRetry: { Task { await load() } })
-                    .navigationTitle("Ish haqim")
+            } else if isLoading {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMessage {
+                Text(errorMessage).foregroundStyle(.red).padding()
+            } else if payslips.isEmpty {
+                Text("Hali hisoblangan oylik yo'q.").foregroundStyle(.secondary)
             } else {
-                Group {
-                    if isLoading {
-                        ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else if let errorMessage {
-                        Text(errorMessage).foregroundStyle(.red).padding()
-                    } else if payslips.isEmpty {
-                        Text("Hali hisoblangan oylik yo'q.").foregroundStyle(.secondary)
-                    } else {
-                        List(payslips) { p in
-                            PayslipRow(payslip: p)
-                                .listRowSeparator(.hidden)
-                        }
-                        .listStyle(.plain)
-                    }
+                List(payslips) { p in
+                    PayslipRow(payslip: p)
+                        .listRowSeparator(.hidden)
                 }
-                .navigationTitle("Ish haqim")
-                .task { await load() }
-                .refreshable { await load() }
+                .listStyle(.plain)
             }
         }
+        .navigationTitle("Ish haqim")
+        .task { await load() }
+        .refreshable { await load() }
     }
 
     private func load() async {

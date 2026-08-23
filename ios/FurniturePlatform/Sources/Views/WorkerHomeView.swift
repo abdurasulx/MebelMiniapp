@@ -21,13 +21,6 @@ struct WorkerHomeView: View {
             .navigationTitle("Usta paneli")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    if let slug = auth.user?.company?.slug {
-                        NavigationLink(destination: LoyihalarimView(companySlug: slug)) {
-                            Image(systemName: "arkit")
-                        }
-                    }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: WarehousesView()) {
                         Image(systemName: "shippingbox")
                     }

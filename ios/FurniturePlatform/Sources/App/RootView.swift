@@ -39,15 +39,17 @@ struct RootView: View {
 
     private var mainTabs: some View {
         TabView {
-            if auth.appMode == .worker && auth.user?.company != nil {
+            if auth.appMode == .worker, let slug = auth.user?.company?.slug {
                 WorkerHomeView()
                     .tabItem { Label("Usta paneli", systemImage: "hammer.fill") }
 
+                NavigationStack {
+                    LoyihalarimView(companySlug: slug)
+                }
+                .tabItem { Label("Loyihalar", systemImage: "arkit") }
+
                 WorkerOrdersView()
                     .tabItem { Label("Buyurtmalar", systemImage: "list.bullet.clipboard.fill") }
-
-                PayslipsView()
-                    .tabItem { Label("Ish haqim", systemImage: "banknote.fill") }
             } else {
                 HomeView()
                     .tabItem { Label("Bosh sahifa", systemImage: "house.fill") }
