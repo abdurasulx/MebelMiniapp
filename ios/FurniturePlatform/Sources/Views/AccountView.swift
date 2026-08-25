@@ -658,21 +658,15 @@ struct CustomerOrderDetailView: View {
                                 Text("Ijrochi: \(employeeName)")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
-                            if let lastUpdate = step.updates?.last {
-                                if let imageUrl = lastUpdate.imageUrl, let url = URL(string: imageUrl) {
-                                    AsyncImage(url: url) { phase in
-                                        if let image = phase.image {
-                                            image.resizable().aspectRatio(contentMode: .fill)
-                                        } else {
-                                            Color.brandPrimary.opacity(0.15)
-                                        }
-                                    }
-                                    .frame(height: 140)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                                }
-                                if let comment = lastUpdate.comment, !comment.isEmpty {
-                                    Text(comment).font(.caption)
+                            if let updates = step.updates, !updates.isEmpty {
+                                Text("\(updates.count) ta yangilanish")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                // Web'dagi WorkflowPanel bilan bir xil — faqat
+                                // oxirgisi emas, bosqichning BARCHA yangilanishlari
+                                // ko'rsatiladi, chunki mijoz to'liq jarayonni
+                                // kuzatishi kerak.
+                                ForEach(updates) { update in
+                                    ProgressUpdateRow(update: update)
                                 }
                             }
                         }
@@ -683,6 +677,56 @@ struct CustomerOrderDetailView: View {
         }
         .navigationTitle(order.companyName)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct ProgressUpdateRow: View {
+    let update: WorkflowProgressUpdate
+
+    private var formattedTime: String {
+        guard let createdAt = update.createdAt else { return "" }
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = isoFormatter.date(from: createdAt) ?? {
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            return isoFormatter.date(from: createdAt)
+        }()
+        guard let date else { return "" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd.MM HH:mm"
+        return formatter.string(from: date)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let imageUrl = update.imageUrl, let url = URL(string: imageUrl) {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        Color.brandPrimary.opacity(0.15)
+                    }
+                }
+                .frame(height: 140)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            HStack(spacing: 4) {
+                if update.isCompletion == true {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.green)
+                }
+                if let employeeName = update.employeeName, !employeeName.isEmpty {
+                    Text(employeeName).font(.caption2).bold()
+                }
+                Text(formattedTime).font(.caption2).foregroundStyle(.secondary)
+            }
+            if let comment = update.comment, !comment.isEmpty {
+                Text(comment).font(.caption)
+            }
+        }
+        .padding(.bottom, 4)
     }
 }
 

@@ -90,7 +90,6 @@ class _StepTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastUpdate = step.updates.isEmpty ? null : step.updates.last;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -129,25 +128,79 @@ class _StepTile extends StatelessWidget {
                 style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
               ),
             ],
-            if (lastUpdate != null) ...[
+            if (step.updates.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                '${step.updates.length} ta yangilanish',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF8A7357)),
+              ),
               const SizedBox(height: 8),
-              if (lastUpdate.imageUrl != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    lastUpdate.imageUrl!,
-                    height: 140,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              if (lastUpdate.comment.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(lastUpdate.comment, style: const TextStyle(fontSize: 12)),
-              ],
+              // Web'dagi WorkflowPanel bilan bir xil — faqat oxirgisi emas,
+              // bosqichning BARCHA yangilanishlari (rasm+izoh+ijrochi+vaqt)
+              // ko'rsatiladi, chunki mijoz to'liq jarayonni kuzatishi kerak.
+              ...step.updates.map((u) => _UpdateTile(update: u)),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _UpdateTile extends StatelessWidget {
+  final WorkflowProgressUpdate update;
+  const _UpdateTile({required this.update});
+
+  String _formatTime(String raw) {
+    final d = DateTime.tryParse(raw);
+    if (d == null) return '';
+    final local = d.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(local.day)}.${two(local.month)} ${two(local.hour)}:${two(local.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (update.imageUrl != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                update.imageUrl!,
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              if (update.isCompletion)
+                const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(Icons.check_circle, size: 14, color: Color(0xFF2E7D32)),
+                ),
+              if (update.employeeName != null && update.employeeName!.isNotEmpty)
+                Text(
+                  update.employeeName!,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+              const SizedBox(width: 6),
+              Text(
+                _formatTime(update.createdAt),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF8A7357)),
+              ),
+            ],
+          ),
+          if (update.comment.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(update.comment, style: const TextStyle(fontSize: 12)),
+          ],
+        ],
       ),
     );
   }
