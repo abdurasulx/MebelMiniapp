@@ -14,14 +14,36 @@ struct ARCollectionDetailView: View {
     @State private var isOffline = false
     @State private var showPicker = false
     @State private var showAR = false
+    // Rang FAQAT shu ekran ochiq turgan davrda tanlanadi (xotirada, item.id
+    // bo'yicha) — backendga yozilmaydi, chunki har safar AR'ni ochishda
+    // mijoz boshqa rangni sinab ko'rishi mumkin bo'lishi kerak (qarang
+    // ARProductPickerView izohi).
+    @State private var sessionVariants: [String: Variant] = [:]
+    @State private var showVariantSession = false
+
+    /// Bir nechta rangga ega, lekin shu seansda hali rangi tanlanmagan
+    /// mahsulotlar — AR ochilishidan oldin ulardan so'raladi.
+    private var itemsNeedingVariantChoice: [ARCollectionItem] {
+        items.filter { $0.product.variants.count > 1 && sessionVariants[$0.id] == nil }
+    }
+
+    private func effectiveVariant(for item: ARCollectionItem) -> Variant? {
+        sessionVariants[item.id] ?? (item.product.variants.count == 1 ? item.product.variants.first : nil)
+    }
+
+    private func effectiveModel3d(for item: ARCollectionItem) -> Model3D? {
+        if let variant = effectiveVariant(for: item), let vm = variant.model3d, vm.status == "ready" { return vm }
+        return item.product.model3d
+    }
 
     private var arModels: [ARModelItem] {
         items.compactMap { item in
-            guard let urlString = item.activeModel3d?.usdzUrl, let url = URL(string: urlString) else { return nil }
+            guard let urlString = effectiveModel3d(for: item)?.usdzUrl, let url = URL(string: urlString) else { return nil }
+            let variant = effectiveVariant(for: item)
             return ARModelItem(
                 id: item.id, title: item.product.nameUz, usdzURL: url,
-                colorHex: item.variant?.colorHex,
-                textureURL: item.variant?.textureUrl.flatMap(URL.init(string:))
+                colorHex: variant?.colorHex,
+                textureURL: variant?.textureUrl.flatMap(URL.init(string:))
             )
         }
     }
@@ -51,7 +73,7 @@ struct ARCollectionDetailView: View {
                     }
                     .padding()
                     // AR tugmasi bilan qoplanib qolmasligi uchun pastdan bo'sh joy.
-                    Color.clear.frame(height: arModels.isEmpty ? 0 : 70)
+                    Color.clear.frame(height: items.isEmpty ? 0 : 70)
                 }
             }
         }
@@ -63,11 +85,15 @@ struct ARCollectionDetailView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if !arModels.isEmpty {
+            if !items.isEmpty {
                 Button {
-                    showAR = true
+                    if itemsNeedingVariantChoice.isEmpty {
+                        showAR = true
+                    } else {
+                        showVariantSession = true
+                    }
                 } label: {
-                    Label("AR'da ochish (\(arModels.count))", systemImage: "arkit")
+                    Label("AR'da ochish (\(items.count))", systemImage: "arkit")
                         .frame(maxWidth: .infinity).padding(.vertical, 6)
                 }
                 .buttonStyle(.borderedProminent)
@@ -79,6 +105,14 @@ struct ARCollectionDetailView: View {
         .refreshable { await load() }
         .sheet(isPresented: $showPicker, onDismiss: { Task { await load() } }) {
             ARProductPickerView(companySlug: companySlug, collectionId: collectionId)
+        }
+        .sheet(isPresented: $showVariantSession) {
+            ARSessionVariantPickerView(
+                items: itemsNeedingVariantChoice, initialSelections: sessionVariants
+            ) { selections in
+                sessionVariants.merge(selections) { _, new in new }
+                showAR = true
+            }
         }
         .fullScreenCover(isPresented: $showAR) {
             MultiARPlacementView(models: arModels)
@@ -138,12 +172,17 @@ private struct ARCollectionItemCard: View {
             }
             Text(item.product.nameUz).font(.caption).bold().lineLimit(1)
             if let variant = item.variant {
+                // Eski (bu o'zgarishdan oldin qo'shilgan) elementlar hali ham
+                // o'z rangini saqlab qolgan bo'lishi mumkin.
                 HStack(spacing: 4) {
                     if let hex = variant.colorHex, !hex.isEmpty, let color = UIColor(hex: hex) {
                         Circle().fill(Color(color)).frame(width: 10, height: 10)
                     }
                     Text(variant.name).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
+            } else if item.product.variants.count > 1 {
+                Text("Rang: joylashtirishda tanlanadi")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
         }
         .padding(8)

@@ -1,8 +1,12 @@
 import SwiftUI
 
 /// Loyihaga mahsulot qo'shish — rasmli katalog (faqat AR fayli tayyor, o'z
-/// firmasiga tegishli mahsulotlar), tanlangach rangni ham RASM orqali
-/// (naqsh surati yoki rang doirasi) tanlash mumkin.
+/// firmasiga tegishli mahsulotlar). DIQQAT: rang/variant BU YERDA
+/// tanlanmaydi — mahsulot variantsiz (rangsiz) qo'shiladi, rang esa AR'da
+/// JOYLASHTIRISH vaqtida tanlanadi (qarang ARSessionVariantPickerView).
+/// Sabab: agar rang shu yerda "qulflab" qo'yilsa, mijoz keyin "boshqa rangda
+/// ham ko'ray" desa, usta uchun qiyinchilik tug'iladi — loyihaga qo'shish
+/// bir marta, rang tanlash esa har safar joylashtirishda erkin bo'lishi kerak.
 struct ARProductPickerView: View {
     let companySlug: String
     let collectionId: String
@@ -11,8 +15,7 @@ struct ARProductPickerView: View {
     @State private var products: [Product] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
-    @State private var selectedProduct: Product?
-    @State private var adding = false
+    @State private var addingProductId: String?
 
     private var arReadyProducts: [Product] { products.filter { $0.model3d?.usdzUrl != nil } }
 
@@ -30,11 +33,12 @@ struct ARProductPickerView: View {
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
                             ForEach(arReadyProducts) { product in
                                 Button {
-                                    selectedProduct = product
+                                    Task { await add(product: product) }
                                 } label: {
-                                    ARProductPickerCard(product: product)
+                                    ARProductPickerCard(product: product, isAdding: addingProductId == product.id)
                                 }
                                 .buttonStyle(.plain)
+                                .disabled(addingProductId != nil)
                             }
                         }
                         .padding()
@@ -49,11 +53,6 @@ struct ARProductPickerView: View {
                 }
             }
             .task { await load() }
-            .sheet(item: $selectedProduct) { product in
-                ARVariantPickerSheet(product: product, isAdding: $adding) { variant in
-                    Task { await add(product: product, variant: variant) }
-                }
-            }
         }
     }
 
@@ -71,17 +70,16 @@ struct ARProductPickerView: View {
         isLoading = false
     }
 
-    private func add(product: Product, variant: Variant?) async {
-        guard !adding else { return }
-        adding = true
-        struct Body: Encodable { let productId: String; let variant: String? }
-        let body = Body(productId: product.id, variant: variant?.id)
+    private func add(product: Product) async {
+        guard addingProductId == nil else { return }
+        addingProductId = product.id
+        struct Body: Encodable { let productId: String }
+        let body = Body(productId: product.id)
         let result: ARCollectionItem? = try? await APIClient.shared.post(
             "/ar-collections/\(collectionId)/items/", body: body, auth: true
         )
-        adding = false
+        addingProductId = nil
         if result != nil {
-            selectedProduct = nil
             dismiss()
         }
     }
@@ -89,90 +87,82 @@ struct ARProductPickerView: View {
 
 private struct ARProductPickerCard: View {
     let product: Product
+    var isAdding: Bool = false
 
     var body: some View {
         VStack(spacing: 6) {
-            AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
-                if let image = phase.image {
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    Color.brandPrimary.opacity(0.3)
+            ZStack {
+                AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
+                    if let image = phase.image {
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        Color.brandPrimary.opacity(0.3)
+                    }
                 }
+                .frame(height: 120)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .opacity(isAdding ? 0.4 : 1)
+
+                if isAdding { ProgressView() }
             }
-            .frame(height: 120)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 12))
             Text(product.nameUz).font(.caption).bold().lineLimit(1).foregroundStyle(.primary)
         }
     }
 }
 
-/// Mahsulot tanlangach rangni RASM orqali (naqsh surati bo'lsa o'sha,
-/// bo'lmasa rang doirasi) tanlaydi — variantning o'zi alohida suratga ega
-/// emas (bitta geometriyaga runtime tint qo'llanadi, qarang Variant model
-/// izohi), shuning uchun naqsh surati/rang doirasi uning vizual ifodasi.
-struct ARVariantPickerSheet: View {
-    let product: Product
-    @Binding var isAdding: Bool
-    let onSelect: (Variant?) -> Void
+/// AR'da JOYLASHTIRISH boshlanishidan oldin, bir nechta rangga ega
+/// mahsulotlar uchun rangni RASM orqali tanlash — BIR NECHTA mahsulot bir
+/// ekranda ko'rsatiladi (loyihada bir necha rang tanlash kerak bo'lgan
+/// mahsulot bo'lsa, hammasi shu yerda, birma-bir sheet ochib
+/// o'tirmasdan). Tanlov FAQAT shu AR seansi uchun (xotirada) — backendga
+/// yozilmaydi, chunki rang har safar joylashtirishda erkin o'zgarishi kerak
+/// (qarang ARProductPickerView izohi).
+struct ARSessionVariantPickerView: View {
+    let items: [ARCollectionItem]
+    let initialSelections: [String: Variant]
+    let onConfirm: ([String: Variant]) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var selected: Variant?
+    @State private var selections: [String: Variant]
+
+    init(items: [ARCollectionItem], initialSelections: [String: Variant], onConfirm: @escaping ([String: Variant]) -> Void) {
+        self.items = items
+        self.initialSelections = initialSelections
+        self.onConfirm = onConfirm
+        _selections = State(initialValue: initialSelections)
+    }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 18) {
-                AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
-                    if let image = phase.image {
-                        image.resizable().aspectRatio(contentMode: .fit)
-                    } else {
-                        Color.brandPrimary.opacity(0.3)
-                    }
-                }
-                .frame(height: 160)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.horizontal)
-
-                if !product.variants.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Rangni tanlang").font(.subheadline).bold().padding(.horizontal)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 14) {
-                                ForEach(product.variants) { variant in
-                                    VariantSwatch(variant: variant, isSelected: selected?.id == variant.id) {
-                                        selected = variant
-                                    }
+            List(items) { item in
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(item.product.nameUz).bold()
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 14) {
+                            ForEach(item.product.variants) { variant in
+                                VariantSwatch(variant: variant, isSelected: selections[item.id]?.id == variant.id) {
+                                    selections[item.id] = variant
                                 }
                             }
-                            .padding(.horizontal)
                         }
                     }
                 }
-
-                Spacer()
-
-                Button {
-                    onSelect(selected ?? product.variants.first)
-                } label: {
-                    if isAdding {
-                        ProgressView().frame(maxWidth: .infinity)
-                    } else {
-                        Text("Loyihaga qo'shish").frame(maxWidth: .infinity)
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isAdding)
-                .padding()
+                .padding(.vertical, 6)
             }
-            .padding(.top)
-            .navigationTitle(product.nameUz)
+            .navigationTitle("Rangni tanlang")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Bekor") { dismiss() }
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Davom etish") {
+                        onConfirm(selections)
+                        dismiss()
+                    }
+                }
             }
-            .onAppear { selected = product.variants.first }
         }
     }
 }
