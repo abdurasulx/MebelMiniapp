@@ -2,7 +2,16 @@ from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
 
-from .models import STAGE_POSITION, ProgressUpdate, WorkflowStep, WorkflowStepInstance
+from .models import STAGE_POSITION, ApplicationStatus, ProgressUpdate, StepApplication, WorkflowStep, WorkflowStepInstance
+
+
+class StepApplicationSerializer(serializers.ModelSerializer):
+    employee_name = serializers.CharField(source="employee.user.first_name", read_only=True)
+
+    class Meta:
+        model = StepApplication
+        fields = ("id", "step", "employee", "employee_name", "status", "created_at", "decided_at")
+        read_only_fields = ("id", "step", "employee", "status", "created_at", "decided_at")
 
 
 class WorkflowStepSerializer(serializers.ModelSerializer):
@@ -66,6 +75,28 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
     updates = serializers.SerializerMethodField()
     order_display = serializers.SerializerMethodField()
     order_status = serializers.CharField(source="order.status", read_only=True, default=None)
+    open_applications_count = serializers.SerializerMethodField()
+    my_application_status = serializers.SerializerMethodField()
+
+    def get_open_applications_count(self, obj):
+        # Faqat xodimi hali yo'q ("erkin") bosqich uchun ma'noli — firma
+        # egasi/menejer shu son orqali "kimdir zayavka yubordimi" bilishi
+        # uchun (qarang FirmaProduction.jsx).
+        if obj.employee_id:
+            return 0
+        return sum(1 for a in obj.applications.all() if not a.is_deleted and a.status == ApplicationStatus.PENDING)
+
+    def get_my_application_status(self, obj):
+        # So'rovchi ustaning shu bosqichga o'zi yuborgan zayavkasi holati
+        # (bo'lmasa None) — ilovada "Zayavka yuborildi (kutilmoqda)" kabi
+        # holatni ko'rsatish uchun.
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return None
+        for a in obj.applications.all():
+            if not a.is_deleted and a.employee.user_id == request.user.id:
+                return a.status
+        return None
 
     def get_updates(self, obj):
         # `obj.updates` — filtrlanmagan teskari FK manager, is_deleted=False
@@ -93,6 +124,7 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
             "photo_requirement", "photo_requirement_display", "depends_on",
             "status", "status_display", "is_available", "deadline",
             "started_at", "completed_at", "completed_by_name", "updates", "created_at",
+            "open_applications_count", "my_application_status",
         )
         read_only_fields = (
             "id", "company", "order_index", "template_step", "depends_on", "is_available",

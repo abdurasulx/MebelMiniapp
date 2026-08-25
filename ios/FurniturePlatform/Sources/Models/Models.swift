@@ -248,6 +248,8 @@ struct WorkflowStepInstance: Codable, Identifiable {
     let deadline: String?
     let isManual: Bool?
     let updates: [WorkflowProgressUpdate]?
+    let openApplicationsCount: Int?
+    let myApplicationStatus: String?
 
     var isOverdue: Bool {
         guard let deadline, status != "completed" else { return false }

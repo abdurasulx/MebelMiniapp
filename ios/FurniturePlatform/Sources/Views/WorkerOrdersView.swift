@@ -11,9 +11,11 @@ import SwiftUI
 struct WorkerOrdersView: View {
     @State private var orders: [Order] = []
     @State private var myTasks: [WorkflowStepInstance] = []
+    @State private var openTasks: [WorkflowStepInstance] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var isOffline = false
+    @State private var applyingId: String?
 
     private var manualTasks: [WorkflowStepInstance] { myTasks.filter { $0.order == nil } }
 
@@ -32,10 +34,24 @@ struct WorkerOrdersView: View {
                         ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if let errorMessage {
                         Text(errorMessage).foregroundStyle(.red).padding()
-                    } else if orders.isEmpty && manualTasks.isEmpty {
+                    } else if orders.isEmpty && manualTasks.isEmpty && openTasks.isEmpty {
                         Text("Hozircha vazifa yo'q").foregroundStyle(.secondary)
                     } else {
                         List {
+                            if !openTasks.isEmpty {
+                                Section {
+                                    ForEach(openTasks) { step in
+                                        OpenTaskRowView(
+                                            step: step, applying: applyingId == step.id,
+                                            onApply: { Task { await apply(step) } }
+                                        )
+                                    }
+                                } header: {
+                                    Text("Erkin topshiriqlar")
+                                } footer: {
+                                    Text("Bu bosqichlarga hali usta biriktirilmagan — zayavka yuboring, firma egasi tasdiqlasa sizga o'tadi.")
+                                }
+                            }
                             if !manualTasks.isEmpty {
                                 Section("Qo'shimcha vazifalar") {
                                     ForEach(manualTasks) { step in
@@ -65,9 +81,11 @@ struct WorkerOrdersView: View {
         do {
             async let ordersResult: Paginated<Order> = APIClient.shared.get("/orders/", auth: true)
             async let tasksResult: Paginated<WorkflowStepInstance> = APIClient.shared.get("/workflow-instances/", auth: true)
-            let (o, t) = try await (ordersResult, tasksResult)
+            async let openResult: Paginated<WorkflowStepInstance> = APIClient.shared.get("/workflow-instances/open/", auth: true)
+            let (o, t, open) = try await (ordersResult, tasksResult, openResult)
             orders = o.results
             myTasks = t.results
+            openTasks = open.results
         } catch {
             if OfflineView.isOffline(error) {
                 isOffline = true
@@ -76,6 +94,22 @@ struct WorkerOrdersView: View {
             }
         }
         isLoading = false
+    }
+
+    /// Xodimi hali yo'q ("erkin") bosqichga zayavka yuboradi — firma egasi
+    /// tasdiqlashini kutadi, darhol biriktirmaydi (qarang backend `apply`).
+    private func apply(_ step: WorkflowStepInstance) async {
+        applyingId = step.id
+        struct EmptyBody: Encodable {}
+        do {
+            let _: WorkflowStepInstance = try await APIClient.shared.post(
+                "/workflow-instances/\(step.id)/apply/", body: EmptyBody(), auth: true
+            )
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        applyingId = nil
     }
 }
 
@@ -153,6 +187,41 @@ private struct OrderCardView: View {
             errorMessage = error.localizedDescription
         }
         busy = false
+    }
+}
+
+/// Xodimi hali biriktirilmagan ("erkin") bosqich — usta "Zayavka yuborish"ni
+/// bosadi, firma egasi tasdiqlaguncha "Kutilmoqda" holatida turadi (qarang
+/// FirmaProduction.jsx OpenPoolView bilan bir xil g'oya).
+private struct OpenTaskRowView: View {
+    let step: WorkflowStepInstance
+    let applying: Bool
+    let onApply: () -> Void
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(step.name).font(.subheadline)
+                Text(
+                    [step.orderDisplay.map { "Buyurtma \($0)" }, step.roleDisplay]
+                        .compactMap { $0 }.joined(separator: " · ")
+                )
+                .font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if step.myApplicationStatus == "pending" {
+                Text("Kutilmoqda")
+                    .font(.caption2)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(Capsule())
+            } else if applying {
+                ProgressView()
+            } else {
+                Button("Zayavka yuborish", action: onApply).font(.caption)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

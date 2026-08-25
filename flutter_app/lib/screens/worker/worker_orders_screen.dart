@@ -21,8 +21,10 @@ class WorkerOrdersScreen extends StatefulWidget {
 class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   List<Order> _orders = [];
   List<WorkflowStepInstance> _myTasks = [];
+  List<WorkflowStepInstance> _openTasks = [];
   bool _loading = true;
   Object? _error;
+  String? _applyingId;
 
   @override
   void initState() {
@@ -46,14 +48,41 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
         (j) => Paginated<WorkflowStepInstance>.fromJson(j, WorkflowStepInstance.fromJson),
         auth: true,
       );
+      final openPage = await ApiClient.instance.get(
+        '/workflow-instances/open/',
+        (j) => Paginated<WorkflowStepInstance>.fromJson(j, WorkflowStepInstance.fromJson),
+        auth: true,
+      );
       setState(() {
         _orders = ordersPage.results;
         _myTasks = tasksPage.results;
+        _openTasks = openPage.results;
       });
     } catch (e) {
       setState(() => _error = e);
     } finally {
       setState(() => _loading = false);
+    }
+  }
+
+  /// Xodimi hali yo'q ("erkin") bosqichga zayavka yuboradi — firma egasi
+  /// tasdiqlashini kutadi, darhol biriktirmaydi (qarang backend `apply`).
+  Future<void> _applyToOpenTask(WorkflowStepInstance step) async {
+    setState(() => _applyingId = step.id);
+    try {
+      await ApiClient.instance.post(
+        '/workflow-instances/${step.id}/apply/',
+        (j) => j,
+        body: {},
+        auth: true,
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _applyingId = null);
     }
   }
 
@@ -185,6 +214,31 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                 : ListView(
                     padding: const EdgeInsets.all(12),
                     children: [
+                      if (_openTasks.isNotEmpty) ...[
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8, left: 4),
+                          child: Text('Erkin topshiriqlar', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8, left: 4, right: 4),
+                          child: Text(
+                            'Bu bosqichlarga hali usta biriktirilmagan — zayavka yuboring, firma egasi tasdiqlasa sizga o\'tadi.',
+                            style: TextStyle(fontSize: 12, color: Colors.black54),
+                          ),
+                        ),
+                        Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            children: _openTasks
+                                .map((step) => _OpenTaskTile(
+                                      step: step,
+                                      applying: _applyingId == step.id,
+                                      onApply: () => _applyToOpenTask(step),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                      ],
                       if (manualTasks.isNotEmpty) ...[
                         const Padding(
                           padding: EdgeInsets.only(bottom: 8, left: 4),
@@ -362,6 +416,39 @@ class _StepTile extends StatelessWidget {
                   ],
                 )
               : null,
+    );
+  }
+}
+
+/// Xodimi hali biriktirilmagan ("erkin") bosqich — usta "Zayavka yuborish"ni
+/// bosadi, firma egasi tasdiqlaguncha "Kutilmoqda" holatida turadi (qarang
+/// FirmaProduction.jsx OpenPoolView bilan bir xil g'oya).
+class _OpenTaskTile extends StatelessWidget {
+  final WorkflowStepInstance step;
+  final bool applying;
+  final VoidCallback onApply;
+  const _OpenTaskTile({required this.step, required this.applying, required this.onApply});
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = step.myApplicationStatus == 'pending';
+    return ListTile(
+      dense: true,
+      title: Text(step.name),
+      subtitle: Text(
+        [
+          if (step.orderDisplay != null) 'Buyurtma ${step.orderDisplay}',
+          if (step.roleDisplay != null) step.roleDisplay!,
+        ].join(' · '),
+      ),
+      trailing: pending
+          ? const Chip(label: Text('Kutilmoqda', style: TextStyle(fontSize: 11)))
+          : OutlinedButton(
+              onPressed: applying ? null : onApply,
+              child: applying
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Zayavka yuborish'),
+            ),
     );
   }
 }

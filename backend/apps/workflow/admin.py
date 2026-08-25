@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ProgressUpdate, WorkflowStep, WorkflowStepInstance
+from .models import ProgressUpdate, StepApplication, WorkflowStep, WorkflowStepInstance
 
 
 @admin.register(WorkflowStep)
@@ -18,3 +18,9 @@ class WorkflowStepInstanceAdmin(admin.ModelAdmin):
 @admin.register(ProgressUpdate)
 class ProgressUpdateAdmin(admin.ModelAdmin):
     list_display = ("step", "employee", "is_completion", "created_at")
+
+
+@admin.register(StepApplication)
+class StepApplicationAdmin(admin.ModelAdmin):
+    list_display = ("step", "employee", "status", "created_at", "decided_at")
+    list_filter = ("status",)

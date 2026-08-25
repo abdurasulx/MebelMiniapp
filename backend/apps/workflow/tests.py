@@ -30,9 +30,24 @@ class WorkflowServiceTests(TestCase):
         self.step2 = WorkflowStep.objects.create(product=self.product, order_index=1, name="Yig'ish")
         self.step2.depends_on.set([self.step1])
 
-    def test_independent_step_starts_immediately_dependent_stays_pending(self):
+    def test_independent_unassigned_step_stays_pending_but_available_dependent_stays_pending(self):
+        # Xodimi biriktirilmagan ("erkin") bosqich bog'liqlik yo'q bo'lsa ham
+        # avtomatik IN_PROGRESS bo'lmaydi — hech kim hali ish boshlamagan
+        # bo'ladi, faqat is_available=True bo'lib "erkin topshiriqlar
+        # hovuzi"da ko'rinadi (qarang StepApplication/open_pool).
         instances = create_workflow_instances(self.order, self.product)
         self.assertEqual(len(instances), 2)
+        by_name = {i.name: i for i in instances}
+        self.assertEqual(by_name["Kesish"].status, StepStatus.PENDING)
+        self.assertTrue(by_name["Kesish"].is_available)
+        self.assertEqual(by_name["Yig'ish"].status, StepStatus.PENDING)
+        self.assertFalse(by_name["Yig'ish"].is_available)
+
+    def test_independent_assigned_step_starts_immediately(self):
+        employee = Employee.objects.create(company=self.company, user=self.owner, positions=["usta"])
+        self.step1.employee = employee
+        self.step1.save(update_fields=["employee"])
+        instances = create_workflow_instances(self.order, self.product)
         by_name = {i.name: i for i in instances}
         self.assertEqual(by_name["Kesish"].status, StepStatus.IN_PROGRESS)
         self.assertEqual(by_name["Yig'ish"].status, StepStatus.PENDING)

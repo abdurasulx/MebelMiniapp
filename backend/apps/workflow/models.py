@@ -156,7 +156,13 @@ class WorkflowStepInstance(BaseModel):
         return not deps or all(d.status == StepStatus.COMPLETED for d in deps)
 
     def activate_if_ready(self):
-        if self.status == StepStatus.PENDING and self.is_available:
+        # Xodimi hali biriktirilmagan ("erkin") bosqichni avtomatik
+        # IN_PROGRESS qilib qo'yish noto'g'ri — hech kim ish boshlamagan
+        # bo'lsa ham "bajarilmoqda" ko'rinib qolar edi. Bunday bosqich
+        # PENDING holida qoladi, lekin `is_available=True` bo'lgani uchun
+        # mos lavozimdagi ustalarga "erkin topshiriqlar" hovuzida ko'rinadi
+        # (qarang StepApplication, views.py::open/apply/approve_application).
+        if self.status == StepStatus.PENDING and self.is_available and self.employee_id:
             self.status = StepStatus.IN_PROGRESS
             self.started_at = timezone.now()
             self.save(update_fields=["status", "started_at", "updated_at"])
@@ -165,14 +171,47 @@ class WorkflowStepInstance(BaseModel):
         """`required_by` orasida shu bosqich tugashi bilan boshlanishga tayyor
         bo'lgan bosqichlarni faollashtiradi va ularni qaytaradi — chaqiruvchi
         (`views.py::complete`) shu ro'yxat orqali tegishli xodimlarga
-        xabarnoma yuboradi (qarang apps.notifications.services.notify_task_available)."""
+        xabarnoma yuboradi (qarang apps.notifications.services.notify_task_available).
+        Xodimi biriktirilmagan ("erkin") bog'liq bosqichlar `newly_open`da
+        qaytariladi — ular status o'zgarmasa ham (PENDING qoladi) endi mos
+        lavozimdagi ustalar hovuzida ko'rinadi va e'lon qilinishi kerak."""
         activated = []
+        newly_open = []
         for dependent in self.required_by.filter(is_deleted=False):
             was_pending = dependent.status == StepStatus.PENDING
             dependent.activate_if_ready()
             if was_pending and dependent.status == StepStatus.IN_PROGRESS:
                 activated.append(dependent)
-        return activated
+            elif was_pending and not dependent.employee_id and dependent.is_available:
+                newly_open.append(dependent)
+        return activated, newly_open
+
+
+class ApplicationStatus(models.TextChoices):
+    PENDING = "pending", "Kutilmoqda"
+    APPROVED = "approved", "Tasdiqlangan"
+    REJECTED = "rejected", "Rad etilgan"
+
+
+class StepApplication(BaseModel):
+    """Xodimi biriktirilmagan ("erkin") bosqichga usta yuborgan zayavka —
+    bitta bosqichga bir nechta usta murojaat qilishi mumkin, lekin firma
+    egasi/menejer bittasini tasdiqlaganda qolganlari avtomatik rad etiladi
+    (qarang views.py::approve_application). Bosqich boshqa usta tomonidan
+    allaqachon (employee biriktirilgan) egallangan bo'lsa, yangi zayavka
+    qabul qilinmaydi."""
+
+    step = models.ForeignKey(WorkflowStepInstance, on_delete=models.CASCADE, related_name="applications")
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="step_applications")
+    status = models.CharField(max_length=10, choices=ApplicationStatus.choices, default=ApplicationStatus.PENDING)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("created_at",)
+        unique_together = ("step", "employee")
+
+    def __str__(self):
+        return f"{self.step} <- {self.employee} ({self.status})"
 
 
 class ProgressUpdate(BaseModel, StoredFileMixin):

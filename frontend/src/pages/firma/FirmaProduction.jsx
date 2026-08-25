@@ -43,7 +43,7 @@ export default function FirmaProduction() {
         ))}
       </div>
       <p className="text-xs" style={{ color: "var(--muted)" }}>{TAB_HINTS[tab]}</p>
-      {tab === "pipeline" && <WorkflowPipeline />}
+      {tab === "pipeline" && <WorkflowPipeline isManager={isManager} />}
       {tab === "tasks" && (isManager ? <ManagerView /> : <EmployeeView />)}
       {tab === "capacity" && <CapacityView />}
     </div>
@@ -103,7 +103,7 @@ function CapacityView() {
 
 /* ================= Avtomatik ishlab chiqarish pipeline ================= */
 
-function WorkflowPipeline() {
+function WorkflowPipeline({ isManager }) {
   const [instances, setInstances] = useState([]);
   const [error, setError] = useState("");
   const [nextPage, setNextPage] = useState(null);
@@ -165,6 +165,7 @@ function WorkflowPipeline() {
   return (
     <div className="flex flex-col gap-4">
       {error && <div className="error">{error}</div>}
+      {!isManager && <OpenPoolView />}
       {groups.length === 0 && (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Hali hech qanday buyurtma uchun ishlab chiqarish bosqichi yo'q.
@@ -227,7 +228,13 @@ function WorkflowPipeline() {
                   )
                 )}
                 {step.status === "pending" && (
-                  <span className="text-xs" style={{ color: "var(--muted)" }}>Navbatda</span>
+                  isManager && step.is_available && !step.employee_name && step.open_applications_count > 0 ? (
+                    <ApplicantsControl step={step} onApproved={load} />
+                  ) : (
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                      {step.is_available && !step.employee_name ? "Navbatda (hali zayavka yo'q)" : "Navbatda"}
+                    </span>
+                  )
                 )}
               </div>
             ))}
@@ -236,6 +243,156 @@ function WorkflowPipeline() {
       ))}
       <div className="flex justify-center">
         <LoadMoreButton next={nextPage} busy={loadingMore} onClick={loadMore} />
+      </div>
+    </div>
+  );
+}
+
+/* ================= Firma egasi/menejer uchun: bosqichga kelgan zayavkalar =================
+   Har bir zayavkani ko'rsatadi, "Tasdiqlash" bosilsa shu usta biriktiriladi
+   va qolgan barcha kutilayotgan zayavkalar avtomatik rad etiladi (backend). */
+function ApplicantsControl({ step, onApproved }) {
+  const [open, setOpen] = useState(false);
+  const [applicants, setApplicants] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const [error, setError] = useState("");
+
+  const toggle = async () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (applicants === null) {
+      try {
+        const d = await api(`/workflow-instances/${step.id}/applications/`);
+        setApplicants(d);
+      } catch (e) {
+        setError(e.message);
+      }
+    }
+  };
+
+  const approve = async (applicationId) => {
+    setBusyId(applicationId);
+    setError("");
+    try {
+      await api(`/workflow-instances/${step.id}/approve-application/`, {
+        method: "POST",
+        body: { application_id: applicationId },
+      });
+      onApproved();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+        style={{ background: "color-mix(in srgb, var(--brand) 16%, transparent)", color: "var(--brand)" }}
+        onClick={toggle}
+      >
+        {step.open_applications_count} ta zayavka
+      </button>
+      {error && <div className="error text-[11px]">{error}</div>}
+      {open && (
+        <div className="flex flex-col gap-1.5 rounded-lg p-2" style={{ border: "1px solid var(--border)" }}>
+          {applicants === null && <span className="text-[11px]" style={{ color: "var(--muted)" }}>Yuklanmoqda…</span>}
+          {applicants?.map((a) => (
+            <div key={a.id} className="flex items-center gap-2 text-[11px]">
+              <span>{a.employee_name || "Nomsiz usta"}</span>
+              <button
+                className="btn !px-2 !py-0.5 text-[11px]"
+                disabled={busyId === a.id}
+                onClick={() => approve(a.id)}
+              >
+                Tasdiqlash
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ================= Usta uchun: "erkin" (xodimi hali yo'q) bosqichlar hovuzi =================
+   Bosqich boshlanishga tayyor (oldingi bosqichlar tugagan) va ustaning
+   lavozimiga mos bo'lsa shu yerda ko'rinadi — "Zayavka yuborish" bosilgach
+   firma egasi tasdiqlashini kutadi (bir vaqtda bir nechta usta yuborishi
+   mumkin, faqat bittasi tasdiqlanadi). */
+function OpenPoolView() {
+  const [steps, setSteps] = useState([]);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = () =>
+    api("/workflow-instances/open/")
+      .then((d) => setSteps(d.results || []))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const apply = async (step) => {
+    setBusyId(step.id);
+    setError("");
+    try {
+      await api(`/workflow-instances/${step.id}/apply/`, { method: "POST", body: {} });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (loading) return null;
+  if (steps.length === 0) return null;
+
+  return (
+    <div className="card flex flex-col gap-3 p-4" style={{ borderColor: "var(--brand)" }}>
+      <div className="font-semibold text-sm">Erkin topshiriqlar ({steps.length})</div>
+      <p className="text-xs" style={{ color: "var(--muted)" }}>
+        Bu bosqichlarga hali usta biriktirilmagan — zayavka yuboring, firma egasi tasdiqlasa sizga o'tadi.
+      </p>
+      {error && <div className="error">{error}</div>}
+      <div className="flex flex-col gap-2">
+        {steps.map((step) => (
+          <div
+            key={step.id}
+            className="flex flex-wrap items-center gap-3 rounded-xl p-3"
+            style={{ border: "1px solid var(--border)" }}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{step.name}</div>
+              <div className="text-xs" style={{ color: "var(--muted)" }}>
+                {step.order_display && `Buyurtma ${step.order_display} · `}
+                {step.role_display} · {step.estimated_hours} soat
+              </div>
+            </div>
+            {step.my_application_status === "pending" ? (
+              <span className="rounded-full px-2.5 py-1 text-[11px] font-medium" style={{ background: "color-mix(in srgb, var(--muted) 16%, transparent)" }}>
+                Kutilmoqda (tasdiqlanishi kutilmoqda)
+              </span>
+            ) : (
+              <button
+                className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
+                disabled={busyId === step.id}
+                onClick={() => apply(step)}
+              >
+                Zayavka yuborish
+              </button>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

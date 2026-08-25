@@ -1,3 +1,4 @@
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Case, Count, DurationField, ExpressionWrapper, F, IntegerField, Value, When
 from django.utils import timezone
 from rest_framework import permissions, viewsets
@@ -6,14 +7,29 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.companies.models import Employee
 from apps.companies.views import is_company_owner, user_company
-from apps.notifications.services import notify_task_assigned, notify_task_available
+from apps.notifications.services import (
+    notify_application_rejected,
+    notify_pool_open,
+    notify_task_assigned,
+    notify_task_available,
+)
 from apps.products.models import Product
 from apps.products.views import can_manage
 
-from .models import PhotoRequirement, ProgressUpdate, StepStatus, WorkflowStep, WorkflowStepInstance
+from .models import (
+    ApplicationStatus,
+    PhotoRequirement,
+    ProgressUpdate,
+    StepApplication,
+    StepStatus,
+    WorkflowStep,
+    WorkflowStepInstance,
+)
 from .serializers import (
     ProgressUpdateSerializer,
+    StepApplicationSerializer,
     WorkflowStepInstanceSerializer,
     WorkflowStepSerializer,
 )
@@ -91,7 +107,7 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = WorkflowStepInstance.objects.filter(is_deleted=False).select_related(
             "company", "order__customer", "employee__user", "completed_by"
-        ).prefetch_related("depends_on", "updates")
+        ).prefetch_related("depends_on", "updates", "applications__employee__user")
         user = self.request.user
         if user.role == "platform_admin":
             return qs
@@ -194,6 +210,127 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
         instance.is_deleted = True
         instance.save(update_fields=["is_deleted"])
 
+    def _get_step_or_404(self, pk):
+        try:
+            return WorkflowStepInstance.objects.select_related("company").get(pk=pk, is_deleted=False)
+        except WorkflowStepInstance.DoesNotExist:
+            raise ValidationError("Bosqich topilmadi")
+
+    @action(detail=False, methods=["get"], url_path="open")
+    def open_pool(self, request):
+        """Xodimi hali biriktirilmagan, boshlanishga tayyor (bog'liq
+        bosqichlar tugagan) va so'rovchi ustaning lavozimiga mos bosqichlar
+        — "erkin topshiriqlar hovuzi". Faqat kompaniya xodimi uchun ma'noli."""
+        company = user_company(request.user)
+        if company is None:
+            return Response([])
+        employee = Employee.objects.filter(
+            company=company, user=request.user, is_active=True, is_deleted=False
+        ).first()
+        if employee is None or not employee.positions:
+            return Response([])
+        qs = (
+            WorkflowStepInstance.objects.filter(
+                is_deleted=False, company=company, employee__isnull=True,
+                status=StepStatus.PENDING, role__in=employee.positions,
+            )
+            .exclude(depends_on__status__in=[StepStatus.PENDING, StepStatus.IN_PROGRESS])
+            .select_related("company", "order__customer", "completed_by")
+            .prefetch_related("depends_on", "updates", "applications__employee__user")
+            .distinct()
+            .order_by("order_index", "created_at")
+        )
+        page = self.paginate_queryset(qs)
+        target = page if page is not None else qs
+        serializer = self.get_serializer(target, many=True)
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def apply(self, request, pk=None):
+        """Usta "erkin" bosqichga zayavka yuboradi. Zayavka darhol
+        biriktirmaydi — firma egasi/menejer tasdiqlashi kerak (qarang
+        `approve_application`); bir nechta usta bir vaqtda zayavka yuborsa
+        ham, faqat bittasi tasdiqlanadi."""
+        instance = self._get_step_or_404(pk)
+        company = user_company(request.user)
+        if company is None or company.id != instance.company_id:
+            raise PermissionDenied("Bu bosqich sizning kompaniyangizga tegishli emas")
+        employee = Employee.objects.filter(
+            company=company, user=request.user, is_active=True, is_deleted=False
+        ).first()
+        if employee is None:
+            raise PermissionDenied("Siz bu kompaniya xodimi emassiz")
+        if instance.employee_id:
+            raise ValidationError("Bu bosqich allaqachon boshqa ustaga biriktirilgan")
+        if instance.role and instance.role not in (employee.positions or []):
+            raise ValidationError("Bu bosqich sizning lavozimingizga mos emas")
+        if not instance.is_available:
+            raise ValidationError("Bu bosqich hali boshlanishi mumkin emas — oldingi bosqichlar tugamagan")
+        try:
+            StepApplication.objects.create(step=instance, employee=employee)
+        except IntegrityError:
+            raise ValidationError("Siz bu bosqichga allaqachon zayavka yuborgansiz")
+        instance = self.get_queryset().filter(pk=instance.pk).first() or instance
+        return Response(WorkflowStepInstanceSerializer(instance, context={"request": request}).data)
+
+    @action(detail=True, methods=["get"])
+    def applications(self, request, pk=None):
+        """Bosqichga yuborilgan zayavkalar ro'yxati — faqat firma egasi/menejer."""
+        instance = self._get_step_or_404(pk)
+        company = user_company(request.user)
+        if company is None or company.id != instance.company_id or not is_company_owner(request.user, company):
+            raise PermissionDenied("Faqat firma tomoni zayavkalarni ko'radi")
+        qs = instance.applications.filter(is_deleted=False).select_related("employee__user").order_by("created_at")
+        return Response(StepApplicationSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=["post"], url_path="approve-application")
+    def approve_application(self, request, pk=None):
+        """Zayavkalardan bittasini tanlaydi — shu usta bosqichga
+        biriktiriladi, qolgan barcha kutilayotgan zayavkalar avtomatik rad
+        etiladi (va endi hech kimning ilovasida ko'rinmaydi, chunki
+        `open_pool` faqat `employee__isnull=True` bosqichlarni qaytaradi)."""
+        instance = self._get_step_or_404(pk)
+        company = user_company(request.user)
+        if company is None or company.id != instance.company_id or not is_company_owner(request.user, company):
+            raise PermissionDenied("Faqat firma tomoni tasdiqlaydi")
+        if instance.employee_id:
+            raise ValidationError("Bu bosqich allaqachon biriktirilgan")
+        application_id = request.data.get("application_id")
+        if not application_id:
+            raise ValidationError("application_id kerak")
+        try:
+            application = instance.applications.get(
+                pk=application_id, is_deleted=False, status=ApplicationStatus.PENDING
+            )
+        except StepApplication.DoesNotExist:
+            raise ValidationError("Zayavka topilmadi yoki allaqachon hal qilingan")
+
+        now = timezone.now()
+        with transaction.atomic():
+            instance.employee = application.employee
+            instance.save(update_fields=["employee", "updated_at"])
+            application.status = ApplicationStatus.APPROVED
+            application.decided_at = now
+            application.save(update_fields=["status", "decided_at", "updated_at"])
+            rejected = list(
+                instance.applications.filter(is_deleted=False, status=ApplicationStatus.PENDING).exclude(
+                    pk=application.pk
+                )
+            )
+            instance.applications.filter(is_deleted=False, status=ApplicationStatus.PENDING).exclude(
+                pk=application.pk
+            ).update(status=ApplicationStatus.REJECTED, decided_at=now)
+
+        instance.activate_if_ready()
+        notify_task_assigned(instance)
+        for r in rejected:
+            notify_application_rejected(r)
+
+        instance = self.get_queryset().get(pk=instance.pk)
+        return Response(WorkflowStepInstanceSerializer(instance, context={"request": request}).data)
+
     @action(detail=True, methods=["post"])
     def progress(self, request, pk=None):
         """Ishchi tomonidan cheksiz sonda qoldiriladigan yangilanish (rasm/izoh)."""
@@ -234,9 +371,12 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
         instance.completed_at = timezone.now()
         instance.completed_by = request.user
         instance.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
-        for activated_step in instance.activate_dependents():
+        activated, newly_open = instance.activate_dependents()
+        for activated_step in activated:
             if activated_step.employee_id:
                 notify_task_available(activated_step)
+        for open_step in newly_open:
+            notify_pool_open(open_step)
         if instance.order_id:
             sync_order_status_on_step_completion(instance.order)
 

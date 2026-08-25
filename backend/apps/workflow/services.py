@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from apps.notifications.services import notify_order_status, notify_task_assigned
+from apps.notifications.services import notify_order_status, notify_pool_open, notify_task_assigned
 
 from .models import StepStatus, WorkflowStepInstance
 
@@ -65,11 +65,16 @@ def create_workflow_instances(order, product):
             instance.depends_on.set(deps)
 
     for instance in instances:
-        if instance.is_available:
+        if instance.is_available and instance.employee_id:
+            # Faqat xodimi aniq biriktirilgan bosqich darhol boshlanadi —
+            # xodimsiz ("erkin") bosqich PENDING qoladi va mos lavozimdagi
+            # ustalar hovuzida ko'rinadi (qarang activate_if_ready izohi).
             instance.status = StepStatus.IN_PROGRESS
             instance.started_at = now
             instance.save(update_fields=["status", "started_at"])
         if instance.employee_id:
             notify_task_assigned(instance)
+        elif instance.is_available:
+            notify_pool_open(instance)
 
     return instances

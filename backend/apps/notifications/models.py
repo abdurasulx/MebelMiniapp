@@ -9,6 +9,8 @@ class NotificationType(models.TextChoices):
     TASK_ASSIGNED = "task_assigned", "Vazifa tayinlandi"
     TASK_AVAILABLE = "task_available", "Vazifa boshlashga tayyor"
     MATERIAL_SUGGESTION = "material_suggestion", "Material tavsiyasi"
+    TASK_POOL_OPEN = "task_pool_open", "Yangi erkin topshiriq"
+    TASK_APPLICATION_REJECTED = "task_application_rejected", "Zayavka rad etildi"
 
 
 class Notification(BaseModel):
@@ -21,7 +23,7 @@ class Notification(BaseModel):
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
     )
-    notif_type = models.CharField(max_length=20, choices=NotificationType.choices)
+    notif_type = models.CharField(max_length=30, choices=NotificationType.choices)
     title = models.CharField(max_length=200)
     body = models.CharField(max_length=500, blank=True)
     order = models.ForeignKey(

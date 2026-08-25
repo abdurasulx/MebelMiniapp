@@ -388,6 +388,8 @@ class WorkflowStepInstance {
   final String? deadline;
   final bool isManual;
   final List<WorkflowProgressUpdate> updates;
+  final int openApplicationsCount;
+  final String? myApplicationStatus;
 
   WorkflowStepInstance({
     required this.id,
@@ -406,6 +408,8 @@ class WorkflowStepInstance {
     this.deadline,
     this.isManual = false,
     this.updates = const [],
+    this.openApplicationsCount = 0,
+    this.myApplicationStatus,
   });
 
   bool get isOverdue {
@@ -434,6 +438,8 @@ class WorkflowStepInstance {
         updates: (j['updates'] as List? ?? [])
             .map((e) => WorkflowProgressUpdate.fromJson(e as Map<String, dynamic>))
             .toList(),
+        openApplicationsCount: j['open_applications_count'] ?? 0,
+        myApplicationStatus: j['my_application_status'],
       );
 }
 
