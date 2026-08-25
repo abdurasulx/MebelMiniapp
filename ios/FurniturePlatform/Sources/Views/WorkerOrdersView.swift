@@ -1,4 +1,3 @@
-import PhotosUI
 import SwiftUI
 
 /// Xodim (ustadan tortib sotuvchi/haydovchigacha) — o'z firmasi
@@ -250,10 +249,7 @@ private struct StepUpdateSheet: View {
     @State private var errorMessage: String?
 
     @State private var photoData: Data?
-    @State private var showSourceDialog = false
     @State private var showCamera = false
-    @State private var showGalleryPicker = false
-    @State private var photoPickerItem: PhotosPickerItem?
 
     private var photoRequired: Bool { isCompletion && step.photoRequirement == "required" }
 
@@ -269,9 +265,9 @@ private struct StepUpdateSheet: View {
                         Image(uiImage: uiImage).resizable().scaledToFit().frame(height: 160)
                     }
                     Button {
-                        showSourceDialog = true
+                        showCamera = true
                     } label: {
-                        Label(photoData == nil ? "Rasm olish" : "Rasm olindi ✓", systemImage: "camera")
+                        Label(photoData == nil ? "Kamerani ochish" : "Rasm olindi ✓", systemImage: "camera")
                     }
                 } header: {
                     if photoRequired { Text("Bu bosqichni yakunlash uchun rasm majburiy") }
@@ -290,24 +286,11 @@ private struct StepUpdateSheet: View {
                     Button(busy ? "..." : "Yuborish") { Task { await submit() } }.disabled(busy)
                 }
             }
-            .confirmationDialog("Rasm qo'shish", isPresented: $showSourceDialog, titleVisibility: .visible) {
-                Button("Kamera") { showCamera = true }
-                Button("Galereya") { showGalleryPicker = true }
-                Button("Bekor qilish", role: .cancel) {}
-            }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraImagePicker { image in
                     photoData = image.jpegData(compressionQuality: 0.85)
                 }
                 .ignoresSafeArea()
-            }
-            .photosPicker(isPresented: $showGalleryPicker, selection: $photoPickerItem, matching: .images)
-            .onChange(of: photoPickerItem) { _, newItem in
-                guard let newItem else { return }
-                Task {
-                    photoData = try? await newItem.loadTransferable(type: Data.self)
-                    photoPickerItem = nil
-                }
             }
         }
     }

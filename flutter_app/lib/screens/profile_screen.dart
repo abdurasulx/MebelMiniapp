@@ -10,6 +10,7 @@ import '../positions.dart';
 import '../widgets/phone_verify_dialog.dart';
 import 'auth_screen.dart';
 import 'notifications_screen.dart';
+import 'order_detail_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -428,35 +429,47 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 .take(5)
                 .map(
                   (o) => Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            o.companyName,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '${formatSom(o.totalPrice)} so\'m',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => OrderDetailScreen(order: o)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    o.companyName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    '${formatSom(o.totalPrice)} so\'m',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFECC299).withOpacity(0.4),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      o.statusDisplay,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFECC299).withOpacity(0.4),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              o.statusDisplay,
-                              style: const TextStyle(fontSize: 11),
-                            ),
-                          ),
-                        ],
+                            const Icon(Icons.chevron_right, color: Color(0xFF8A7357)),
+                          ],
+                        ),
                       ),
                     ),
                   ),

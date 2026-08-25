@@ -267,15 +267,17 @@ private struct ProfileView: View {
                     // Ro'yxat cheklanadi: ega uchun kompaniyaning barcha buyurtmalari
                     // ko'p bo'lishi mumkin — bu yerda faqat so'nggilari ko'rsatiladi.
                     ForEach(orders.prefix(5)) { order in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(order.companyName).bold()
-                            Text("\(order.totalPrice.formattedSom) so'm")
-                                .font(.subheadline)
-                            Text(order.statusDisplay)
-                                .font(.caption)
-                                .padding(.horizontal, 8).padding(.vertical, 2)
-                                .background(Color.brandPrimary.opacity(0.3))
-                                .clipShape(Capsule())
+                        NavigationLink(destination: CustomerOrderDetailView(order: order)) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(order.companyName).bold()
+                                Text("\(order.totalPrice.formattedSom) so'm")
+                                    .font(.subheadline)
+                                Text(order.statusDisplay)
+                                    .font(.caption)
+                                    .padding(.horizontal, 8).padding(.vertical, 2)
+                                    .background(Color.brandPrimary.opacity(0.3))
+                                    .clipShape(Capsule())
+                            }
                         }
                     }
                     if orders.count > 5 {
@@ -606,6 +608,82 @@ struct OrderSummary: Codable, Identifiable {
     let companyName: String
     let statusDisplay: String
     let totalPrice: String
+    let progressPercent: Int?
+    let workflowSteps: [WorkflowStepInstance]?
+}
+
+/// Mijoz tomonidagi buyurtma tafsiloti — ishlab chiqarish bosqichlarini
+/// (workflowSteps) FAQAT O'QISH uchun ko'rsatadi (rasm/izoh bilan birga),
+/// web'dagi read-only WorkflowPanel bilan bir xil g'oyada. Bosqichni
+/// boshlash/yakunlash faqat ustaning o'z ekranida (WorkerOrdersView).
+struct CustomerOrderDetailView: View {
+    let order: OrderSummary
+
+    private func statusColor(_ status: String) -> Color {
+        switch status {
+        case "completed": return .green
+        case "in_progress": return .orange
+        default: return .secondary
+        }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                Text("\(order.totalPrice.formattedSom) so'm").font(.title3).bold()
+                Text(order.statusDisplay)
+                    .font(.caption)
+                    .padding(.horizontal, 8).padding(.vertical, 2)
+                    .background(Color.brandPrimary.opacity(0.3))
+                    .clipShape(Capsule())
+                if let percent = order.progressPercent {
+                    ProgressView(value: Double(percent), total: 100)
+                    Text("Ishlab chiqarish: \(percent)%").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+
+            if let steps = order.workflowSteps, !steps.isEmpty {
+                Section("Ishlab chiqarish jarayoni") {
+                    ForEach(steps) { step in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Circle().fill(statusColor(step.status)).frame(width: 8, height: 8)
+                                Text(step.name).bold()
+                                Spacer()
+                                Text(step.statusDisplay)
+                                    .font(.caption2)
+                                    .foregroundStyle(statusColor(step.status))
+                            }
+                            if let employeeName = step.employeeName, !employeeName.isEmpty {
+                                Text("Ijrochi: \(employeeName)")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            if let lastUpdate = step.updates?.last {
+                                if let imageUrl = lastUpdate.imageUrl, let url = URL(string: imageUrl) {
+                                    AsyncImage(url: url) { phase in
+                                        if let image = phase.image {
+                                            image.resizable().aspectRatio(contentMode: .fill)
+                                        } else {
+                                            Color.brandPrimary.opacity(0.15)
+                                        }
+                                    }
+                                    .frame(height: 140)
+                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
+                                if let comment = lastUpdate.comment, !comment.isEmpty {
+                                    Text(comment).font(.caption)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+        }
+        .navigationTitle(order.companyName)
+        .navigationBarTitleDisplayMode(.inline)
+    }
 }
 
 extension String {

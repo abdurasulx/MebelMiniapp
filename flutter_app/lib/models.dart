@@ -375,6 +375,7 @@ class WorkflowStepInstance {
   final String description;
   final String? stageDisplay;
   final String? roleDisplay;
+  final String? employeeName;
   final String status;
   final String statusDisplay;
   final bool isAvailable;
@@ -386,6 +387,7 @@ class WorkflowStepInstance {
   final String? orderStatus;
   final String? deadline;
   final bool isManual;
+  final List<WorkflowProgressUpdate> updates;
 
   WorkflowStepInstance({
     required this.id,
@@ -393,6 +395,7 @@ class WorkflowStepInstance {
     this.description = '',
     this.stageDisplay,
     this.roleDisplay,
+    this.employeeName,
     required this.status,
     required this.statusDisplay,
     required this.isAvailable,
@@ -402,6 +405,7 @@ class WorkflowStepInstance {
     this.orderStatus,
     this.deadline,
     this.isManual = false,
+    this.updates = const [],
   });
 
   bool get isOverdue {
@@ -417,6 +421,7 @@ class WorkflowStepInstance {
         description: j['description'] ?? '',
         stageDisplay: j['stage_display'],
         roleDisplay: j['role_display'],
+        employeeName: j['employee_name'],
         status: j['status'],
         statusDisplay: j['status_display'],
         isAvailable: j['is_available'] ?? false,
@@ -426,6 +431,38 @@ class WorkflowStepInstance {
         orderStatus: j['order_status'],
         deadline: j['deadline'],
         isManual: j['is_manual'] ?? false,
+        updates: (j['updates'] as List? ?? [])
+            .map((e) => WorkflowProgressUpdate.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+/// Bosqich bo'yicha usta qo'shgan yangilanish (rasm + izoh) — mijoz
+/// tomonida faqat o'qish uchun (web'dagi WorkflowPanel bilan bir xil).
+class WorkflowProgressUpdate {
+  final String id;
+  final String? imageUrl;
+  final String comment;
+  final String? employeeName;
+  final bool isCompletion;
+  final String createdAt;
+
+  WorkflowProgressUpdate({
+    required this.id,
+    this.imageUrl,
+    this.comment = '',
+    this.employeeName,
+    this.isCompletion = false,
+    required this.createdAt,
+  });
+
+  factory WorkflowProgressUpdate.fromJson(Map<String, dynamic> j) => WorkflowProgressUpdate(
+        id: j['id'],
+        imageUrl: j['image_url'],
+        comment: j['comment'] ?? '',
+        employeeName: j['employee_name'],
+        isCompletion: j['is_completion'] ?? false,
+        createdAt: j['created_at'] ?? '',
       );
 }
 

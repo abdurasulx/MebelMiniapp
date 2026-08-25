@@ -235,6 +235,7 @@ struct WorkflowStepInstance: Codable, Identifiable {
     let description: String?
     let stageDisplay: String?
     let roleDisplay: String?
+    let employeeName: String?
     let status: String
     let statusDisplay: String
     let isAvailable: Bool
@@ -246,6 +247,7 @@ struct WorkflowStepInstance: Codable, Identifiable {
     let orderStatus: String?
     let deadline: String?
     let isManual: Bool?
+    let updates: [WorkflowProgressUpdate]?
 
     var isOverdue: Bool {
         guard let deadline, status != "completed" else { return false }
@@ -254,6 +256,17 @@ struct WorkflowStepInstance: Codable, Identifiable {
         guard let date = formatter.date(from: deadline) else { return false }
         return date < Calendar.current.startOfDay(for: Date())
     }
+}
+
+/// Bosqich bo'yicha usta qo'shgan yangilanish (rasm + izoh) — mijoz
+/// tomonida faqat o'qish uchun (web'dagi WorkflowPanel bilan bir xil).
+struct WorkflowProgressUpdate: Codable, Identifiable {
+    let id: String
+    let imageUrl: String?
+    let comment: String?
+    let employeeName: String?
+    let isCompletion: Bool?
+    let createdAt: String?
 }
 
 /// Ombor — faqat ko'rish uchun (mobil'da hozircha faqat o'qish, boshqaruv
