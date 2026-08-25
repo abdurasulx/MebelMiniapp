@@ -9,6 +9,7 @@ import {
 import { api } from "../../api";
 import { portalURLFor } from "../../portal";
 import { POSITIONS } from "../../positions";
+import Model3DPartPicker from "../../components/Model3DPartPicker";
 
 // Bu sahifa o'z ichida mustaqil "enterprise" rang tizimidan foydalanadi —
 // platformaning umumiy amber brendi (sidebar, boshqa sahifalar) o'zgarishsiz
@@ -1098,7 +1099,9 @@ function BomTab({ product }) {
   const [materials, setMaterials] = useState([]);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ material: "", quantity_per_unit: "", cut_length: "", cut_width: "" });
+  const [showPartPicker, setShowPartPicker] = useState(false);
+  const [form, setForm] = useState({ material: "", quantity_per_unit: "", cut_length: "", cut_width: "", part_name: "" });
+  const glbUrl = product.model3d?.glb_url;
 
   const load = () =>
     Promise.all([
@@ -1131,7 +1134,7 @@ function BomTab({ product }) {
           cut_width: isSheet ? (form.cut_width || null) : null,
         },
       });
-      setForm({ material: "", quantity_per_unit: "", cut_length: "", cut_width: "" });
+      setForm({ material: "", quantity_per_unit: "", cut_length: "", cut_width: "", part_name: "" });
       setShowForm(false);
       load();
     } catch (err) {
@@ -1183,6 +1186,23 @@ function BomTab({ product }) {
             <input className="input" type="number" step={selectedMaterial?.dimension_type === "sheet" || selectedMaterial?.stock_unit_length ? "1" : "0.0001"} min="0" value={form.quantity_per_unit}
               onChange={(e) => setForm({ ...form, quantity_per_unit: e.target.value })} required />
           </div>
+          <div>
+            <label className="label">3D qism (ixtiyoriy)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input className="input" style={{ width: 140 }} readOnly value={form.part_name} placeholder="Belgilanmagan" />
+              {glbUrl && (
+                <EntButton small type="button" onClick={() => setShowPartPicker(true)}>
+                  3D'dan tanlash
+                </EntButton>
+              )}
+              {form.part_name && (
+                <button type="button" onClick={() => setForm({ ...form, part_name: "" })}
+                  style={{ background: "transparent", border: "none", color: ENT.danger, cursor: "pointer", fontSize: 12 }}>
+                  Tozalash
+                </button>
+              )}
+            </div>
+          </div>
           {selectedMaterial?.dimension_type === "sheet" ? (
             <>
               <div>
@@ -1206,6 +1226,16 @@ function BomTab({ product }) {
           <EntButton small type="submit">Qo'shish</EntButton>
         </form>
       )}
+      {showPartPicker && glbUrl && (
+        <Model3DPartPicker
+          glbUrl={glbUrl}
+          onClose={() => setShowPartPicker(false)}
+          onSelect={(name) => {
+            setForm({ ...form, part_name: name });
+            setShowPartPicker(false);
+          }}
+        />
+      )}
       {error && <div className="error">{error}</div>}
       {lines.length === 0 ? (
         <p style={{ fontSize: 13, color: ENT.muted }}>
@@ -1217,6 +1247,9 @@ function BomTab({ product }) {
             {lines.map((l) => (
               <div key={l.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", border: `1px solid ${ENT.border}`, borderRadius: 8 }}>
                 <span style={{ fontSize: 13, color: ENT.text }}>
+                  {l.part_name && (
+                    <span style={{ color: ENT.muted, fontSize: 11, marginRight: 6 }}>[{l.part_name}]</span>
+                  )}
                   {l.cut_width
                     ? `${l.material_name} — ${l.quantity_per_unit} dona x ${l.cut_width}x${l.cut_length}${l.material_unit}`
                     : l.cut_length

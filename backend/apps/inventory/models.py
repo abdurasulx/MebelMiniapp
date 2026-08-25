@@ -163,17 +163,27 @@ class BillOfMaterial(BaseModel):
     # `cut_length` o'lchamli to'g'ri burchak), `quantity_per_unit` — kerakli
     # bo'laklar soni (`cut_length` yolg'iz bo'lganidagi CHIZIQLI rejimdan farqli).
     cut_width = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    # Mahsulotning 3D modelidagi (GLB) qism nomi — masalan "oyoq_1",
+    # "orqa_suyanchiq". Frontend GLB'ni o'zi yuklab, node nomlarini o'qib,
+    # foydalanuvchiga bosib tanlash imkonini beradi (qarang
+    # ModelSceneViewer.jsx'dagi shunga o'xshash traversal); backend faqat
+    # tanlangan nomni oddiy matn sifatida saqlaydi, GLB'ni tahlil qilmaydi.
+    part_name = models.CharField(max_length=200, blank=True, default="")
 
     class Meta:
-        unique_together = ("product", "material")
+        # Bir xil material bir nechta qismga (masalan ham oyoqqa, ham
+        # suyanchiqqa) turli kesim o'lchamida biriktirilishi mumkin bo'lgani
+        # uchun `part_name` ham unique kalitga kiradi.
+        unique_together = ("product", "material", "part_name")
         ordering = ("material__name",)
 
     def __str__(self):
+        part = f" [{self.part_name}]" if self.part_name else ""
         if self.cut_width:
-            return f"{self.product.name_uz}: {self.quantity_per_unit} dona x {self.cut_width}x{self.cut_length}{self.material.unit} ({self.material.name})"
+            return f"{self.product.name_uz}{part}: {self.quantity_per_unit} dona x {self.cut_width}x{self.cut_length}{self.material.unit} ({self.material.name})"
         if self.cut_length:
-            return f"{self.product.name_uz}: {self.quantity_per_unit} dona x {self.cut_length}{self.material.unit} ({self.material.name})"
-        return f"{self.product.name_uz}: {self.quantity_per_unit} {self.material.unit} {self.material.name}"
+            return f"{self.product.name_uz}{part}: {self.quantity_per_unit} dona x {self.cut_length}{self.material.unit} ({self.material.name})"
+        return f"{self.product.name_uz}{part}: {self.quantity_per_unit} {self.material.unit} {self.material.name}"
 
 
 class MaterialRemnant(BaseModel):

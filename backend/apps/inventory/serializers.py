@@ -92,6 +92,7 @@ class BillOfMaterialSerializer(serializers.ModelSerializer):
         fields = (
             "id", "product", "material", "material_name", "material_unit",
             "material_unit_cost", "quantity_per_unit", "cut_length", "cut_width",
+            "part_name",
         )
         read_only_fields = ("id", "product")
 
