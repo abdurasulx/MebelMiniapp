@@ -12,6 +12,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminFinance from "./pages/admin/AdminFinance";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminPayStandards from "./pages/admin/AdminPayStandards";
+import AdminTariffPlans from "./pages/admin/AdminTariffPlans";
 import AdminUsers from "./pages/admin/AdminUsers";
 import Cart from "./pages/Cart";
 import Catalog from "./pages/Catalog";
@@ -62,6 +63,7 @@ import {
   TrendingUp,
   Truck,
   UserCircle,
+  Banknote,
 } from "lucide-react";
 
 const ADMIN_MENU = [
@@ -70,6 +72,7 @@ const ADMIN_MENU = [
   { to: "/users", icon: Users, label: "Foydalanuvchilar", group: "Boshqaruv" },
   { to: "/categories", icon: FolderTree, label: "Kategoriyalar", group: "Boshqaruv" },
   { to: "/pay-standards", icon: HardHat, label: "Ish haqi standartlari", group: "Boshqaruv" },
+  { to: "/tariff-plans", icon: Banknote, label: "Tarif rejalari", group: "Boshqaruv" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
   { to: "/finance", icon: Wallet, label: "Moliya", group: "Savdo" },
 ];
@@ -247,6 +250,7 @@ export default function App() {
           <Route path="/users" element={<AdminUsers />} />
           <Route path="/categories" element={<AdminCategories />} />
           <Route path="/pay-standards" element={<AdminPayStandards />} />
+          <Route path="/tariff-plans" element={<AdminTariffPlans />} />
           <Route path="/orders" element={<AdminOrders />} />
           <Route path="/finance" element={<AdminFinance />} />
         </Route>

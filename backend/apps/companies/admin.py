@@ -1,14 +1,20 @@
 from django.contrib import admin
 
-from .models import Company, Employee, PositionPayStandard, Review
+from .models import Company, Employee, PositionPayStandard, Review, TariffPlan
 
 
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
-    list_display = ("name", "owner", "viloyat", "is_active", "created_at")
+    list_display = ("name", "owner", "viloyat", "tariff_plan", "is_active", "created_at")
     search_fields = ("name",)
     list_filter = ("viloyat",)
     prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(TariffPlan)
+class TariffPlanAdmin(admin.ModelAdmin):
+    list_display = ("name", "price_per_employee", "price_per_product", "currency", "is_active")
+    list_filter = ("is_active", "currency")
 
 
 @admin.register(Employee)

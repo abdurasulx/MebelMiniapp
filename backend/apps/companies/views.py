@@ -5,13 +5,14 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from .models import Company, Employee, EmployeeInvitation, PositionPayStandard, Review
+from .models import Company, Employee, EmployeeInvitation, PositionPayStandard, Review, TariffPlan
 from .serializers import (
     CompanySerializer,
     EmployeeInvitationSerializer,
     EmployeeSerializer,
     PositionPayStandardSerializer,
     ReviewSerializer,
+    TariffPlanSerializer,
 )
 
 
@@ -260,6 +261,40 @@ class PositionPayStandardViewSet(viewsets.ModelViewSet):
 
     def perform_destroy(self, instance):
         self._check_scope(instance.company)
+        instance.is_deleted = True
+        instance.save(update_fields=["is_deleted"])
+
+
+class TariffPlanViewSet(viewsets.ModelViewSet):
+    """Platforma tarif rejalari — FAQAT platforma admini yaratadi/tahrirlaydi/
+    o'chiradi. Firma egalari ro'yxatni ko'radi (o'zi uchun tanlash uchun,
+    qarang CompanySerializer.tariff_plan) va PLATFORMA ADMINI o'chirmagan
+    (`is_active=True`) rejalarnigina ko'radi; admin o'zi barchasini ko'radi."""
+
+    serializer_class = TariffPlanSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ("get", "post", "patch", "delete", "head", "options")
+
+    def get_queryset(self):
+        qs = TariffPlan.objects.filter(is_deleted=False)
+        if self.request.user.role == "platform_admin":
+            return qs
+        return qs.filter(is_active=True)
+
+    def _check_admin(self):
+        if self.request.user.role != "platform_admin":
+            raise PermissionDenied("Faqat platforma admini tarif rejalarini boshqaradi")
+
+    def perform_create(self, serializer):
+        self._check_admin()
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_admin()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_admin()
         instance.is_deleted = True
         instance.save(update_fields=["is_deleted"])
 

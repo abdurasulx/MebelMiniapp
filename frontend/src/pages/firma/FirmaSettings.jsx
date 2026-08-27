@@ -284,6 +284,98 @@ export default function FirmaSettings() {
           </button>
         )}
       </form>
+      {company && isOwner && <TariffCard company={company} onChanged={load} />}
+    </div>
+  );
+}
+
+/// Firma egasi platforma tarif rejalaridan birini o'zi tanlaydi — hozircha
+/// to'lov shlyuzi ulanmagan, faqat oylik summa hisoblab ko'rsatiladi (faol
+/// xodimlar soni x xodim narxi + 3D modeli bor mahsulotlar soni x mahsulot
+/// narxi). Qarang backend Company.billing_summary.
+function TariffCard({ company, onChanged }) {
+  const [plans, setPlans] = useState([]);
+  const [error, setError] = useState("");
+  const [savingId, setSavingId] = useState(null);
+
+  useEffect(() => {
+    api("/tariff-plans/")
+      .then((d) => setPlans(d.results || []))
+      .catch((e) => setError(e.message));
+  }, []);
+
+  const select = async (plan) => {
+    setError("");
+    setSavingId(plan.id);
+    try {
+      await api(`/companies/${company.slug}/`, { method: "PATCH", body: { tariff_plan: plan.id } });
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const summary = company.billing_summary;
+
+  return (
+    <div className="card flex flex-col gap-4 p-6">
+      <h2 className="inline-flex items-center gap-2 text-base font-semibold">
+        <Building2 size={17} /> Tarif
+      </h2>
+      <p className="text-sm" style={{ color: "var(--muted)" }}>
+        Oylik to'lov ikki qismdan iborat: faol xodimlar soni va 3D modeli bor mahsulotlar soni (variantlar
+        hisobga olinmaydi — bitta mahsulotning bir nechta varianti bo'lsa ham bitta narx to'lanadi).
+        Hozircha to'lov qo'lda amalga oshiriladi, keyinroq to'lov tizimi ulanadi.
+      </p>
+      {error && <div className="error">{error}</div>}
+      {summary && (
+        <div className="rounded-xl p-4" style={{ border: "1px solid var(--border)", background: "var(--surface-2, transparent)" }}>
+          <div className="text-sm" style={{ color: "var(--muted)" }}>
+            Joriy oy: {summary.employee_count} ta xodim, {summary.product_count} ta 3D mahsulot
+          </div>
+          {summary.plan ? (
+            <div className="mt-1 text-lg font-semibold">
+              {summary.total} {summary.plan.currency}/oy <span className="text-sm font-normal" style={{ color: "var(--muted)" }}>({summary.plan.name})</span>
+            </div>
+          ) : (
+            <div className="mt-1 text-sm" style={{ color: "var(--muted)" }}>Hali tarif tanlanmagan.</div>
+          )}
+        </div>
+      )}
+      <div className="flex flex-col gap-2">
+        {plans.length === 0 && (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>Hozircha mavjud tarif rejasi yo'q.</p>
+        )}
+        {plans.map((p) => {
+          const active = company.tariff_plan === p.id;
+          return (
+            <div
+              key={p.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl p-4"
+              style={{ border: active ? "2px solid var(--brand)" : "1px solid var(--border)" }}
+            >
+              <div>
+                <div className="font-medium">{p.name}</div>
+                {p.description && <div className="text-xs" style={{ color: "var(--muted)" }}>{p.description}</div>}
+                <div className="text-xs" style={{ color: "var(--muted)" }}>
+                  {p.price_per_employee} {p.currency}/xodim · {p.price_per_product} {p.currency}/3D mahsulot
+                </div>
+              </div>
+              {active ? (
+                <span className="rounded-full px-3 py-1 text-xs font-medium" style={{ background: "var(--brand)", color: "var(--brand-cta-text, #fff)" }}>
+                  Tanlangan
+                </span>
+              ) : (
+                <button className="btn" disabled={savingId === p.id} onClick={() => select(p)}>
+                  {savingId === p.id ? "Saqlanmoqda…" : "Tanlash"}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -3,9 +3,19 @@ from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
 
-from .models import Company, Employee, EmployeeInvitation, PositionPayStandard, Review
+from .models import Company, Employee, EmployeeInvitation, PositionPayStandard, Review, TariffPlan
 
 User = get_user_model()
+
+
+class TariffPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TariffPlan
+        fields = (
+            "id", "name", "description", "price_per_employee", "price_per_product",
+            "currency", "is_active", "created_at",
+        )
+        read_only_fields = ("id", "created_at")
 
 
 class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
@@ -14,12 +24,20 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
     tier = serializers.SerializerMethodField()
     viloyat_display = serializers.CharField(source="get_viloyat_display", read_only=True, default=None)
+    tariff_plan = serializers.PrimaryKeyRelatedField(
+        queryset=TariffPlan.objects.filter(is_deleted=False, is_active=True), required=False, allow_null=True
+    )
+    tariff_plan_name = serializers.CharField(source="tariff_plan.name", read_only=True, default=None)
+    billing_summary = serializers.SerializerMethodField()
 
     def get_logo_url(self, obj):
         return visible_file_url(obj, "logo", self.context.get("request"))
 
     def get_tier(self, obj):
         return obj.tier
+
+    def get_billing_summary(self, obj):
+        return obj.billing_summary
 
     class Meta:
         model = Company
@@ -44,6 +62,9 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
             "website_url",
             "is_active",
             "tier",
+            "tariff_plan",
+            "tariff_plan_name",
+            "billing_summary",
             "employment_contract_template",
             "created_at",
         )

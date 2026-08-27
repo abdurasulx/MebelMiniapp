@@ -43,11 +43,38 @@ class Viloyat(models.TextChoices):
     SURXONDARYO = "surxondaryo", "Surxondaryo"
 
 
+class TariffPlan(BaseModel):
+    """Platforma tarif rejasi — FAQAT platforma admini yaratadi/tahrirlaydi
+    (Django admin yoki `/tariff-plans/`), firma egasi esa ro'yxatdan birini
+    o'zi tanlaydi (`Company.tariff_plan`, majburiy emas). Oylik hisob ikki
+    komponentdan iborat: xodimlar soni (har biri uchun `price_per_employee`)
+    va 3D modeli bor mahsulotlar soni (har biri uchun `price_per_product` —
+    VARIANT emas, MAHSULOT bo'yicha, chunki bitta mahsulotning bir nechta
+    varianti bo'lishi mumkin va ular bitta "bulutli saqlash" o'rnini
+    egallaydi)."""
+
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    price_per_employee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    price_per_product = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    currency = models.CharField(max_length=3, default="USD")
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("price_per_employee", "price_per_product")
+
+    def __str__(self):
+        return self.name
+
+
 class Company(BaseModel, StoredFileMixin):
     """Tenant: mebel ishlab chiqaruvchi kompaniya (docs/06, techdocs/06 §6)."""
 
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="companies"
+    )
+    tariff_plan = models.ForeignKey(
+        TariffPlan, on_delete=models.SET_NULL, null=True, blank=True, related_name="companies"
     )
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True)
@@ -118,6 +145,38 @@ class Company(BaseModel, StoredFileMixin):
             "completed_orders": count,
             "rating": rating,
             "review_count": self.review_count,
+        }
+
+    @property
+    def billing_employee_count(self):
+        return self.employees.filter(is_active=True, is_deleted=False).count()
+
+    @property
+    def billing_product_count(self):
+        # Variant emas, MAHSULOT bo'yicha — bitta mahsulotning bir nechta
+        # varianti bo'lsa ham bitta "bulutli 3D saqlash" narxi to'lanadi
+        # (qarang TariffPlan izohi).
+        return self.products.filter(is_deleted=False, model3d__isnull=False, model3d__is_deleted=False).count()
+
+    @property
+    def billing_summary(self):
+        employees = self.billing_employee_count
+        products = self.billing_product_count
+        plan = self.tariff_plan
+        if plan is None:
+            return {
+                "plan": None, "employee_count": employees, "product_count": products, "total": None,
+            }
+        total = employees * plan.price_per_employee + products * plan.price_per_product
+        return {
+            "plan": {
+                "id": str(plan.id), "name": plan.name,
+                "price_per_employee": plan.price_per_employee, "price_per_product": plan.price_per_product,
+                "currency": plan.currency,
+            },
+            "employee_count": employees,
+            "product_count": products,
+            "total": total,
         }
 
 
