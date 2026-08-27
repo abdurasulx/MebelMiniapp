@@ -66,7 +66,10 @@ struct ARCollectionDetailView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
+                    // .adaptive — kenglik qancha bo'lsa shuncha ustun sig'adi
+                    // (iPhone'da 2, iPad landscape'da 4-5 ustun) — qattiq
+                    // ustun sonini kod ichida hisoblab yurishga hojat yo'q.
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 14) {
                         ForEach(items) { item in
                             ARCollectionItemCard(item: item) { Task { await remove(item) } }
                         }

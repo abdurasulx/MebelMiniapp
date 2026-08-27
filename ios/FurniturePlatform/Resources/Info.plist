@@ -23,14 +23,14 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>REPLACE_WITH_REVERSED_IOS_CLIENT_ID</string>
+				<string>com.googleusercontent.apps.857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>GIDClientID</key>
-	<string></string>
+	<string>857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppTransportSecurity</key>
@@ -65,5 +65,16 @@
 	<string>Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 </dict>
 </plist>

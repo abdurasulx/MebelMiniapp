@@ -30,7 +30,9 @@ struct ARProductPickerView: View {
                     Text("3D modeli tayyor mahsulot yo'q").foregroundStyle(.secondary)
                 } else {
                     ScrollView {
-                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
+                        // .adaptive — kenglik qancha bo'lsa shuncha ustun
+                        // sig'adi (iPhone'da 2, iPad landscape'da 4-5 ustun).
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 14)], spacing: 14) {
                             ForEach(arReadyProducts) { product in
                                 Button {
                                     Task { await add(product: product) }
