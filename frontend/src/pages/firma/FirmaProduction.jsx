@@ -195,6 +195,9 @@ function WorkflowPipeline({ isManager }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{step.name}</div>
+                  {step.cutting_instruction && (
+                    <div className="text-xs font-medium" style={{ color: "var(--brand)" }}>{step.cutting_instruction}</div>
+                  )}
                   <div className="text-xs" style={{ color: "var(--muted)" }}>
                     {step.role_display}
                     {step.employee_name && ` · ${step.employee_name}`}
@@ -373,6 +376,9 @@ function OpenPoolView() {
           >
             <div className="min-w-0 flex-1">
               <div className="font-medium">{step.name}</div>
+              {step.cutting_instruction && (
+                <div className="text-xs font-medium" style={{ color: "var(--brand)" }}>{step.cutting_instruction}</div>
+              )}
               <div className="text-xs" style={{ color: "var(--muted)" }}>
                 {step.order_display && `Buyurtma ${step.order_display} · `}
                 {step.role_display} · {step.estimated_hours} soat

@@ -142,6 +142,10 @@ def create_workflow_instances(order, product):
             quantity=step.quantity,
             cost=step.cost,
             raw_material=step.raw_material,
+            cut_piece_length=step.cut_piece_length,
+            cut_piece_width=step.cut_piece_width,
+            cut_piece_count=step.cut_piece_count,
+            cut_note=step.cut_note,
             required_materials=step.required_materials,
             photo_requirement=step.photo_requirement,
         )

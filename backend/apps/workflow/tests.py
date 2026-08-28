@@ -547,3 +547,50 @@ class MaterialConsumptionAndPayrollTests(APITestCase):
 
         payslip.refresh_from_db()
         self.assertEqual(payslip.total_amount, Decimal("500000"))
+
+
+class CuttingInstructionTests(TestCase):
+    def setUp(self):
+        from apps.inventory.models import Material
+
+        self.owner = User.objects.create_user(email="owner5@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.company = Company.objects.create(owner=self.owner, name="Shop5", slug="shop5")
+        self.category = Category.objects.create(name_uz="Stullar5", slug="stullar5")
+        self.product = Product.objects.create(company=self.company, category=self.category, name_uz="Stul", is_published=True)
+        self.material = Material.objects.create(company=self.company, name="Reyka", unit="m")
+
+    def test_instruction_built_from_cut_fields(self):
+        step = WorkflowStep.objects.create(
+            product=self.product, name="Kesish", raw_material=self.material,
+            cut_piece_length=Decimal("0.8"), cut_piece_count=4, cut_note="stol oyoqlari uchun",
+        )
+        self.assertEqual(step.cutting_instruction, "Reykadan 0.8m x 4 dona kes (stol oyoqlari uchun)")
+
+    def test_no_instruction_without_cut_length(self):
+        step = WorkflowStep.objects.create(product=self.product, name="Yig'ish", raw_material=self.material)
+        self.assertIsNone(step.cutting_instruction)
+
+    def test_no_instruction_without_raw_material(self):
+        step = WorkflowStep.objects.create(product=self.product, name="Kesish", cut_piece_length=Decimal("0.8"))
+        self.assertIsNone(step.cutting_instruction)
+
+    def test_instance_snapshots_cutting_fields(self):
+        step = WorkflowStep.objects.create(
+            product=self.product, name="Kesish", raw_material=self.material,
+            cut_piece_length=Decimal("0.8"), cut_piece_width=Decimal("0.04"), cut_piece_count=4,
+        )
+        customer = User.objects.create_user(email="mijoz5@test.uz", password="pass12345", role=User.Role.CUSTOMER)
+        order = Order.objects.create(company=self.company, customer=customer, phone="+998900000003", address="Toshkent")
+        instances = create_workflow_instances(order, self.product)
+        instance = instances[0]
+        self.assertEqual(instance.cut_piece_length, Decimal("0.800"))
+        self.assertEqual(instance.cut_piece_width, Decimal("0.040"))
+        self.assertEqual(instance.cut_piece_count, 4)
+        self.assertIn("0.800m x 0.040m x 4 dona", instance.cutting_instruction)
+
+        # Shablon keyinroq o'zgarsa ham, allaqachon yaratilgan instansiya
+        # o'zgarmaydi (snapshot).
+        step.cut_piece_count = 99
+        step.save()
+        instance.refresh_from_db()
+        self.assertEqual(instance.cut_piece_count, 4)

@@ -74,6 +74,26 @@ class WorkType(BaseModel):
         return f"{self.name} ({self.company.name})"
 
 
+def _build_cutting_instruction(step):
+    """`cut_piece_*` maydonlaridan ustaga o'qiladigan topshiriq matnini
+    hosil qiladi, masalan: "Reyka (Elim)dan 0.8m x 4 dona kes (stol oyoqlari
+    uchun)". `raw_material` yoki `cut_piece_length` bo'lmasa — kesish
+    tafsiloti yo'q deb hisoblab `None` qaytaradi (topshiriq oddiy nom bilan
+    ko'rsatiladi)."""
+    if not step.raw_material_id or not step.cut_piece_length:
+        return None
+    size = f"{step.cut_piece_length}m"
+    if step.cut_piece_width:
+        size += f" x {step.cut_piece_width}m"
+    text = f"{step.raw_material.name}dan {size}"
+    if step.cut_piece_count:
+        text += f" x {step.cut_piece_count} dona"
+    text += " kes"
+    if step.cut_note:
+        text += f" ({step.cut_note})"
+    return text
+
+
 class WorkflowStep(BaseModel):
     """Mahsulotning ishlab chiqarish jarayoni shabloni (bosqichlar grafigi).
 
@@ -111,6 +131,15 @@ class WorkflowStep(BaseModel):
     raw_material = models.ForeignKey(
         "inventory.Material", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
+    # Kesish tafsilotlari — faqat `raw_material` kesish talab qiladigan
+    # bosqichlar uchun to'ldiriladi (ixtiyoriy). Sof tavsifiy: ombordan
+    # ayiriladigan haqiqiy hajm hamon `quantity`dan olinadi — bu maydonlar
+    # faqat ustaga o'qiladigan topshiriq matnini hosil qilish uchun (qarang
+    # `cutting_instruction`), stok hisobiga ta'sir qilmaydi.
+    cut_piece_length = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    cut_piece_width = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    cut_piece_count = models.PositiveIntegerField(null=True, blank=True)
+    cut_note = models.CharField(max_length=255, blank=True)
     required_materials = models.TextField(blank=True)
     photo_requirement = models.CharField(
         max_length=10, choices=PhotoRequirement.choices, default=PhotoRequirement.OPTIONAL
@@ -128,6 +157,10 @@ class WorkflowStep(BaseModel):
             if not self.role:
                 self.role = self.work_type.required_role
         super().save(*args, **kwargs)
+
+    @property
+    def cutting_instruction(self):
+        return _build_cutting_instruction(self)
 
     def __str__(self):
         return f"{self.product} — {self.name}"
@@ -191,6 +224,13 @@ class WorkflowStepInstance(BaseModel):
     # OSHIRILGANMI — qayta bosilsa yoki bosqich qandaydir yo'l bilan qayta
     # yakunlansa ham material IKKI MARTA ayirilmasligi uchun soqchi bayroq.
     material_consumed = models.BooleanField(default=False)
+    # Kesish tafsilotlari — shablondan yaratilish paytida muhrlanadi (boshqa
+    # snapshot maydonlar kabi), keyinchalik shablon o'zgarsa ham allaqachon
+    # ustaga ko'rsatilgan topshiriq matni o'zgarmaydi.
+    cut_piece_length = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    cut_piece_width = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True)
+    cut_piece_count = models.PositiveIntegerField(null=True, blank=True)
+    cut_note = models.CharField(max_length=255, blank=True)
     required_materials = models.TextField(blank=True)
     photo_requirement = models.CharField(
         max_length=10, choices=PhotoRequirement.choices, default=PhotoRequirement.OPTIONAL
@@ -211,6 +251,10 @@ class WorkflowStepInstance(BaseModel):
 
     def __str__(self):
         return f"{self.name} ({self.status})"
+
+    @property
+    def cutting_instruction(self):
+        return _build_cutting_instruction(self)
 
     @property
     def is_available(self):

@@ -46,6 +46,7 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
     work_type_unit_display = serializers.CharField(source="work_type.get_unit_display", read_only=True, default=None)
     raw_material_name = serializers.CharField(source="raw_material.name", read_only=True, default=None)
     raw_material_unit = serializers.CharField(source="raw_material.unit", read_only=True, default=None)
+    cutting_instruction = serializers.CharField(read_only=True)
     depends_on = serializers.PrimaryKeyRelatedField(
         many=True, queryset=WorkflowStep.objects.filter(is_deleted=False), required=False
     )
@@ -57,6 +58,7 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
             "employee", "employee_name", "estimated_hours",
             "work_type", "work_type_name", "work_type_unit_display", "quantity", "cost",
             "raw_material", "raw_material_name", "raw_material_unit",
+            "cut_piece_length", "cut_piece_width", "cut_piece_count", "cut_note", "cutting_instruction",
             "required_materials", "photo_requirement", "photo_requirement_display",
             "depends_on", "created_at",
         )
@@ -146,6 +148,7 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
     work_type_unit_display = serializers.CharField(source="work_type.get_unit_display", read_only=True, default=None)
     raw_material_name = serializers.CharField(source="raw_material.name", read_only=True, default=None)
     raw_material_unit = serializers.CharField(source="raw_material.unit", read_only=True, default=None)
+    cutting_instruction = serializers.CharField(read_only=True)
 
     class Meta:
         model = WorkflowStepInstance
@@ -156,6 +159,7 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
             "employee", "employee_name", "estimated_hours",
             "work_type", "work_type_name", "work_type_unit_display", "quantity", "cost",
             "raw_material", "raw_material_name", "raw_material_unit", "material_consumed",
+            "cut_piece_length", "cut_piece_width", "cut_piece_count", "cut_note", "cutting_instruction",
             "required_materials",
             "photo_requirement", "photo_requirement_display", "depends_on",
             "status", "status_display", "is_available", "deadline",
@@ -166,4 +170,5 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
             "id", "company", "order_index", "template_step", "depends_on", "is_available",
             "started_at", "completed_at", "created_at", "work_type", "quantity",
             "raw_material", "material_consumed",
+            "cut_piece_length", "cut_piece_width", "cut_piece_count", "cut_note",
         )

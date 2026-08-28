@@ -968,6 +968,7 @@ function VariantModelSection({ variant, onDone }) {
 const EMPTY_STEP = {
   name: "", role: "usta", estimated_hours: 1, cost: 0, required_materials: "",
   photo_requirement: "optional", work_type: "", quantity: 1, raw_material: "",
+  cut_piece_length: "", cut_piece_width: "", cut_piece_count: "", cut_note: "",
 };
 
 function ProductionTab({ product, steps, onStepsChange }) {
@@ -990,7 +991,17 @@ function ProductionTab({ product, steps, onStepsChange }) {
     setError("");
     const body = { ...form };
     if (!body.work_type) delete body.work_type;
-    if (!body.raw_material) delete body.raw_material;
+    if (!body.raw_material) {
+      delete body.raw_material;
+      delete body.cut_piece_length;
+      delete body.cut_piece_width;
+      delete body.cut_piece_count;
+      delete body.cut_note;
+    } else {
+      if (!body.cut_piece_length) delete body.cut_piece_length;
+      if (!body.cut_piece_width) delete body.cut_piece_width;
+      if (!body.cut_piece_count) delete body.cut_piece_count;
+    }
     if (!body.work_type && !body.raw_material) delete body.quantity;
     api(`/products/${product.id}/workflow-steps/`, { method: "POST", body })
       .then(() => { setForm(EMPTY_STEP); setShowForm(false); onStepsChange(); })
@@ -1046,7 +1057,9 @@ function ProductionTab({ product, steps, onStepsChange }) {
                       <div style={{ fontSize: 12, color: ENT.muted, marginTop: 2 }}>
                         {POSITIONS[s.role]?.label || s.role} · {s.estimated_hours} soat · {Number(s.cost).toLocaleString()} so'm
                         {s.work_type_name && ` (${s.quantity} ${s.work_type_unit_display} × ${s.work_type_name})`}
-                        {s.raw_material_name && ` · ${s.quantity} ${s.raw_material_unit} ${s.raw_material_name} sarflanadi`}
+                        {s.cutting_instruction
+                          ? ` · ${s.cutting_instruction}`
+                          : s.raw_material_name && ` · ${s.quantity} ${s.raw_material_unit} ${s.raw_material_name} sarflanadi`}
                         {s.photo_requirement !== "optional" && ` · ${PHOTO_REQUIREMENT[s.photo_requirement]} rasm`}
                       </div>
                     </div>
@@ -1135,6 +1148,30 @@ function ProductionTab({ product, steps, onStepsChange }) {
                 <input className="input" type="number" min="0" step="0.001" value={form.quantity}
                   onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
               </div>
+            )}
+            {form.raw_material && (
+              <>
+                <div>
+                  <label className="label">Bo'lak uzunligi, m (ixtiyoriy)</label>
+                  <input className="input" type="number" min="0" step="0.001" value={form.cut_piece_length}
+                    onChange={(e) => setForm({ ...form, cut_piece_length: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">Bo'lak kengligi, m (ixtiyoriy)</label>
+                  <input className="input" type="number" min="0" step="0.001" value={form.cut_piece_width}
+                    onChange={(e) => setForm({ ...form, cut_piece_width: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">Bo'laklar soni (ixtiyoriy)</label>
+                  <input className="input" type="number" min="0" step="1" value={form.cut_piece_count}
+                    onChange={(e) => setForm({ ...form, cut_piece_count: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">Kesish izohi (ixtiyoriy)</label>
+                  <input className="input" placeholder="masalan: stol oyoqlari uchun" value={form.cut_note}
+                    onChange={(e) => setForm({ ...form, cut_note: e.target.value })} />
+                </div>
+              </>
             )}
             <div className="sm:col-span-2">
               <label className="label">Kerakli materiallar (izoh, ixtiyoriy)</label>
