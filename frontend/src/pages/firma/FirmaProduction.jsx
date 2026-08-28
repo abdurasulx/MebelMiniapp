@@ -192,7 +192,7 @@ function WorkflowPipeline({ isManager }) {
   return (
     <div className="flex flex-col gap-4">
       {error && <div className="error">{error}</div>}
-      {!isManager && <OpenPoolView />}
+      <OpenPoolView isManager={isManager} />
       {groups.length === 0 && (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
           Hali hech qanday buyurtma uchun ishlab chiqarish bosqichi yo'q.
@@ -374,7 +374,7 @@ function ApplicantsControl({ step, onApproved }) {
    lavozimiga mos bo'lsa shu yerda ko'rinadi — "Zayavka yuborish" bosilgach
    firma egasi tasdiqlashini kutadi (bir vaqtda bir nechta usta yuborishi
    mumkin, faqat bittasi tasdiqlanadi). */
-function OpenPoolView() {
+function OpenPoolView({ isManager }) {
   const [steps, setSteps] = useState([]);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
@@ -403,6 +403,20 @@ function OpenPoolView() {
     }
   };
 
+  const cancelStep = async (step) => {
+    if (!confirm(`"${step.name}" bosqichi bekor qilinsinmi?`)) return;
+    setBusyId(step.id);
+    setError("");
+    try {
+      await api(`/workflow-instances/${step.id}/cancel/`, { method: "POST", body: {} });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   if (loading) return null;
   if (steps.length === 0) return null;
 
@@ -410,7 +424,9 @@ function OpenPoolView() {
     <div className="card flex flex-col gap-3 p-4" style={{ borderColor: "var(--brand)" }}>
       <div className="font-semibold text-sm">Erkin topshiriqlar ({steps.length})</div>
       <p className="text-xs" style={{ color: "var(--muted)" }}>
-        Bu bosqichlarga hali usta biriktirilmagan — zayavka yuboring, firma egasi tasdiqlasa sizga o'tadi.
+        {isManager
+          ? "Bu bosqichlarga hali usta biriktirilmagan — kerak bo'lsa bekor qiling."
+          : "Bu bosqichlarga hali usta biriktirilmagan — zayavka yuboring, firma egasi tasdiqlasa sizga o'tadi."}
       </p>
       {error && <div className="error">{error}</div>}
       <div className="flex flex-col gap-2">
@@ -430,7 +446,15 @@ function OpenPoolView() {
                 {step.role_display} · {step.estimated_hours} soat
               </div>
             </div>
-            {step.my_application_status === "pending" ? (
+            {isManager ? (
+              <button
+                className="btn-danger !px-2.5 !py-1 text-xs"
+                disabled={busyId === step.id}
+                onClick={() => cancelStep(step)}
+              >
+                Bekor qilish
+              </button>
+            ) : step.my_application_status === "pending" ? (
               <span className="rounded-full px-2.5 py-1 text-[11px] font-medium" style={{ background: "color-mix(in srgb, var(--muted) 16%, transparent)" }}>
                 Kutilmoqda (tasdiqlanishi kutilmoqda)
               </span>

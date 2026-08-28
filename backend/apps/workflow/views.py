@@ -261,23 +261,25 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"], url_path="open")
     def open_pool(self, request):
         """Xodimi hali biriktirilmagan, boshlanishga tayyor (bog'liq
-        bosqichlar tugagan) va so'rovchi ustaning lavozimiga mos bosqichlar
-        — "erkin topshiriqlar hovuzi". Faqat kompaniya xodimi uchun ma'noli."""
+        bosqichlar tugagan) bosqichlar — "erkin topshiriqlar hovuzi". Usta
+        uchun o'z lavozimiga mos bosqichlar bilan cheklanadi (zayavka
+        yuborish uchun); firma egasi/menejer uchun BARCHASI ko'rsatiladi
+        (kerak bo'lsa bekor qilish uchun, qarang `cancel`)."""
         company = user_company(request.user)
         if company is None:
             return Response([])
-        employee = Employee.objects.filter(
-            company=company, user=request.user, is_active=True, is_deleted=False
-        ).first()
-        if employee is None or not employee.positions:
-            return Response([])
+        qs = WorkflowStepInstance.objects.filter(
+            is_deleted=False, company=company, employee__isnull=True, status=StepStatus.PENDING,
+        ).exclude(depends_on__status__in=[StepStatus.PENDING, StepStatus.IN_PROGRESS])
+        if not is_company_owner(request.user, company):
+            employee = Employee.objects.filter(
+                company=company, user=request.user, is_active=True, is_deleted=False
+            ).first()
+            if employee is None or not employee.positions:
+                return Response([])
+            qs = qs.filter(role__in=employee.positions)
         qs = (
-            WorkflowStepInstance.objects.filter(
-                is_deleted=False, company=company, employee__isnull=True,
-                status=StepStatus.PENDING, role__in=employee.positions,
-            )
-            .exclude(depends_on__status__in=[StepStatus.PENDING, StepStatus.IN_PROGRESS])
-            .select_related("company", "order__customer", "completed_by")
+            qs.select_related("company", "order__customer", "completed_by")
             .prefetch_related("depends_on", "updates", "applications__employee__user")
             .distinct()
             .order_by("order_index", "created_at")

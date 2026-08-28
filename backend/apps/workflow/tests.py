@@ -720,3 +720,36 @@ class CuttingInstructionTests(TestCase):
         step.save()
         instance.refresh_from_db()
         self.assertEqual(instance.cut_piece_count, 4)
+
+
+class OpenPoolManagerTests(APITestCase):
+    """Firma egasi (odatda `positions`ga ega Employee yozuvi bo'lmaydi)
+    "erkin topshiriqlar" hovuzida BARCHA ochiq bosqichlarni ko'rishi kerak
+    (bekor qilish uchun), usta esa faqat o'z lavozimiga mos bosqichlarni."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(email="owner7@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.company = Company.objects.create(owner=self.owner, name="Shop7", slug="shop7")
+        self.usta_user = User.objects.create_user(email="usta7@shop.uz", password="pass12345", role=User.Role.EMPLOYEE)
+        Employee.objects.create(company=self.company, user=self.usta_user, positions=["usta"])
+        WorkflowStepInstance.objects.create(company=self.company, name="Bo'yash", role="boyoqchi")
+        self.client = APIClient()
+
+    def test_owner_sees_all_open_steps_regardless_of_role(self):
+        self.client.force_authenticate(self.owner)
+        resp = self.client.get("/api/v1/workflow-instances/open/")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(len(resp.data["results"]), 1)
+
+    def test_employee_only_sees_matching_role(self):
+        self.client.force_authenticate(self.usta_user)
+        resp = self.client.get("/api/v1/workflow-instances/open/")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(len(resp.data["results"]), 0)
+
+    def test_owner_can_cancel_open_step(self):
+        instance = WorkflowStepInstance.objects.get(name="Bo'yash")
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/cancel/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data["status"], "cancelled")
