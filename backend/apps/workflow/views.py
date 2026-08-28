@@ -35,7 +35,11 @@ from .serializers import (
     WorkflowStepSerializer,
     WorkTypeSerializer,
 )
-from .services import consume_material_and_credit_payroll, sync_order_status_on_step_completion
+from .services import (
+    approve_step_and_credit_payroll,
+    consume_material_on_completion,
+    sync_order_status_on_step_completion,
+)
 
 
 class WorkTypeViewSet(viewsets.ModelViewSet):
@@ -392,7 +396,7 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
         bog'liq bosqich(lar) avtomatik ochiladi."""
         instance = self.get_object()
         self._check_company_access(instance)
-        if instance.status == StepStatus.COMPLETED:
+        if instance.status in (StepStatus.COMPLETED, StepStatus.APPROVED):
             raise ValidationError("Bu bosqich allaqachon yakunlangan")
         if not instance.is_available and instance.status != StepStatus.IN_PROGRESS:
             raise ValidationError("Bu bosqich hali boshlanishi mumkin emas — oldingi bosqichlar tugamagan")
@@ -409,7 +413,7 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
             instance.completed_at = timezone.now()
             instance.completed_by = request.user
             instance.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
-            consume_material_and_credit_payroll(instance, request.user)
+            consume_material_on_completion(instance, request.user)
 
         activated, newly_open = instance.activate_dependents()
         for activated_step in activated:
@@ -419,6 +423,26 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
             notify_pool_open(open_step)
         if instance.order_id:
             sync_order_status_on_step_completion(instance.order)
+
+        instance = self.get_queryset().get(pk=instance.pk)
+        return Response(
+            WorkflowStepInstanceSerializer(instance, context={"request": request}).data
+        )
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """Firma egasi/menejer yakunlangan bosqichni tekshirib tasdiqlaydi —
+        faqat shu daqiqada xodimning ish haqi (`Payslip`) kreditlanadi
+        (usta "Bajardim" bosgani bilanoq emas). Ombordan ayirish esa
+        `complete()`da allaqachon sodir bo'lgan."""
+        instance = self._get_step_or_404(pk)
+        company = user_company(request.user)
+        if company is None or company.id != instance.company_id or not is_company_owner(request.user, company):
+            raise PermissionDenied("Faqat firma egasi/menejer tasdiqlaydi")
+        if instance.status != StepStatus.COMPLETED:
+            raise ValidationError("Faqat yakunlangan bosqichni tasdiqlash mumkin")
+
+        approve_step_and_credit_payroll(instance, request.user)
 
         instance = self.get_queryset().get(pk=instance.pk)
         return Response(

@@ -17,6 +17,13 @@ class StepStatus(models.TextChoices):
     PENDING = "pending", "Navbatda"
     IN_PROGRESS = "in_progress", "Bajarilmoqda"
     COMPLETED = "completed", "Bajarildi"
+    # Usta "Bajardim" bosgach (COMPLETED) darhol emas — firma egasi/menejer
+    # `approve` amali orqali tekshirib tasdiqlagandan KEYIN kelinadigan
+    # yakuniy holat. Ish haqi (Payslip) faqat shu bosqichga o'tganda
+    # kreditlanadi (qarang apps.workflow.services.approve_step_and_credit_payroll)
+    # — ombordan ayirish esa COMPLETED bo'lgan zahoti sodir bo'ladi (material
+    # allaqachon jismonan sarflangan, tasdiqni kutmaydi).
+    APPROVED = "approved", "Tasdiqlangan"
 
 
 class Stage(models.TextChoices):
@@ -243,6 +250,10 @@ class WorkflowStepInstance(BaseModel):
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
 

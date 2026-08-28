@@ -509,29 +509,60 @@ class MaterialConsumptionAndPayrollTests(APITestCase):
         self.assertEqual(self.stock.quantity, Decimal("10.000"))
 
     def test_double_consumption_guarded_by_material_consumed_flag(self):
-        from .services import consume_material_and_credit_payroll
+        from .services import consume_material_on_completion
 
         instance = self._make_instance()
-        consume_material_and_credit_payroll(instance, self.owner)
-        consume_material_and_credit_payroll(instance, self.owner)  # ikkinchi chaqiruv hech narsa qilmasligi kerak
+        consume_material_on_completion(instance, self.owner)
+        consume_material_on_completion(instance, self.owner)  # ikkinchi chaqiruv hech narsa qilmasligi kerak
 
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, Decimal("6.000"))
 
-    def test_complete_credits_payslip_immediately(self):
+    def test_complete_does_not_credit_payslip(self):
+        """Payroll faqat firma egasi tasdiqlaganda kreditlanadi — usta
+        "Bajardim" bosgani bilanoq emas (qarang test_owner_approve_credits_payslip)."""
         from apps.production.models import Payslip
 
         instance = self._make_instance()
         self.client.force_authenticate(self.owner)
         resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/complete/", {}, format="json")
         self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data["status"], "completed")
+
+        self.assertFalse(Payslip.objects.filter(company=self.company, employee=self.employee, period=self.period).exists())
+
+    def test_owner_approve_credits_payslip(self):
+        from apps.production.models import Payslip
+
+        instance = self._make_instance()
+        self.client.force_authenticate(self.owner)
+        self.client.post(f"/api/v1/workflow-instances/{instance.id}/complete/", {}, format="json")
+
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/approve/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data["status"], "approved")
 
         payslip = Payslip.objects.get(company=self.company, employee=self.employee, period=self.period)
         self.assertEqual(payslip.base_salary, Decimal("1000000"))
 
+    def test_cannot_approve_unfinished_step(self):
+        instance = self._make_instance()
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/approve/", {}, format="json")
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_employee_cannot_approve(self):
+        instance = self._make_instance()
+        self.client.force_authenticate(self.owner)
+        self.client.post(f"/api/v1/workflow-instances/{instance.id}/complete/", {}, format="json")
+
+        self.client.force_authenticate(self.worker_user)
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/approve/", {}, format="json")
+        self.assertEqual(resp.status_code, 403, resp.data)
+
     def test_paid_payslip_not_recomputed(self):
         from apps.production.models import Payslip
-        from .services import consume_material_and_credit_payroll
+        from .services import approve_step_and_credit_payroll
 
         payslip = Payslip.objects.create(
             company=self.company, employee=self.employee, period=self.period,
@@ -543,7 +574,7 @@ class MaterialConsumptionAndPayrollTests(APITestCase):
             company=self.company, name="Yig'ish", employee=self.employee,
             status=StepStatus.COMPLETED, completed_at=timezone.now(), cost=Decimal("1000"),
         )
-        consume_material_and_credit_payroll(instance, self.owner)
+        approve_step_and_credit_payroll(instance, self.owner)
 
         payslip.refresh_from_db()
         self.assertEqual(payslip.total_amount, Decimal("500000"))

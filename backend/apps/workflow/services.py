@@ -20,30 +20,44 @@ def sync_order_status_on_step_completion(order):
     steps = order.workflow_steps.filter(is_deleted=False)
     if not steps.exists():
         return
-    if steps.exclude(status=StepStatus.COMPLETED).exists():
+    if steps.exclude(status__in=(StepStatus.COMPLETED, StepStatus.APPROVED)).exists():
         return
     order.status = Order.Status.READY
     order.save(update_fields=["status", "updated_at"])
     notify_order_status(order)
 
 
-def consume_material_and_credit_payroll(instance, user):
-    """Usta "Bajardim" bosganda BIR TRANZAKSIYADA ikkalasi ham sodir bo'ladi:
-    1) agar bosqichga xom ashyo biriktirilgan bo'lsa — `quantity` miqdorda
-       ombordan avtomatik ayiriladi (`MaterialMovement`, turi "chiqim"),
-    2) agar bosqichga xodim biriktirilgan bo'lsa — shu oyning ish haqi
-       (`Payslip`) darhol qayta hisoblanadi (avval faqat "Hisoblash"
-       tugmasi bilan qo'lda qilinar edi).
+def consume_material_on_completion(instance, user):
+    """Usta "Bajardim" bosganda — agar bosqichga xom ashyo biriktirilgan
+    bo'lsa, `quantity` miqdorda ombordan AVTOMATIK ayiriladi
+    (`MaterialMovement`, turi "chiqim"). Material jismonan shu daqiqada
+    sarflangani uchun bu tasdiqni (`approve`) kutmaydi — ish haqi esa
+    kutadi (qarang `approve_step_and_credit_payroll`).
 
     Chaqiruvchi (`views.py::complete`) buni status COMPLETED qilib
     saqlangandan KEYIN, bitta `transaction.atomic()` bloki ichida
     chaqirishi kerak — ombordan ayirish muvaffaqiyatsiz bo'lsa (masalan
     yetarli qoldiq yo'q), butun "Bajardim" amali bekor qilinadi."""
+    if not instance.raw_material_id or instance.material_consumed:
+        return
     with transaction.atomic():
-        if instance.raw_material_id and not instance.material_consumed:
-            _consume_material(instance, user)
-            instance.material_consumed = True
-            instance.save(update_fields=["material_consumed", "updated_at"])
+        _consume_material(instance, user)
+        instance.material_consumed = True
+        instance.save(update_fields=["material_consumed", "updated_at"])
+
+
+def approve_step_and_credit_payroll(instance, approved_by):
+    """Firma egasi/menejer yakunlangan bosqichni tekshirib tasdiqlaganda
+    chaqiriladi — status APPROVED ga o'tadi va agar bosqichga xodim
+    biriktirilgan bo'lsa, shu oyning ish haqi (`Payslip`) shu daqiqada
+    qayta hisoblanadi. Ombordan ayirish esa allaqachon "Bajardim"
+    bosilganda sodir bo'lgan (qarang `consume_material_on_completion`) —
+    bu yerda takrorlanmaydi."""
+    with transaction.atomic():
+        instance.status = StepStatus.APPROVED
+        instance.approved_at = timezone.now()
+        instance.approved_by = approved_by
+        instance.save(update_fields=["status", "approved_at", "approved_by", "updated_at"])
         if instance.employee_id:
             _credit_payroll(instance)
 

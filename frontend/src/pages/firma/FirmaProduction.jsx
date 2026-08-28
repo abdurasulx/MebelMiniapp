@@ -149,6 +149,19 @@ function WorkflowPipeline({ isManager }) {
     }
   };
 
+  const approve = async (step) => {
+    setBusyId(step.id);
+    setError("");
+    try {
+      await api(`/workflow-instances/${step.id}/approve/`, { method: "POST", body: {} });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const groups = [];
   const groupByOrder = new Map();
   for (const step of instances) {
@@ -229,6 +242,16 @@ function WorkflowPipeline({ isManager }) {
                       <Check size={12} /> Bajarildi
                     </button>
                   )
+                )}
+                {step.status === "completed" && isManager && (
+                  <button
+                    className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
+                    style={{ background: TASK_STATUS.approved.color, color: "#fff" }}
+                    disabled={busyId === step.id}
+                    onClick={() => approve(step)}
+                  >
+                    <Check size={12} /> Tasdiqlash
+                  </button>
                 )}
                 {step.status === "pending" && (
                   isManager && step.is_available && !step.employee_name && step.open_applications_count > 0 ? (

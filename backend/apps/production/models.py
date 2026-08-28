@@ -73,7 +73,7 @@ class Payslip(BaseModel):
         completed = WorkflowStepInstance.objects.filter(
             is_deleted=False,
             employee_id=self.employee_id,
-            status=StepStatus.COMPLETED,
+            status__in=(StepStatus.COMPLETED, StepStatus.APPROVED),
             completed_at__gte=start,
             completed_at__lt=end,
         )

@@ -99,6 +99,7 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
     )
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     completed_by_name = serializers.CharField(source="completed_by.first_name", read_only=True, default=None)
+    approved_by_name = serializers.CharField(source="approved_by.first_name", read_only=True, default=None)
     depends_on = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     is_available = serializers.BooleanField(read_only=True)
     is_manual = serializers.SerializerMethodField()
@@ -163,12 +164,12 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
             "required_materials",
             "photo_requirement", "photo_requirement_display", "depends_on",
             "status", "status_display", "is_available", "deadline",
-            "started_at", "completed_at", "completed_by_name", "updates", "created_at",
+            "started_at", "completed_at", "completed_by_name", "approved_at", "approved_by_name", "updates", "created_at",
             "open_applications_count", "my_application_status",
         )
         read_only_fields = (
             "id", "company", "order_index", "template_step", "depends_on", "is_available",
-            "started_at", "completed_at", "created_at", "work_type", "quantity",
+            "started_at", "completed_at", "approved_at", "created_at", "work_type", "quantity",
             "raw_material", "material_consumed",
             "cut_piece_length", "cut_piece_width", "cut_piece_count", "cut_note",
         )

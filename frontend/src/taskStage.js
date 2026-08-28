@@ -12,11 +12,12 @@ export const TASK_STAGE = {
   other: { label: "Boshqa", icon: ClipboardList },
 };
 
-// backend StepStatus bilan bir xil qiymatlar (pending/in_progress/completed)
+// backend StepStatus bilan bir xil qiymatlar (pending/in_progress/completed/approved)
 export const TASK_STATUS = {
   pending: { label: "Navbatda", color: "#8a8f98" },
   in_progress: { label: "Bajarilmoqda", color: "#f39c12" },
   completed: { label: "Bajarildi", color: "#27ae60" },
+  approved: { label: "Tasdiqlangan", color: "#2563eb" },
 };
 
-export const TASK_FLOW = ["pending", "in_progress", "completed"];
+export const TASK_FLOW = ["pending", "in_progress", "completed", "approved"];
