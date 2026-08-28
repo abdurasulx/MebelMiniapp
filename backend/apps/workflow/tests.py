@@ -447,3 +447,103 @@ class WorkTypeTests(APITestCase):
         work_type.save()
         instance.refresh_from_db()
         self.assertEqual(instance.cost, Decimal("8000.00"))
+
+
+class MaterialConsumptionAndPayrollTests(APITestCase):
+    """'Bajardim' bosilganda ombor va ish haqi avtomatik yangilanishi kerak
+    (bitta atomik amalda) — spetsifikatsiyaning eng muhim talabi."""
+
+    def setUp(self):
+        from datetime import date
+
+        from apps.inventory.models import Material, MaterialStock, Warehouse
+        from apps.production.models import Payslip, PayType
+
+        self.owner = User.objects.create_user(email="owner4@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.company = Company.objects.create(owner=self.owner, name="Shop4", slug="shop4")
+        self.worker_user = User.objects.create_user(email="usta4@shop.uz", password="pass12345", role=User.Role.EMPLOYEE)
+        self.employee = Employee.objects.create(
+            company=self.company, user=self.worker_user, positions=["usta"],
+            pay_type=PayType.FIXED, base_salary=Decimal("1000000"),
+        )
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, name="Xom ashyo ombori", kind=Warehouse.Kind.RAW_MATERIAL, address="Toshkent",
+        )
+        self.material = Material.objects.create(company=self.company, name="Reyka", unit="m")
+        self.stock = MaterialStock.objects.create(warehouse=self.warehouse, material=self.material, quantity=Decimal("10"))
+        self.period = date.today().replace(day=1)
+        self.client = APIClient()
+
+    def _make_instance(self, quantity=Decimal("4")):
+        return WorkflowStepInstance.objects.create(
+            company=self.company, name="Kesish", employee=self.employee,
+            raw_material=self.material, quantity=quantity, cost=Decimal("1000"),
+        )
+
+    def test_complete_deducts_stock_and_creates_movement(self):
+        from apps.inventory.models import MaterialMovement
+
+        instance = self._make_instance()
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/complete/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.quantity, Decimal("6.000"))
+        movement = MaterialMovement.objects.get(workflow_instance=instance)
+        self.assertEqual(movement.movement_type, MaterialMovement.Type.OUT)
+        self.assertEqual(movement.quantity, Decimal("4.000"))
+
+        instance.refresh_from_db()
+        self.assertTrue(instance.material_consumed)
+
+    def test_complete_blocked_when_insufficient_stock(self):
+        instance = self._make_instance(quantity=Decimal("100"))
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/complete/", {}, format="json")
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+        instance.refresh_from_db()
+        self.assertNotEqual(instance.status, StepStatus.COMPLETED)
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.quantity, Decimal("10.000"))
+
+    def test_double_consumption_guarded_by_material_consumed_flag(self):
+        from .services import consume_material_and_credit_payroll
+
+        instance = self._make_instance()
+        consume_material_and_credit_payroll(instance, self.owner)
+        consume_material_and_credit_payroll(instance, self.owner)  # ikkinchi chaqiruv hech narsa qilmasligi kerak
+
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.quantity, Decimal("6.000"))
+
+    def test_complete_credits_payslip_immediately(self):
+        from apps.production.models import Payslip
+
+        instance = self._make_instance()
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/complete/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+        payslip = Payslip.objects.get(company=self.company, employee=self.employee, period=self.period)
+        self.assertEqual(payslip.base_salary, Decimal("1000000"))
+
+    def test_paid_payslip_not_recomputed(self):
+        from apps.production.models import Payslip
+        from .services import consume_material_and_credit_payroll
+
+        payslip = Payslip.objects.create(
+            company=self.company, employee=self.employee, period=self.period,
+            is_paid=True, total_amount=Decimal("500000"),
+        )
+        from django.utils import timezone
+
+        instance = WorkflowStepInstance.objects.create(
+            company=self.company, name="Yig'ish", employee=self.employee,
+            status=StepStatus.COMPLETED, completed_at=timezone.now(), cost=Decimal("1000"),
+        )
+        consume_material_and_credit_payroll(instance, self.owner)
+
+        payslip.refresh_from_db()
+        self.assertEqual(payslip.total_amount, Decimal("500000"))

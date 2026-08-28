@@ -44,6 +44,8 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
     )
     work_type_name = serializers.CharField(source="work_type.name", read_only=True, default=None)
     work_type_unit_display = serializers.CharField(source="work_type.get_unit_display", read_only=True, default=None)
+    raw_material_name = serializers.CharField(source="raw_material.name", read_only=True, default=None)
+    raw_material_unit = serializers.CharField(source="raw_material.unit", read_only=True, default=None)
     depends_on = serializers.PrimaryKeyRelatedField(
         many=True, queryset=WorkflowStep.objects.filter(is_deleted=False), required=False
     )
@@ -54,6 +56,7 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
             "id", "product", "order_index", "name", "role", "role_display",
             "employee", "employee_name", "estimated_hours",
             "work_type", "work_type_name", "work_type_unit_display", "quantity", "cost",
+            "raw_material", "raw_material_name", "raw_material_unit",
             "required_materials", "photo_requirement", "photo_requirement_display",
             "depends_on", "created_at",
         )
@@ -141,6 +144,8 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
 
     work_type_name = serializers.CharField(source="work_type.name", read_only=True, default=None)
     work_type_unit_display = serializers.CharField(source="work_type.get_unit_display", read_only=True, default=None)
+    raw_material_name = serializers.CharField(source="raw_material.name", read_only=True, default=None)
+    raw_material_unit = serializers.CharField(source="raw_material.unit", read_only=True, default=None)
 
     class Meta:
         model = WorkflowStepInstance
@@ -150,6 +155,7 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
             "role", "role_display",
             "employee", "employee_name", "estimated_hours",
             "work_type", "work_type_name", "work_type_unit_display", "quantity", "cost",
+            "raw_material", "raw_material_name", "raw_material_unit", "material_consumed",
             "required_materials",
             "photo_requirement", "photo_requirement_display", "depends_on",
             "status", "status_display", "is_available", "deadline",
@@ -159,4 +165,5 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "id", "company", "order_index", "template_step", "depends_on", "is_available",
             "started_at", "completed_at", "created_at", "work_type", "quantity",
+            "raw_material", "material_consumed",
         )

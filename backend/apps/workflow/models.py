@@ -102,6 +102,15 @@ class WorkflowStep(BaseModel):
     )
     quantity = models.DecimalField(max_digits=10, decimal_places=3, default=1)
     cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # `raw_material` belgilansa, usta "Bajardim" bosganda `quantity` (xuddi
+    # yuqoridagi ish narxi hisobida ishlatilgan miqdor) shu materialning
+    # o'lchov birligida ombordan AVTOMATIK ayiriladi (qarang
+    # apps.workflow.services.consume_material_and_credit_payroll). Bitta
+    # bosqich — bitta material (spetsifikatsiyaga ko'ra); `required_materials`
+    # (pastda, erkin matn) eski/qo'shimcha izoh sifatida qolaveradi.
+    raw_material = models.ForeignKey(
+        "inventory.Material", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     required_materials = models.TextField(blank=True)
     photo_requirement = models.CharField(
         max_length=10, choices=PhotoRequirement.choices, default=PhotoRequirement.OPTIONAL
@@ -175,6 +184,13 @@ class WorkflowStepInstance(BaseModel):
     )
     quantity = models.DecimalField(max_digits=10, decimal_places=3, default=1)
     cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    raw_material = models.ForeignKey(
+        "inventory.Material", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    # Bosqich "Bajardim" bosilib yakunlanganda ombordan ayirish AMALGA
+    # OSHIRILGANMI — qayta bosilsa yoki bosqich qandaydir yo'l bilan qayta
+    # yakunlansa ham material IKKI MARTA ayirilmasligi uchun soqchi bayroq.
+    material_consumed = models.BooleanField(default=False)
     required_materials = models.TextField(blank=True)
     photo_requirement = models.CharField(
         max_length=10, choices=PhotoRequirement.choices, default=PhotoRequirement.OPTIONAL

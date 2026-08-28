@@ -967,7 +967,7 @@ function VariantModelSection({ variant, onDone }) {
 
 const EMPTY_STEP = {
   name: "", role: "usta", estimated_hours: 1, cost: 0, required_materials: "",
-  photo_requirement: "optional", work_type: "", quantity: 1,
+  photo_requirement: "optional", work_type: "", quantity: 1, raw_material: "",
 };
 
 function ProductionTab({ product, steps, onStepsChange }) {
@@ -975,9 +975,11 @@ function ProductionTab({ product, steps, onStepsChange }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_STEP);
   const [workTypes, setWorkTypes] = useState([]);
+  const [materials, setMaterials] = useState([]);
 
   useEffect(() => {
     api("/work-types/").then((d) => setWorkTypes(d.results || [])).catch(() => {});
+    api("/materials/").then((d) => setMaterials(d.results || [])).catch(() => {});
   }, []);
 
   const selectedWorkType = workTypes.find((w) => w.id === form.work_type);
@@ -987,10 +989,9 @@ function ProductionTab({ product, steps, onStepsChange }) {
     e.preventDefault();
     setError("");
     const body = { ...form };
-    if (!body.work_type) {
-      delete body.work_type;
-      delete body.quantity;
-    }
+    if (!body.work_type) delete body.work_type;
+    if (!body.raw_material) delete body.raw_material;
+    if (!body.work_type && !body.raw_material) delete body.quantity;
     api(`/products/${product.id}/workflow-steps/`, { method: "POST", body })
       .then(() => { setForm(EMPTY_STEP); setShowForm(false); onStepsChange(); })
       .catch((e) => setError(e.message));
@@ -1045,6 +1046,7 @@ function ProductionTab({ product, steps, onStepsChange }) {
                       <div style={{ fontSize: 12, color: ENT.muted, marginTop: 2 }}>
                         {POSITIONS[s.role]?.label || s.role} · {s.estimated_hours} soat · {Number(s.cost).toLocaleString()} so'm
                         {s.work_type_name && ` (${s.quantity} ${s.work_type_unit_display} × ${s.work_type_name})`}
+                        {s.raw_material_name && ` · ${s.quantity} ${s.raw_material_unit} ${s.raw_material_name} sarflanadi`}
                         {s.photo_requirement !== "optional" && ` · ${PHOTO_REQUIREMENT[s.photo_requirement]} rasm`}
                       </div>
                     </div>
@@ -1118,8 +1120,24 @@ function ProductionTab({ product, steps, onStepsChange }) {
                 <input className="input" type="number" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
               </div>
             )}
+            <div>
+              <label className="label">Xom ashyo (ixtiyoriy — ombordan avtomatik ayiriladi)</label>
+              <select className="input" value={form.raw_material} onChange={(e) => setForm({ ...form, raw_material: e.target.value })}>
+                <option value="">Yo'q</option>
+                {materials.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                ))}
+              </select>
+            </div>
+            {form.raw_material && !selectedWorkType && (
+              <div>
+                <label className="label">Sarflanadigan miqdor</label>
+                <input className="input" type="number" min="0" step="0.001" value={form.quantity}
+                  onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+              </div>
+            )}
             <div className="sm:col-span-2">
-              <label className="label">Kerakli materiallar (ixtiyoriy)</label>
+              <label className="label">Kerakli materiallar (izoh, ixtiyoriy)</label>
               <input className="input" value={form.required_materials} onChange={(e) => setForm({ ...form, required_materials: e.target.value })} />
             </div>
             <div>

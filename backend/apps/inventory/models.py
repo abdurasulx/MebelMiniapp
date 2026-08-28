@@ -118,18 +118,30 @@ class MaterialStock(BaseModel):
 
 
 class MaterialMovement(BaseModel):
-    """Ombordagi xom ashyo kirim/chiqim tarixi (audit) — har yozuv qoldiqni
-    (`MaterialStock`) ham mos ravishda o'zgartiradi."""
+    """Ombordagi xom ashyo kirim/chiqim tarixi (audit) — chaqiruvchi kod
+    `MaterialStock`ni ham mos ravishda o'zgartiradi (bu yerda avtomatik
+    signal orqali emas — qarang `ProduceView`/`apps.workflow.services`)."""
 
     class Type(models.TextChoices):
         IN = "in", "Kirim"
         OUT = "out", "Chiqim"
+        RETURN = "return", "Qaytarish"
 
     warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE, related_name="material_movements")
     material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name="movements")
     movement_type = models.CharField(max_length=10, choices=Type.choices)
     quantity = models.DecimalField(max_digits=14, decimal_places=3, validators=[MinValueValidator(0.001)])
     note = models.CharField(max_length=500, blank=True)
+    # Ishlab chiqarish bosqichi ("Bajardim" tugmasi) tomonidan avtomatik
+    # yaratilgan chiqim bo'lsa — shu bosqichga bog'lanadi (qaysi topshiriq
+    # qaysi materialni sarflaganini kuzatish uchun). Qo'lda kiritilgan
+    # kirim/chiqimlarda bo'sh qoladi. String reference — apps.workflow bu
+    # modeldan (UNIT_CHOICES orqali) import qiladi, aylanma import bo'lmasligi
+    # uchun to'g'ridan-to'g'ri import qilinmaydi.
+    workflow_instance = models.ForeignKey(
+        "workflow.WorkflowStepInstance", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="material_movements",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
     )

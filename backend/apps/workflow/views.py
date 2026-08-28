@@ -35,7 +35,7 @@ from .serializers import (
     WorkflowStepSerializer,
     WorkTypeSerializer,
 )
-from .services import sync_order_status_on_step_completion
+from .services import consume_material_and_credit_payroll, sync_order_status_on_step_completion
 
 
 class WorkTypeViewSet(viewsets.ModelViewSet):
@@ -402,12 +402,15 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
         instance.activate_if_ready()
         serializer = ProgressUpdateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(step=instance, employee=request.user, is_completion=True)
 
-        instance.status = StepStatus.COMPLETED
-        instance.completed_at = timezone.now()
-        instance.completed_by = request.user
-        instance.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
+        with transaction.atomic():
+            serializer.save(step=instance, employee=request.user, is_completion=True)
+            instance.status = StepStatus.COMPLETED
+            instance.completed_at = timezone.now()
+            instance.completed_by = request.user
+            instance.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
+            consume_material_and_credit_payroll(instance, request.user)
+
         activated, newly_open = instance.activate_dependents()
         for activated_step in activated:
             if activated_step.employee_id:
