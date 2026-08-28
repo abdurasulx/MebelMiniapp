@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 
 from apps.companies.models import Employee
+from apps.inventory.models import UNIT_CHOICES
 from common.models import BaseModel, StoredFileMixin
 
 
@@ -47,6 +48,32 @@ STAGE_POSITION = {
 }
 
 
+class WorkType(BaseModel):
+    """Ish turlari katalogi — firma miqyosida markazlashgan: bir marta narx
+    (birlik boshiga) va kerakli lavozim belgilanadi, keyin bu yozuv istalgan
+    mahsulotning istalgan ish bosqichida (`WorkflowStep.work_type`) qayta
+    ishlatiladi. Masalan "Kesish" bosqichida "Rekani kesish" (m, narxi X) va
+    alohida "Konfirmat Ø8 teshish" (dona, narxi Y) — turli teshiklar/ishlar
+    turlicha narxlanishi shu orqali ta'minlanadi, narx har safar qo'lda
+    qayta kiritilmaydi."""
+
+    company = models.ForeignKey(
+        "companies.Company", on_delete=models.CASCADE, related_name="work_types"
+    )
+    stage = models.CharField(max_length=20, choices=Stage.choices, blank=True)
+    name = models.CharField(max_length=150)
+    unit = models.CharField(max_length=10, choices=UNIT_CHOICES, default="dona")
+    price_per_unit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    required_role = models.CharField(max_length=20, choices=Employee.Position.choices, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("stage", "name")
+
+    def __str__(self):
+        return f"{self.name} ({self.company.name})"
+
+
 class WorkflowStep(BaseModel):
     """Mahsulotning ishlab chiqarish jarayoni shabloni (bosqichlar grafigi).
 
@@ -66,6 +93,14 @@ class WorkflowStep(BaseModel):
         Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="workflow_steps"
     )
     estimated_hours = models.DecimalField(max_digits=6, decimal_places=2, default=1)
+    # `work_type` belgilansa, `cost` QO'LDA emas — `quantity x
+    # work_type.price_per_unit` orqali AVTOMATIK hisoblanadi (qarang save()).
+    # `work_type` bo'sh qoldirilsa (eski xatti-harakat), `cost` oddiy qo'lda
+    # kiritiladigan qattiq summa bo'lib qoladi — orqaga moslik uchun.
+    work_type = models.ForeignKey(
+        WorkType, on_delete=models.SET_NULL, null=True, blank=True, related_name="workflow_steps"
+    )
+    quantity = models.DecimalField(max_digits=10, decimal_places=3, default=1)
     cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     required_materials = models.TextField(blank=True)
     photo_requirement = models.CharField(
@@ -77,6 +112,13 @@ class WorkflowStep(BaseModel):
 
     class Meta:
         ordering = ("order_index", "created_at")
+
+    def save(self, *args, **kwargs):
+        if self.work_type_id:
+            self.cost = self.quantity * self.work_type.price_per_unit
+            if not self.role:
+                self.role = self.work_type.required_role
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.product} — {self.name}"
@@ -125,6 +167,13 @@ class WorkflowStepInstance(BaseModel):
         related_name="workflow_step_instances",
     )
     estimated_hours = models.DecimalField(max_digits=6, decimal_places=2, default=1)
+    # `work_type`/`quantity` ham boshqa maydonlar kabi yaratilish paytida
+    # muhrlanadi (snapshot) — keyinchalik WorkType.price_per_unit
+    # o'zgartirilsa ham, bu buyurtma tarixidagi `cost`ga ta'sir qilmaydi.
+    work_type = models.ForeignKey(
+        WorkType, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    quantity = models.DecimalField(max_digits=10, decimal_places=3, default=1)
     cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     required_materials = models.TextField(blank=True)
     photo_requirement = models.CharField(

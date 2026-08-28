@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Building2, MapPin, AtSign, Send, Link as LinkIcon, Globe } from "lucide-react";
+import { Building2, MapPin, AtSign, Send, Link as LinkIcon, Globe, Hammer, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
+import { POSITIONS } from "../../positions";
+import { TASK_STAGE } from "../../taskStage";
 
 const VILOYATLAR = [
   ["toshkent_shahri", "Toshkent shahri"],
@@ -284,6 +286,7 @@ export default function FirmaSettings() {
           </button>
         )}
       </form>
+      {company && isOwner && <WorkTypesCard />}
       {company && isOwner && <TariffCard company={company} onChanged={load} />}
     </div>
   );
@@ -293,6 +296,132 @@ export default function FirmaSettings() {
 /// to'lov shlyuzi ulanmagan, faqat oylik summa hisoblab ko'rsatiladi (faol
 /// xodimlar soni x xodim narxi + 3D modeli bor mahsulotlar soni x mahsulot
 /// narxi). Qarang backend Company.billing_summary.
+const EMPTY_WORK_TYPE = { stage: "", name: "", unit: "dona", price_per_unit: "", required_role: "" };
+const UNIT_LABELS = { dona: "Dona", kg: "Kilogramm", m: "Metr", m2: "Kvadrat metr", m3: "Kub metr", litr: "Litr" };
+
+/// Firma miqyosida markazlashgan "ish turlari" katalogi — bir marta narx
+/// (birlik boshiga) belgilanadi, keyin mahsulot ish bosqichi yaratilganda
+/// (FirmaProductDetail.jsx ProductionTab) shu ro'yxatdan tanlanadi va
+/// xarajat avtomatik hisoblanadi (miqdor x narx).
+function WorkTypesCard() {
+  const [workTypes, setWorkTypes] = useState([]);
+  const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(EMPTY_WORK_TYPE);
+  const [saving, setSaving] = useState(false);
+
+  const load = () =>
+    api("/work-types/")
+      .then((d) => setWorkTypes(d.results || []))
+      .catch((e) => setError(e.message));
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const create = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSaving(true);
+    try {
+      await api("/work-types/", { method: "POST", body: form });
+      setForm(EMPTY_WORK_TYPE);
+      setShowForm(false);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (wt) => {
+    if (!confirm(`"${wt.name}" ish turi o'chirilsinmi?`)) return;
+    try {
+      await api(`/work-types/${wt.id}/`, { method: "DELETE" });
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  return (
+    <div className="card flex flex-col gap-4 p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="inline-flex items-center gap-2 text-base font-semibold">
+          <Hammer size={17} /> Ish turlari
+        </h2>
+        <button type="button" className="btn" onClick={() => setShowForm((v) => !v)}>
+          {showForm ? "Bekor qilish" : "+ Yangi"}
+        </button>
+      </div>
+      <p className="text-sm" style={{ color: "var(--muted)" }}>
+        Har bir ish turi uchun bir marta narx (birlik boshiga) va lavozim belgilanadi — mahsulot ish
+        bosqichi yaratilganda shu ro'yxatdan tanlanadi, xarajat qayta qo'lda kiritilmaydi.
+      </p>
+      {error && <div className="error">{error}</div>}
+      {showForm && (
+        <form onSubmit={create} className="flex flex-col gap-3 rounded-xl p-4" style={{ border: "1px solid var(--border)" }}>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Bosqich</label>
+              <select className="input" value={form.stage} onChange={(e) => setForm({ ...form, stage: e.target.value })}>
+                <option value="">—</option>
+                {Object.entries(TASK_STAGE).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Nomi</label>
+              <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </div>
+            <div>
+              <label className="label">Birlik</label>
+              <select className="input" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
+                {Object.entries(UNIT_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Narx (birlik boshiga, so'm)</label>
+              <input className="input" type="number" min="0" step="0.01" value={form.price_per_unit}
+                onChange={(e) => setForm({ ...form, price_per_unit: e.target.value })} required />
+            </div>
+            <div className="col-span-2">
+              <label className="label">Kerakli lavozim</label>
+              <select className="input" value={form.required_role} onChange={(e) => setForm({ ...form, required_role: e.target.value })}>
+                <option value="">—</option>
+                {Object.entries(POSITIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <button className="btn self-start" type="submit" disabled={saving}>{saving ? "Saqlanmoqda…" : "Yaratish"}</button>
+        </form>
+      )}
+      <div className="flex flex-col gap-2">
+        {workTypes.length === 0 && (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>Hali ish turi qo'shilmagan.</p>
+        )}
+        {workTypes.map((wt) => (
+          <div key={wt.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl p-3" style={{ border: "1px solid var(--border)" }}>
+            <div>
+              <div className="font-medium">
+                {wt.name}
+                {wt.stage_display && <span className="ml-2 text-xs" style={{ color: "var(--muted)" }}>({wt.stage_display})</span>}
+              </div>
+              <div className="text-xs" style={{ color: "var(--muted)" }}>
+                {wt.price_per_unit} so'm/{wt.unit_display}
+                {wt.required_role_display && ` · ${wt.required_role_display}`}
+              </div>
+            </div>
+            <button onClick={() => remove(wt)} style={{ background: "transparent", border: "none", color: "#e74c3c", cursor: "pointer", display: "flex" }}>
+              <Trash2 size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function TariffCard({ company, onChanged }) {
   const [plans, setPlans] = useState([]);
   const [error, setError] = useState("");

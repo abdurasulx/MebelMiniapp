@@ -1,11 +1,17 @@
 from django.contrib import admin
 
-from .models import ProgressUpdate, StepApplication, WorkflowStep, WorkflowStepInstance
+from .models import ProgressUpdate, StepApplication, WorkflowStep, WorkflowStepInstance, WorkType
+
+
+@admin.register(WorkType)
+class WorkTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "company", "stage", "unit", "price_per_unit", "required_role", "is_active")
+    list_filter = ("stage", "required_role", "is_active")
 
 
 @admin.register(WorkflowStep)
 class WorkflowStepAdmin(admin.ModelAdmin):
-    list_display = ("product", "order_index", "name", "role", "cost")
+    list_display = ("product", "order_index", "name", "role", "work_type", "quantity", "cost")
     list_filter = ("role",)
 
 

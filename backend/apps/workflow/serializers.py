@@ -2,7 +2,29 @@ from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
 
-from .models import STAGE_POSITION, ApplicationStatus, ProgressUpdate, StepApplication, WorkflowStep, WorkflowStepInstance
+from .models import (
+    STAGE_POSITION,
+    ApplicationStatus,
+    ProgressUpdate,
+    StepApplication,
+    WorkflowStep,
+    WorkflowStepInstance,
+    WorkType,
+)
+
+
+class WorkTypeSerializer(serializers.ModelSerializer):
+    stage_display = serializers.CharField(source="get_stage_display", read_only=True, default=None)
+    unit_display = serializers.CharField(source="get_unit_display", read_only=True)
+    required_role_display = serializers.CharField(source="get_required_role_display", read_only=True, default=None)
+
+    class Meta:
+        model = WorkType
+        fields = (
+            "id", "stage", "stage_display", "name", "unit", "unit_display",
+            "price_per_unit", "required_role", "required_role_display", "is_active", "created_at",
+        )
+        read_only_fields = ("id", "created_at")
 
 
 class StepApplicationSerializer(serializers.ModelSerializer):
@@ -20,6 +42,8 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
     photo_requirement_display = serializers.CharField(
         source="get_photo_requirement_display", read_only=True
     )
+    work_type_name = serializers.CharField(source="work_type.name", read_only=True, default=None)
+    work_type_unit_display = serializers.CharField(source="work_type.get_unit_display", read_only=True, default=None)
     depends_on = serializers.PrimaryKeyRelatedField(
         many=True, queryset=WorkflowStep.objects.filter(is_deleted=False), required=False
     )
@@ -28,7 +52,8 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
         model = WorkflowStep
         fields = (
             "id", "product", "order_index", "name", "role", "role_display",
-            "employee", "employee_name", "estimated_hours", "cost",
+            "employee", "employee_name", "estimated_hours",
+            "work_type", "work_type_name", "work_type_unit_display", "quantity", "cost",
             "required_materials", "photo_requirement", "photo_requirement_display",
             "depends_on", "created_at",
         )
@@ -114,13 +139,18 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
     def get_is_manual(self, obj):
         return obj.template_step_id is None
 
+    work_type_name = serializers.CharField(source="work_type.name", read_only=True, default=None)
+    work_type_unit_display = serializers.CharField(source="work_type.get_unit_display", read_only=True, default=None)
+
     class Meta:
         model = WorkflowStepInstance
         fields = (
             "id", "company", "order", "order_display", "order_status", "template_step", "order_index",
             "is_manual", "name", "description", "stage", "stage_display", "suggested_position",
             "role", "role_display",
-            "employee", "employee_name", "estimated_hours", "cost", "required_materials",
+            "employee", "employee_name", "estimated_hours",
+            "work_type", "work_type_name", "work_type_unit_display", "quantity", "cost",
+            "required_materials",
             "photo_requirement", "photo_requirement_display", "depends_on",
             "status", "status_display", "is_available", "deadline",
             "started_at", "completed_at", "completed_by_name", "updates", "created_at",
@@ -128,5 +158,5 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
         )
         read_only_fields = (
             "id", "company", "order_index", "template_step", "depends_on", "is_available",
-            "started_at", "completed_at", "created_at",
+            "started_at", "completed_at", "created_at", "work_type", "quantity",
         )

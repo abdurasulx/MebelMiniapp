@@ -26,14 +26,51 @@ from .models import (
     StepStatus,
     WorkflowStep,
     WorkflowStepInstance,
+    WorkType,
 )
 from .serializers import (
     ProgressUpdateSerializer,
     StepApplicationSerializer,
     WorkflowStepInstanceSerializer,
     WorkflowStepSerializer,
+    WorkTypeSerializer,
 )
 from .services import sync_order_status_on_step_completion
+
+
+class WorkTypeViewSet(viewsets.ModelViewSet):
+    """Ish turlari katalogi (`/work-types/`) — firma egasi/menejer
+    boshqaradi, xodimlar faqat ko'radi (mahsulot bosqichini yaratishda
+    tanlash uchun)."""
+
+    serializer_class = WorkTypeSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ("get", "post", "patch", "delete", "head", "options")
+
+    def get_queryset(self):
+        company = user_company(self.request.user)
+        if company is None:
+            return WorkType.objects.none()
+        return WorkType.objects.filter(company=company, is_deleted=False)
+
+    def _own_company(self):
+        company = user_company(self.request.user)
+        if company is None:
+            raise PermissionDenied("Faqat firma a'zolari ish turlarini boshqaradi")
+        return company
+
+    def perform_create(self, serializer):
+        serializer.save(company=self._own_company())
+
+    def perform_update(self, serializer):
+        self._own_company()
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._own_company()
+        instance.is_deleted = True
+        instance.is_active = False
+        instance.save(update_fields=["is_deleted", "is_active"])
 
 
 class WorkflowStepViewSet(viewsets.ModelViewSet):

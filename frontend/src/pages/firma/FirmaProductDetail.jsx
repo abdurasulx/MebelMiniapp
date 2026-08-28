@@ -965,17 +965,33 @@ function VariantModelSection({ variant, onDone }) {
 
 // ============================== Ishlab chiqarish ==============================
 
-const EMPTY_STEP = { name: "", role: "usta", estimated_hours: 1, cost: 0, required_materials: "", photo_requirement: "optional" };
+const EMPTY_STEP = {
+  name: "", role: "usta", estimated_hours: 1, cost: 0, required_materials: "",
+  photo_requirement: "optional", work_type: "", quantity: 1,
+};
 
 function ProductionTab({ product, steps, onStepsChange }) {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_STEP);
+  const [workTypes, setWorkTypes] = useState([]);
+
+  useEffect(() => {
+    api("/work-types/").then((d) => setWorkTypes(d.results || [])).catch(() => {});
+  }, []);
+
+  const selectedWorkType = workTypes.find((w) => w.id === form.work_type);
+  const computedCost = selectedWorkType ? Number(form.quantity || 0) * Number(selectedWorkType.price_per_unit) : null;
 
   const addStep = (e) => {
     e.preventDefault();
     setError("");
-    api(`/products/${product.id}/workflow-steps/`, { method: "POST", body: form })
+    const body = { ...form };
+    if (!body.work_type) {
+      delete body.work_type;
+      delete body.quantity;
+    }
+    api(`/products/${product.id}/workflow-steps/`, { method: "POST", body })
       .then(() => { setForm(EMPTY_STEP); setShowForm(false); onStepsChange(); })
       .catch((e) => setError(e.message));
   };
@@ -1028,6 +1044,7 @@ function ProductionTab({ product, steps, onStepsChange }) {
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: ENT.text }}>{s.name}</div>
                       <div style={{ fontSize: 12, color: ENT.muted, marginTop: 2 }}>
                         {POSITIONS[s.role]?.label || s.role} · {s.estimated_hours} soat · {Number(s.cost).toLocaleString()} so'm
+                        {s.work_type_name && ` (${s.quantity} ${s.work_type_unit_display} × ${s.work_type_name})`}
                         {s.photo_requirement !== "optional" && ` · ${PHOTO_REQUIREMENT[s.photo_requirement]} rasm`}
                       </div>
                     </div>
@@ -1058,8 +1075,27 @@ function ProductionTab({ product, steps, onStepsChange }) {
               <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </div>
             <div>
+              <label className="label">Ish turi (ixtiyoriy)</label>
+              <select
+                className="input"
+                value={form.work_type}
+                onChange={(e) => {
+                  const wt = workTypes.find((w) => w.id === e.target.value);
+                  setForm({ ...form, work_type: e.target.value, role: wt ? wt.required_role || form.role : form.role });
+                }}
+              >
+                <option value="">Qo'lda kiritish</option>
+                {workTypes.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name} ({w.price_per_unit} so'm/{w.unit_display})</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="label">Mas'ul rol</label>
-              <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+              <select
+                className="input" value={form.role} disabled={!!selectedWorkType}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+              >
                 {Object.entries(POSITIONS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
@@ -1067,10 +1103,21 @@ function ProductionTab({ product, steps, onStepsChange }) {
               <label className="label">Taxminiy vaqt (soat)</label>
               <input className="input" type="number" step="0.5" min="0" value={form.estimated_hours} onChange={(e) => setForm({ ...form, estimated_hours: e.target.value })} />
             </div>
-            <div>
-              <label className="label">Xarajat (so'm)</label>
-              <input className="input" type="number" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
-            </div>
+            {selectedWorkType ? (
+              <div>
+                <label className="label">Miqdor ({selectedWorkType.unit_display})</label>
+                <input className="input" type="number" min="0" step="0.001" value={form.quantity}
+                  onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+                <p style={{ fontSize: 11, color: ENT.muted, marginTop: 4 }}>
+                  Xarajat avtomatik: {computedCost?.toLocaleString()} so'm
+                </p>
+              </div>
+            ) : (
+              <div>
+                <label className="label">Xarajat (so'm)</label>
+                <input className="input" type="number" min="0" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })} />
+              </div>
+            )}
             <div className="sm:col-span-2">
               <label className="label">Kerakli materiallar (ixtiyoriy)</label>
               <input className="input" value={form.required_materials} onChange={(e) => setForm({ ...form, required_materials: e.target.value })} />

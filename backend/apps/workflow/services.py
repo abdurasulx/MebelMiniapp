@@ -50,6 +50,8 @@ def create_workflow_instances(order, product):
             role=step.role,
             employee=step.employee,
             estimated_hours=step.estimated_hours,
+            work_type=step.work_type,
+            quantity=step.quantity,
             cost=step.cost,
             required_materials=step.required_materials,
             photo_requirement=step.photo_requirement,

@@ -8,7 +8,7 @@ from apps.companies.models import Company, Employee
 from apps.orders.models import Order
 from apps.products.models import Category, Product, Variant
 
-from .models import StepStatus, WorkflowStep, WorkflowStepInstance
+from .models import StepStatus, WorkflowStep, WorkflowStepInstance, WorkType
 from .services import create_workflow_instances, sync_order_status_on_step_completion
 
 User = get_user_model()
@@ -380,3 +380,70 @@ class CapacityAndPredictionTests(APITestCase):
         self.assertEqual(resp.data["own_hours"], 2.0)
         self.assertEqual(resp.data["queue_hours"], 10.0)
         self.assertEqual(resp.data["remaining_hours"], 12.0)
+
+
+class WorkTypeTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(email="owner3@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.company = Company.objects.create(owner=self.owner, name="Shop3", slug="shop3")
+        self.category = Category.objects.create(name_uz="Stullar3", slug="stullar3")
+        self.product = Product.objects.create(company=self.company, category=self.category, name_uz="Stul", is_published=True)
+        self.client = APIClient()
+
+    def test_owner_creates_work_type(self):
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(
+            "/api/v1/work-types/",
+            {"stage": "cutting", "name": "Rekani kesish", "unit": "m", "price_per_unit": "5000", "required_role": "usta"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(WorkType.objects.count(), 1)
+
+    def test_workflow_step_cost_auto_computed_from_work_type(self):
+        work_type = WorkType.objects.create(
+            company=self.company, name="Rekani kesish", unit="m",
+            price_per_unit=Decimal("5000"), required_role="usta",
+        )
+        step = WorkflowStep.objects.create(
+            product=self.product, name="Kesish", work_type=work_type, quantity=Decimal("3"),
+        )
+        self.assertEqual(step.cost, Decimal("15000.00"))
+        self.assertEqual(step.role, "usta")
+
+        # Narx o'zgarsa, MAVJUD bosqichning cost'i o'zgarmaydi (faqat qayta
+        # save() qilinganda qayta hisoblanadi) - lekin YANGI save() chaqirilsa
+        # yangi narx bilan qayta hisoblanishi kerak (shablon hali "jonli").
+        work_type.price_per_unit = Decimal("6000")
+        work_type.save()
+        step.refresh_from_db()
+        self.assertEqual(step.cost, Decimal("15000.00"))  # eski qiymat saqlanadi
+        step.save()
+        self.assertEqual(step.cost, Decimal("18000.00"))  # qayta save()da yangilanadi
+
+    def test_workflow_step_without_work_type_keeps_manual_cost(self):
+        step = WorkflowStep.objects.create(product=self.product, name="Qo'lda", cost=Decimal("25000"))
+        self.assertEqual(step.cost, Decimal("25000.00"))
+
+    def test_instance_snapshots_work_type_and_quantity_at_creation(self):
+        work_type = WorkType.objects.create(
+            company=self.company, name="Kromkalash", unit="m", price_per_unit=Decimal("2000"),
+        )
+        WorkflowStep.objects.create(
+            product=self.product, name="Kromkalash", work_type=work_type, quantity=Decimal("4"),
+        )
+        customer = User.objects.create_user(email="mijoz3@test.uz", password="pass12345", role=User.Role.CUSTOMER)
+        order = Order.objects.create(company=self.company, customer=customer, phone="+998900000002", address="Toshkent")
+        instances = create_workflow_instances(order, self.product)
+        self.assertEqual(len(instances), 1)
+        instance = instances[0]
+        self.assertEqual(instance.work_type_id, work_type.id)
+        self.assertEqual(instance.quantity, Decimal("4.000"))
+        self.assertEqual(instance.cost, Decimal("8000.00"))
+
+        # Shablon narxi keyinroq o'zgarsa ham, allaqachon yaratilgan
+        # instance'ning cost'i o'zgarmasligi kerak (snapshot).
+        work_type.price_per_unit = Decimal("9999")
+        work_type.save()
+        instance.refresh_from_db()
+        self.assertEqual(instance.cost, Decimal("8000.00"))

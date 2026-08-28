@@ -10,6 +10,7 @@ from apps.companies.views import (
     EmployeeViewSet,
     PositionPayStandardViewSet,
     ReviewViewSet,
+    TariffPlanViewSet,
 )
 from apps.crm.views import LeadViewSet
 from apps.inventory.views import (
@@ -76,6 +77,7 @@ from apps.workflow.views import (
     WorkflowStatsView,
     WorkflowStepInstanceViewSet,
     WorkflowStepViewSet,
+    WorkTypeViewSet,
 )
 
 router = DefaultRouter()
@@ -83,6 +85,7 @@ router.register("companies", CompanyViewSet, basename="company")
 router.register("employees", EmployeeViewSet, basename="employee")
 router.register("employee-invitations", EmployeeInvitationViewSet, basename="employee-invitation")
 router.register("pay-standards", PositionPayStandardViewSet, basename="pay-standard")
+router.register("tariff-plans", TariffPlanViewSet, basename="tariff-plan")
 router.register("orders", OrderViewSet, basename="order")
 router.register("categories", CategoryViewSet, basename="category")
 router.register("products", ProductViewSet, basename="product")
@@ -95,6 +98,7 @@ router.register("ar-collections", ARCollectionViewSet, basename="ar-collection")
 router.register("cart-items", CartItemViewSet, basename="cart-item")
 router.register("reviews", ReviewViewSet, basename="review")
 router.register("workflow-instances", WorkflowStepInstanceViewSet, basename="workflow-instance")
+router.register("work-types", WorkTypeViewSet, basename="work-type")
 router.register("detail-assets", DetailAssetViewSet, basename="detail-asset")
 router.register("projects", ProjectViewSet, basename="project")
 router.register("warehouses", WarehouseViewSet, basename="warehouse")
