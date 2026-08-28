@@ -118,12 +118,78 @@ def _credit_payroll(instance):
     payslip, _ = Payslip.objects.get_or_create(
         company_id=instance.company_id, employee_id=instance.employee_id, period=period,
     )
+    _recompute_and_save(payslip)
+
+
+def _recompute_and_save(payslip):
     if payslip.is_paid:
         # To'langan oylikka orqaga qarab ta'sir qilinmaydi — keyingi oyning
         # payslip'i o'z vaqtida yaratiladi/hisoblanadi.
         return
     payslip.recompute()
     payslip.save()
+
+
+def cancel_step(instance, cancelled_by):
+    """Firma egasi/menejer bosqichni bekor qiladi (xato tayinlash, buyurtma
+    bekor bo'lishi va h.k.):
+    1) agar material allaqachon ombordan ayirilgan bo'lsa (`material_consumed`)
+       — teskari "qaytarish" harakati bilan ombor holatiga tiklanadi,
+    2) agar bosqich tasdiqlangan (APPROVED) bo'lib, ish haqi allaqachon
+       kreditlangan bo'lsa — `Payslip` qayta hisoblanib, shu bosqichning
+       ulushi olib tashlanadi (chunki qayta hisoblash endi bu bosqichni
+       COMPLETED/APPROVED emas, CANCELLED deb ko'radi va e'tiborga olmaydi)."""
+    from rest_framework.exceptions import ValidationError
+
+    if instance.status == StepStatus.CANCELLED:
+        raise ValidationError("Bu bosqich allaqachon bekor qilingan")
+
+    with transaction.atomic():
+        if instance.material_consumed:
+            _return_material(instance, cancelled_by)
+        instance.status = StepStatus.CANCELLED
+        instance.cancelled_at = timezone.now()
+        instance.cancelled_by = cancelled_by
+        instance.save(update_fields=["status", "cancelled_at", "cancelled_by", "updated_at"])
+        if instance.employee_id:
+            _reverse_payroll_if_credited(instance)
+
+
+def _return_material(instance, user):
+    from apps.inventory.models import MaterialMovement, MaterialStock
+
+    movement = (
+        MaterialMovement.objects.filter(workflow_instance=instance, movement_type=MaterialMovement.Type.OUT)
+        .order_by("-created_at")
+        .first()
+    )
+    if movement is None:
+        return
+
+    stock, _ = MaterialStock.objects.select_for_update().get_or_create(
+        warehouse=movement.warehouse, material=instance.raw_material, defaults={"quantity": 0}
+    )
+    stock.quantity += movement.quantity
+    stock.save(update_fields=["quantity"])
+    MaterialMovement.objects.create(
+        warehouse=movement.warehouse, material=instance.raw_material,
+        movement_type=MaterialMovement.Type.RETURN, quantity=movement.quantity,
+        note=f"Bekor qilindi: {instance.name}", workflow_instance=instance, created_by=user,
+    )
+
+
+def _reverse_payroll_if_credited(instance):
+    """`_credit_payroll`dan farqi — bo'sh `Payslip` yo'q joyda yangisini
+    yaratmaydi (bekor qilinayotgan bosqich hech qachon tasdiqlanmagan
+    bo'lishi mumkin, bunday holda hisoblanadigan hech narsa yo'q)."""
+    from apps.production.models import Payslip
+
+    period = (instance.completed_at or timezone.now()).date().replace(day=1)
+    payslip = Payslip.objects.filter(
+        company_id=instance.company_id, employee_id=instance.employee_id, period=period,
+    ).first()
+    if payslip is not None:
+        _recompute_and_save(payslip)
 
 
 def create_workflow_instances(order, product):

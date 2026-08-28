@@ -37,6 +37,7 @@ from .serializers import (
 )
 from .services import (
     approve_step_and_credit_payroll,
+    cancel_step,
     consume_material_on_completion,
     sync_order_status_on_step_completion,
 )
@@ -398,6 +399,8 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
         self._check_company_access(instance)
         if instance.status in (StepStatus.COMPLETED, StepStatus.APPROVED):
             raise ValidationError("Bu bosqich allaqachon yakunlangan")
+        if instance.status == StepStatus.CANCELLED:
+            raise ValidationError("Bu bosqich bekor qilingan")
         if not instance.is_available and instance.status != StepStatus.IN_PROGRESS:
             raise ValidationError("Bu bosqich hali boshlanishi mumkin emas — oldingi bosqichlar tugamagan")
         if instance.photo_requirement == PhotoRequirement.REQUIRED and not request.data.get("image"):
@@ -443,6 +446,23 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
             raise ValidationError("Faqat yakunlangan bosqichni tasdiqlash mumkin")
 
         approve_step_and_credit_payroll(instance, request.user)
+
+        instance = self.get_queryset().get(pk=instance.pk)
+        return Response(
+            WorkflowStepInstanceSerializer(instance, context={"request": request}).data
+        )
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        """Firma egasi/menejer bosqichni bekor qiladi — allaqachon ombordan
+        ayirilgan material (agar bo'lsa) qaytariladi, kreditlangan ish haqi
+        (agar tasdiqlangan edi) chiqarib tashlanadi."""
+        instance = self._get_step_or_404(pk)
+        company = user_company(request.user)
+        if company is None or company.id != instance.company_id or not is_company_owner(request.user, company):
+            raise PermissionDenied("Faqat firma egasi/menejer bekor qiladi")
+
+        cancel_step(instance, request.user)
 
         instance = self.get_queryset().get(pk=instance.pk)
         return Response(

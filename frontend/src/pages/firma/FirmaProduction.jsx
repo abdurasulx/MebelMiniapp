@@ -162,6 +162,20 @@ function WorkflowPipeline({ isManager }) {
     }
   };
 
+  const cancelStep = async (step) => {
+    if (!confirm(`"${step.name}" bosqichi bekor qilinsinmi? Ombordan ayirilgan material qaytariladi, kreditlangan ish haqi (agar bo'lsa) bekor qilinadi.`)) return;
+    setBusyId(step.id);
+    setError("");
+    try {
+      await api(`/workflow-instances/${step.id}/cancel/`, { method: "POST", body: {} });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const groups = [];
   const groupByOrder = new Map();
   for (const step of instances) {
@@ -261,6 +275,15 @@ function WorkflowPipeline({ isManager }) {
                       {step.is_available && !step.employee_name ? "Navbatda (hali zayavka yo'q)" : "Navbatda"}
                     </span>
                   )
+                )}
+                {isManager && step.status !== "cancelled" && (
+                  <button
+                    className="btn-danger !px-2.5 !py-1 text-xs"
+                    disabled={busyId === step.id}
+                    onClick={() => cancelStep(step)}
+                  >
+                    Bekor qilish
+                  </button>
                 )}
               </div>
             ))}

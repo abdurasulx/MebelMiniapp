@@ -24,6 +24,12 @@ class StepStatus(models.TextChoices):
     # — ombordan ayirish esa COMPLETED bo'lgan zahoti sodir bo'ladi (material
     # allaqachon jismonan sarflangan, tasdiqni kutmaydi).
     APPROVED = "approved", "Tasdiqlangan"
+    # Bosqich firma egasi/menejer tomonidan bekor qilingan (xato tayinlash,
+    # buyurtma bekor bo'lishi va h.k.). Agar material allaqachon ombordan
+    # ayirilgan bo'lsa — qaytariladi; agar ish haqi kreditlangan bo'lsa
+    # (APPROVED edi) — chiqarib tashlanadi (qarang
+    # apps.workflow.services.cancel_step).
+    CANCELLED = "cancelled", "Bekor qilindi"
 
 
 class Stage(models.TextChoices):
@@ -254,6 +260,10 @@ class WorkflowStepInstance(BaseModel):
     )
     approved_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
 

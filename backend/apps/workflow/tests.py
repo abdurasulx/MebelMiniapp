@@ -580,6 +580,101 @@ class MaterialConsumptionAndPayrollTests(APITestCase):
         self.assertEqual(payslip.total_amount, Decimal("500000"))
 
 
+class CancelStepTests(APITestCase):
+    """Bekor qilish: ombordan ayirilgan material qaytariladi, kreditlangan
+    ish haqi (agar tasdiqlangan edi) chiqarib tashlanadi."""
+
+    def setUp(self):
+        from datetime import date
+
+        from apps.inventory.models import Material, MaterialStock, Warehouse
+        from apps.production.models import PayType
+
+        self.owner = User.objects.create_user(email="owner6@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.company = Company.objects.create(owner=self.owner, name="Shop6", slug="shop6")
+        self.worker_user = User.objects.create_user(email="usta6@shop.uz", password="pass12345", role=User.Role.EMPLOYEE)
+        self.employee = Employee.objects.create(
+            company=self.company, user=self.worker_user, positions=["usta"],
+            pay_type=PayType.FIXED, base_salary=Decimal("1000000"),
+        )
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, name="Xom ashyo ombori", kind=Warehouse.Kind.RAW_MATERIAL, address="Toshkent",
+        )
+        self.material = Material.objects.create(company=self.company, name="Reyka", unit="m")
+        self.stock = MaterialStock.objects.create(warehouse=self.warehouse, material=self.material, quantity=Decimal("10"))
+        self.period = date.today().replace(day=1)
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _completed_instance(self, quantity=Decimal("4")):
+        instance = WorkflowStepInstance.objects.create(
+            company=self.company, name="Kesish", employee=self.employee,
+            raw_material=self.material, quantity=quantity, cost=Decimal("1000"),
+        )
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/complete/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        instance.refresh_from_db()
+        return instance
+
+    def test_cancel_returns_material_to_stock(self):
+        from apps.inventory.models import MaterialMovement
+
+        instance = self._completed_instance()
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.quantity, Decimal("6.000"))
+
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/cancel/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data["status"], "cancelled")
+
+        self.stock.refresh_from_db()
+        self.assertEqual(self.stock.quantity, Decimal("10.000"))
+        self.assertTrue(
+            MaterialMovement.objects.filter(workflow_instance=instance, movement_type=MaterialMovement.Type.RETURN).exists()
+        )
+
+    def test_cancel_after_approval_removes_payroll_credit(self):
+        from apps.production.models import Payslip
+
+        instance = self._completed_instance()
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/approve/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        payslip = Payslip.objects.get(company=self.company, employee=self.employee, period=self.period)
+        self.assertEqual(payslip.workflow_earnings, Decimal("1000.00"))
+
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/cancel/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+        payslip.refresh_from_db()
+        self.assertEqual(payslip.workflow_earnings, 0)
+
+    def test_cancel_never_approved_step_does_not_create_payslip(self):
+        from apps.production.models import Payslip
+
+        instance = self._completed_instance()
+        self.client.post(f"/api/v1/workflow-instances/{instance.id}/cancel/", {}, format="json")
+
+        self.assertFalse(Payslip.objects.filter(company=self.company, employee=self.employee, period=self.period).exists())
+
+    def test_cannot_cancel_twice(self):
+        instance = self._completed_instance()
+        self.client.post(f"/api/v1/workflow-instances/{instance.id}/cancel/", {}, format="json")
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/cancel/", {}, format="json")
+        self.assertEqual(resp.status_code, 400, resp.data)
+
+    def test_employee_cannot_cancel(self):
+        instance = self._completed_instance()
+        self.client.force_authenticate(self.worker_user)
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/cancel/", {}, format="json")
+        self.assertEqual(resp.status_code, 403, resp.data)
+
+    def test_pending_step_can_be_cancelled_without_reversal(self):
+        instance = WorkflowStepInstance.objects.create(company=self.company, name="Yig'ish")
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/cancel/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data["status"], "cancelled")
+
+
 class CuttingInstructionTests(TestCase):
     def setUp(self):
         from apps.inventory.models import Material
