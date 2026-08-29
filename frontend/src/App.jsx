@@ -22,6 +22,7 @@ import Employees from "./pages/Employees";
 import FirmaDashboard from "./pages/firma/FirmaDashboard";
 import FirmaLeads from "./pages/firma/FirmaLeads";
 import FirmaOrders from "./pages/firma/FirmaOrders";
+import FirmaOrderDetail from "./pages/firma/FirmaOrderDetail";
 import FirmaPayroll from "./pages/firma/FirmaPayroll";
 import FirmaProduction from "./pages/firma/FirmaProduction";
 import FirmaProductDetail from "./pages/firma/FirmaProductDetail";
@@ -275,6 +276,7 @@ export default function App() {
           <Route path="/leads" element={<FirmaLeads />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/orders" element={<FirmaOrders />} />
+          <Route path="/orders/:id" element={<FirmaOrderDetail />} />
           <Route path="/production" element={<FirmaProduction />} />
           <Route path="/warehouses" element={<FirmaWarehouses />} />
           <Route path="/warehouses/:id" element={<FirmaWarehouseDetail />} />

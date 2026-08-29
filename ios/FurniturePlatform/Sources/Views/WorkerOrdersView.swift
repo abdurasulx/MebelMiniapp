@@ -118,7 +118,6 @@ private struct OrderCardView: View {
     let mySteps: [WorkflowStepInstance]
     let onChanged: () -> Void
 
-    @State private var expanded = false
     @State private var busy = false
     @State private var errorMessage: String?
 
@@ -152,8 +151,8 @@ private struct OrderCardView: View {
                         .disabled(busy)
                     }
                     if !mySteps.isEmpty {
-                        Button {
-                            expanded.toggle()
+                        NavigationLink {
+                            OrderStepsView(order: order, steps: mySteps, onChanged: onChanged)
                         } label: {
                             Label("Mening bosqichlarim (\(mySteps.count))", systemImage: "hammer.fill")
                                 .font(.caption)
@@ -162,12 +161,6 @@ private struct OrderCardView: View {
                                 .clipShape(Capsule())
                         }
                     }
-                }
-            }
-
-            if expanded {
-                ForEach(mySteps) { step in
-                    StepRowView(step: step, onChanged: onChanged)
                 }
             }
         }
@@ -187,6 +180,27 @@ private struct OrderCardView: View {
             errorMessage = error.localizedDescription
         }
         busy = false
+    }
+}
+
+/// Buyurtmadagi (menga biriktirilgan) bosqichlar ro'yxati — avval
+/// `OrderCardView` ichida joyida ("Mening bosqichlarim" tugmasi bosilganda)
+/// ochilardi, endi alohida sahifada (qarang git tarixi: buyurtmalar
+/// ro'yxati toza qolishi uchun so'ralgan o'zgarish).
+private struct OrderStepsView: View {
+    let order: Order
+    let steps: [WorkflowStepInstance]
+    let onChanged: () -> Void
+
+    var body: some View {
+        List {
+            ForEach(steps) { step in
+                StepRowView(step: step, onChanged: onChanged)
+            }
+        }
+        .listStyle(.plain)
+        .navigationTitle("Buyurtma \(order.phone)")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

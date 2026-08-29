@@ -273,7 +273,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   }
 }
 
-class _OrderCard extends StatefulWidget {
+class _OrderCard extends StatelessWidget {
   final Order order;
   final List<WorkflowStepInstance> mySteps;
   final Future<void> Function(Order, String) onSetStatus;
@@ -288,15 +288,8 @@ class _OrderCard extends StatefulWidget {
   });
 
   @override
-  State<_OrderCard> createState() => _OrderCardState();
-}
-
-class _OrderCardState extends State<_OrderCard> {
-  bool _expanded = false;
-
-  @override
   Widget build(BuildContext context) {
-    final o = widget.order;
+    final o = order;
     final nextStatuses = nextOrderStatus[o.status] ?? [];
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -323,24 +316,56 @@ class _OrderCardState extends State<_OrderCard> {
               children: [
                 for (final s in nextStatuses)
                   OutlinedButton(
-                    onPressed: () => widget.onSetStatus(o, s),
+                    onPressed: () => onSetStatus(o, s),
                     style: s == 'cancelled' ? OutlinedButton.styleFrom(foregroundColor: Colors.red) : null,
                     child: Text(orderStatusLabel[s] ?? s),
                   ),
-                if (widget.mySteps.isNotEmpty)
+                if (mySteps.isNotEmpty)
                   TextButton.icon(
-                    onPressed: () => setState(() => _expanded = !_expanded),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => _OrderStepsScreen(
+                          order: o,
+                          steps: mySteps,
+                          onProgress: onProgress,
+                          onStart: onStart,
+                        ),
+                      ),
+                    ),
                     icon: const Icon(Icons.handyman, size: 16),
-                    label: Text('Mening bosqichlarim (${widget.mySteps.length})'),
+                    label: Text('Mening bosqichlarim (${mySteps.length})'),
                   ),
               ],
             ),
-            if (_expanded)
-              ...widget.mySteps.map(
-                (step) => _StepTile(step: step, onProgress: widget.onProgress, onStart: widget.onStart),
-              ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Buyurtmadagi (menga biriktirilgan) bosqichlar ro'yxati — avval
+/// `_OrderCard` ichida joyida ochilardi, endi alohida ekranda (buyurtmalar
+/// ro'yxati toza qolishi uchun so'ralgan o'zgarish).
+class _OrderStepsScreen extends StatelessWidget {
+  final Order order;
+  final List<WorkflowStepInstance> steps;
+  final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
+  final Future<void> Function(WorkflowStepInstance) onStart;
+  const _OrderStepsScreen({
+    required this.order,
+    required this.steps,
+    required this.onProgress,
+    required this.onStart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Buyurtma ${order.phone}')),
+      body: ListView(
+        children: steps.map((step) => _StepTile(step: step, onProgress: onProgress, onStart: onStart)).toList(),
       ),
     );
   }

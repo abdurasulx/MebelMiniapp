@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Phone, MapPin, MessageSquare, X, Workflow } from "lucide-react";
 import { api } from "../../api";
 import { NEXT_STATUS, ORDER_STATUS, StatusBadge } from "../../orderStatus";
-import WorkflowPanel from "../../components/WorkflowPanel";
 import LoadMoreButton from "../../components/LoadMoreButton";
 
 export default function FirmaOrders() {
@@ -10,7 +10,6 @@ export default function FirmaOrders() {
   const [employees, setEmployees] = useState([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
-  const [openWorkflow, setOpenWorkflow] = useState(null);
   const [nextPage, setNextPage] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -147,12 +146,12 @@ export default function FirmaOrders() {
             <span className="text-lg font-bold">{Number(o.total_price).toLocaleString()} so'm</span>
             <div className="flex flex-wrap gap-2">
               {o.workflow_steps?.length > 0 && (
-                <button
-                  className={openWorkflow === o.id ? "btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
-                  onClick={() => setOpenWorkflow(openWorkflow === o.id ? null : o.id)}
+                <Link
+                  to={`/orders/${o.id}`}
+                  className="btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
                 >
                   <Workflow size={13} /> Ishlab chiqarish ({o.progress_percent ?? 0}%)
-                </button>
+                </Link>
               )}
               {(NEXT_STATUS[o.status] || []).map((s) => {
                 const Icon = ORDER_STATUS[s].icon;
@@ -168,7 +167,6 @@ export default function FirmaOrders() {
               })}
             </div>
           </div>
-          {openWorkflow === o.id && <WorkflowPanel order={o} editable onChanged={load} />}
         </div>
       ))}
       <div className="flex justify-center">

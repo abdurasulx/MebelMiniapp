@@ -1,0 +1,124 @@
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { ArrowLeft, Phone, MapPin, MessageSquare, X } from "lucide-react";
+import { api } from "../../api";
+import { NEXT_STATUS, ORDER_STATUS, StatusBadge } from "../../orderStatus";
+import WorkflowPanel from "../../components/WorkflowPanel";
+
+/// Buyurtma tafsilotlari — ishlab chiqarish bosqichlari (WorkflowPanel)
+/// avval FirmaOrders ro'yxatida joyida ("Ishlab chiqarish" tugmasi bilan)
+/// ochilardi, endi ro'yxat toza qolishi uchun shu alohida sahifada.
+export default function FirmaOrderDetail() {
+  const { id } = useParams();
+  const [order, setOrder] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [error, setError] = useState("");
+
+  const load = () =>
+    Promise.all([api(`/orders/${id}/`), api("/employees/")])
+      .then(([o, emp]) => {
+        setOrder(o);
+        setEmployees((emp.results || []).filter((e) => e.pay_type === "commission"));
+      })
+      .catch((e) => setError(e.message));
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  const setSoldBy = async (employeeId) => {
+    try {
+      await api(`/orders/${id}/set_sold_by/`, { method: "POST", body: { employee: employeeId || null } });
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const setStatus = async (status) => {
+    const label = ORDER_STATUS[status]?.label || status;
+    if (status === "cancelled" && !confirm(`Buyurtma bekor qilinsinmi?`)) return;
+    try {
+      await api(`/orders/${id}/set_status/`, { method: "POST", body: { status } });
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  if (error) return <div className="error">{error}</div>;
+  if (!order) return <p className="text-sm" style={{ color: "var(--muted)" }}>Yuklanmoqda…</p>;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Link to="/orders" className="inline-flex w-fit items-center gap-1 text-sm" style={{ color: "var(--muted)" }}>
+        <ArrowLeft size={15} /> Buyurtmalarga qaytish
+      </Link>
+
+      <div className="card flex flex-col gap-3 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="font-semibold">{order.customer_name || order.customer_email}</span>
+            <span className="ml-2 inline-flex flex-wrap items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
+              <Phone size={12} /> {order.phone} · <MapPin size={12} /> {order.address} ·{" "}
+              {new Date(order.created_at).toLocaleString("uz-UZ")}
+            </span>
+          </div>
+          <StatusBadge status={order.status} />
+        </div>
+        <div className="text-sm">
+          {order.items.map((it) => (
+            <div key={it.id} className="flex justify-between py-0.5">
+              <span>
+                {it.product_name} ({it.variant_name}) · {it.width}×{it.height}×{it.depth} m ×{it.quantity}
+              </span>
+              <span className="font-medium">{Number(it.subtotal).toLocaleString()} so'm</span>
+            </div>
+          ))}
+        </div>
+        {employees.length > 0 && (
+          <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+            <span>Sotuvchi (komissiya uchun):</span>
+            <select
+              className="input !w-auto !py-1 text-xs"
+              value={order.sold_by || ""}
+              onChange={(e) => setSoldBy(e.target.value)}
+            >
+              <option value="">— tanlanmagan —</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>{emp.user_name || emp.user_email}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {order.note && (
+          <div className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs" style={{ background: "color-mix(in srgb, var(--primary) 18%, transparent)" }}>
+            <MessageSquare size={13} /> {order.note}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+          <span className="text-lg font-bold">{Number(order.total_price).toLocaleString()} so'm</span>
+          <div className="flex flex-wrap gap-2">
+            {(NEXT_STATUS[order.status] || []).map((s) => {
+              const Icon = ORDER_STATUS[s].icon;
+              return s === "cancelled" ? (
+                <button key={s} className="btn-danger inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={() => setStatus(s)}>
+                  <X size={13} /> Bekor qilish
+                </button>
+              ) : (
+                <button key={s} className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={() => setStatus(s)}>
+                  <Icon size={13} /> {ORDER_STATUS[s].label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {order.workflow_steps?.length > 0 && (
+        <WorkflowPanel order={order} editable onChanged={load} />
+      )}
+    </div>
+  );
+}
