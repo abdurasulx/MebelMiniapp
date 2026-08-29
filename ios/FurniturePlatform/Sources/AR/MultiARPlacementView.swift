@@ -76,6 +76,7 @@ struct MultiARPlacementView: View {
         }
         .animation(.easeOut(duration: 0.5), value: bridge.isModelReady)
         .task { await downloadModels() }
+        .onDisappear { ARLayoutFix.refreshWindowLayout() }
     }
 
     private func downloadModels() async {

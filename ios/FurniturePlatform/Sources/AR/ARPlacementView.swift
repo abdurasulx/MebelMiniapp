@@ -1,5 +1,27 @@
 import simd
 import SwiftUI
+import UIKit
+
+/// AR ekrani `.fullScreenCover` sifatida yopilgach, ba'zan pastdagi `TabView`
+/// xato/eskirgan safe-area/tab-bar o'lchamlarini saqlab qolib, USTA'ning
+/// BARCHA tablarida bo'sh joy (gap) paydo bo'lib qolishi kuzatildi — bu
+/// SwiftUI'ning `fullScreenCover` + kamera (`ignoresSafeArea`) kombinatsiyasi
+/// bilan bog'liq tanilgan nuqson. Yopilgandan so'ng oyna (window)
+/// ierarxiyasini qo'lda "qayta joylashtirishga" majburlash bu holatni
+/// tuzatadi.
+enum ARLayoutFix {
+    static func refreshWindowLayout() {
+        DispatchQueue.main.async {
+            for scene in UIApplication.shared.connectedScenes {
+                guard let windowScene = scene as? UIWindowScene else { continue }
+                for window in windowScene.windows {
+                    window.rootViewController?.view.setNeedsLayout()
+                    window.rootViewController?.view.layoutIfNeeded()
+                }
+            }
+        }
+    }
+}
 
 /// Mahsulotni AR orqali xonaga joylashtirish ekrani (roadmap Phase 4 — Customer AR:
 /// mahsulot tanlash, xonaga joylashtirish, scale, rotation).
@@ -63,6 +85,7 @@ struct ARPlacementView: View {
         }
         .animation(.easeOut(duration: 0.5), value: bridge.isModelReady)
         .task { await downloadModel() }
+        .onDisappear { ARLayoutFix.refreshWindowLayout() }
     }
 
     private func downloadModel() async {
