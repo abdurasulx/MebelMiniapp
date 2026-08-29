@@ -1,5 +1,6 @@
 import simd
 import SwiftUI
+import UIKit
 
 /// Mahsulotni AR orqali xonaga joylashtirish ekrani (roadmap Phase 4 — Customer AR:
 /// mahsulot tanlash, xonaga joylashtirish, scale, rotation).
@@ -345,6 +346,14 @@ private struct RotationDial: View {
 private struct PositionJoystick: View {
     @ObservedObject var bridge: ARBridge
     @GestureState private var dragOffset: CGSize = .zero
+    /// Qurilmaning jismoniy (gyroskop/akselerometr orqali kuzatiladigan)
+    /// aylanishi — dunyo-fazoviy o'q hisob-kitobini tuzatishga urinishlar
+    /// natija bermagani uchun (qarang git tarixi), endi buning o'rniga
+    /// TO'G'RIDAN-TO'G'RI joystikning o'zini (ko'rinishi + kirish vektorini)
+    /// jismoniy burilishga qarab kompensatsiya qilamiz — portretda ishlagan
+    /// asl matematika o'zgarishsiz qoladi, faqat unga uzatiladigan (x,y)
+    /// oldindan teskari burchakka buriladi.
+    @State private var deviceOrientation: UIDeviceOrientation = UIDevice.current.orientation
 
     private let baseSize: CGFloat = 76
     private let knobSize: CGFloat = 34
@@ -355,6 +364,18 @@ private struct PositionJoystick: View {
         sqrt(dragOffset.width * dragOffset.width + dragOffset.height * dragOffset.height)
     }
     private var inOuterZone: Bool { distance > innerRadius }
+
+    /// Qurilma jismonan qanchaga burilgan bo'lsa, joystik grafikasi ham
+    /// SHUNCHA buriladi — shunda "tepaga" o'qi foydalanuvchi uchun doim
+    /// haqiqiy tepaga (kameradan uzoqlashtiruvchi tomonga) qarab turadi.
+    private var visualRotationDegrees: Double {
+        switch deviceOrientation {
+        case .landscapeLeft: return 90
+        case .landscapeRight: return -90
+        case .portraitUpsideDown: return 180
+        default: return 0
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -378,14 +399,19 @@ private struct PositionJoystick: View {
                     .offset(y: -baseSize / 2 + 6)
                     .rotationEffect(.degrees(angle))
             }
-
+        }
+        // Faqat fon/o'qlar buriladi — tayoqcha (pastda, alohida overlay)
+        // BARMOQQA 1:1 ergashishi kerak, aks holda burilgandan keyin barmoq
+        // bilan tayoqcha orasida vizual nomuvofiqlik paydo bo'lardi.
+        .rotationEffect(.degrees(visualRotationDegrees))
+        .frame(width: baseSize, height: baseSize)
+        .overlay(
             Circle()
                 .fill(.white.opacity(0.85))
                 .frame(width: knobSize, height: knobSize)
                 .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
                 .offset(dragOffset)
-        }
-        .frame(width: baseSize, height: baseSize)
+        )
         .contentShape(Circle())
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -403,8 +429,15 @@ private struct PositionJoystick: View {
                     // Ichki zonada 1x (nozik boshqarish), tashqi zonada 2x (tez siljish).
                     let dist = sqrt(clamped.width * clamped.width + clamped.height * clamped.height)
                     let speed: Float = dist > innerRadius ? 2.0 : 1.0
-                    let right = Float(clamped.width / maxOffset)
-                    let forward = Float(-clamped.height / maxOffset)
+                    // Xom barmoq siljishi TESKARI burchakka buriladi — natijada
+                    // asl (portretda ishlagan) right/forward hisob-kitobiga
+                    // har doim "go'yo qurilma hali ham portretdadek" ma'lumot
+                    // beriladi.
+                    let rad = -visualRotationDegrees * .pi / 180
+                    let rx = Double(clamped.width) * cos(rad) - Double(clamped.height) * sin(rad)
+                    let ry = Double(clamped.width) * sin(rad) + Double(clamped.height) * cos(rad)
+                    let right = Float(rx / Double(maxOffset))
+                    let forward = Float(-ry / Double(maxOffset))
                     bridge.nudge(right: right * 0.01 * speed, forward: forward * 0.01 * speed)
                 }
                 .onEnded { _ in
@@ -412,6 +445,13 @@ private struct PositionJoystick: View {
                 }
         )
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)
+        .onAppear {
+            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            let new = UIDevice.current.orientation
+            if new.isValidInterfaceOrientation { deviceOrientation = new }
+        }
     }
 
     private static func clamp(_ translation: CGSize, radius: CGFloat) -> CGSize {

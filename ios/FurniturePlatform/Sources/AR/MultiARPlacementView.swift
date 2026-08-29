@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// AR'ga joylashtiriladigan model — mahsulot 3D fayli (bitta) + tanlangan
 /// variantning rang/naqsh ma'lumoti bilan.
@@ -318,6 +319,9 @@ private struct MultiARRotationDial: View {
 private struct MultiARPositionJoystick: View {
     @ObservedObject var bridge: MultiARBridge
     @GestureState private var dragOffset: CGSize = .zero
+    /// Qarang `ARPlacementView.PositionJoystick.deviceOrientation` izohi —
+    /// bir xil mantiq, ikkinchi joystikda takrorlangan.
+    @State private var deviceOrientation: UIDeviceOrientation = UIDevice.current.orientation
 
     private let baseSize: CGFloat = 76
     private let knobSize: CGFloat = 34
@@ -328,6 +332,15 @@ private struct MultiARPositionJoystick: View {
         sqrt(dragOffset.width * dragOffset.width + dragOffset.height * dragOffset.height)
     }
     private var inOuterZone: Bool { distance > innerRadius }
+
+    private var visualRotationDegrees: Double {
+        switch deviceOrientation {
+        case .landscapeLeft: return 90
+        case .landscapeRight: return -90
+        case .portraitUpsideDown: return 180
+        default: return 0
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -349,14 +362,16 @@ private struct MultiARPositionJoystick: View {
                     .offset(y: -baseSize / 2 + 6)
                     .rotationEffect(.degrees(angle))
             }
-
+        }
+        .rotationEffect(.degrees(visualRotationDegrees))
+        .frame(width: baseSize, height: baseSize)
+        .overlay(
             Circle()
                 .fill(.white.opacity(0.85))
                 .frame(width: knobSize, height: knobSize)
                 .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
                 .offset(dragOffset)
-        }
-        .frame(width: baseSize, height: baseSize)
+        )
         .contentShape(Circle())
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -368,8 +383,11 @@ private struct MultiARPositionJoystick: View {
                     state = clamped
                     let dist = sqrt(clamped.width * clamped.width + clamped.height * clamped.height)
                     let speed: Float = dist > innerRadius ? 2.0 : 1.0
-                    let right = Float(clamped.width / maxOffset)
-                    let forward = Float(-clamped.height / maxOffset)
+                    let rad = -visualRotationDegrees * .pi / 180
+                    let rx = Double(clamped.width) * cos(rad) - Double(clamped.height) * sin(rad)
+                    let ry = Double(clamped.width) * sin(rad) + Double(clamped.height) * cos(rad)
+                    let right = Float(rx / Double(maxOffset))
+                    let forward = Float(-ry / Double(maxOffset))
                     bridge.nudge(right: right * 0.01 * speed, forward: forward * 0.01 * speed)
                 }
                 .onEnded { _ in
@@ -377,6 +395,13 @@ private struct MultiARPositionJoystick: View {
                 }
         )
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)
+        .onAppear {
+            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            let new = UIDevice.current.orientation
+            if new.isValidInterfaceOrientation { deviceOrientation = new }
+        }
     }
 
     private static func clamp(_ translation: CGSize, radius: CGFloat) -> CGSize {
