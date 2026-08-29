@@ -329,10 +329,6 @@ private struct MultiARPositionJoystick: View {
     }
     private var inOuterZone: Bool { distance > innerRadius }
 
-    /// Qarang `ARPlacementView.PositionJoystick.visualRotationDegrees` izohi
-    /// — bir xil mantiq, `bridge.rollDegrees` orqali.
-    private var visualRotationDegrees: Double { bridge.rollDegrees }
-
     var body: some View {
         ZStack {
             Circle()
@@ -353,16 +349,14 @@ private struct MultiARPositionJoystick: View {
                     .offset(y: -baseSize / 2 + 6)
                     .rotationEffect(.degrees(angle))
             }
-        }
-        .rotationEffect(.degrees(visualRotationDegrees))
-        .frame(width: baseSize, height: baseSize)
-        .overlay(
+
             Circle()
                 .fill(.white.opacity(0.85))
                 .frame(width: knobSize, height: knobSize)
                 .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
                 .offset(dragOffset)
-        )
+        }
+        .frame(width: baseSize, height: baseSize)
         .contentShape(Circle())
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -374,11 +368,8 @@ private struct MultiARPositionJoystick: View {
                     state = clamped
                     let dist = sqrt(clamped.width * clamped.width + clamped.height * clamped.height)
                     let speed: Float = dist > innerRadius ? 2.0 : 1.0
-                    let rad = -visualRotationDegrees * .pi / 180
-                    let rx = Double(clamped.width) * cos(rad) - Double(clamped.height) * sin(rad)
-                    let ry = Double(clamped.width) * sin(rad) + Double(clamped.height) * cos(rad)
-                    let right = Float(rx / Double(maxOffset))
-                    let forward = Float(-ry / Double(maxOffset))
+                    let right = Float(clamped.width / maxOffset)
+                    let forward = Float(-clamped.height / maxOffset)
                     bridge.nudge(right: right * 0.01 * speed, forward: forward * 0.01 * speed)
                 }
                 .onEnded { _ in

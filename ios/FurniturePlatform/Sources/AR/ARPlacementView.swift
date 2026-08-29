@@ -356,16 +356,6 @@ private struct PositionJoystick: View {
     }
     private var inOuterZone: Bool { distance > innerRadius }
 
-    /// Qurilma jismonan qancha "roll" qilgan bo'lsa (`bridge.rollDegrees` —
-    /// ARKit kamerasidan, gravitatsiyaga nisbatan hisoblangan, qarang
-    /// `ARPlacementViewController.rollDegrees(from:)`), joystik grafikasi ham
-    /// SHUNCHA buriladi — shunda "tepaga" o'qi foydalanuvchi uchun doim
-    /// haqiqiy tepaga (kameradan uzoqlashtiruvchi tomonga) qarab turadi.
-    /// AVVAL `UIDevice.current.orientation`ga tayanilgan edi, lekin AR
-    /// sessiyasi ishlab turganda bu sensor ishonchsiz/yangilanmay qolishi
-    /// sinovda tasdiqlandi — shuning uchun undan butunlay voz kechildi.
-    private var visualRotationDegrees: Double { bridge.rollDegrees }
-
     var body: some View {
         ZStack {
             Circle()
@@ -388,19 +378,14 @@ private struct PositionJoystick: View {
                     .offset(y: -baseSize / 2 + 6)
                     .rotationEffect(.degrees(angle))
             }
-        }
-        // Faqat fon/o'qlar buriladi — tayoqcha (pastda, alohida overlay)
-        // BARMOQQA 1:1 ergashishi kerak, aks holda burilgandan keyin barmoq
-        // bilan tayoqcha orasida vizual nomuvofiqlik paydo bo'lardi.
-        .rotationEffect(.degrees(visualRotationDegrees))
-        .frame(width: baseSize, height: baseSize)
-        .overlay(
+
             Circle()
                 .fill(.white.opacity(0.85))
                 .frame(width: knobSize, height: knobSize)
                 .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
                 .offset(dragOffset)
-        )
+        }
+        .frame(width: baseSize, height: baseSize)
         .contentShape(Circle())
         .gesture(
             DragGesture(minimumDistance: 0)
@@ -418,15 +403,8 @@ private struct PositionJoystick: View {
                     // Ichki zonada 1x (nozik boshqarish), tashqi zonada 2x (tez siljish).
                     let dist = sqrt(clamped.width * clamped.width + clamped.height * clamped.height)
                     let speed: Float = dist > innerRadius ? 2.0 : 1.0
-                    // Xom barmoq siljishi TESKARI burchakka buriladi — natijada
-                    // asl (portretda ishlagan) right/forward hisob-kitobiga
-                    // har doim "go'yo qurilma hali ham portretdadek" ma'lumot
-                    // beriladi.
-                    let rad = -visualRotationDegrees * .pi / 180
-                    let rx = Double(clamped.width) * cos(rad) - Double(clamped.height) * sin(rad)
-                    let ry = Double(clamped.width) * sin(rad) + Double(clamped.height) * cos(rad)
-                    let right = Float(rx / Double(maxOffset))
-                    let forward = Float(-ry / Double(maxOffset))
+                    let right = Float(clamped.width / maxOffset)
+                    let forward = Float(-clamped.height / maxOffset)
                     bridge.nudge(right: right * 0.01 * speed, forward: forward * 0.01 * speed)
                 }
                 .onEnded { _ in

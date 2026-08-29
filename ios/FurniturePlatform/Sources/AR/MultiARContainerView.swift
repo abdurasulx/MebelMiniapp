@@ -14,8 +14,6 @@ final class MultiARBridge: ObservableObject {
     /// bilan farqi: bu YUKLASH progressini, u esa "hech bo'lmasa bittasi
     /// tayyor, ekranni ko'rsatish mumkin" holatini bildiradi.
     @Published var loadedCount = 0
-    /// Qarang `ARBridge.rollDegrees` izohi — bir xil mantiq.
-    @Published var rollDegrees: Double = 0
     weak var controller: MultiARPlacementViewController?
 
     /// Keyingi bosishda QAYSI model joylashtirilishi kerakligini belgilaydi —
@@ -76,9 +74,6 @@ struct MultiARContainerView: UIViewControllerRepresentable {
                 withAnimation { bridge?.isModelReady = true }
             }
         }
-        controller.onRollChange = { [weak bridge] roll in
-            bridge?.rollDegrees = roll
-        }
         bridge.controller = controller
         controller.activeModelId = bridge.activeModelId
         for model in models where model.fileURL != nil {
@@ -125,9 +120,6 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
     /// Har bir model shabloni to'liq yuklab olinib, RealityKit'ga tayyor
     /// bo'lganda (har biri uchun alohida) chaqiriladi.
     var onModelLoaded: (() -> Void)?
-    /// Qarang `ARPlacementViewController.onRollChange` izohi.
-    var onRollChange: ((Double) -> Void)?
-    private var lastReportedRoll: Double = 0
 
     private static let moveStep: Float = 0.24
 
@@ -324,35 +316,7 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
     /// joystikni ushlab turgan holda picha burilib qolsa (yoki qurilma
     /// titrasa), yo'nalish surilish ORTASIDA o'zgarib, obyekt kutilmagan
     /// "aylanib" ketayotgandek harakatlanardi.
-    ///
-    /// MUHIM: avvalgi yondashuvlar (xom kamera-ustunlar, keyin `UIDevice.current.
-    /// orientation`ga asoslangan `viewMatrix(for:)`) sinovda tasdiqlanmadi —
-    /// orientatsiya haqida taxmin qilishga asoslangan edi. Shuning uchun
-    /// RealityKit'ning O'ZIDAN so'raymiz: `arView.ray(through:)` berilgan ekran
-    /// nuqtasidan o'tuvchi haqiqiy dunyo-fazoviy nurni qaytaradi — ARView HOZIR
-    /// qanday render qilayotgan bo'lsa ham (portret, jismoniy landscape — farqi
-    /// yo'q) shunga mos. Ekran markazidan o'ngga siljigan nuqta orqali o'tuvchi
-    /// nur bilan markaziy nur (= kamera qarab turgan tomon, `forward`) farqidan
-    /// HAQIQIY screen-right yo'nalishini olamiz.
     private func currentMovementAxes() -> (right: SIMD3<Float>, forward: SIMD3<Float>) {
-        let bounds = arView.bounds
-        let center = CGPoint(x: bounds.midX, y: bounds.midY)
-        let rightPoint = CGPoint(x: bounds.midX + 60, y: bounds.midY)
-
-        if let centerRay = arView.ray(through: center),
-           let rightRay = arView.ray(through: rightPoint) {
-            var right = SIMD3<Float>(
-                rightRay.direction.x - centerRay.direction.x, 0,
-                rightRay.direction.z - centerRay.direction.z
-            )
-            var forward = SIMD3<Float>(centerRay.direction.x, 0, centerRay.direction.z)
-            if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
-            if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
-            return (right, forward)
-        }
-
-        // Zaxira: nurlar olinmasa (masalan sessiya hali frame bermagan bo'lsa),
-        // eski xom kamera-ustun usuli.
         let cam = arView.cameraTransform.matrix
         var right = SIMD3<Float>(cam.columns.0.x, 0, cam.columns.0.z)
         var forward = SIMD3<Float>(-cam.columns.2.x, 0, -cam.columns.2.z)
@@ -402,35 +366,4 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
     }
 
     func coachingOverlayViewDidDeactivate(_ coachingOverlayView: ARCoachingOverlayView) {}
-
-    /// Qarang `ARPlacementViewController.session(_:didUpdate:)` izohi — bir
-    /// xil mantiq.
-    func session(_ session: ARSession, didUpdate frame: ARFrame) {
-        let roll = Self.rollDegrees(from: frame.camera.transform)
-        if abs(roll - lastReportedRoll) > 2 {
-            lastReportedRoll = roll
-            onRollChange?(roll)
-        }
-    }
-
-    /// Qarang `ARPlacementViewController.rollDegrees(from:)` izohi — bir xil
-    /// mantiq, ikkinchi controllerda takrorlangan.
-    private static func rollDegrees(from cameraTransform: simd_float4x4) -> Double {
-        let forward = SIMD3<Float>(-cameraTransform.columns.2.x, -cameraTransform.columns.2.y, -cameraTransform.columns.2.z)
-        let deviceUp = SIMD3<Float>(cameraTransform.columns.1.x, cameraTransform.columns.1.y, cameraTransform.columns.1.z)
-        let worldUp: SIMD3<Float> = [0, 1, 0]
-
-        let forwardLen = simd_length(forward)
-        guard forwardLen > 0.0001 else { return 0 }
-        let forwardNormalized = forward / forwardLen
-
-        var referenceUp = worldUp - forwardNormalized * simd_dot(worldUp, forwardNormalized)
-        let referenceLen = simd_length(referenceUp)
-        guard referenceLen > 0.0001 else { return 0 }
-        referenceUp = referenceUp / referenceLen
-
-        let cosRoll = simd_dot(deviceUp, referenceUp)
-        let sinRoll = simd_dot(simd_cross(referenceUp, deviceUp), forwardNormalized)
-        return Double(atan2(sinRoll, cosRoll)) * 180 / .pi
-    }
 }
