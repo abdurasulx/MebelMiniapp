@@ -222,13 +222,20 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
         let point = sender.location(in: arView)
 
         // Avval mavjud (allaqachon joylashtirilgan) obyektlardan biriga
-        // tegilganmi tekshiramiz — shunda bo'sh joyga bosib yangisini
-        // qo'yish bilan mavjudini tanlash aralashib ketmaydi.
-        if let hitEntity = arView.entity(at: point) {
-            if let modelEntity = Self.findPlacedAncestor(of: hitEntity, in: placedEntities) {
-                selectedEntity = modelEntity
+        // tegilganmi tekshiramiz.
+        if let hitEntity = arView.entity(at: point),
+           let hitAncestor = Self.findPlacedAncestor(of: hitEntity, in: placedEntities) {
+            if let activeModelId, let template = templates[activeModelId] {
+                // Faol model bor holda mavjud obyektga bosilsa — yangi nusxa
+                // pastdagi tekislikka emas, aynan SHU OBYEKT USTIGA
+                // joylashtiriladi (bir detalni ikkinchisi ustiga qo'yish).
+                stackEntity(from: template, onTopOf: hitAncestor)
                 return
             }
+            // Faol model yo'q — oddiy tanlash (keyin joystik/aylantirish/
+            // o'chirish shunga qo'llanadi).
+            selectedEntity = hitAncestor
+            return
         }
 
         guard let activeModelId, let template = templates[activeModelId] else {
@@ -239,23 +246,42 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
 
         let results = arView.raycast(from: point, allowing: .estimatedPlane, alignment: .horizontal)
         guard let result = results.first else { return }
+        placeEntity(from: template, at: result.worldTransform)
+    }
 
-        let anchor = AnchorEntity(world: result.worldTransform)
+    /// Berilgan dunyoviy o'rinda (odatda pol/tekislik nuqtasi) yangi nusxa
+    /// yaratadi — pastki chegarasi aynan shu Y balandligiga to'g'irlanadi
+    /// (USDZ/GLB pivot nuqtasi har xil bo'lishi mumkinligi uchun).
+    @discardableResult
+    private func placeEntity(from template: ModelEntity, at worldTransform: simd_float4x4) -> ModelEntity {
+        let anchor = AnchorEntity(world: worldTransform)
         let entity = template.clone(recursive: true)
         entity.generateCollisionShapes(recursive: true)
         anchor.addChild(entity)
         arView.scene.addAnchor(anchor)
 
-        // Qarang ARPlacementViewController'dagi bir xil izoh — USDZ/GLB
-        // pivot nuqtasi har xil bo'lishi mumkin, shuning uchun haqiqiy
-        // dunyoviy pastki chegara o'lchanib, aynan shu farq bo'yicha tuzatiladi.
         let worldBounds = entity.visualBounds(relativeTo: nil)
-        let targetFloorY = result.worldTransform.columns.3.y
+        let targetFloorY = worldTransform.columns.3.y
         let correction = targetFloorY - worldBounds.min.y
         entity.position.y += correction
 
         placedEntities.append(entity)
         selectedEntity = entity
+        return entity
+    }
+
+    /// Yangi nusxani `target`ning aynan USTIGA (tepa chegarasiga, markazga
+    /// tekislab) joylashtiradi — `target`ning gorizontal burilishini meros
+    /// qilib oladi, lekin o'lchamini (scale) EMAS, aks holda `target`
+    /// kattalashtirilgan bo'lsa yangi nusxa ham ikki marta kattalashib qolardi.
+    private func stackEntity(from template: ModelEntity, onTopOf target: ModelEntity) {
+        let targetBounds = target.visualBounds(relativeTo: nil)
+        let transform = Transform(
+            scale: .one,
+            rotation: target.orientation(relativeTo: nil),
+            translation: [targetBounds.center.x, targetBounds.max.y, targetBounds.center.z]
+        )
+        placeEntity(from: template, at: transform.matrix)
     }
 
     /// `entity(at:)` odatda modelning ICHKI (mesh) qismini qaytaradi, aynan

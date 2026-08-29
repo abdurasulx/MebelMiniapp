@@ -41,7 +41,7 @@ struct MultiARPlacementView: View {
                         Text(
                             bridge.activeModelId == nil
                                 ? "Pastdan mahsulot tanlang, so'ng tekislikka bosib joylashtiring."
-                                : "Tekislikka bosib joylashtiring. Joylashtirilgan obyektga bosib uni tanlang."
+                                : "Tekislikka bosib joylashtiring — mavjud obyektga bossangiz, ustiga qo'yiladi."
                         )
                         .font(.caption)
                         .multilineTextAlignment(.center)
@@ -108,7 +108,11 @@ private struct ModelTray: View {
                     let isActive = activeModelId == model.id
                     Button {
                         guard isLoaded else { return }
-                        activeModelId = model.id
+                        // Faol modelga qayta bosilsa — "qurollantirilgan" holat
+                        // o'chadi (endi mavjud obyektga bosish uni USTIGA
+                        // qo'yish emas, oddiy TANLASH bo'ladi — qarang
+                        // MultiARContainerView.handleTap).
+                        activeModelId = isActive ? nil : model.id
                     } label: {
                         VStack(spacing: 4) {
                             if isLoaded {
