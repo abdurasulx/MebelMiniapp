@@ -292,12 +292,23 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     /// joystikdan uzmasdan biroz burilib tursa (yoki qurilma titrasa), yo'nalish
     /// surilish ORTASIDA o'zgarib, obyekt kutilmagan/"aylanib" ketayotgandek
     /// harakatlanardi.
+    ///
+    /// MUHIM: kamera matritsasining `columns.0` ("right") va `columns.1` ("up")
+    /// ustunlari qurilmaning FIZIK sensor o'qlariga bog'liq — qurilma landscape
+    /// holatga aylantirilsa (roll), bu ikkalasi ekranda ko'rinadigan
+    /// yo'nalishlarga mos kelmay qoladi (`right` deyarli vertikal bo'lib qolib,
+    /// gorizontal proyeksiyasi deyarli nolga tushadi). Shuning uchun `right`ni
+    /// to'g'ridan-to'g'ri `columns.0`dan OLMAYMIZ — buning o'rniga faqat rollga
+    /// bog'liq bo'lmagan `forward` (kamera qarab turgan tomon, `columns.2`) dan
+    /// va dunyoning haqiqiy vertikal o'qidan (`worldUp`) hosil qilamiz. Natijada
+    /// hisob-kitob qurilma qanday burilishidan (portret/landshaft) qat'iy nazar
+    /// to'g'ri ishlaydi.
     private func currentMovementAxes() -> (right: SIMD3<Float>, forward: SIMD3<Float>) {
         let cam = arView.cameraTransform.matrix
-        var right = SIMD3<Float>(cam.columns.0.x, 0, cam.columns.0.z)
         var forward = SIMD3<Float>(-cam.columns.2.x, 0, -cam.columns.2.z)
-        if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
         if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
+        var right = simd_cross(forward, [0, 1, 0])
+        if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
         return (right, forward)
     }
 
