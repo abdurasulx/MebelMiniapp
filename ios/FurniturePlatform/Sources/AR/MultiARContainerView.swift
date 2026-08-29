@@ -123,16 +123,15 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
 
     private static let moveStep: Float = 0.24
 
-    deinit {
-        UIDevice.current.endGeneratingDeviceOrientationNotifications()
-    }
-
     override func viewDidLoad() {
         super.viewDidLoad()
 
         // `UIDevice.current.orientation` boshqacha faollashtirilmasa har doim
         // `.unknown` qaytaradi — joystikning jismoniy aylanishni his qilishi
-        // (qarang `currentMovementAxes`) shunga bog'liq.
+        // (qarang `currentMovementAxes`) shunga bog'liq. MUHIM: buni hech qachon
+        // `endGeneratingDeviceOrientationNotifications()` bilan O'CHIRMASLIK kerak
+        // (masalan `deinit`da) — bu app darajasidagi UMUMIY holat, boshqa AR
+        // ekrani ham shunga tayanadi.
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
 
         arView = ARView(frame: view.bounds)

@@ -124,16 +124,17 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
 
     required init?(coder: NSCoder) { fatalError("init(coder:) yo'q") }
 
-    deinit {
-        UIDevice.current.endGeneratingDeviceOrientationNotifications()
-    }
-
     override func viewDidLoad() {
         super.viewDidLoad()
 
         // `UIDevice.current.orientation` boshqacha faollashtirilmasa har doim
         // `.unknown` qaytaradi — joystikning jismoniy aylanishni his qilishi
-        // (qarang `currentMovementAxes`) shunga bog'liq.
+        // (qarang `currentMovementAxes`) shunga bog'liq. MUHIM: buni hech qachon
+        // `endGeneratingDeviceOrientationNotifications()` bilan O'CHIRMASLIK kerak
+        // (masalan `deinit`da) — bu app darajasidagi UMUMIY holat, boshqa AR
+        // ekrani ham shunga tayanadi; bitta ekran yopilganda o'chirib qo'ysak,
+        // qolgan/keyingi ekranlarda `.orientation` yana doim `.unknown` bo'lib
+        // qolib, joystik yana "faqat portretdagidek" ishlab qolar edi.
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
 
         arView = ARView(frame: view.bounds)
