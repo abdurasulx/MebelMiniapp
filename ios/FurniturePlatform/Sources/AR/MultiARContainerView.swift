@@ -126,14 +126,6 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // `UIDevice.current.orientation` boshqacha faollashtirilmasa har doim
-        // `.unknown` qaytaradi — joystikning jismoniy aylanishni his qilishi
-        // (qarang `currentMovementAxes`) shunga bog'liq. MUHIM: buni hech qachon
-        // `endGeneratingDeviceOrientationNotifications()` bilan O'CHIRMASLIK kerak
-        // (masalan `deinit`da) — bu app darajasidagi UMUMIY holat, boshqa AR
-        // ekrani ham shunga tayanadi.
-        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-
         arView = ARView(frame: view.bounds)
         arView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         arView.session.delegate = self
@@ -325,39 +317,40 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
     /// titrasa), yo'nalish surilish ORTASIDA o'zgarib, obyekt kutilmagan
     /// "aylanib" ketayotgandek harakatlanardi.
     ///
-    /// MUHIM: `arView.cameraTransform` qurilmaning FIZIK sensor o'qlariga bog'liq,
-    /// interfeys esa iPhone'da portretga qulflangan — `windowScene.interfaceOrientation`
-    /// foydalanuvchi telefonni jismonan landscape'ga aylantirsa ham DOIM `.portrait`
-    /// qaytaradi. Shuning uchun interfeysga emas, ARKit kamerasi kabi aynan
-    /// gироskop/akselerometr orqali kuzatiladigan `UIDevice.current.orientation`ga
-    /// tayanamiz (qarang `interfaceOrientation(for:)`), so'ng ARKit'ning
-    /// `ARCamera.viewMatrix(for:)`i bilan screen-relative o'qlarga aylantiramiz.
+    /// MUHIM: avvalgi yondashuvlar (xom kamera-ustunlar, keyin `UIDevice.current.
+    /// orientation`ga asoslangan `viewMatrix(for:)`) sinovda tasdiqlanmadi —
+    /// orientatsiya haqida taxmin qilishga asoslangan edi. Shuning uchun
+    /// RealityKit'ning O'ZIDAN so'raymiz: `arView.ray(through:)` berilgan ekran
+    /// nuqtasidan o'tuvchi haqiqiy dunyo-fazoviy nurni qaytaradi — ARView HOZIR
+    /// qanday render qilayotgan bo'lsa ham (portret, jismoniy landscape — farqi
+    /// yo'q) shunga mos. Ekran markazidan o'ngga siljigan nuqta orqali o'tuvchi
+    /// nur bilan markaziy nur (= kamera qarab turgan tomon, `forward`) farqidan
+    /// HAQIQIY screen-right yo'nalishini olamiz.
     private func currentMovementAxes() -> (right: SIMD3<Float>, forward: SIMD3<Float>) {
-        let orientation = Self.interfaceOrientation(forPhysicalDevice: UIDevice.current.orientation)
-        let cam: simd_float4x4
-        if let frame = arView.session.currentFrame {
-            cam = frame.camera.viewMatrix(for: orientation).inverse
-        } else {
-            cam = arView.cameraTransform.matrix
+        let bounds = arView.bounds
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let rightPoint = CGPoint(x: bounds.midX + 60, y: bounds.midY)
+
+        if let centerRay = arView.ray(through: center),
+           let rightRay = arView.ray(through: rightPoint) {
+            var right = SIMD3<Float>(
+                rightRay.direction.x - centerRay.direction.x, 0,
+                rightRay.direction.z - centerRay.direction.z
+            )
+            var forward = SIMD3<Float>(centerRay.direction.x, 0, centerRay.direction.z)
+            if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
+            if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
+            return (right, forward)
         }
+
+        // Zaxira: nurlar olinmasa (masalan sessiya hali frame bermagan bo'lsa),
+        // eski xom kamera-ustun usuli.
+        let cam = arView.cameraTransform.matrix
         var right = SIMD3<Float>(cam.columns.0.x, 0, cam.columns.0.z)
         var forward = SIMD3<Float>(-cam.columns.2.x, 0, -cam.columns.2.z)
         if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
         if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
         return (right, forward)
-    }
-
-    /// `UIDeviceOrientation` (jismoniy) va `UIInterfaceOrientation` (ekranda
-    /// ko'rinadigan) landscape qiymatlari teskari ma'noga ega — qarang
-    /// `ARContainerView.ARPlacementViewController.interfaceOrientation(for:)`
-    /// izohi (bir xil mantiq, ikkinchi controllerda takrorlangan).
-    private static func interfaceOrientation(forPhysicalDevice deviceOrientation: UIDeviceOrientation) -> UIInterfaceOrientation {
-        switch deviceOrientation {
-        case .landscapeLeft: return .landscapeRight
-        case .landscapeRight: return .landscapeLeft
-        case .portraitUpsideDown: return .portraitUpsideDown
-        default: return .portrait
-        }
     }
 
     private var cachedMovementAxes: (right: SIMD3<Float>, forward: SIMD3<Float>)?

@@ -127,16 +127,6 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // `UIDevice.current.orientation` boshqacha faollashtirilmasa har doim
-        // `.unknown` qaytaradi — joystikning jismoniy aylanishni his qilishi
-        // (qarang `currentMovementAxes`) shunga bog'liq. MUHIM: buni hech qachon
-        // `endGeneratingDeviceOrientationNotifications()` bilan O'CHIRMASLIK kerak
-        // (masalan `deinit`da) — bu app darajasidagi UMUMIY holat, boshqa AR
-        // ekrani ham shunga tayanadi; bitta ekran yopilganda o'chirib qo'ysak,
-        // qolgan/keyingi ekranlarda `.orientation` yana doim `.unknown` bo'lib
-        // qolib, joystik yana "faqat portretdagidek" ishlab qolar edi.
-        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-
         arView = ARView(frame: view.bounds)
         arView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         arView.session.delegate = self
@@ -303,44 +293,42 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     /// surilish ORTASIDA o'zgarib, obyekt kutilmagan/"aylanib" ketayotgandek
     /// harakatlanardi.
     ///
-    /// MUHIM: `arView.cameraTransform` (ARKit'ning `ARCamera.transform`) qurilmaning
-    /// FIZIK sensor o'qlariga bog'liq. iPhone'da interfeys portretga qulflangan
-    /// (qarang Info.plist `UISupportedInterfaceOrientations`) — ya'ni
-    /// `view.window?.windowScene?.interfaceOrientation` DOIM `.portrait` bo'lib
-    /// qoladi, hatto foydalanuvchi telefonni jismonan yon tomonga (landscape)
-    /// aylantirsa ham. ARKit esa kamerani gироskop/akselerometr orqali FIZIK
-    /// pozitsiyasidan kuzatadi — shuning uchun interfeys emas, aynan
-    /// `UIDevice.current.orientation` (jismoniy aylanish, gироskopdan) asosida
-    /// to'g'ri "screen-relative" o'qni tanlaymiz (qarang `interfaceOrientation(for:)`).
+    /// MUHIM: avvalgi yondashuvlar (`ARCamera.transform` xom ustunlari, keyin
+    /// `UIDevice.current.orientation`ga asoslangan `viewMatrix(for:)`) qurilma
+    /// qanday aylantirilishidan qat'iy nazar to'g'ri ishlamadi — signlarni
+    /// taxmin qilishga asoslangan edi va sinovda tasdiqlanmadi. Shuning uchun
+    /// hech narsani taxmin qilmaymiz: RealityKit'ning O'ZIDAN so'raymiz — `arView.
+    /// ray(through:)` berilgan ekran nuqtasidan o'tuvchi haqiqiy dunyo-fazoviy
+    /// nurni qaytaradi, ARView HOZIR qanday render qilayotgan bo'lsa (portret,
+    /// jismoniy landscape — farqi yo'q) ham shunga mos. Ekran markazidan o'ngga
+    /// siljigan nuqta orqali o'tuvchi nur bilan markaziy nur (= kamera qarab
+    /// turgan tomon, `forward`) farqidan HAQIQIY screen-right yo'nalishini
+    /// olamiz — orientatsiya haqida hech qanday taxmin kerak emas.
     private func currentMovementAxes() -> (right: SIMD3<Float>, forward: SIMD3<Float>) {
-        let orientation = Self.interfaceOrientation(forPhysicalDevice: UIDevice.current.orientation)
-        let cam: simd_float4x4
-        if let frame = arView.session.currentFrame {
-            cam = frame.camera.viewMatrix(for: orientation).inverse
-        } else {
-            cam = arView.cameraTransform.matrix
+        let bounds = arView.bounds
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let rightPoint = CGPoint(x: bounds.midX + 60, y: bounds.midY)
+
+        if let centerRay = arView.ray(through: center),
+           let rightRay = arView.ray(through: rightPoint) {
+            var right = SIMD3<Float>(
+                rightRay.direction.x - centerRay.direction.x, 0,
+                rightRay.direction.z - centerRay.direction.z
+            )
+            var forward = SIMD3<Float>(centerRay.direction.x, 0, centerRay.direction.z)
+            if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
+            if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
+            return (right, forward)
         }
+
+        // Zaxira: nurlar olinmasa (masalan sessiya hali frame bermagan bo'lsa),
+        // eski xom kamera-ustun usuli.
+        let cam = arView.cameraTransform.matrix
         var right = SIMD3<Float>(cam.columns.0.x, 0, cam.columns.0.z)
         var forward = SIMD3<Float>(-cam.columns.2.x, 0, -cam.columns.2.z)
         if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
         if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
         return (right, forward)
-    }
-
-    /// `UIDeviceOrientation` (jismoniy, gироskop asosida) va `UIInterfaceOrientation`
-    /// (ekranda ko'rinadigan) landscape qiymatlari TESKARI ma'noga ega (mashhur iOS
-    /// "gotcha"si) — masalan qurilma jismonan `.landscapeLeft`ga aylantirilganda,
-    /// tasvir tik ko'rinishi uchun `.landscapeRight` interfeys kerak bo'ladi.
-    /// Noaniq holatlar (`.faceUp`, `.faceDown`, `.unknown`) — oxirgi ma'lum
-    /// tik/yotiq holatni saqlashning iloji yo'q (state yo'q), shuning uchun
-    /// xavfsiz `.portrait`ga tushiriladi.
-    private static func interfaceOrientation(forPhysicalDevice deviceOrientation: UIDeviceOrientation) -> UIInterfaceOrientation {
-        switch deviceOrientation {
-        case .landscapeLeft: return .landscapeRight
-        case .landscapeRight: return .landscapeLeft
-        case .portraitUpsideDown: return .portraitUpsideDown
-        default: return .portrait
-        }
     }
 
     /// Joystik surilishi boshida bir marta hisoblab "qulflanadigan" yo'nalish —
