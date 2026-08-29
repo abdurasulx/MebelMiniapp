@@ -11,6 +11,15 @@ final class ARBridge: ObservableObject {
     /// tuzilgan) bo'lganda `true` bo'ladi, shundan keyingina yuklash overlay'i
     /// yashiriladi.
     @Published var isModelReady = false
+    /// Qurilmaning kamera atrofida qancha "roll" qilganini (gradusda) ko'rsatadi
+    /// — ARKit kamera pozitsiyasidan (dunyoning gravitatsiya-vertikal o'qiga
+    /// nisbatan) to'g'ridan-to'g'ri hisoblanadi (qarang
+    /// `ARPlacementViewController.rollDegrees(from:)`), `UIDevice.current.
+    /// orientation`ga EMAS — chunki AR sessiyasi ishlab turganda UIDevice'ning
+    /// o'z orientatsiya-sensori ishonchsiz/yangilanmay qolishi kuzatildi
+    /// (sinovda tasdiqlandi). 0° — portret (tik), ±90° — to'liq landscape.
+    /// Joystik grafikasi shu burchakka qarab buriladi (qarang `PositionJoystick`).
+    @Published var rollDegrees: Double = 0
     weak var controller: ARPlacementViewController?
 
     func nudge(right: Float = 0, forward: Float = 0) {
@@ -66,6 +75,9 @@ struct ARContainerView: UIViewControllerRepresentable {
         controller.onModelReady = { [weak bridge] in
             withAnimation { bridge?.isModelReady = true }
         }
+        controller.onRollChange = { [weak bridge] roll in
+            bridge?.rollDegrees = roll
+        }
         bridge.controller = controller
         if let modelFileURL {
             controller.setModelFileURL(modelFileURL)
@@ -103,6 +115,11 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     /// 3D model to'liq yuklab olinib, RealityKit shabloni tuzilganda chaqiriladi
     /// (kamera esa bundan mustaqil, ekran ochilishi bilanoq ishlab turadi).
     var onModelReady: (() -> Void)?
+    /// Har frame kamera roll burchagi (gradusda) hisoblanib, sezilarli
+    /// o'zgarganda (qarang `lastReportedRoll`) chaqiriladi — qarang
+    /// `session(_:didUpdate:)`.
+    var onRollChange: ((Double) -> Void)?
+    private var lastReportedRoll: Double = 0
 
     private static let moveStep: Float = 0.24 // metr — tugma/joystik bosilganda siljish qadami (3x tezlashtirildi)
 
@@ -381,4 +398,52 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     }
 
     func coachingOverlayViewDidDeactivate(_ coachingOverlayView: ARCoachingOverlayView) {}
+
+    /// Har yangi frame'da kamera roll burchagini qayta hisoblab, oldingi
+    /// xabar qilingan qiymatdan sezilarli (>2°) farq qilsa SwiftUI'ga
+    /// yuboradi — har frame emas, faqat haqiqiy o'zgarish bo'lganda
+    /// (60/sek @Published yangilanishidan qochish uchun).
+    func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        let roll = Self.rollDegrees(from: frame.camera.transform)
+        if abs(roll - lastReportedRoll) > 2 {
+            lastReportedRoll = roll
+            onRollChange?(roll)
+        }
+    }
+
+    /// Kamera qancha "roll" qilganini (dunyoning gravitatsiya-vertikal o'qiga
+    /// nisbatan, gradusda) hisoblaydi — 0° qurilma tik (portret) turganda,
+    /// ±90° to'liq yon tomonga (landscape) aylantirilganda. `UIDevice.current.
+    /// orientation`dan farqli, bu FAQAT ARKit'ning o'z (ishonchli) kamera
+    /// kuzatuvidan olinadi — AR sessiyasi ishlab turganda UIDevice'ning
+    /// orientatsiya-sensori bilan kelishmovchilik/yangilanmaslik kuzatilgani
+    /// uchun undan butunlay voz kechildi.
+    ///
+    /// Usul: kamera "forward" (qarab turgan) yo'nalishiga perpendikulyar
+    /// tekislikka dunyo vertikal o'qini proyeksiyalab, "roll bo'lmasa qanday
+    /// bo'lardi" degan mos yozuv (`referenceUp`) hosil qilinadi; keyin haqiqiy
+    /// kamera "up" o'qi (`deviceUp`) shu mos yozuvdan qancha burilganini
+    /// `atan2` bilan o'lchaymiz.
+    private static func rollDegrees(from cameraTransform: simd_float4x4) -> Double {
+        let forward = SIMD3<Float>(-cameraTransform.columns.2.x, -cameraTransform.columns.2.y, -cameraTransform.columns.2.z)
+        let deviceUp = SIMD3<Float>(cameraTransform.columns.1.x, cameraTransform.columns.1.y, cameraTransform.columns.1.z)
+        let worldUp: SIMD3<Float> = [0, 1, 0]
+
+        let forwardLen = simd_length(forward)
+        guard forwardLen > 0.0001 else { return 0 }
+        let forwardNormalized = forward / forwardLen
+
+        // Kamera deyarli to'g'ridan-to'g'ri tepaga/pastga qarasa (forward ≈
+        // worldUp), roll aniqlanmaydi — oxirgi ma'lum qiymat saqlanadi
+        // (chaqiruvchi `lastReportedRoll` orqali, bu funksiya shunchaki 0
+        // qaytaradi va yangilanish e'tiborga olinmaydi).
+        var referenceUp = worldUp - forwardNormalized * simd_dot(worldUp, forwardNormalized)
+        let referenceLen = simd_length(referenceUp)
+        guard referenceLen > 0.0001 else { return 0 }
+        referenceUp = referenceUp / referenceLen
+
+        let cosRoll = simd_dot(deviceUp, referenceUp)
+        let sinRoll = simd_dot(simd_cross(referenceUp, deviceUp), forwardNormalized)
+        return Double(atan2(sinRoll, cosRoll)) * 180 / .pi
+    }
 }

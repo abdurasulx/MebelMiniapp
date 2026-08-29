@@ -1,6 +1,5 @@
 import simd
 import SwiftUI
-import UIKit
 
 /// Mahsulotni AR orqali xonaga joylashtirish ekrani (roadmap Phase 4 — Customer AR:
 /// mahsulot tanlash, xonaga joylashtirish, scale, rotation).
@@ -346,14 +345,6 @@ private struct RotationDial: View {
 private struct PositionJoystick: View {
     @ObservedObject var bridge: ARBridge
     @GestureState private var dragOffset: CGSize = .zero
-    /// Qurilmaning jismoniy (gyroskop/akselerometr orqali kuzatiladigan)
-    /// aylanishi — dunyo-fazoviy o'q hisob-kitobini tuzatishga urinishlar
-    /// natija bermagani uchun (qarang git tarixi), endi buning o'rniga
-    /// TO'G'RIDAN-TO'G'RI joystikning o'zini (ko'rinishi + kirish vektorini)
-    /// jismoniy burilishga qarab kompensatsiya qilamiz — portretda ishlagan
-    /// asl matematika o'zgarishsiz qoladi, faqat unga uzatiladigan (x,y)
-    /// oldindan teskari burchakka buriladi.
-    @State private var deviceOrientation: UIDeviceOrientation = UIDevice.current.orientation
 
     private let baseSize: CGFloat = 76
     private let knobSize: CGFloat = 34
@@ -365,17 +356,15 @@ private struct PositionJoystick: View {
     }
     private var inOuterZone: Bool { distance > innerRadius }
 
-    /// Qurilma jismonan qanchaga burilgan bo'lsa, joystik grafikasi ham
+    /// Qurilma jismonan qancha "roll" qilgan bo'lsa (`bridge.rollDegrees` —
+    /// ARKit kamerasidan, gravitatsiyaga nisbatan hisoblangan, qarang
+    /// `ARPlacementViewController.rollDegrees(from:)`), joystik grafikasi ham
     /// SHUNCHA buriladi — shunda "tepaga" o'qi foydalanuvchi uchun doim
     /// haqiqiy tepaga (kameradan uzoqlashtiruvchi tomonga) qarab turadi.
-    private var visualRotationDegrees: Double {
-        switch deviceOrientation {
-        case .landscapeLeft: return 90
-        case .landscapeRight: return -90
-        case .portraitUpsideDown: return 180
-        default: return 0
-        }
-    }
+    /// AVVAL `UIDevice.current.orientation`ga tayanilgan edi, lekin AR
+    /// sessiyasi ishlab turganda bu sensor ishonchsiz/yangilanmay qolishi
+    /// sinovda tasdiqlandi — shuning uchun undan butunlay voz kechildi.
+    private var visualRotationDegrees: Double { bridge.rollDegrees }
 
     var body: some View {
         ZStack {
@@ -445,13 +434,6 @@ private struct PositionJoystick: View {
                 }
         )
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)
-        .onAppear {
-            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
-            let new = UIDevice.current.orientation
-            if new.isValidInterfaceOrientation { deviceOrientation = new }
-        }
     }
 
     private static func clamp(_ translation: CGSize, radius: CGFloat) -> CGSize {

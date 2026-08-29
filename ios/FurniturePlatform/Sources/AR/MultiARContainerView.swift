@@ -14,6 +14,8 @@ final class MultiARBridge: ObservableObject {
     /// bilan farqi: bu YUKLASH progressini, u esa "hech bo'lmasa bittasi
     /// tayyor, ekranni ko'rsatish mumkin" holatini bildiradi.
     @Published var loadedCount = 0
+    /// Qarang `ARBridge.rollDegrees` izohi — bir xil mantiq.
+    @Published var rollDegrees: Double = 0
     weak var controller: MultiARPlacementViewController?
 
     /// Keyingi bosishda QAYSI model joylashtirilishi kerakligini belgilaydi —
@@ -74,6 +76,9 @@ struct MultiARContainerView: UIViewControllerRepresentable {
                 withAnimation { bridge?.isModelReady = true }
             }
         }
+        controller.onRollChange = { [weak bridge] roll in
+            bridge?.rollDegrees = roll
+        }
         bridge.controller = controller
         controller.activeModelId = bridge.activeModelId
         for model in models where model.fileURL != nil {
@@ -120,6 +125,9 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
     /// Har bir model shabloni to'liq yuklab olinib, RealityKit'ga tayyor
     /// bo'lganda (har biri uchun alohida) chaqiriladi.
     var onModelLoaded: (() -> Void)?
+    /// Qarang `ARPlacementViewController.onRollChange` izohi.
+    var onRollChange: ((Double) -> Void)?
+    private var lastReportedRoll: Double = 0
 
     private static let moveStep: Float = 0.24
 
@@ -394,4 +402,35 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
     }
 
     func coachingOverlayViewDidDeactivate(_ coachingOverlayView: ARCoachingOverlayView) {}
+
+    /// Qarang `ARPlacementViewController.session(_:didUpdate:)` izohi — bir
+    /// xil mantiq.
+    func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        let roll = Self.rollDegrees(from: frame.camera.transform)
+        if abs(roll - lastReportedRoll) > 2 {
+            lastReportedRoll = roll
+            onRollChange?(roll)
+        }
+    }
+
+    /// Qarang `ARPlacementViewController.rollDegrees(from:)` izohi — bir xil
+    /// mantiq, ikkinchi controllerda takrorlangan.
+    private static func rollDegrees(from cameraTransform: simd_float4x4) -> Double {
+        let forward = SIMD3<Float>(-cameraTransform.columns.2.x, -cameraTransform.columns.2.y, -cameraTransform.columns.2.z)
+        let deviceUp = SIMD3<Float>(cameraTransform.columns.1.x, cameraTransform.columns.1.y, cameraTransform.columns.1.z)
+        let worldUp: SIMD3<Float> = [0, 1, 0]
+
+        let forwardLen = simd_length(forward)
+        guard forwardLen > 0.0001 else { return 0 }
+        let forwardNormalized = forward / forwardLen
+
+        var referenceUp = worldUp - forwardNormalized * simd_dot(worldUp, forwardNormalized)
+        let referenceLen = simd_length(referenceUp)
+        guard referenceLen > 0.0001 else { return 0 }
+        referenceUp = referenceUp / referenceLen
+
+        let cosRoll = simd_dot(deviceUp, referenceUp)
+        let sinRoll = simd_dot(simd_cross(referenceUp, deviceUp), forwardNormalized)
+        return Double(atan2(sinRoll, cosRoll)) * 180 / .pi
+    }
 }

@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// AR'ga joylashtiriladigan model — mahsulot 3D fayli (bitta) + tanlangan
 /// variantning rang/naqsh ma'lumoti bilan.
@@ -319,9 +318,6 @@ private struct MultiARRotationDial: View {
 private struct MultiARPositionJoystick: View {
     @ObservedObject var bridge: MultiARBridge
     @GestureState private var dragOffset: CGSize = .zero
-    /// Qarang `ARPlacementView.PositionJoystick.deviceOrientation` izohi —
-    /// bir xil mantiq, ikkinchi joystikda takrorlangan.
-    @State private var deviceOrientation: UIDeviceOrientation = UIDevice.current.orientation
 
     private let baseSize: CGFloat = 76
     private let knobSize: CGFloat = 34
@@ -333,14 +329,9 @@ private struct MultiARPositionJoystick: View {
     }
     private var inOuterZone: Bool { distance > innerRadius }
 
-    private var visualRotationDegrees: Double {
-        switch deviceOrientation {
-        case .landscapeLeft: return 90
-        case .landscapeRight: return -90
-        case .portraitUpsideDown: return 180
-        default: return 0
-        }
-    }
+    /// Qarang `ARPlacementView.PositionJoystick.visualRotationDegrees` izohi
+    /// — bir xil mantiq, `bridge.rollDegrees` orqali.
+    private var visualRotationDegrees: Double { bridge.rollDegrees }
 
     var body: some View {
         ZStack {
@@ -395,13 +386,6 @@ private struct MultiARPositionJoystick: View {
                 }
         )
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)
-        .onAppear {
-            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
-            let new = UIDevice.current.orientation
-            if new.isValidInterfaceOrientation { deviceOrientation = new }
-        }
     }
 
     private static func clamp(_ translation: CGSize, radius: CGFloat) -> CGSize {
