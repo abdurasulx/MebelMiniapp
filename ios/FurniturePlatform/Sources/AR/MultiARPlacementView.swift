@@ -65,7 +65,11 @@ struct MultiARPlacementView: View {
 
             ARHeaderBar(
                 title: "AR — \(models.count) ta mahsulot",
-                subtitle: bridge.isModelReady ? "Pastdan mahsulot tanlab, tekislikka bosib joylashtiring" : nil
+                subtitle: bridge.isModelReady
+                    ? (bridge.hasSelection
+                        ? "Aylantirish va siljitish uchun pastki paneldan foydalaning"
+                        : "Pastdan mahsulot tanlab, tekislikka bosib joylashtiring")
+                    : nil
             ) {
                 dismiss()
             }
@@ -211,69 +215,198 @@ private struct ARHeaderBar: View {
 }
 
 /// Tanlangan (allaqachon joylashtirilgan) obyektni boshqarish paneli —
-/// tugma-asosli (drag-siz), oddiy va ishonchli: yo'nalish tugmalari,
-/// aylantirish, kattalashtirish/kichraytirish, o'chirish.
+/// `ARPlacementView.swift`dagi mijoz paneli bilan AYNAN BIR XIL: drag-asosli
+/// joystik + aylanma slayder + drag bilan masshtablash (avvalgi tugma-asosli
+/// D-pad'dan farqli — u yerda faqat 4 ta diskret yo'nalish tugmasi bor edi).
 private struct MultiARControlUnit: View {
     @ObservedObject var bridge: MultiARBridge
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 14) {
-                MultiARIconButton(system: "rotate.left") { bridge.rotateSelected(radians: -0.35) }
-                MultiARIconButton(system: "minus.magnifyingglass") { bridge.scaleSelected(by: 0.92) }
-                DPad(bridge: bridge)
-                MultiARIconButton(system: "plus.magnifyingglass") { bridge.scaleSelected(by: 1.08) }
-                MultiARIconButton(system: "rotate.right") { bridge.rotateSelected(radians: 0.35) }
+        VStack(spacing: 16) {
+            MultiARRotationDial(bridge: bridge)
+
+            HStack(spacing: 18) {
+                MultiARGlassIconButton(system: "arrow.up.left.and.arrow.down.right", tint: .white) {
+                    // tap: standart o'lchamga tez qaytarish (fine-tuning drag orqali)
+                } drag: { delta in
+                    let factor = 1 + Float(-delta.height) * 0.0025
+                    bridge.scaleSelected(by: factor)
+                }
+
+                MultiARPositionJoystick(bridge: bridge)
+
+                MultiARGlassIconButton(system: "trash", tint: .red) {
+                    bridge.removeSelected()
+                }
             }
-            MultiARIconButton(system: "trash", tint: .red) { bridge.removeSelected() }
         }
-        .padding(16)
+        .padding(18)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous).fill(.ultraThinMaterial).opacity(0.6)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .opacity(0.6)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.18), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(.white.opacity(0.18), lineWidth: 1)
         )
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 28)
     }
 }
 
-private struct DPad: View {
+/// Bilyard kuch o'lchagichi / aylanma g'ildirakka o'xshash gorizontal slayder —
+/// barmoq o'ngga-chapga yurgizilganda ob'ekt X o'qi (dunyo Y) atrofida silliq
+/// buriladi. `ARPlacementView.swift::RotationDial`ning nusxasi — `MultiARBridge`
+/// bilan ishlaydi.
+private struct MultiARRotationDial: View {
     @ObservedObject var bridge: MultiARBridge
-    private let step: Float = 0.3
+    @State private var dragStartX: CGFloat?
+    @State private var lastX: CGFloat = 0
+
+    private let width: CGFloat = 220
+    private let height: CGFloat = 44
 
     var body: some View {
-        VStack(spacing: 4) {
-            MultiARIconButton(system: "chevron.up", small: true) { bridge.nudge(forward: step) }
-            HStack(spacing: 4) {
-                MultiARIconButton(system: "chevron.left", small: true) { bridge.nudge(right: -step) }
-                MultiARIconButton(system: "chevron.right", small: true) { bridge.nudge(right: step) }
+        ZStack {
+            RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+                .fill(.white.opacity(0.08))
+                .frame(width: width, height: height)
+                .overlay(
+                    RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+                        .stroke(.white.opacity(0.15), lineWidth: 1)
+                )
+
+            HStack(spacing: width - 56) {
+                Image(systemName: "arrow.counterclockwise")
+                Image(systemName: "arrow.clockwise")
             }
-            MultiARIconButton(system: "chevron.down", small: true) { bridge.nudge(forward: -step) }
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white.opacity(0.55))
+
+            HStack(spacing: 10) {
+                ForEach(0..<9, id: \.self) { i in
+                    Capsule()
+                        .fill(.white.opacity(i == 4 ? 0.9 : 0.3))
+                        .frame(width: i == 4 ? 3 : 2, height: i == 4 ? 18 : 10)
+                }
+            }
         }
+        .frame(width: width, height: height)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    if dragStartX == nil {
+                        dragStartX = value.startLocation.x
+                        lastX = value.startLocation.x
+                    }
+                    let deltaX = value.location.x - lastX
+                    lastX = value.location.x
+                    let radians = Float(deltaX / width) * .pi * 1.6
+                    bridge.rotateSelected(radians: radians)
+                }
+                .onEnded { _ in
+                    dragStartX = nil
+                }
+        )
     }
 }
 
-private struct MultiARIconButton: View {
+/// Markaziy shaffof joystik (D-pad/thumbstick) — barmoq markazdan qaysi
+/// tomonga surilsa, ob'ekt xuddi shu yo'nalishda siljiydi. `ARPlacementView.swift
+/// ::PositionJoystick`ning nusxasi — `MultiARBridge` bilan ishlaydi.
+private struct MultiARPositionJoystick: View {
+    @ObservedObject var bridge: MultiARBridge
+    @GestureState private var dragOffset: CGSize = .zero
+
+    private let baseSize: CGFloat = 76
+    private let knobSize: CGFloat = 34
+    private let maxOffset: CGFloat = 21
+    private let innerRadius: CGFloat = 11
+
+    private var distance: CGFloat {
+        sqrt(dragOffset.width * dragOffset.width + dragOffset.height * dragOffset.height)
+    }
+    private var inOuterZone: Bool { distance > innerRadius }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.white.opacity(0.08))
+                .frame(width: baseSize, height: baseSize)
+                .overlay(
+                    Circle().stroke(.white.opacity(0.15), lineWidth: 1)
+                )
+
+            Circle()
+                .stroke(.white.opacity(inOuterZone ? 0.4 : 0.2), lineWidth: 1)
+                .frame(width: innerRadius * 2, height: innerRadius * 2)
+
+            ForEach([0.0, 90.0, 180.0, 270.0], id: \.self) { angle in
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white.opacity(dragOffset == .zero ? 0.25 : (inOuterZone ? 0.8 : 0.5)))
+                    .offset(y: -baseSize / 2 + 6)
+                    .rotationEffect(.degrees(angle))
+            }
+
+            Circle()
+                .fill(.white.opacity(0.85))
+                .frame(width: knobSize, height: knobSize)
+                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+                .offset(dragOffset)
+        }
+        .frame(width: baseSize, height: baseSize)
+        .contentShape(Circle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($dragOffset) { value, state, _ in
+                    let clamped = Self.clamp(value.translation, radius: maxOffset)
+                    state = clamped
+                    let dist = sqrt(clamped.width * clamped.width + clamped.height * clamped.height)
+                    let speed: Float = dist > innerRadius ? 2.0 : 1.0
+                    let right = Float(clamped.width / maxOffset)
+                    let forward = Float(-clamped.height / maxOffset)
+                    bridge.nudge(right: right * 0.01 * speed, forward: forward * 0.01 * speed)
+                }
+        )
+        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)
+    }
+
+    private static func clamp(_ translation: CGSize, radius: CGFloat) -> CGSize {
+        let length = sqrt(translation.width * translation.width + translation.height * translation.height)
+        guard length > radius else { return translation }
+        let scaleFactor = radius / length
+        return CGSize(width: translation.width * scaleFactor, height: translation.height * scaleFactor)
+    }
+}
+
+/// Shisha effektli kvadrat piktogramma tugma — bosish (`onTap`) yoki tepaga/pastga
+/// sudrash (`drag`, masalan Scale uchun) orqali ishlaydi. `ARPlacementView.swift
+/// ::GlassIconButton`ning nusxasi.
+private struct MultiARGlassIconButton: View {
     let system: String
     var tint: Color = .white
-    var small: Bool = false
-    let action: () -> Void
+    var onTap: (() -> Void)? = nil
+    var drag: ((CGSize) -> Void)? = nil
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: system)
-                .font(.system(size: small ? 12 : 16, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: small ? 30 : 44, height: small ? 30 : 44)
-                .background(
-                    RoundedRectangle(cornerRadius: small ? 9 : 14, style: .continuous)
-                        .fill(tint == .red ? Color.red.opacity(0.16) : .white.opacity(0.08))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: small ? 9 : 14, style: .continuous)
-                        .stroke(tint == .red ? Color.red.opacity(0.45) : .white.opacity(0.15), lineWidth: 1)
-                )
-        }
+        Image(systemName: system)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: 44, height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(tint == .red ? Color.red.opacity(0.16) : .white.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(tint == .red ? Color.red.opacity(0.45) : .white.opacity(0.15), lineWidth: 1)
+            )
+            .onTapGesture { onTap?() }
+            .gesture(
+                DragGesture(minimumDistance: 4)
+                    .onChanged { value in drag?(value.translation) }
+            )
     }
 }
