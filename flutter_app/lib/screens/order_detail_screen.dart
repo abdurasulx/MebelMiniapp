@@ -13,6 +13,10 @@ class OrderDetailScreen extends StatelessWidget {
     switch (status) {
       case 'completed':
         return const Color(0xFF2E7D32);
+      case 'approved':
+        return const Color(0xFF2563EB);
+      case 'cancelled':
+        return const Color(0xFFE74C3C);
       case 'in_progress':
         return const Color(0xFFB8860B);
       default:
@@ -121,6 +125,13 @@ class _StepTile extends StatelessWidget {
                 ),
               ],
             ),
+            if (step.cuttingInstruction != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                step.cuttingInstruction!,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00695C)),
+              ),
+            ],
             if (step.employeeName != null && step.employeeName!.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(

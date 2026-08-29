@@ -202,6 +202,9 @@ private struct OpenTaskRowView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(step.name).font(.subheadline)
+                if let cuttingInstruction = step.cuttingInstruction {
+                    Text(cuttingInstruction).font(.caption).fontWeight(.semibold).foregroundStyle(.teal)
+                }
                 Text(
                     [step.orderDisplay.map { "Buyurtma \($0)" }, step.roleDisplay]
                         .compactMap { $0 }.joined(separator: " · ")
@@ -233,8 +236,11 @@ private struct StepRowView: View {
     @State private var completing = false
     @State private var starting = false
 
+    // "Yangilash"/"Yakunlash" tugmalari faqat hali yakunlanmagan bosqichda
+    // ko'rsatiladi — "Tasdiqlangan"/"Bekor qilindi" allaqachon yakuniy holat.
     private var canAct: Bool {
-        step.status != "completed" && (step.status == "in_progress" || step.isAvailable)
+        !WorkflowStepInstance.terminalStatuses.contains(step.status) &&
+            (step.status == "in_progress" || step.isAvailable)
     }
 
     // Faqat qo'lda qo'shilgan (manual) va hali kutilayotgan vazifalarga
@@ -251,6 +257,12 @@ private struct StepRowView: View {
                 Text(step.name).font(.subheadline)
                 if let description = step.description, !description.isEmpty {
                     Text(description).font(.caption).foregroundStyle(.secondary)
+                }
+                if let cuttingInstruction = step.cuttingInstruction {
+                    Text(cuttingInstruction).font(.caption).fontWeight(.semibold).foregroundStyle(.teal)
+                } else if let workTypeName = step.workTypeName {
+                    Text("\(step.quantity ?? "") \(step.workTypeUnitDisplay ?? "") × \(workTypeName)")
+                        .font(.caption).foregroundStyle(.teal)
                 }
                 Text(subtitle).font(.caption2).foregroundStyle(step.isOverdue ? .red : .secondary)
             }
@@ -293,6 +305,8 @@ private struct StepRowView: View {
     private var icon: String {
         switch step.status {
         case "completed": return "checkmark.circle.fill"
+        case "approved": return "checkmark.seal.fill"
+        case "cancelled": return "xmark.circle.fill"
         case "in_progress": return "arrow.triangle.2.circlepath"
         default: return "circle"
         }
@@ -301,7 +315,9 @@ private struct StepRowView: View {
     private var color: Color {
         switch step.status {
         case "completed": return .green
-        case "in_progress": return .blue
+        case "approved": return .blue
+        case "cancelled": return .red
+        case "in_progress": return .orange
         default: return .secondary
         }
     }

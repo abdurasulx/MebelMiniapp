@@ -250,14 +250,31 @@ struct WorkflowStepInstance: Codable, Identifiable {
     let updates: [WorkflowProgressUpdate]?
     let openApplicationsCount: Int?
     let myApplicationStatus: String?
+    // Ish turi (WorkTypes katalogi) va xom ashyo — backendda avtomatik
+    // narx/ombor hisobi uchun ishlatiladi, bu yerda faqat ko'rsatish uchun.
+    let workTypeName: String?
+    let workTypeUnitDisplay: String?
+    let rawMaterialName: String?
+    let rawMaterialUnit: String?
+    let cuttingInstruction: String?
+    let quantity: String?
+    let materialConsumed: Bool?
+    let approvedAt: String?
+    let approvedByName: String?
+    let cancelledAt: String?
+    let cancelledByName: String?
 
+    // "Bajarildi", "Tasdiqlangan" va "Bekor qilindi" — barchasi yakuniy
+    // holatlar, ular bo'yicha muddat o'tganini ko'rsatish ma'nosiz.
     var isOverdue: Bool {
-        guard let deadline, status != "completed" else { return false }
+        guard let deadline, !Self.terminalStatuses.contains(status) else { return false }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         guard let date = formatter.date(from: deadline) else { return false }
         return date < Calendar.current.startOfDay(for: Date())
     }
+
+    static let terminalStatuses: Set<String> = ["completed", "approved", "cancelled"]
 }
 
 /// Bosqich bo'yicha usta qo'shgan yangilanish (rasm + izoh) — mijoz

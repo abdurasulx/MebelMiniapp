@@ -390,6 +390,19 @@ class WorkflowStepInstance {
   final List<WorkflowProgressUpdate> updates;
   final int openApplicationsCount;
   final String? myApplicationStatus;
+  // Ish turi (WorkTypes katalogi) va xom ashyo — backendda avtomatik
+  // narx/ombor hisobi uchun ishlatiladi, bu yerda faqat ko'rsatish uchun.
+  final String? workTypeName;
+  final String? workTypeUnitDisplay;
+  final String? rawMaterialName;
+  final String? rawMaterialUnit;
+  final String? cuttingInstruction;
+  final String? quantity;
+  final bool materialConsumed;
+  final String? approvedAt;
+  final String? approvedByName;
+  final String? cancelledAt;
+  final String? cancelledByName;
 
   WorkflowStepInstance({
     required this.id,
@@ -410,10 +423,23 @@ class WorkflowStepInstance {
     this.updates = const [],
     this.openApplicationsCount = 0,
     this.myApplicationStatus,
+    this.workTypeName,
+    this.workTypeUnitDisplay,
+    this.rawMaterialName,
+    this.rawMaterialUnit,
+    this.cuttingInstruction,
+    this.quantity,
+    this.materialConsumed = false,
+    this.approvedAt,
+    this.approvedByName,
+    this.cancelledAt,
+    this.cancelledByName,
   });
 
+  // "Bajarildi", "Tasdiqlangan" va "Bekor qilindi" — barchasi yakuniy
+  // holatlar, ular bo'yicha muddat o'tganini ko'rsatish ma'nosiz.
   bool get isOverdue {
-    if (deadline == null || status == 'completed') return false;
+    if (deadline == null || _terminalStatuses.contains(status)) return false;
     final d = DateTime.tryParse(deadline!);
     return d != null && d.isBefore(DateTime.now());
   }
@@ -440,8 +466,21 @@ class WorkflowStepInstance {
             .toList(),
         openApplicationsCount: j['open_applications_count'] ?? 0,
         myApplicationStatus: j['my_application_status'],
+        workTypeName: j['work_type_name'],
+        workTypeUnitDisplay: j['work_type_unit_display'],
+        rawMaterialName: j['raw_material_name'],
+        rawMaterialUnit: j['raw_material_unit'],
+        cuttingInstruction: j['cutting_instruction'],
+        quantity: j['quantity']?.toString(),
+        materialConsumed: j['material_consumed'] ?? false,
+        approvedAt: j['approved_at'],
+        approvedByName: j['approved_by_name'],
+        cancelledAt: j['cancelled_at'],
+        cancelledByName: j['cancelled_by_name'],
       );
 }
+
+const _terminalStatuses = {'completed', 'approved', 'cancelled'};
 
 /// Bosqich bo'yicha usta qo'shgan yangilanish (rasm + izoh) — mijoz
 /// tomonida faqat o'qish uchun (web'dagi WorkflowPanel bilan bir xil).

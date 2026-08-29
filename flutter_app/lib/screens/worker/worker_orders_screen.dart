@@ -352,9 +352,45 @@ class _StepTile extends StatelessWidget {
   final Future<void> Function(WorkflowStepInstance) onStart;
   const _StepTile({required this.step, required this.onProgress, required this.onStart});
 
+  // "Bajardim"/"Yangilanish" tugmalari faqat hali yakunlanmagan bosqichda
+  // ko'rsatiladi — "Tasdiqlangan"/"Bekor qilindi" allaqachon yakuniy holat
+  // (web'dagi StepStatus.COMPLETED/APPROVED/CANCELLED bilan bir xil).
+  static const _finishedStatuses = {'completed', 'approved', 'cancelled'};
+
+  IconData get _icon {
+    switch (step.status) {
+      case 'completed':
+        return Icons.check_circle;
+      case 'approved':
+        return Icons.verified;
+      case 'cancelled':
+        return Icons.cancel;
+      case 'in_progress':
+        return Icons.autorenew;
+      default:
+        return Icons.radio_button_unchecked;
+    }
+  }
+
+  Color get _color {
+    switch (step.status) {
+      case 'completed':
+        return Colors.green;
+      case 'approved':
+        return Colors.blue;
+      case 'cancelled':
+        return Colors.red;
+      case 'in_progress':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final canAct = step.status != 'completed' && (step.status == 'in_progress' || step.isAvailable);
+    final canAct = !_finishedStatuses.contains(step.status) &&
+        (step.status == 'in_progress' || step.isAvailable);
     // Faqat qo'lda qo'shilgan (manual) va hali kutilayotgan vazifalarga
     // aniq "Boshlash" (pending -> in_progress) tugmasi ko'rsatiladi — web'dagi
     // TaskCard.advance() bilan bir xil naqsh (FirmaProduction.jsx).
@@ -362,18 +398,7 @@ class _StepTile extends StatelessWidget {
     return ListTile(
       dense: true,
       isThreeLine: step.description.isNotEmpty,
-      leading: Icon(
-        step.status == 'completed'
-            ? Icons.check_circle
-            : step.status == 'in_progress'
-            ? Icons.autorenew
-            : Icons.radio_button_unchecked,
-        color: step.status == 'completed'
-            ? Colors.green
-            : step.status == 'in_progress'
-            ? Colors.blue
-            : Colors.grey,
-      ),
+      leading: Icon(_icon, color: _color),
       title: Text(step.name),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -382,6 +407,22 @@ class _StepTile extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
               child: Text(step.description, style: const TextStyle(fontSize: 12.5)),
+            ),
+          if (step.cuttingInstruction != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                step.cuttingInstruction!,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.teal),
+              ),
+            )
+          else if (step.workTypeName != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                '${step.quantity ?? ''} ${step.workTypeUnitDisplay ?? ''} × ${step.workTypeName}'.trim(),
+                style: const TextStyle(fontSize: 12.5, color: Colors.teal),
+              ),
             ),
           Text(
             [
@@ -435,11 +476,24 @@ class _OpenTaskTile extends StatelessWidget {
     return ListTile(
       dense: true,
       title: Text(step.name),
-      subtitle: Text(
-        [
-          if (step.orderDisplay != null) 'Buyurtma ${step.orderDisplay}',
-          if (step.roleDisplay != null) step.roleDisplay!,
-        ].join(' · '),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (step.cuttingInstruction != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Text(
+                step.cuttingInstruction!,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.teal),
+              ),
+            ),
+          Text(
+            [
+              if (step.orderDisplay != null) 'Buyurtma ${step.orderDisplay}',
+              if (step.roleDisplay != null) step.roleDisplay!,
+            ].join(' · '),
+          ),
+        ],
       ),
       trailing: pending
           ? const Chip(label: Text('Kutilmoqda', style: TextStyle(fontSize: 11)))
