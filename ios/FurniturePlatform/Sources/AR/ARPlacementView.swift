@@ -61,15 +61,6 @@ struct ARPlacementView: View {
                 dismiss()
             }
         }
-        .background(
-            GeometryReader { proxy in
-                Color.clear
-                    .onAppear { bridge.isLandscape = proxy.size.width > proxy.size.height }
-                    .onChange(of: proxy.size) { _, newSize in
-                        bridge.isLandscape = newSize.width > newSize.height
-                    }
-            }
-        )
         .animation(.easeOut(duration: 0.5), value: bridge.isModelReady)
         .task { await downloadModel() }
     }
@@ -393,20 +384,9 @@ private struct PositionJoystick: View {
                 .frame(width: knobSize, height: knobSize)
                 .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
                 .offset(dragOffset)
-
-            // Landscape'da joystik bloklangan — ekran-nisbiy o'ng/oldinga
-            // hisob-kitob faqat portretda ishonchli, shuning uchun qulf
-            // belgisi bilan vizual ravishda o'chirilgan holatda ko'rsatiladi.
-            if bridge.isLandscape {
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-            }
         }
         .frame(width: baseSize, height: baseSize)
         .contentShape(Circle())
-        .opacity(bridge.isLandscape ? 0.4 : 1)
-        .allowsHitTesting(!bridge.isLandscape)
         .gesture(
             DragGesture(minimumDistance: 0)
                 .updating($dragOffset) { value, state, _ in
@@ -432,7 +412,6 @@ private struct PositionJoystick: View {
                 }
         )
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)
-        .animation(.easeOut(duration: 0.2), value: bridge.isLandscape)
     }
 
     private static func clamp(_ translation: CGSize, radius: CGFloat) -> CGSize {

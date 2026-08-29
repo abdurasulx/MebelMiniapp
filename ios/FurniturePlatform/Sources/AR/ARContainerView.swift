@@ -11,13 +11,6 @@ final class ARBridge: ObservableObject {
     /// tuzilgan) bo'lganda `true` bo'ladi, shundan keyingina yuklash overlay'i
     /// yashiriladi.
     @Published var isModelReady = false
-    /// Ekran hozir landscape (kenglik balandlikdan katta) holatidami — qarang
-    /// `ARPlacementView`dagi GeometryReader. Joystik faqat portret rejimida
-    /// to'g'ri ishlashi isbotlangan (ekran-nisbiy o'q hisob-kitobi qurilma
-    /// aylantirilganda ARKit kamera o'qlarini boshqacha beradi), shuning uchun
-    /// landscape'da joystik butunlay bloklanadi — qo'lda burchak-tuzatish
-    /// o'rniga eng ishonchli yechim.
-    @Published var isLandscape = false
     weak var controller: ARPlacementViewController?
 
     func nudge(right: Float = 0, forward: Float = 0) {
@@ -131,8 +124,17 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
 
     required init?(coder: NSCoder) { fatalError("init(coder:) yo'q") }
 
+    deinit {
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        // `UIDevice.current.orientation` boshqacha faollashtirilmasa har doim
+        // `.unknown` qaytaradi — joystikning jismoniy aylanishni his qilishi
+        // (qarang `currentMovementAxes`) shunga bog'liq.
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
 
         arView = ARView(frame: view.bounds)
         arView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -301,17 +303,16 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     /// harakatlanardi.
     ///
     /// MUHIM: `arView.cameraTransform` (ARKit'ning `ARCamera.transform`) qurilmaning
-    /// FIZIK sensor o'qlariga bog'liq — iPad landscape'da aylantirilsa (interfeys
-    /// UI bilan birga aylanadi, portret uchun qulflangan iPhone'dan farqli),
-    /// ekranda haqiqatda ko'rinadigan "o'ng"/"tepa" endi shu xom ustunlarga mos
-    /// kelmay qoladi (qarang `UISupportedInterfaceOrientations~ipad`). Shuning
-    /// uchun qo'lda burchak hisoblab signlarni taxmin qilish o'rniga, ARKit'ning
-    /// o'zi taqdim etadigan `ARCamera.viewMatrix(for:)`dan foydalanamiz — bu
-    /// berilgan interfeys orientatsiyasi uchun ANIQ screen-relative kamera
-    /// o'qlarini beradi (portret, landscapeLeft/Right, upsideDown — barchasi
-    /// uchun to'g'ri).
+    /// FIZIK sensor o'qlariga bog'liq. iPhone'da interfeys portretga qulflangan
+    /// (qarang Info.plist `UISupportedInterfaceOrientations`) — ya'ni
+    /// `view.window?.windowScene?.interfaceOrientation` DOIM `.portrait` bo'lib
+    /// qoladi, hatto foydalanuvchi telefonni jismonan yon tomonga (landscape)
+    /// aylantirsa ham. ARKit esa kamerani gироskop/akselerometr orqali FIZIK
+    /// pozitsiyasidan kuzatadi — shuning uchun interfeys emas, aynan
+    /// `UIDevice.current.orientation` (jismoniy aylanish, gироskopdan) asosida
+    /// to'g'ri "screen-relative" o'qni tanlaymiz (qarang `interfaceOrientation(for:)`).
     private func currentMovementAxes() -> (right: SIMD3<Float>, forward: SIMD3<Float>) {
-        let orientation = view.window?.windowScene?.interfaceOrientation ?? .portrait
+        let orientation = Self.interfaceOrientation(forPhysicalDevice: UIDevice.current.orientation)
         let cam: simd_float4x4
         if let frame = arView.session.currentFrame {
             cam = frame.camera.viewMatrix(for: orientation).inverse
@@ -323,6 +324,22 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
         if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
         return (right, forward)
+    }
+
+    /// `UIDeviceOrientation` (jismoniy, gироskop asosida) va `UIInterfaceOrientation`
+    /// (ekranda ko'rinadigan) landscape qiymatlari TESKARI ma'noga ega (mashhur iOS
+    /// "gotcha"si) — masalan qurilma jismonan `.landscapeLeft`ga aylantirilganda,
+    /// tasvir tik ko'rinishi uchun `.landscapeRight` interfeys kerak bo'ladi.
+    /// Noaniq holatlar (`.faceUp`, `.faceDown`, `.unknown`) — oxirgi ma'lum
+    /// tik/yotiq holatni saqlashning iloji yo'q (state yo'q), shuning uchun
+    /// xavfsiz `.portrait`ga tushiriladi.
+    private static func interfaceOrientation(forPhysicalDevice deviceOrientation: UIDeviceOrientation) -> UIInterfaceOrientation {
+        switch deviceOrientation {
+        case .landscapeLeft: return .landscapeRight
+        case .landscapeRight: return .landscapeLeft
+        case .portraitUpsideDown: return .portraitUpsideDown
+        default: return .portrait
+        }
     }
 
     /// Joystik surilishi boshida bir marta hisoblab "qulflanadigan" yo'nalish —

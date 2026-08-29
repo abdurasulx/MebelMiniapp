@@ -10,10 +10,6 @@ import SwiftUI
 final class MultiARBridge: ObservableObject {
     @Published var hasSelection = false
     @Published var isModelReady = false
-    /// Ekran hozir landscape holatidami — qarang `MultiARPlacementView`dagi
-    /// GeometryReader. Joystik faqat portretda bloklanmagan (qarang
-    /// `MultiARPositionJoystick.isLandscape`) — sabab uchun `ARBridge.isLandscape`ga qarang.
-    @Published var isLandscape = false
     /// Barcha modellar (shablonlar) yuklab bo'linganini bildiradi — tepadagi
     /// bilan farqi: bu YUKLASH progressini, u esa "hech bo'lmasa bittasi
     /// tayyor, ekranni ko'rsatish mumkin" holatini bildiradi.
@@ -127,8 +123,17 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
 
     private static let moveStep: Float = 0.24
 
+    deinit {
+        UIDevice.current.endGeneratingDeviceOrientationNotifications()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
+
+        // `UIDevice.current.orientation` boshqacha faollashtirilmasa har doim
+        // `.unknown` qaytaradi — joystikning jismoniy aylanishni his qilishi
+        // (qarang `currentMovementAxes`) shunga bog'liq.
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
 
         arView = ARView(frame: view.bounds)
         arView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -321,15 +326,15 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
     /// titrasa), yo'nalish surilish ORTASIDA o'zgarib, obyekt kutilmagan
     /// "aylanib" ketayotgandek harakatlanardi.
     ///
-    /// MUHIM: `arView.cameraTransform` qurilmaning fizik sensor o'qlariga bog'liq
-    /// — iPad landscape'da (interfeys UI bilan birga aylanadi, qarang
-    /// `UISupportedInterfaceOrientations~ipad`) bu xom ustunlar ekranda
-    /// ko'rinadigan "o'ng"/"tepa"ga mos kelmay qoladi. Shuning uchun qo'lda
-    /// burchak hisoblash o'rniga ARKit'ning `ARCamera.viewMatrix(for:)`
-    /// metodidan foydalanamiz — bu berilgan interfeys orientatsiyasi uchun
-    /// aniq screen-relative kamera o'qlarini beradi.
+    /// MUHIM: `arView.cameraTransform` qurilmaning FIZIK sensor o'qlariga bog'liq,
+    /// interfeys esa iPhone'da portretga qulflangan — `windowScene.interfaceOrientation`
+    /// foydalanuvchi telefonni jismonan landscape'ga aylantirsa ham DOIM `.portrait`
+    /// qaytaradi. Shuning uchun interfeysga emas, ARKit kamerasi kabi aynan
+    /// gироskop/akselerometr orqali kuzatiladigan `UIDevice.current.orientation`ga
+    /// tayanamiz (qarang `interfaceOrientation(for:)`), so'ng ARKit'ning
+    /// `ARCamera.viewMatrix(for:)`i bilan screen-relative o'qlarga aylantiramiz.
     private func currentMovementAxes() -> (right: SIMD3<Float>, forward: SIMD3<Float>) {
-        let orientation = view.window?.windowScene?.interfaceOrientation ?? .portrait
+        let orientation = Self.interfaceOrientation(forPhysicalDevice: UIDevice.current.orientation)
         let cam: simd_float4x4
         if let frame = arView.session.currentFrame {
             cam = frame.camera.viewMatrix(for: orientation).inverse
@@ -341,6 +346,19 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
         if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
         if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
         return (right, forward)
+    }
+
+    /// `UIDeviceOrientation` (jismoniy) va `UIInterfaceOrientation` (ekranda
+    /// ko'rinadigan) landscape qiymatlari teskari ma'noga ega — qarang
+    /// `ARContainerView.ARPlacementViewController.interfaceOrientation(for:)`
+    /// izohi (bir xil mantiq, ikkinchi controllerda takrorlangan).
+    private static func interfaceOrientation(forPhysicalDevice deviceOrientation: UIDeviceOrientation) -> UIInterfaceOrientation {
+        switch deviceOrientation {
+        case .landscapeLeft: return .landscapeRight
+        case .landscapeRight: return .landscapeLeft
+        case .portraitUpsideDown: return .portraitUpsideDown
+        default: return .portrait
+        }
     }
 
     private var cachedMovementAxes: (right: SIMD3<Float>, forward: SIMD3<Float>)?
