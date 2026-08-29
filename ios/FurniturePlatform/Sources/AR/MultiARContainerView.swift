@@ -30,6 +30,17 @@ final class MultiARBridge: ObservableObject {
         controller?.moveSelected(right: right, forward: forward)
     }
 
+    /// Joystik surilishi BOSHLANGANDA chaqiriladi — qarang
+    /// `MultiARPlacementViewController.beginMoveGesture`.
+    func beginMoveGesture() {
+        controller?.beginMoveGesture()
+    }
+
+    /// Joystik qo'yib yuborilganda chaqiriladi.
+    func endMoveGesture() {
+        controller?.endMoveGesture()
+    }
+
     func rotateSelected(radians: Float) {
         controller?.rotateSelected(radians: radians)
     }
@@ -299,6 +310,12 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
         return nil
     }
 
+    /// Joriy kamera yo'nalishidan ekran-nisbiy o'q juftligini hisoblaydi.
+    /// `moveSelected` buni har chaqiriqda emas, faqat surilish BOSHIDA bir
+    /// marta ishlatadi (qarang `cachedMovementAxes`) — aks holda foydalanuvchi
+    /// joystikni ushlab turgan holda picha burilib qolsa (yoki qurilma
+    /// titrasa), yo'nalish surilish ORTASIDA o'zgarib, obyekt kutilmagan
+    /// "aylanib" ketayotgandek harakatlanardi.
     private func currentMovementAxes() -> (right: SIMD3<Float>, forward: SIMD3<Float>) {
         let cam = arView.cameraTransform.matrix
         var right = SIMD3<Float>(cam.columns.0.x, 0, cam.columns.0.z)
@@ -308,11 +325,21 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
         return (right, forward)
     }
 
+    private var cachedMovementAxes: (right: SIMD3<Float>, forward: SIMD3<Float>)?
+
     // MARK: - SwiftUI tugmalari orqali boshqarish (tanlangan obyektga qo'llanadi)
+
+    func beginMoveGesture() {
+        cachedMovementAxes = currentMovementAxes()
+    }
+
+    func endMoveGesture() {
+        cachedMovementAxes = nil
+    }
 
     func moveSelected(right: Float, forward: Float) {
         guard let entity = selectedEntity else { return }
-        let axes = currentMovementAxes()
+        let axes = cachedMovementAxes ?? currentMovementAxes()
         let delta = (axes.right * right + axes.forward * forward) * Self.moveStep
         let currentWorldPosition = entity.position(relativeTo: nil)
         entity.setPosition(currentWorldPosition + delta, relativeTo: nil)

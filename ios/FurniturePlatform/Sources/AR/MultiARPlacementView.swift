@@ -361,6 +361,9 @@ private struct MultiARPositionJoystick: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .updating($dragOffset) { value, state, _ in
+                    // `state == .zero` — surilishning birinchi hodisasi, aynan shu
+                    // daqiqada yo'nalish "qulflanadi" (qarang beginMoveGesture izohi).
+                    if state == .zero { bridge.beginMoveGesture() }
                     let clamped = Self.clamp(value.translation, radius: maxOffset)
                     state = clamped
                     let dist = sqrt(clamped.width * clamped.width + clamped.height * clamped.height)
@@ -368,6 +371,9 @@ private struct MultiARPositionJoystick: View {
                     let right = Float(clamped.width / maxOffset)
                     let forward = Float(-clamped.height / maxOffset)
                     bridge.nudge(right: right * 0.01 * speed, forward: forward * 0.01 * speed)
+                }
+                .onEnded { _ in
+                    bridge.endMoveGesture()
                 }
         )
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)

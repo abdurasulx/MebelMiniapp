@@ -390,6 +390,11 @@ private struct PositionJoystick: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .updating($dragOffset) { value, state, _ in
+                    // `state == .zero` — bu SURILISHNING BIRINCHI hodisasi (aks
+                    // holda @GestureState har doim oldingi qiymatdan davom etadi) —
+                    // aynan shu daqiqada yo'nalish "qulflanadi" (qarang
+                    // beginMoveGesture izohi), qolgan davomida o'zgarmaydi.
+                    if state == .zero { bridge.beginMoveGesture() }
                     let clamped = Self.clamp(value.translation, radius: maxOffset)
                     state = clamped
                     // Tayoqcha markazdan qanchalik uzoqlashgan bo'lsa, har bir
@@ -401,6 +406,9 @@ private struct PositionJoystick: View {
                     let right = Float(clamped.width / maxOffset)
                     let forward = Float(-clamped.height / maxOffset)
                     bridge.nudge(right: right * 0.01 * speed, forward: forward * 0.01 * speed)
+                }
+                .onEnded { _ in
+                    bridge.endMoveGesture()
                 }
         )
         .animation(.spring(response: 0.25, dampingFraction: 0.6), value: dragOffset)

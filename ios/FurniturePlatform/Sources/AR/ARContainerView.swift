@@ -17,6 +17,17 @@ final class ARBridge: ObservableObject {
         controller?.moveSelected(right: right, forward: forward)
     }
 
+    /// Joystik surilishi BOSHLANGANDA (barmoq tegib, birinchi harakatda)
+    /// chaqiriladi — qarang `ARPlacementViewController.beginMoveGesture`.
+    func beginMoveGesture() {
+        controller?.beginMoveGesture()
+    }
+
+    /// Joystik qo'yib yuborilganda chaqiriladi.
+    func endMoveGesture() {
+        controller?.endMoveGesture()
+    }
+
     func rotateSelected(radians: Float) {
         controller?.rotateSelected(radians: radians)
     }
@@ -88,20 +99,12 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         didSet { onSelectionChange?(placed != nil) }
     }
 
-    // Obyekt qo'yilgan paytda foydalanuvchi qayerga qarab turgani "qulflab" qo'yiladi —
-    // shundan keyin tugmalar ANA SHU fiks yo'nalishlarga qarab suradi, joriy kamera
-    // holatiga bog'liq bo'lmaydi. Bu ARKit kompas konvensiyasini "taxmin qilish"dan
-    // ko'ra ishonchli: foydalanuvchi xonada aylanib boshqa tomondan tursa ham,
-    // "oldinga" tugmasi doim bir xil jismoniy tomonni anglatadi.
-    private var lockedRightAxis: SIMD3<Float> = [1, 0, 0]
-    private var lockedForwardAxis: SIMD3<Float> = [0, 0, -1]
-
     var onSelectionChange: ((Bool) -> Void)?
     /// 3D model to'liq yuklab olinib, RealityKit shabloni tuzilganda chaqiriladi
     /// (kamera esa bundan mustaqil, ekran ochilishi bilanoq ishlab turadi).
     var onModelReady: (() -> Void)?
 
-    private static let moveStep: Float = 0.08 // metr — tugma bosilganda siljish qadami
+    private static let moveStep: Float = 0.24 // metr — tugma/joystik bosilganda siljish qadami (3x tezlashtirildi)
 
     init(colorHex: String?, textureURL: URL?, scaleFactors: SIMD3<Float> = [1, 1, 1]) {
         self.colorHex = colorHex
@@ -247,7 +250,6 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         }
 
         guard let template = modelTemplate else { return }
-        lockMovementAxes()
 
         let anchor = AnchorEntity(world: result.worldTransform)
         let entity = template.clone(recursive: true)
@@ -282,23 +284,42 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         placed = entity
     }
 
-    /// Joylashtirish paytidagi kamera yo'nalishini "qulflaydi" — tugmalar shundan keyin
-    /// shu fiks yo'nalishga qarab ishlaydi (foydalanuvchi keyin qayerga qarab tursa ham).
-    private func lockMovementAxes() {
+    /// Joriy kamera yo'nalishidan ekran-nisbiy (screen-relative) o'q juftligini
+    /// hisoblaydi. Foydalanuvchi xonada aylanib boshqa tomondan tursa ham,
+    /// YANGI joystik surilishi doim EKRANDA o'ngga/oldinga qarab ishlaydi —
+    /// lekin BITTA surilish DAVOMIDA qayta hisoblanmaydi (qarang
+    /// `cachedMovementAxes`): aks holda, agar foydalanuvchi barmog'ini
+    /// joystikdan uzmasdan biroz burilib tursa (yoki qurilma titrasa), yo'nalish
+    /// surilish ORTASIDA o'zgarib, obyekt kutilmagan/"aylanib" ketayotgandek
+    /// harakatlanardi.
+    private func currentMovementAxes() -> (right: SIMD3<Float>, forward: SIMD3<Float>) {
         let cam = arView.cameraTransform.matrix
         var right = SIMD3<Float>(cam.columns.0.x, 0, cam.columns.0.z)
         var forward = SIMD3<Float>(-cam.columns.2.x, 0, -cam.columns.2.z)
         if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
         if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
-        lockedRightAxis = right
-        lockedForwardAxis = forward
+        return (right, forward)
     }
+
+    /// Joystik surilishi boshida bir marta hisoblab "qulflanadigan" yo'nalish —
+    /// `nil` bo'lsa (surilish tugagan/hali boshlanmagan) `moveSelected` joriy
+    /// kamera holatidan yangidan hisoblaydi.
+    private var cachedMovementAxes: (right: SIMD3<Float>, forward: SIMD3<Float>)?
 
     // MARK: - SwiftUI tugmalari orqali boshqarish
 
+    func beginMoveGesture() {
+        cachedMovementAxes = currentMovementAxes()
+    }
+
+    func endMoveGesture() {
+        cachedMovementAxes = nil
+    }
+
     func moveSelected(right: Float, forward: Float) {
         guard let entity = placed else { return }
-        let delta = (lockedRightAxis * right + lockedForwardAxis * forward) * Self.moveStep
+        let axes = cachedMovementAxes ?? currentMovementAxes()
+        let delta = (axes.right * right + axes.forward * forward) * Self.moveStep
         let currentWorldPosition = entity.position(relativeTo: nil)
         entity.setPosition(currentWorldPosition + delta, relativeTo: nil)
     }
