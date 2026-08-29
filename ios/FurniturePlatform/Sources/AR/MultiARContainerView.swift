@@ -317,17 +317,25 @@ final class MultiARPlacementViewController: UIViewController, ARSessionDelegate,
     /// titrasa), yo'nalish surilish ORTASIDA o'zgarib, obyekt kutilmagan
     /// "aylanib" ketayotgandek harakatlanardi.
     ///
-    /// MUHIM: `columns.0`/`columns.1` qurilmaning fizik sensor o'qlari bo'lib,
-    /// landscape holatida (roll) ekrandagi yo'nalishlarga mos kelmay qoladi.
-    /// Shuning uchun `right`ni rollga bog'liq bo'lmagan `forward` (columns.2)
-    /// va dunyo vertikal o'qidan hosil qilamiz — bu portret/landshaft holatlar
-    /// uchun bir xil to'g'ri natija beradi.
+    /// MUHIM: `arView.cameraTransform` qurilmaning fizik sensor o'qlariga bog'liq
+    /// — iPad landscape'da (interfeys UI bilan birga aylanadi, qarang
+    /// `UISupportedInterfaceOrientations~ipad`) bu xom ustunlar ekranda
+    /// ko'rinadigan "o'ng"/"tepa"ga mos kelmay qoladi. Shuning uchun qo'lda
+    /// burchak hisoblash o'rniga ARKit'ning `ARCamera.viewMatrix(for:)`
+    /// metodidan foydalanamiz — bu berilgan interfeys orientatsiyasi uchun
+    /// aniq screen-relative kamera o'qlarini beradi.
     private func currentMovementAxes() -> (right: SIMD3<Float>, forward: SIMD3<Float>) {
-        let cam = arView.cameraTransform.matrix
+        let orientation = view.window?.windowScene?.interfaceOrientation ?? .portrait
+        let cam: simd_float4x4
+        if let frame = arView.session.currentFrame {
+            cam = frame.camera.viewMatrix(for: orientation).inverse
+        } else {
+            cam = arView.cameraTransform.matrix
+        }
+        var right = SIMD3<Float>(cam.columns.0.x, 0, cam.columns.0.z)
         var forward = SIMD3<Float>(-cam.columns.2.x, 0, -cam.columns.2.z)
-        if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
-        var right = simd_cross(forward, [0, 1, 0])
         if simd_length(right) > 0.0001 { right = simd_normalize(right) } else { right = [1, 0, 0] }
+        if simd_length(forward) > 0.0001 { forward = simd_normalize(forward) } else { forward = [0, 0, -1] }
         return (right, forward)
     }
 
