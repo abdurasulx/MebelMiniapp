@@ -10,6 +10,10 @@ import SwiftUI
 final class MultiARBridge: ObservableObject {
     @Published var hasSelection = false
     @Published var isModelReady = false
+    /// Ekran hozir landscape holatidami — qarang `MultiARPlacementView`dagi
+    /// GeometryReader. Joystik faqat portretda bloklanmagan (qarang
+    /// `MultiARPositionJoystick.isLandscape`) — sabab uchun `ARBridge.isLandscape`ga qarang.
+    @Published var isLandscape = false
     /// Barcha modellar (shablonlar) yuklab bo'linganini bildiradi — tepadagi
     /// bilan farqi: bu YUKLASH progressini, u esa "hech bo'lmasa bittasi
     /// tayyor, ekranni ko'rsatish mumkin" holatini bildiradi.

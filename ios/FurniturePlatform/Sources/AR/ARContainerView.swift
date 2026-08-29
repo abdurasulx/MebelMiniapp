@@ -11,6 +11,13 @@ final class ARBridge: ObservableObject {
     /// tuzilgan) bo'lganda `true` bo'ladi, shundan keyingina yuklash overlay'i
     /// yashiriladi.
     @Published var isModelReady = false
+    /// Ekran hozir landscape (kenglik balandlikdan katta) holatidami — qarang
+    /// `ARPlacementView`dagi GeometryReader. Joystik faqat portret rejimida
+    /// to'g'ri ishlashi isbotlangan (ekran-nisbiy o'q hisob-kitobi qurilma
+    /// aylantirilganda ARKit kamera o'qlarini boshqacha beradi), shuning uchun
+    /// landscape'da joystik butunlay bloklanadi — qo'lda burchak-tuzatish
+    /// o'rniga eng ishonchli yechim.
+    @Published var isLandscape = false
     weak var controller: ARPlacementViewController?
 
     func nudge(right: Float = 0, forward: Float = 0) {
