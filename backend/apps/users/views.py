@@ -568,17 +568,32 @@ class TelegramWebhookView(APIView):
                     )
                     chat_id = (message.get("chat") or {}).get("id") or from_user.get("id")
                     if chat_id:
+                        # Session qaysi klientdan boshlanganiga qarab (web/android/
+                        # ios) mos matn tanlanadi — "saytga" yoki "ilovaga qayting".
+                        confirm_text = {
+                            "android": "Ulandingiz — ilovaga qayting.",
+                            "ios": "Ulandingiz — ilovaga qayting.",
+                        }.get(session.client, "Saytga muvaffaqiyatli ulandingiz — brauzerga qayting.")
                         # Session yozuvi (yuqorida) allaqachon saqlangan — frontend
                         # poll shuni ko'rib darhol davom etaveradi. Tasdiq xabari esa
                         # Telegram'ga tezroq javob (ack) qaytarish uchun fon oqimida
                         # yuboriladi — webhook javobini kutib turmaydi.
                         threading.Thread(
                             target=telegram_bot.send_message,
-                            args=(chat_id, "Saytga muvaffaqiyatli ulandingiz — brauzerga qayting."),
+                            args=(chat_id, confirm_text),
                             daemon=True,
                         ).start()
 
         return Response({"ok": True})
+
+
+def _client_from_request(request) -> str:
+    """Body'da `client` ("web"/"android"/"ios") kelsa shuni, aks holda
+    "web"ni qaytaradi — bot tasdiq xabarida "saytga"/"ilovaga qayting"
+    farqini shu asosida ko'rsatamiz (qarang TelegramWebhookView)."""
+    value = (request.data.get("client") or "web").strip().lower()
+    valid = {choice for choice, _ in TelegramLoginSession.CLIENT_CHOICES}
+    return value if value in valid else "web"
 
 
 class TelegramSessionCreateView(APIView):
@@ -590,7 +605,7 @@ class TelegramSessionCreateView(APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request):
-        session = TelegramLoginSession.objects.create()
+        session = TelegramLoginSession.objects.create(client=_client_from_request(request))
         return Response({"session_id": str(session.id)})
 
 
@@ -661,7 +676,9 @@ class TelegramLinkSessionCreateView(APIView):
     xil — qarang TelegramWebhookView; farq faqat poll bosqichida)."""
 
     def post(self, request):
-        session = TelegramLoginSession.objects.create(link_to_user=request.user)
+        session = TelegramLoginSession.objects.create(
+            link_to_user=request.user, client=_client_from_request(request)
+        )
         return Response({"session_id": str(session.id)})
 
 

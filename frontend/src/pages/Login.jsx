@@ -147,7 +147,10 @@ function AuthButtons({ portal }) {
       return;
     }
     try {
-      const { session_id } = await api("/auth/telegram/session/", { method: "POST" });
+      const { session_id } = await api("/auth/telegram/session/", {
+        method: "POST",
+        body: { client: "web" },
+      });
       tgWindow.location.href = `https://t.me/${botUsername}?start=${session_id}`;
 
       const checkOnce = async () => {

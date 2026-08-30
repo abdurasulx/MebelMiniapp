@@ -192,7 +192,10 @@ final class AuthStore: ObservableObject {
             let isNewUser: Bool?
         }
         do {
-            let session: SessionResp = try await APIClient.shared.post("/auth/telegram/session/", auth: false)
+            struct ClientBody: Encodable { let client = "ios" }
+            let session: SessionResp = try await APIClient.shared.post(
+                "/auth/telegram/session/", body: ClientBody(), auth: false
+            )
             let botInfo: BotInfoResp = try await APIClient.shared.get("/auth/telegram/bot-info/", auth: false)
             guard let username = botInfo.username else {
                 errorMessage = "Telegram bot hozircha sozlanmagan"
@@ -274,8 +277,9 @@ final class AuthStore: ObservableObject {
         struct BotInfoResp: Decodable { let username: String? }
         struct PollResp: Decodable { let status: String }
         do {
+            struct ClientBody: Encodable { let client = "ios" }
             let session: SessionResp = try await APIClient.shared.post(
-                "/users/me/telegram/link/session/", auth: true
+                "/users/me/telegram/link/session/", body: ClientBody(), auth: true
             )
             let botInfo: BotInfoResp = try await APIClient.shared.get("/auth/telegram/bot-info/", auth: false)
             guard let username = botInfo.username else {

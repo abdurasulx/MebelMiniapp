@@ -79,7 +79,10 @@ function TelegramLinkRow({ hasTelegram, onLinked }) {
       return;
     }
     try {
-      const { session_id } = await api("/users/me/telegram/link/session/", { method: "POST" });
+      const { session_id } = await api("/users/me/telegram/link/session/", {
+        method: "POST",
+        body: { client: "web" },
+      });
       tgWindow.location.href = `https://t.me/${botUsername}?start=${session_id}`;
 
       pollRef.current = setInterval(async () => {

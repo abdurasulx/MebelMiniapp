@@ -145,6 +145,12 @@ class TelegramLoginSession(models.Model):
 
     EXPIRY_MINUTES = 10
 
+    CLIENT_CHOICES = (
+        ("web", "Veb-sayt"),
+        ("android", "Android ilova"),
+        ("ios", "iOS ilova"),
+    )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     telegram_id = models.BigIntegerField(null=True, blank=True)
     telegram_first_name = models.CharField(max_length=150, blank=True)
@@ -154,6 +160,7 @@ class TelegramLoginSession(models.Model):
     link_to_user = models.ForeignKey(
         "users.User", null=True, blank=True, on_delete=models.CASCADE, related_name="+"
     )
+    client = models.CharField(max_length=10, choices=CLIENT_CHOICES, default="web")
 
     def is_expired(self):
         return timezone.now() - self.created_at > timedelta(minutes=self.EXPIRY_MINUTES)

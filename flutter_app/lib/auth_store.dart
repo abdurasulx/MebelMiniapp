@@ -202,6 +202,7 @@ class AuthStore extends ChangeNotifier {
       final session = await ApiClient.instance.post(
         '/auth/telegram/session/',
         (j) => j as Map<String, dynamic>,
+        body: {'client': 'android'},
         auth: false,
       );
       final sessionId = session['session_id'] as String;
@@ -298,6 +299,7 @@ class AuthStore extends ChangeNotifier {
       final session = await ApiClient.instance.post(
         '/users/me/telegram/link/session/',
         (j) => j as Map<String, dynamic>,
+        body: {'client': 'android'},
         auth: true,
       );
       final sessionId = session['session_id'] as String;
