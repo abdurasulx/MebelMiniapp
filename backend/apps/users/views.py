@@ -1,5 +1,6 @@
 import random
 import secrets
+import threading
 from datetime import timedelta
 from urllib.parse import quote, urlencode
 from uuid import UUID
@@ -307,6 +308,22 @@ def _google_redirect_uri() -> str:
     return f"{settings.BACKEND_URL.rstrip('/')}/api/v1/auth/google/callback/"
 
 
+PORTAL_CHOICES = ("market", "admin", "firma")
+
+
+def _portal_base_url(portal: str) -> str:
+    """`portal.js`dagi `portalURLFor` bilan bir xil qoidani serverda
+    takrorlaydi: market — asosiy domen (prefiks yo'q), admin/firma — mos
+    subdomen. Faqat FRONTEND_URL'ga nisbatan hisoblanadi (bitta, doimiy
+    market subdomen — firma wildcard emas)."""
+    base = settings.FRONTEND_URL.rstrip("/")
+    if portal not in ("admin", "firma"):
+        return base
+    scheme_sep = "://"
+    scheme, _, host = base.partition(scheme_sep)
+    return f"{scheme}{scheme_sep}{portal}.{host}"
+
+
 class GoogleLoginStartView(View):
     """"Google orqali kirish" tugmasi (Login.jsx) shu yerga oddiy `<a href>`
     bilan yo'naltiradi — hech qanday Google JS SDK yuklanmaydi (GIS SDK'ning
@@ -317,12 +334,20 @@ class GoogleLoginStartView(View):
     Klassik OAuth 2.0 Authorization Code flow: tasodifiy `state`ni qisqa
     muddatli cookie'ga yozib, foydalanuvchini to'g'ridan-to'g'ri Google'ning
     consent sahifasiga to'liq-sahifa redirect qiladi. `state` keyin
-    `GoogleLoginCallbackView`da login-CSRF'dan himoya uchun tekshiriladi."""
+    `GoogleLoginCallbackView`da login-CSRF'dan himoya uchun tekshiriladi.
+
+    `?portal=firma` (yoki `admin`) — qaysi subdomendan boshlangan bo'lsa,
+    callback shu subdomenga qaytarib yuborishi uchun cookie'da saqlanadi
+    (firma/admin login sahifalari ham to'g'ridan-to'g'ri shu tugmani
+    ishlata oladi, market'ga chiqib-kirib o'tirishning hojati yo'q)."""
 
     def get(self, request):
         if not settings.GOOGLE_CLIENT_ID:
             return HttpResponseBadRequest("Google Login hali sozlanmagan")
         state = secrets.token_urlsafe(24)
+        portal = request.GET.get("portal") or "market"
+        if portal not in PORTAL_CHOICES:
+            portal = "market"
         params = {
             "client_id": settings.GOOGLE_CLIENT_ID,
             "redirect_uri": _google_redirect_uri(),
@@ -342,6 +367,14 @@ class GoogleLoginStartView(View):
             samesite="Lax",
             secure=not settings.DEBUG,
         )
+        response.set_cookie(
+            "google_oauth_portal",
+            portal,
+            max_age=300,
+            httponly=True,
+            samesite="Lax",
+            secure=not settings.DEBUG,
+        )
         return response
 
 
@@ -353,20 +386,25 @@ class GoogleLoginCallbackView(View):
     mavjud portal-o'tkazish mexanizmi bilan bir xil naqsh)."""
 
     def get(self, request):
-        base = settings.FRONTEND_URL.rstrip("/")
+        portal = request.COOKIES.get("google_oauth_portal") or "market"
+        if portal not in PORTAL_CHOICES:
+            portal = "market"
+        base = _portal_base_url(portal)
+
+        def _redirect(url, error=None):
+            response = HttpResponseRedirect(url)
+            response.delete_cookie("google_oauth_state")
+            response.delete_cookie("google_oauth_portal")
+            return response
 
         if request.GET.get("error"):
-            return HttpResponseRedirect(
-                f"{base}/login?error={quote('Google bilan kirish bekor qilindi')}"
-            )
+            return _redirect(f"{base}/login?error={quote('Google bilan kirish bekor qilindi')}")
 
         code = request.GET.get("code")
         state = request.GET.get("state")
         cookie_state = request.COOKIES.get("google_oauth_state")
         if not code or not state or not cookie_state or state != cookie_state:
-            return HttpResponseRedirect(
-                f"{base}/login?error={quote('Google so‘rovi yaroqsiz. Qayta urining')}"
-            )
+            return _redirect(f"{base}/login?error={quote('Google so‘rovi yaroqsiz. Qayta urining')}")
 
         error_message = None
         user = None
@@ -378,19 +416,11 @@ class GoogleLoginCallbackView(View):
             error_message = str(exc.detail[0]) if isinstance(exc.detail, list) else str(exc.detail)
 
         if error_message or user is None:
-            response = HttpResponseRedirect(
-                f"{base}/login?error={quote(error_message or 'Google xatolik')}"
-            )
-            response.delete_cookie("google_oauth_state")
-            return response
+            return _redirect(f"{base}/login?error={quote(error_message or 'Google xatolik')}")
 
         refresh = RefreshToken.for_user(user)
         access = str(refresh.access_token)
-        response = HttpResponseRedirect(
-            f"{base}/?access={quote(access)}&refresh={quote(str(refresh))}"
-        )
-        response.delete_cookie("google_oauth_state")
-        return response
+        return _redirect(f"{base}/?access={quote(access)}&refresh={quote(str(refresh))}")
 
 
 GOOGLE_LINK_PREPARE_SALT = "google-link-prepare"
@@ -538,9 +568,15 @@ class TelegramWebhookView(APIView):
                     )
                     chat_id = (message.get("chat") or {}).get("id") or from_user.get("id")
                     if chat_id:
-                        telegram_bot.send_message(
-                            chat_id, "Saytga muvaffaqiyatli ulandingiz — brauzerga qayting."
-                        )
+                        # Session yozuvi (yuqorida) allaqachon saqlangan — frontend
+                        # poll shuni ko'rib darhol davom etaveradi. Tasdiq xabari esa
+                        # Telegram'ga tezroq javob (ack) qaytarish uchun fon oqimida
+                        # yuboriladi — webhook javobini kutib turmaydi.
+                        threading.Thread(
+                            target=telegram_bot.send_message,
+                            args=(chat_id, "Saytga muvaffaqiyatli ulandingiz — brauzerga qayting."),
+                            daemon=True,
+                        ).start()
 
         return Response({"ok": True})
 

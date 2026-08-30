@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sofa } from "lucide-react";
 import { useAuth } from "../auth";
-import { PORTAL, portalForUser, portalURLFor } from "../portal";
+import { PORTAL, portalForUser } from "../portal";
 import { api, getTokens } from "../api";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -36,7 +36,7 @@ function useAfterLogin() {
 
 export default function Login() {
   if (PORTAL === "admin") return <AdminLogin />;
-  if (PORTAL === "firma") return <FirmaLoginRedirect />;
+  if (PORTAL === "firma") return <FirmaLogin />;
   return <MarketLogin />;
 }
 
@@ -89,33 +89,15 @@ function AdminLogin() {
   );
 }
 
-// Firma — o'z login formasi yo'q: Google Console'ning "Authorized JavaScript
-// origins"i wildcard subdomenlarni (*.qrbite.uz) qo'llab-quvvatlamaydi,
-// shuning uchun Google/Telegram tugmalari faqat market'da. Firma egasi/
-// xodimi ham market orqali kiradi — kirgach avtomatik shu subdomenga
-// (token bilan) o'tkaziladi (qarang useAfterLogin).
-function FirmaLoginRedirect() {
-  const marketURL = portalURLFor("market");
-  return (
-    <div className="flex min-h-[70vh] items-center justify-center p-4">
-      <div className="card flex w-full max-w-sm flex-col items-center gap-4 p-8 text-center">
-        <Sofa size={30} style={{ color: "var(--secondary)" }} />
-        <h1 className="text-lg font-bold">Firma kabinetiga kirish</h1>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Kirish uchun asosiy saytga o'ting — Google yoki Telegram bilan kirgach, firma
-          kabinetiga avtomatik o'tkazilasiz.
-        </p>
-        <a className="btn btn-brand w-full" href={marketURL ? `${marketURL}/login` : "/login"}>
-          Asosiy saytga o'tish
-        </a>
-      </div>
-    </div>
-  );
-}
-
-// Market — yagona login/ro'yxatdan o'tish nuqtasi: Google va Telegram.
-// Email/parol yo'q (faqat admin uchun qoldirilgan).
-function MarketLogin() {
+// Google/Telegram tugmalari — market va firma login sahifalarida bir xil.
+// Google: to'liq-sahifa backend redirect (`?portal=` orqali qaysi subdomendan
+// boshlanganini bildiradi — callback aynan shu subdomenga qaytaradi, qarang
+// backend GoogleLoginStartView/GoogleLoginCallbackView). Telegram esa
+// to'g'ridan-to'g'ri shu sahifadagi JS orqali ishlaydi (session polling),
+// hech qanday backend redirectga bog'liq emas — shuning uchun ikkalasi ham
+// firma sahifasida to'g'ridan-to'g'ri ishlatilishi mumkin, market'ga
+// chiqib-kirib o'tirishning hojati yo'q.
+function AuthButtons({ portal }) {
   const { loginWithTokens } = useAuth();
   const afterLogin = useAfterLogin();
   const [error, setError] = useState("");
@@ -145,7 +127,9 @@ function MarketLogin() {
 
   // Telegram: sessiya yaratamiz, botni deep-link bilan ochamiz, so'ng
   // foydalanuvchi botda "/start" bosishini kutib, natijani so'rab turamiz
-  // (polling) — bot webhook'i shu sessiyani orqa fonda to'ldiradi.
+  // (polling, 800ms — bot webhook'i sessiyani darhol to'ldiradi, tez-tez
+  // so'rash sezilarli kechikishni oldini oladi) — bot webhook'i shu
+  // sessiyani orqa fonda to'ldiradi.
   //
   // MUHIM: `window.open()` shu funksiyaning ENG BOSHIDA, hech qanday
   // `await`dan OLDIN chaqirilishi shart — aks holda (masalan tarmoq
@@ -166,7 +150,7 @@ function MarketLogin() {
       const { session_id } = await api("/auth/telegram/session/", { method: "POST" });
       tgWindow.location.href = `https://t.me/${botUsername}?start=${session_id}`;
 
-      pollRef.current = setInterval(async () => {
+      const checkOnce = async () => {
         try {
           const data = await api(`/auth/telegram/session/${session_id}/`);
           if (data.status === "done") {
@@ -181,7 +165,8 @@ function MarketLogin() {
           setBusy(false);
           setError(err.message);
         }
-      }, 2000);
+      };
+      pollRef.current = setInterval(checkOnce, 800);
 
       // ~5 daqiqadan so'ng hali "done" bo'lmasa — abadiy kutib turishning
       // oldini olamiz (masalan foydalanuvchi botda /start bosmasa).
@@ -201,6 +186,70 @@ function MarketLogin() {
   };
 
   return (
+    <>
+      {error && <div className="error">{error}</div>}
+      {GOOGLE_CLIENT_ID && (
+        <a
+          className="btn w-full flex items-center justify-center gap-2"
+          style={{ background: "#fff", color: "#1f1f1f", border: "1px solid #dadce0" }}
+          href={`${API_BASE}/auth/google/start/?portal=${portal}`}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+            <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62z" />
+            <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z" />
+            <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z" />
+            <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58A8.6 8.6 0 0 0 9 0 9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
+          </svg>
+          Google orqali kirish
+        </a>
+      )}
+      {botUsername && (
+        <button
+          type="button"
+          className="btn w-full flex items-center justify-center gap-2"
+          style={{ background: "#29B6F6", color: "#fff" }}
+          onClick={startTelegramLogin}
+          disabled={busy}
+        >
+          {!busy && (
+            <svg width="18" height="18" viewBox="0 0 240 240" aria-hidden="true">
+              <path
+                fill="#fff"
+                d="M53.9 122.4l100.6-38.8c4.7-1.9 8.8 1.1 7.3 8.2l-.1.1-17.1 80.6c-1.3 5.7-4.7 7.1-9.5 4.4l-26.2-19.3-12.6 12.2c-1.4 1.4-2.6 2.6-5.3 2.6l1.9-26.9 49-44.3c2.1-1.9-.5-2.9-3.3-1l-60.6 38.2-26.1-8.2c-5.7-1.8-5.8-5.7 1.2-8.5z"
+              />
+            </svg>
+          )}
+          {busy ? "Kutilmoqda…" : "Telegram orqali kirish"}
+        </button>
+      )}
+    </>
+  );
+}
+
+// Firma — endi o'z login sahifasiga ega: Google callback subdomen-ogohli
+// (`?portal=firma`), Telegram esa har doim shu sahifada to'g'ridan-to'g'ri
+// ishlagan. Hisobi yo'q bo'lsa avtomatik yaratiladi (market bilan bir xil).
+function FirmaLogin() {
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center p-4">
+      <div className="card flex w-full max-w-sm flex-col gap-4 p-8">
+        <div className="text-center">
+          <Sofa className="mx-auto mb-1" size={30} style={{ color: "var(--secondary)" }} />
+          <h1 className="text-lg font-bold">Firma kabinetiga kirish</h1>
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Google yoki Telegram bilan kiring.
+          </p>
+        </div>
+        <AuthButtons portal="firma" />
+      </div>
+    </div>
+  );
+}
+
+// Market — yagona login/ro'yxatdan o'tish nuqtasi: Google va Telegram.
+// Email/parol yo'q (faqat admin uchun qoldirilgan).
+function MarketLogin() {
+  return (
     <div className="flex min-h-[70vh] items-center justify-center p-4">
       <div className="card flex w-full max-w-sm flex-col gap-4 p-8">
         <div className="text-center">
@@ -210,41 +259,7 @@ function MarketLogin() {
             Google yoki Telegram bilan kiring — hisobingiz yo'q bo'lsa, avtomatik yaratiladi.
           </p>
         </div>
-        {error && <div className="error">{error}</div>}
-        {GOOGLE_CLIENT_ID && (
-          <a
-            className="btn w-full flex items-center justify-center gap-2"
-            style={{ background: "#fff", color: "#1f1f1f", border: "1px solid #dadce0" }}
-            href={`${API_BASE}/auth/google/start/`}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
-              <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.87 2.7-6.62z" />
-              <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.33A9 9 0 0 0 9 18z" />
-              <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z" />
-              <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58A8.6 8.6 0 0 0 9 0 9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
-            </svg>
-            Google orqali kirish
-          </a>
-        )}
-        {botUsername && (
-          <button
-            type="button"
-            className="btn w-full flex items-center justify-center gap-2"
-            style={{ background: "#29B6F6", color: "#fff" }}
-            onClick={startTelegramLogin}
-            disabled={busy}
-          >
-            {!busy && (
-              <svg width="18" height="18" viewBox="0 0 240 240" aria-hidden="true">
-                <path
-                  fill="#fff"
-                  d="M53.9 122.4l100.6-38.8c4.7-1.9 8.8 1.1 7.3 8.2l-.1.1-17.1 80.6c-1.3 5.7-4.7 7.1-9.5 4.4l-26.2-19.3-12.6 12.2c-1.4 1.4-2.6 2.6-5.3 2.6l1.9-26.9 49-44.3c2.1-1.9-.5-2.9-3.3-1l-60.6 38.2-26.1-8.2c-5.7-1.8-5.8-5.7 1.2-8.5z"
-                />
-              </svg>
-            )}
-            {busy ? "Kutilmoqda…" : "Telegram orqali kirish"}
-          </button>
-        )}
+        <AuthButtons portal="market" />
       </div>
     </div>
   );
