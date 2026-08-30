@@ -76,6 +76,8 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
         source="company.get_viloyat_display", read_only=True, default=None
     )
     company_address = serializers.CharField(source="company.address", read_only=True, default=None)
+    category_slug = serializers.CharField(source="category.slug", read_only=True)
+    category_name = serializers.CharField(source="category.name_uz", read_only=True)
     is_liked = serializers.SerializerMethodField()
     model3d = serializers.SerializerMethodField()
 
@@ -90,6 +92,8 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
             "company_viloyat_display",
             "company_address",
             "category",
+            "category_slug",
+            "category_name",
             "name_uz",
             "slug",
             "description",

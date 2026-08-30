@@ -252,6 +252,8 @@ class Product {
   final String? companyViloyat;
   final String? companyViloyatDisplay;
   final String? companyAddress;
+  final String? categorySlug;
+  final String? categoryName;
   final String nameUz;
   final String? description;
   final String? imageUrl;
@@ -272,6 +274,8 @@ class Product {
     this.companyViloyat,
     this.companyViloyatDisplay,
     this.companyAddress,
+    this.categorySlug,
+    this.categoryName,
     required this.nameUz,
     this.description,
     this.imageUrl,
@@ -319,6 +323,8 @@ class Product {
     companyViloyat: j['company_viloyat'],
     companyViloyatDisplay: j['company_viloyat_display'],
     companyAddress: j['company_address'],
+    categorySlug: j['category_slug'],
+    categoryName: j['category_name'],
     nameUz: j['name_uz'] ?? '',
     description: j['description'],
     imageUrl: j['image_url'],

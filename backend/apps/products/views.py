@@ -168,6 +168,14 @@ class ProductViewSet(viewsets.ModelViewSet):
         company_slug = self.request.query_params.get("company")
         if company_slug:
             qs = qs.filter(company__slug=company_slug)
+        category_slug = self.request.query_params.get("category")
+        if category_slug:
+            qs = qs.filter(category__slug=category_slug)
+        # Mahsulot sahifasidagi "Sizga yoqishi mumkin" bo'limi uchun —
+        # ko'rilayotgan mahsulotning o'zi tavsiyalar orasida chiqmasin.
+        exclude_id = self.request.query_params.get("exclude")
+        if exclude_id:
+            qs = qs.exclude(pk=exclude_id)
         search = self.request.query_params.get("search")
         if search:
             # Pastda `ordering=top` bilan Count() annotatsiyasi ham ishlatiladi —

@@ -7,6 +7,7 @@ import '../cart_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/like_button.dart';
+import '../widgets/product_card.dart';
 import 'company_detail_screen.dart';
 
 /// Mahsulot tafsiloti — avval rasmlar galereyasi ko'rsatiladi, 3D model
@@ -20,22 +21,27 @@ class ProductDetailScreen extends StatefulWidget {
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> {
+class _ProductDetailScreenState extends State<ProductDetailScreen>
+    with SingleTickerProviderStateMixin {
   Product? _product;
   Variant? _selectedVariant;
   String? _error;
   int _galleryIndex = 0;
   final _galleryController = PageController();
+  late final TabController _tabController;
+  List<Product> _recommended = [];
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _load();
   }
 
   @override
   void dispose() {
     _galleryController.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -60,8 +66,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _product = p;
         _selectedVariant = p.variants.isNotEmpty ? p.variants.first : null;
       });
+      _loadRecommended(p);
     } catch (e) {
       setState(() => _error = e.toString());
+    }
+  }
+
+  /// "Sizga yoqishi mumkin" — o'sha kategoriyadagi boshqa mahsulotlar
+  /// (marketplace ilovalaridagi kabi, masalan Uzum). Kategoriya bo'lmasa
+  /// (kamdan-kam) bo'lim ko'rsatilmaydi.
+  Future<void> _loadRecommended(Product p) async {
+    if (p.categorySlug == null) return;
+    try {
+      final page = await ApiClient.instance.get(
+        '/products/?category=${p.categorySlug}&exclude=${p.id}',
+        (j) => Paginated<Product>.fromJson(j, Product.fromJson),
+      );
+      if (mounted) setState(() => _recommended = page.results);
+    } catch (_) {
+      // Muhim emas — bo'lim shunchaki bo'sh qoladi.
     }
   }
 
@@ -103,17 +126,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     const SizedBox(height: 8),
                     _locationRow(p),
                   ],
-                  if (p.description?.isNotEmpty == true) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      p.description!,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF6B5A48),
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 20),
                   if (p.variants.isNotEmpty) ...[
                     const Text(
@@ -146,17 +158,143 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       _addToCartButton(p),
                     ],
                   ],
+                  const SizedBox(height: 28),
+                  _sectionTabs(),
+                  const SizedBox(height: 14),
+                  AnimatedBuilder(
+                    animation: _tabController,
+                    builder: (context, _) => _tabController.index == 0
+                        ? _descriptionTab(p)
+                        : _characteristicsTab(p),
+                  ),
                 ],
               ),
             ),
+            if (_recommended.isNotEmpty) _recommendedSection(),
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 
+  /// "Tavsif" / "Xususiyatlar" — marketplace ilovalaridagi (Uzum va h.k.)
+  /// odatiy naqsh. `TabBarView` o'rniga oddiy shart bilan almashtirilishi
+  /// sababi: ekran butun sahifa `ListView` ichida (cheksiz balandlik),
+  /// `TabBarView` esa chegaralangan balandlik talab qiladi.
+  Widget _sectionTabs() {
+    return SizedBox(
+      width: double.infinity,
+      child: TabBar(
+        controller: _tabController,
+        labelColor: AppColors.deep,
+        unselectedLabelColor: const Color(0xFF8A7357),
+        indicatorColor: AppColors.deep,
+        dividerColor: AppColors.cardBorder,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+        tabs: const [Tab(text: 'Tavsif'), Tab(text: 'Xususiyatlar')],
+      ),
+    );
+  }
+
+  Widget _descriptionTab(Product p) {
+    if (p.description?.isNotEmpty != true) {
+      return const Text(
+        'Bu mahsulot uchun tavsif kiritilmagan.',
+        style: TextStyle(fontSize: 13, color: Color(0xFF8A7357)),
+      );
+    }
+    return Text(
+      p.description!,
+      style: const TextStyle(fontSize: 13.5, color: Color(0xFF6B5A48), height: 1.5),
+    );
+  }
+
+  Widget _characteristicsTab(Product p) {
+    final v = _selectedVariant;
+    final rows = <(String, String)>[
+      if (p.categoryName != null) ('Kategoriya', p.categoryName!),
+      ('Firma', p.companyName),
+      if (v != null) ('Material/rang', v.name),
+      if (v != null)
+        (
+          'O\'lcham (E×B×Ch)',
+          '${(v.widthValue * 100).round()}×${(v.heightValue * 100).round()}×${(v.depthValue * 100).round()} sm',
+        ),
+      if (p.colorTag?.isNotEmpty == true) ('Rang', p.colorTag!),
+    ];
+    if (rows.isEmpty) {
+      return const Text(
+        'Xususiyatlar hali kiritilmagan.',
+        style: TextStyle(fontSize: 13, color: Color(0xFF8A7357)),
+      );
+    }
+    return Column(
+      children: rows
+          .map(
+            (r) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 130,
+                    child: Text(
+                      r.$1,
+                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      r.$2,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  /// "Sizga yoqishi mumkin" — o'sha kategoriyadagi boshqa mahsulotlar
+  /// gorizontal ro'yxatda (qarang `_loadRecommended`).
+  Widget _recommendedSection() {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Sizga yoqishi mumkin',
+            style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 210,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _recommended.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (_, i) => SizedBox(
+                width: 150,
+                child: ProductCard(product: _recommended[i]),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _gallery(Product p) {
     final urls = p.galleryUrls;
+    // Marketplace ilovalaridagi (Uzum va h.k.) kabi kvadratga yaqin
+    // nisbat — avval qattiq 320px edi, tor-uzun ekranlarda (masalan S20
+    // Ultra) rasm ekranning katta qismini egallab, mazmun juda kam
+    // ko'rinardi.
+    final galleryHeight = MediaQuery.of(context).size.width;
     return Stack(
       children: [
         ClipRRect(
@@ -165,7 +303,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             bottomRight: Radius.circular(24),
           ),
           child: SizedBox(
-            height: 320,
+            height: galleryHeight,
             width: double.infinity,
             child: urls.isEmpty
                 ? Container(
