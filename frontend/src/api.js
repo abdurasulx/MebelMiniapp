@@ -55,7 +55,12 @@ export async function api(path, { method = "GET", body, isForm = false } = {}) {
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
+    // DRF qo'lda `ValidationError("xabar")` ko'tarilganda javob tanasi
+    // to'g'ridan-to'g'ri `["xabar"]` bo'ladi ("detail" kaliti YO'Q — DRF
+    // `exc.detail` ro'yxat bo'lganda uni o'rab qo'ymaydi) — buni hisobga
+    // olmasa "0: xabar" kabi tushunarsiz matn ko'rsatilib qolardi.
     const msg =
+      (Array.isArray(data) && data.length ? data[0] : null) ||
       data?.detail ||
       (data && typeof data === "object"
         ? Object.entries(data)

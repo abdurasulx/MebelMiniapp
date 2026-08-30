@@ -433,18 +433,31 @@ private struct DynamicCodingKey: CodingKey {
     init?(intValue: Int) { nil }
 }
 
-// Backend (DRF) xato javobi ikki xil shaklda kelishi mumkin:
-// 1. View'da qo'lda `ValidationError("xabar")` ko'tarilganda — `{"detail":
-//    ["xabar"]}` (matn EMAS, ro'yxat — DRF shunday normallashtiradi).
-// 2. Serializer maydon validatsiyasi muvaffaqiyatsiz bo'lganda (masalan
+// Backend (DRF) xato javobi UCH xil shaklda kelishi mumkin:
+// 1. View'da qo'lda `ValidationError("xabar")` ko'tarilganda — javob
+//    to'g'ridan-to'g'ri BUTUN TANASI bo'yicha `["xabar"]` (matn EMAS,
+//    ro'yxat — DRF `exc.detail` list bo'lganda uni "detail" kaliti bilan
+//    o'rab qo'ymaydi, bevosita shu ro'yxatni qaytaradi). Aynan shu shaklni
+//    hisobga olmagani uchun avval doim umumiy "Xatolik (400)" ko'rsatilib
+//    qolgan edi (masalan "bu Telegram hisobi allaqachon bog'langan" kabi
+//    aniq xabarlar o'rniga).
+// 2. `{"detail": "xabar"}` yoki `{"detail": ["xabar"]}` — APIException'ning
+//    boshqa pastki sinflari (masalan qo'lda `Response({"detail": ...})`).
+// 3. Serializer maydon validatsiyasi muvaffaqiyatsiz bo'lganda (masalan
 //    bo'sh telefon) — `"detail"` kaliti umuman yo'q, javob to'g'ridan-to'g'ri
 //    `{"phone": ["Bu maydon bo'sh bo'lmasligi kerak."]}` kabi maydon
-//    xatolari lug'ati. Ikkalasini ham hisobga olmasa, asl xabar o'rniga
+//    xatolari lug'ati. Uchalasini ham hisobga olmasa, asl xabar o'rniga
 //    umumiy "Xatolik (kod)" ko'rsatilib qolardi.
 struct APIErrorPayload: Decodable {
     let detail: String?
 
     init(from decoder: Decoder) throws {
+        // 1-holat: butun javob tanasi bevosita ro'yxat.
+        if let single = try? decoder.singleValueContainer(),
+           let list = try? single.decode([String].self), let first = list.first {
+            detail = first
+            return
+        }
         let container = try decoder.container(keyedBy: DynamicCodingKey.self)
         if let key = DynamicCodingKey(stringValue: "detail") {
             if let text = try? container.decode(String.self, forKey: key) {
