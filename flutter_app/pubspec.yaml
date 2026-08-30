@@ -30,6 +30,12 @@ dependencies:
   # Google orqali kirish — native Sign-In oqimi, natijada olingan ID token
   # backendga (`/auth/google/`) yuboriladi (qarang auth_store.dart).
   google_sign_in: ^6.2.1
+  # Push (FCM) — backend orqali xabarnoma yuborish (qarang push_service.dart).
+  firebase_core: ^3.8.0
+  firebase_messaging: ^15.1.6
+  # Ilova OLDINDA (foreground) ochiq bo'lganda FCM avtomatik OS tokchasiga
+  # chiqarmaydi — shu holatda qo'lda mahalliy bildirishnoma ko'rsatish uchun.
+  flutter_local_notifications: ^18.0.1
 
 dev_dependencies:
   flutter_test:

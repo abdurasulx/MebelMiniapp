@@ -5,6 +5,9 @@
     <!-- Bosh sahifadagi "rasm bilan qidirish" uchun (image_picker paketi) -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- Push (FCM) — Android 13+ bildirishnoma ko'rsatish uchun runtime
+         ruxsat talab qiladi (so'ralishi push_service.dart'da). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="furniture_platform_mobile"
         android:name="${applicationName}"
@@ -37,6 +40,15 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Push (FCM) — ilova fon/yopiq holatida kelgan bildirishnomalar shu
+             default kanal va ikonkani ishlatadi (qarang push_service.dart'dagi
+             AndroidNotificationChannel bilan bir xil ID: "high_importance_channel"). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="high_importance_channel" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

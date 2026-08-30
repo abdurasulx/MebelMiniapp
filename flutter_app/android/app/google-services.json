@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "175043465723",
+    "project_id": "vida-market-8249b",
+    "storage_bucket": "vida-market-8249b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:175043465723:android:28d8935447a5df5837bb5e",
+        "android_client_info": {
+          "package_name": "uz.furnitureplatform.furniture_platform_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6BCTGBBK9E1AIlPh7dR7BHFZ8f97KRmY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

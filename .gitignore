@@ -4,6 +4,13 @@ __pycache__/
 venv/
 .env
 db.sqlite3
+
+# Firebase (FCM push) SERVICE-ACCOUNT kaliti (backend, maxfiy private key) —
+# HECH QACHON commit qilinmasin. `google-services.json` (Android client
+# konfiguratsiyasi) esa qasddan git'ga QO'SHILADI — u maxfiy emas (faqat
+# package nomi bilan cheklangan API kalit, Google buni commit qilishni
+# tavsiya qiladi), aks holda har bir dev/CI qo'lda qo'yishi kerak bo'lardi.
+firebase-credentials.json
 media/
 staticfiles/
 logs/

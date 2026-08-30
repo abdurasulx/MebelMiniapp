@@ -1,8 +1,8 @@
-from rest_framework import mixins, permissions, viewsets
+from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Notification
+from .models import DevicePlatform, Notification, PushDevice
 from .serializers import NotificationSerializer
 
 
@@ -34,3 +34,29 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
             notif.is_read = True
             notif.save(update_fields=["is_read"])
         return Response(NotificationSerializer(notif).data)
+
+    @action(detail=False, methods=["post"])
+    def register_device(self, request):
+        """Ilova login bo'lgach (yoki FCM token yangilanganda —
+        `onTokenRefresh`) chaqiriladi. Token boshqa userga tegishli bo'lib
+        qolgan bo'lsa (masalan shu qurilmada avval boshqa hisob bilan
+        kirilgan bo'lsa) — egasi shu userga o'tkaziladi, chunki bitta fizik
+        qurilma bir vaqtning o'zida faqat bitta hisobga push olishi kerak."""
+        token = request.data.get("token")
+        if not token:
+            return Response({"detail": "token majburiy"}, status=status.HTTP_400_BAD_REQUEST)
+        platform = request.data.get("platform") or DevicePlatform.ANDROID
+        PushDevice.objects.update_or_create(
+            token=token, defaults={"user": request.user, "platform": platform, "is_deleted": False}
+        )
+        return Response({"status": "ok"})
+
+    @action(detail=False, methods=["post"])
+    def unregister_device(self, request):
+        """Logout bo'lganda chaqiriladi — shu qurilma endi hech kimga push
+        olmasligi kerak (keyingi foydalanuvchi login bo'lganda qayta
+        ro'yxatdan o'tkaziladi)."""
+        token = request.data.get("token")
+        if token:
+            PushDevice.objects.filter(token=token).delete()
+        return Response({"status": "ok"})

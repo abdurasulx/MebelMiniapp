@@ -39,3 +39,31 @@ class Notification(BaseModel):
 
     def __str__(self):
         return f"{self.recipient} — {self.title}"
+
+
+class DevicePlatform(models.TextChoices):
+    ANDROID = "android", "Android"
+    IOS = "ios", "iOS"
+
+
+class PushDevice(BaseModel):
+    """Foydalanuvchining push (FCM) uchun ro'yxatdan o'tgan qurilmasi —
+    ilova login bo'lgach (yoki token yangilanganda) `fcm_token`ni shu yerga
+    yuboradi (qarang `apps.notifications.views.NotificationViewSet.
+    register_device`). Bitta userda bir nechta qurilma bo'lishi mumkin
+    (masalan telefon + planshet) — barchasiga push yuboriladi (qarang
+    `apps.notifications.push.send_push`). Token FCM tomonidan eskirgan/
+    bekor qilingan deb qaytarilsa, shu yozuv o'chiriladi (qayta ro'yxatdan
+    o'tguncha o'sha qurilmaga push yuborilmaydi)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_devices"
+    )
+    token = models.CharField(max_length=255, unique=True)
+    platform = models.CharField(max_length=10, choices=DevicePlatform.choices, default=DevicePlatform.ANDROID)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.user} — {self.platform} ({self.token[:12]}…)"

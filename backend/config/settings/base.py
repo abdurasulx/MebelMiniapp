@@ -149,6 +149,12 @@ TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")
 TELEGRAM_WEBHOOK_URL = env("TELEGRAM_WEBHOOK_URL", default="")
 TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", default="")
 
+# Push (FCM) — Firebase konsoli > Project Settings > Service Accounts >
+# "Generate new private key" orqali olingan JSON fayl yo'li. Bo'sh bo'lsa
+# (default), push jim o'tkazib yuboriladi — qarang apps/notifications/push.py.
+# MUHIM: bu fayl HECH QACHON git'ga commit qilinmasin (.gitignore'da).
+FIREBASE_CREDENTIALS_PATH = env("FIREBASE_CREDENTIALS_PATH", default="")
+
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"

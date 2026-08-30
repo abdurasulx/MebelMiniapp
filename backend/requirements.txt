@@ -13,6 +13,9 @@ sqlparse==0.5.5
 google-auth==2.56.3
 requests==2.34.2
 
+# Push (FCM) — qarang apps/notifications/push.py.
+firebase-admin==7.3.0
+
 # Vizual qidiruv (CLIP embedding + Qdrant) — qarang apps/products/embedding.py.
 # torch: CPU-only o'rnatish uchun --index-url https://download.pytorch.org/whl/cpu
 # ishlatilgan (GPU/CUDA kerak emas, katta hajmdagi CUDA wheel'lardan qochish uchun).

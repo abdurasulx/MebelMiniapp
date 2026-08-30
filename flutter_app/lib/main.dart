@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'api_client.dart';
@@ -6,12 +7,22 @@ import 'cart_store.dart';
 import 'likes_store.dart';
 import 'locale_store.dart';
 import 'location_store.dart';
+import 'push_service.dart';
 import 'screens/root_screen.dart';
 import 'screens/splash_screen.dart';
 import 'theme.dart';
 import 'widgets/offline_view.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Push (FCM) — `google-services.json` orqali avtomatik konfiguratsiya
+  // qilinadi (Android'da alohida `FirebaseOptions` kerak emas). Xatoga
+  // uchrasa (masalan fayl hali qo'yilmagan bo'lsa) ilova baribir ishga
+  // tushishi kerak — push shunchaki ishlamay qoladi.
+  try {
+    await Firebase.initializeApp();
+    await PushService.instance.init();
+  } catch (_) {}
   runApp(const FurniturePlatformApp());
 }
 
@@ -42,6 +53,7 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
     ApiClient.instance.probeConnectivity().then((_) => _finishSplash());
     _auth.addListener(() {
       if (!_auth.isAuthenticated) _likes.clear();
+      PushService.instance.onAuthChanged(_auth);
     });
     _location.init();
     _cart.load();
