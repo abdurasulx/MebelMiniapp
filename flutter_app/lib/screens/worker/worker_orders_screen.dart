@@ -627,9 +627,10 @@ class _OpenTaskTile extends StatelessWidget {
               backgroundColor: Colors.white,
             )
           : const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.black38),
-      onTap: pending
-          ? null
-          : () => Navigator.push(
+      // `pending` bo'lganda ham qatorga kirish mumkin — faqat tafsilot
+      // ekranida "Qabul qilish" tugmasi o'rniga "Kutilmoqda" holati
+      // ko'rsatiladi (avval bu holatda umuman kirib bo'lmasdi).
+      onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => _OpenTaskDetailScreen(step: step, onApplied: onApplied),
@@ -679,6 +680,7 @@ class _OpenTaskDetailScreenState extends State<_OpenTaskDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final step = widget.step;
+    final pending = step.myApplicationStatus == 'pending';
     return Scaffold(
       appBar: AppBar(title: Text(step.name)),
       body: Padding(
@@ -708,29 +710,48 @@ class _OpenTaskDetailScreenState extends State<_OpenTaskDetailScreen> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(_error!, style: const TextStyle(color: Colors.red)),
               ),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _busy ? null : () => Navigator.pop(context),
-                    child: const Text('O\'tkazib yuborish'),
-                  ),
+            // Zayavka allaqachon yuborilgan bo'lsa — bekor qilish/qayta
+            // yuborish uchun backend'da endpoint yo'q, shuning uchun faqat
+            // holatni ko'rsatamiz (foydalanuvchi endi kamida ekranni ochib
+            // holatni ko'ra oladi — avval bu holatda umuman kirib bo'lmasdi).
+            if (pending)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECC299).withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _busy ? null : _apply,
-                    child: _busy
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('Qabul qilish'),
-                  ),
+                child: const Text(
+                  'Zayavkangiz yuborilgan — firma egasi tasdiqlashini kutmoqda.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-              ],
-            ),
+              )
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _busy ? null : () => Navigator.pop(context),
+                      child: const Text('O\'tkazib yuborish'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _busy ? null : _apply,
+                      child: _busy
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Qabul qilish'),
+                    ),
+                  ),
+                ],
+              ),
           ],
         ),
       ),

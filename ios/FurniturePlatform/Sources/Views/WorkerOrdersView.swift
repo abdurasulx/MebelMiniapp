@@ -234,15 +234,14 @@ private struct OpenTaskRowView: View {
         .padding(.vertical, 4)
     }
 
+    // `pending` bo'lganda ham qatorga kirish mumkin — faqat tafsilot
+    // ekranida "Qabul qilish" tugmasi o'rniga "Kutilmoqda" holati
+    // ko'rsatiladi (avval bu holatda umuman kirib bo'lmasdi).
     var body: some View {
-        if step.myApplicationStatus == "pending" {
+        NavigationLink {
+            OpenTaskDetailView(step: step, onApplied: onApplied)
+        } label: {
             content
-        } else {
-            NavigationLink {
-                OpenTaskDetailView(step: step, onApplied: onApplied)
-            } label: {
-                content
-            }
         }
     }
 }
@@ -269,21 +268,35 @@ private struct OpenTaskDetailView: View {
             if let errorMessage {
                 Text(errorMessage).foregroundStyle(.red).font(.caption)
             }
-            HStack(spacing: 12) {
-                Button("O'tkazib yuborish") { dismiss() }
-                    .buttonStyle(.bordered)
+            // Zayavka allaqachon yuborilgan bo'lsa — bekor qilish/qayta
+            // yuborish uchun backend'da endpoint yo'q, shuning uchun faqat
+            // holatni ko'rsatamiz (avval bu holatda ekranga umuman kirib
+            // bo'lmasdi).
+            if step.myApplicationStatus == "pending" {
+                Text("Zayavkangiz yuborilgan — firma egasi tasdiqlashini kutmoqda.")
+                    .multilineTextAlignment(.center)
+                    .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
-                    .disabled(busy)
-                Button {
-                    Task { await apply() }
-                } label: {
-                    Group {
-                        if busy { ProgressView() } else { Text("Qabul qilish") }
+                    .padding(.vertical, 14)
+                    .background(Color.brandPrimary.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else {
+                HStack(spacing: 12) {
+                    Button("O'tkazib yuborish") { dismiss() }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .disabled(busy)
+                    Button {
+                        Task { await apply() }
+                    } label: {
+                        Group {
+                            if busy { ProgressView() } else { Text("Qabul qilish") }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(busy)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(busy)
             }
         }
         .padding()
