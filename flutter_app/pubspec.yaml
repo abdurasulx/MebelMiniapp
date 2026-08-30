@@ -1,7 +1,7 @@
 name: furniture_platform_mobile
 description: Furniture Platform — Android (Flutter) ilovasi. Xaridor va usta rollarini ajratadi.
 publish_to: "none"
-version: 0.1.0
+version: 0.1.0+1
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -36,6 +36,12 @@ dependencies:
   # Ilova OLDINDA (foreground) ochiq bo'lganda FCM avtomatik OS tokchasiga
   # chiqarmaydi — shu holatda qo'lda mahalliy bildirishnoma ko'rsatish uchun.
   flutter_local_notifications: ^18.0.1
+  # Mobil so'rov-imzosi (HMAC-SHA256) uchun — qarang device_signature.dart.
+  crypto: ^3.0.5
+  # Ilova versiyasi/build raqamini (vcode) runtime'da o'qish uchun — qo'lda
+  # qattiq yozib qo'yish o'rniga, `pubspec.yaml`dagi `version: X.Y.Z+BUILD`
+  # avtomatik o'qiladi.
+  package_info_plus: ^10.2.1
 
 dev_dependencies:
   flutter_test:

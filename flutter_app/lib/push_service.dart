@@ -1,10 +1,15 @@
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'api_client.dart';
 import 'auth_store.dart';
+import 'device_signature.dart';
+import 'models.dart';
+import 'screens/order_detail_screen.dart';
+import 'screens/worker/worker_orders_screen.dart';
 
 /// Ilova FON/YOPIQ holatida FCM xabari kelganda chaqiriladi — FlutterFire
 /// talabiga ko'ra top-level (yoki static) va `@pragma('vm:entry-point')`
@@ -24,6 +29,11 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {}
 class PushService {
   PushService._();
   static final PushService instance = PushService._();
+
+  /// `main.dart`dagi `MaterialApp.navigatorKey` shu bilan bog'lanadi —
+  /// notification bosilganda (ilova fon/yopiq holatda bo'lsa ham)
+  /// BuildContext'siz navigatsiya qilish uchun (qarang `_handleMessage`).
+  static final navigatorKey = GlobalKey<NavigatorState>();
 
   static const _channel = AndroidNotificationChannel(
     'high_importance_channel',
@@ -77,25 +87,75 @@ class PushService {
 
     FirebaseMessaging.instance.onTokenRefresh.listen((token) {
       _lastRegisteredToken = null; // majburan qayta yuborish
-      _sendToken(token);
+      final deviceId = DeviceSignature.instance.deviceId;
+      if (deviceId != null) _sendToken(deviceId, token);
     });
+
+    // Notification Router (nwupdate.md §2.2): ilova FON holatida bo'lib,
+    // foydalanuvchi bosganda ishga tushadi.
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessage);
+    // Ilova UMUMAN YOPIQ bo'lib, notification bosilishi orqali ochilgan
+    // bo'lsa — shu holatni alohida tekshirish kerak (onMessageOpenedApp
+    // bunday holatda ishga tushmaydi, chunki ilova hali "ochilmagan" edi).
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null) _handleMessage(initialMessage);
+  }
+
+  /// Notification bosilganda `data`dagi `type`ga qarab tegishli sahifaga
+  /// o'tadi (nwupdate.md §2.2-2.3: payload faqat ROUTING uchun, haqiqiy
+  /// ma'lumot API'dan qayta olinadi — eskirib qolgan bo'lishi mumkin).
+  ///
+  /// MUHIM (bilinib turgan soddalashtirish): hozircha "task_*" turlari
+  /// aniq bitta vazifa sahifasiga emas, usta "Buyurtmalar" ro'yxatiga olib
+  /// boradi (alohida bitta-vazifa-ID bo'yicha yuklaydigan ekran hali yo'q)
+  /// — muddat torligi sababli. `order_status` esa `/orders/{id}/` orqali
+  /// haqiqiy buyurtmani olib, to'g'ridan-to'g'ri uning tafsilot sahifasini
+  /// ochadi.
+  Future<void> _handleMessage(RemoteMessage message) async {
+    final type = message.data['type'];
+    final navigator = navigatorKey.currentState;
+    if (navigator == null) return;
+
+    switch (type) {
+      case 'order_status':
+        final orderId = message.data['order_id'];
+        if (orderId == null) return;
+        try {
+          final order = await ApiClient.instance.get(
+            '/orders/$orderId/',
+            (j) => Order.fromJson(j),
+            auth: true,
+          );
+          navigator.push(MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)));
+        } catch (_) {
+          // Buyurtma topilmadi/tarmoq xatosi — jim o'tkaziladi, foydalanuvchi
+          // baribir Profil > "So'nggi buyurtmalar"dan qo'lda topa oladi.
+        }
+        break;
+      case 'task_assigned':
+      case 'task_available':
+      case 'task_pool_open':
+        navigator.push(MaterialPageRoute(builder: (_) => const WorkerOrdersScreen()));
+        break;
+    }
   }
 
   /// `AuthStore`ga listener sifatida ulanadi (qarang main.dart) — login/
   /// logout bo'lganda avtomatik chaqiriladi.
   Future<void> onAuthChanged(AuthStore auth) async {
     if (!_initialized) return;
+    final deviceId = DeviceSignature.instance.deviceId;
+    if (deviceId == null) return;
     final token = await FirebaseMessaging.instance.getToken();
-    if (token == null) return;
     if (auth.isAuthenticated) {
-      await _sendToken(token);
+      await _sendToken(deviceId, token);
     } else {
       _lastRegisteredToken = null;
       try {
         await ApiClient.instance.post(
           '/notifications/unregister_device/',
           (j) => j,
-          body: {'token': token},
+          body: {'device_id': deviceId},
         );
       } catch (_) {
         // Muhim emas — bu qurilma baribir hech kimga tegishli bo'lmay qoladi
@@ -104,15 +164,21 @@ class PushService {
     }
   }
 
-  Future<void> _sendToken(String token) async {
-    if (_lastRegisteredToken == token) return;
+  Future<void> _sendToken(String deviceId, String? token) async {
+    if (token != null && _lastRegisteredToken == token) return;
     try {
       await ApiClient.instance.post(
         '/notifications/register_device/',
         (j) => j,
-        body: {'token': token, 'platform': Platform.isIOS ? 'ios' : 'android'},
+        body: {
+          'device_id': deviceId,
+          if (token != null) 'token': token,
+          'platform': Platform.isIOS ? 'ios' : 'android',
+          'device_name': DeviceSignature.instance.deviceName,
+          'vcode': DeviceSignature.instance.vcode,
+        },
       );
-      _lastRegisteredToken = token;
+      if (token != null) _lastRegisteredToken = token;
     } catch (_) {
       // Tarmoq xatosi — `_lastRegisteredToken` yangilanmagani uchun
       // keyingi `onAuthChanged`/`onTokenRefresh` chaqiruvida qayta uriniladi.

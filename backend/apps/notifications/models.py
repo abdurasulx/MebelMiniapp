@@ -47,23 +47,40 @@ class DevicePlatform(models.TextChoices):
 
 
 class PushDevice(BaseModel):
-    """Foydalanuvchining push (FCM) uchun ro'yxatdan o'tgan qurilmasi —
-    ilova login bo'lgach (yoki token yangilanganda) `fcm_token`ni shu yerga
-    yuboradi (qarang `apps.notifications.views.NotificationViewSet.
-    register_device`). Bitta userda bir nechta qurilma bo'lishi mumkin
-    (masalan telefon + planshet) — barchasiga push yuboriladi (qarang
-    `apps.notifications.push.send_push`). Token FCM tomonidan eskirgan/
-    bekor qilingan deb qaytarilsa, shu yozuv o'chiriladi (qayta ro'yxatdan
-    o'tguncha o'sha qurilmaga push yuborilmaydi)."""
+    """Foydalanuvchining ro'yxatdan o'tgan qurilmasi — ikki vazifani
+    bajaradi: (1) push (FCM) yetkazish manzili (`token`), (2) mobil so'rov
+    imzosi (HMAC) uchun qurilma identifikatori (`device_id`) va nazorat
+    holati (`vcode`/`is_active`/`revoked_at`) — qarang
+    `apps.notifications.security.DeviceSignatureMiddleware`.
+
+    `updated_at` (BaseModel'dan meros) HAR BIR muvaffaqiyatli imzolangan
+    so'rovda yangilanadi va spetsifikatsiyadagi `last_updated` vazifasini
+    bajaradi — shundan `day_delta` server tomonida qayta hisoblanadi
+    (mijoz yuborgan qiymatga ishonilmaydi)."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="push_devices"
     )
-    token = models.CharField(max_length=255, unique=True)
+    # FCM push manzili — push ruxsat berilmagan/hali olinmagan bo'lsa bo'sh
+    # qoldirilishi mumkin (qurilma baribir so'rov-imzosi uchun ro'yxatdan
+    # o'tgan bo'ladi).
+    token = models.CharField(max_length=255, unique=True, null=True, blank=True)
     platform = models.CharField(max_length=10, choices=DevicePlatform.choices, default=DevicePlatform.ANDROID)
+
+    # Mijoz tomonida BIR MARTA generatsiya qilinib, doimiy saqlanadigan
+    # (masalan shared_preferences'da) barqaror identifikator — `token`dan
+    # farqli, FCM tomonidan hech qachon o'zgartirilmaydi. Imzo (`signature`)
+    # shu qiymatga bog'liq hisoblanadi.
+    device_id = models.CharField(max_length=128, unique=True, null=True, blank=True)
+    device_name = models.CharField(max_length=150, blank=True)
+    app_version = models.CharField(max_length=20, blank=True)
+    vcode = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ("-created_at",)
 
     def __str__(self):
-        return f"{self.user} — {self.platform} ({self.token[:12]}…)"
+        return f"{self.user} — {self.platform} ({self.device_id or self.token or self.id})"

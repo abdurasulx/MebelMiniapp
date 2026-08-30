@@ -37,26 +37,50 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
     @action(detail=False, methods=["post"])
     def register_device(self, request):
-        """Ilova login bo'lgach (yoki FCM token yangilanganda —
-        `onTokenRefresh`) chaqiriladi. Token boshqa userga tegishli bo'lib
-        qolgan bo'lsa (masalan shu qurilmada avval boshqa hisob bilan
-        kirilgan bo'lsa) — egasi shu userga o'tkaziladi, chunki bitta fizik
-        qurilma bir vaqtning o'zida faqat bitta hisobga push olishi kerak."""
-        token = request.data.get("token")
-        if not token:
-            return Response({"detail": "token majburiy"}, status=status.HTTP_400_BAD_REQUEST)
-        platform = request.data.get("platform") or DevicePlatform.ANDROID
-        PushDevice.objects.update_or_create(
-            token=token, defaults={"user": request.user, "platform": platform, "is_deleted": False}
-        )
+        """Ilova login bo'lgach (yoki FCM token/app versiyasi yangilanganda)
+        chaqiriladi. `device_id` — mijoz tomonida bir marta generatsiya
+        qilinib doimiy saqlanadigan barqaror identifikator (so'rov-imzosi
+        uchun asosiy kalit, qarang apps.notifications.security); `token` —
+        FCM push manzili, push ruxsat berilmagan bo'lsa bo'sh bo'lishi
+        mumkin. Qurilma boshqa userga tegishli bo'lib qolgan bo'lsa
+        (masalan shu qurilmada avval boshqa hisob bilan kirilgan bo'lsa) —
+        egasi shu userga o'tkaziladi va (agar avval bekor qilingan bo'lsa)
+        qayta faollashtiriladi."""
+        device_id = request.data.get("device_id")
+        if not device_id:
+            return Response({"detail": "device_id majburiy"}, status=status.HTTP_400_BAD_REQUEST)
+
+        defaults = {
+            "user": request.user,
+            "platform": request.data.get("platform") or DevicePlatform.ANDROID,
+            "is_deleted": False,
+            "is_active": True,
+            "revoked_at": None,
+        }
+        if request.data.get("token"):
+            defaults["token"] = request.data["token"]
+        if request.data.get("device_name"):
+            defaults["device_name"] = request.data["device_name"]
+        if request.data.get("app_version"):
+            defaults["app_version"] = request.data["app_version"]
+        if request.data.get("vcode") is not None:
+            try:
+                defaults["vcode"] = int(request.data["vcode"])
+            except (TypeError, ValueError):
+                pass
+
+        PushDevice.objects.update_or_create(device_id=device_id, defaults=defaults)
         return Response({"status": "ok"})
 
     @action(detail=False, methods=["post"])
     def unregister_device(self, request):
         """Logout bo'lganda chaqiriladi — shu qurilma endi hech kimga push
-        olmasligi kerak (keyingi foydalanuvchi login bo'lganda qayta
-        ro'yxatdan o'tkaziladi)."""
+        olmasligi va so'rov imzolay olmasligi kerak (keyingi foydalanuvchi
+        login bo'lganda qayta ro'yxatdan o'tkaziladi)."""
+        device_id = request.data.get("device_id")
         token = request.data.get("token")
-        if token:
+        if device_id:
+            PushDevice.objects.filter(device_id=device_id).delete()
+        elif token:
             PushDevice.objects.filter(token=token).delete()
         return Response({"status": "ok"})

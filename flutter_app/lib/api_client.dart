@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'device_signature.dart';
 import 'models.dart';
 
 class ApiException implements Exception {
@@ -154,6 +155,7 @@ class ApiClient {
     if (auth && _accessToken != null) {
       request.headers['Authorization'] = 'Bearer $_accessToken';
     }
+    request.headers.addAll(DeviceSignature.instance.buildHeaders());
     if (imageFieldName != null && imagePath != null) {
       request.files.add(
         await http.MultipartFile.fromPath(imageFieldName, imagePath),
@@ -163,6 +165,9 @@ class ApiClient {
       () => request.send().timeout(const Duration(seconds: 20)),
     );
     final resp = await http.Response.fromStream(streamed);
+    if (request.headers.containsKey('X-Device-Id')) {
+      unawaited(DeviceSignature.instance.markSuccess());
+    }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException(_extractError(resp.body, resp.statusCode), statusCode: resp.statusCode);
     }
@@ -182,6 +187,9 @@ class ApiClient {
     if (auth && _accessToken != null) {
       headers['Authorization'] = 'Bearer $_accessToken';
     }
+    // Qo'shimcha so'rov-imzosi (HMAC) — qarang device_signature.dart /
+    // apps/notifications/security.py (nwupdate.md).
+    headers.addAll(DeviceSignature.instance.buildHeaders());
 
     late http.Response resp;
     final encoded = body != null ? jsonEncode(body) : null;
@@ -204,6 +212,15 @@ class ApiClient {
           throw ApiException('Noma\'lum HTTP metod: $method');
       }
     });
+
+    // Qurilma-imzosi headerlari yuborilgan bo'lsa, server nechta status
+    // qaytarmasin (device-imzo o'zi 400/401/403 bilan aniq rad etadi),
+    // "so'nggi urinish" vaqtini yangilaymiz — shu bilan keyingi so'rovning
+    // `day_delta`si serverning kutayotgan qiymatiga qayta moslanadi (agar
+    // avval qandaydir sabab bilan chalkashib qolgan bo'lsa ham).
+    if (headers.containsKey('X-Device-Id')) {
+      unawaited(DeviceSignature.instance.markSuccess());
+    }
 
     if (resp.statusCode == 401 && auth && !isRetry) {
       final refreshed = await _refreshAccessToken();

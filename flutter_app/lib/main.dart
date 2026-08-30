@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'api_client.dart';
 import 'auth_store.dart';
 import 'cart_store.dart';
+import 'device_signature.dart';
 import 'likes_store.dart';
 import 'locale_store.dart';
 import 'location_store.dart';
@@ -15,6 +16,10 @@ import 'widgets/offline_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Har bir API so'roviga qo'shiladigan HMAC imzo qatlami (nwupdate.md) —
+  // `_auth.bootstrap()` (pastda) birinchi so'rovni yuborishidan OLDIN
+  // tayyor bo'lishi shart, shuning uchun `runApp`dan avval kutiladi.
+  await DeviceSignature.instance.init();
   // Push (FCM) — `google-services.json` orqali avtomatik konfiguratsiya
   // qilinadi (Android'da alohida `FirebaseOptions` kerak emas). Xatoga
   // uchrasa (masalan fayl hali qo'yilmagan bo'lsa) ilova baribir ishga
@@ -78,6 +83,9 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
         title: 'Furniture Platform',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
+        // Push bosilganda tegishli sahifaga BuildContext'siz o'tish uchun
+        // (qarang push_service.dart::_handleMessage).
+        navigatorKey: PushService.navigatorKey,
         home: _ready ? const _AppGate() : const SplashScreen(),
       ),
     );

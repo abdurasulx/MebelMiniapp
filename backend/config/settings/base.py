@@ -56,6 +56,10 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Mobil ilova so'rovlari uchun qo'shimcha HMAC imzo qatlami (nwupdate.md) —
+    # faqat `X-Device-Id` headeri bor so'rovlarga qo'llanadi, veb frontend'ga
+    # tegmaydi (qarang apps/notifications/security.py).
+    "apps.notifications.security.DeviceSignatureMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -154,6 +158,18 @@ TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", default="")
 # (default), push jim o'tkazib yuboriladi — qarang apps/notifications/push.py.
 # MUHIM: bu fayl HECH QACHON git'ga commit qilinmasin (.gitignore'da).
 FIREBASE_CREDENTIALS_PATH = env("FIREBASE_CREDENTIALS_PATH", default="")
+
+# Mobil so'rov-imzosi (HMAC-SHA256, nwupdate.md §5) sirri — qarang
+# apps/notifications/security.py. MUHIM: bu APK ichiga joylashtiriladigan
+# sir emas (u reverse-engineering'dan himoyalanmagan) — asosiy xavfsizlik
+# baribir Access/Refresh Token orqali; bu faqat qo'shimcha qatlam. Prodda
+# `.env`da o'ziga xos qiymat bilan almashtirilishi kerak.
+DEVICE_HMAC_SECRET = env("DEVICE_HMAC_SECRET", default=SECRET_KEY)
+
+# Shu vcode'dan past bo'lgan mobil ilova versiyalari 403/UPDATE_REQUIRED
+# bilan rad etiladi (nwupdate.md §11). 0 — hozircha hech qanday versiya
+# bloklanmaydi (min talab qo'yilmagan).
+MOBILE_MIN_VCODE = env.int("MOBILE_MIN_VCODE", default=0)
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
