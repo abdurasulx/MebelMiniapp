@@ -619,7 +619,13 @@ class _OpenTaskTile extends StatelessWidget {
         ],
       ),
       trailing: pending
-          ? const Chip(label: Text('Kutilmoqda', style: TextStyle(fontSize: 11)))
+          // `Chip`ning theme'dagi `labelStyle`sida rang ko'rsatilmagani uchun
+          // matn ba'zi qurilmalarda ko'rinmay (oq fonda oq/shaffof rang bilan)
+          // qolib ketardi — rangni aniq belgilaymiz.
+          ? const Chip(
+              label: Text('Kutilmoqda', style: TextStyle(fontSize: 11, color: Colors.black87)),
+              backgroundColor: Colors.white,
+            )
           : const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.black38),
       onTap: pending
           ? null
