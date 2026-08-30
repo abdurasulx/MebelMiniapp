@@ -967,7 +967,7 @@ function VariantModelSection({ variant, onDone }) {
 
 const EMPTY_STEP = {
   name: "", role: "usta", estimated_hours: 1, cost: 0, required_materials: "",
-  photo_requirement: "optional", work_type: "", quantity: 1, raw_material: "",
+  photo_requirement: "optional", comment_requirement: "optional", work_type: "", quantity: 1, raw_material: "",
   cut_piece_length: "", cut_piece_width: "", cut_piece_count: "", cut_note: "",
 };
 
@@ -1061,6 +1061,7 @@ function ProductionTab({ product, steps, onStepsChange }) {
                           ? ` · ${s.cutting_instruction}`
                           : s.raw_material_name && ` · ${s.quantity} ${s.raw_material_unit} ${s.raw_material_name} sarflanadi`}
                         {s.photo_requirement !== "optional" && ` · ${PHOTO_REQUIREMENT[s.photo_requirement]} rasm`}
+                        {s.comment_requirement !== "optional" && ` · ${PHOTO_REQUIREMENT[s.comment_requirement]} izoh`}
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 4 }}>
@@ -1180,6 +1181,14 @@ function ProductionTab({ product, steps, onStepsChange }) {
             <div>
               <label className="label">Rasm talabi</label>
               <select className="input" value={form.photo_requirement} onChange={(e) => setForm({ ...form, photo_requirement: e.target.value })}>
+                <option value="required">Majburiy</option>
+                <option value="optional">Ixtiyoriy</option>
+                <option value="disabled">Kerak emas</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Izoh talabi</label>
+              <select className="input" value={form.comment_requirement} onChange={(e) => setForm({ ...form, comment_requirement: e.target.value })}>
                 <option value="required">Majburiy</option>
                 <option value="optional">Ixtiyoriy</option>
                 <option value="disabled">Kerak emas</option>

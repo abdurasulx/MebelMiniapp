@@ -240,6 +240,7 @@ struct WorkflowStepInstance: Codable, Identifiable {
     let statusDisplay: String
     let isAvailable: Bool
     let photoRequirement: String
+    let commentRequirement: String?
     // "Usta sahifasi" (`/workflow-instances/`dan to'g'ridan-to'g'ri kelganda) —
     // Order ichidagi nested holatda bular kerak emas, shuning uchun ixtiyoriy.
     let order: String?

@@ -247,6 +247,10 @@ function WorkflowPipeline({ isManager }) {
                     <span className="text-xs" style={{ color: "var(--muted)" }}>
                       Yakunlash uchun rasm talab qilinadi (mobil ilovadan yuklang)
                     </span>
+                  ) : step.comment_requirement === "required" ? (
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>
+                      Yakunlash uchun izoh talab qilinadi (mobil ilovadan yozing)
+                    </span>
                   ) : (
                     <button
                       className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"

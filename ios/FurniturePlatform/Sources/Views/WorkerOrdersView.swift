@@ -351,13 +351,19 @@ private struct StepUpdateSheet: View {
     @State private var showCamera = false
 
     private var photoRequired: Bool { isCompletion && step.photoRequirement == "required" }
+    private var commentRequired: Bool { isCompletion && step.commentRequirement == "required" }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section(isCompletion ? "Bosqichni yakunlash" : "Yangilanish qo'shish") {
-                    TextField("Izoh (ixtiyoriy)", text: $comment, axis: .vertical)
+                    TextField(commentRequired ? "Izoh (majburiy)" : "Izoh (ixtiyoriy)", text: $comment, axis: .vertical)
                         .lineLimit(3, reservesSpace: true)
+                    if commentRequired {
+                        Text("Bu bosqichni yakunlash uchun izoh majburiy")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
                 }
                 Section {
                     if let photoData, let uiImage = UIImage(data: photoData) {
@@ -397,6 +403,10 @@ private struct StepUpdateSheet: View {
     private func submit() async {
         if photoRequired && photoData == nil {
             errorMessage = "Bu bosqich uchun rasm majburiy"
+            return
+        }
+        if commentRequired && comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            errorMessage = "Bu bosqich uchun izoh majburiy"
             return
         }
         busy = true

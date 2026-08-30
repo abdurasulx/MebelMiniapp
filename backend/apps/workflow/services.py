@@ -228,6 +228,7 @@ def create_workflow_instances(order, product):
             cut_note=step.cut_note,
             required_materials=step.required_materials,
             photo_requirement=step.photo_requirement,
+            comment_requirement=step.comment_requirement,
         )
         instance_by_template_id[step.id] = instance
         instances.append(instance)

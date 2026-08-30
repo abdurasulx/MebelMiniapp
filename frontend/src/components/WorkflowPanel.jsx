@@ -130,6 +130,10 @@ function StepActions({ step, onChanged }) {
       setError("Bu bosqichni yakunlash uchun rasm majburiy");
       return;
     }
+    if (path === "complete" && step.comment_requirement === "required" && !comment) {
+      setError("Bu bosqichni yakunlash uchun izoh majburiy");
+      return;
+    }
     setError("");
     setBusy(true);
     try {
@@ -170,6 +174,9 @@ function StepActions({ step, onChanged }) {
       </div>
       {step.photo_requirement === "required" && (
         <p className="text-[11px]" style={{ color: "var(--muted)" }}>Yakunlash uchun rasm majburiy.</p>
+      )}
+      {step.comment_requirement === "required" && (
+        <p className="text-[11px]" style={{ color: "var(--muted)" }}>Yakunlash uchun izoh majburiy.</p>
       )}
       {error && <div className="error">{error}</div>}
     </div>

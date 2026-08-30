@@ -407,6 +407,8 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
             raise ValidationError("Bu bosqich hali boshlanishi mumkin emas — oldingi bosqichlar tugamagan")
         if instance.photo_requirement == PhotoRequirement.REQUIRED and not request.data.get("image"):
             raise ValidationError("Bu bosqichni yakunlash uchun rasm majburiy")
+        if instance.comment_requirement == PhotoRequirement.REQUIRED and not request.data.get("comment"):
+            raise ValidationError("Bu bosqichni yakunlash uchun izoh majburiy")
 
         instance.activate_if_ready()
         serializer = ProgressUpdateSerializer(data=request.data, context={"request": request})

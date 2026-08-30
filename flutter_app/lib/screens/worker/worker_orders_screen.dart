@@ -123,10 +123,19 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
             children: [
               TextField(
                 controller: commentController,
-                decoration: const InputDecoration(labelText: 'Izoh (ixtiyoriy)'),
+                decoration: InputDecoration(
+                  labelText: complete && step.commentRequirement == 'required'
+                      ? 'Izoh (majburiy)'
+                      : 'Izoh (ixtiyoriy)',
+                ),
                 maxLines: 3,
               ),
               const SizedBox(height: 10),
+              if (complete && step.commentRequirement == 'required')
+                Text(
+                  'Bu bosqichni yakunlash uchun izoh majburiy',
+                  style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                ),
               if (complete && step.photoRequirement == 'required')
                 Text(
                   'Bu bosqichni yakunlash uchun rasm majburiy',
@@ -155,6 +164,14 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Bu bosqich uchun rasm majburiy')),
+        );
+      }
+      return;
+    }
+    if (complete && step.commentRequirement == 'required' && commentController.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bu bosqich uchun izoh majburiy')),
         );
       }
       return;

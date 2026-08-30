@@ -386,6 +386,7 @@ class WorkflowStepInstance {
   final String statusDisplay;
   final bool isAvailable;
   final String photoRequirement;
+  final String commentRequirement;
   // "Usta sahifasi" (`/workflow-instances/`dan to'g'ridan-to'g'ri kelganda) —
   // Order ichidagi nested holatda bular kerak emas, shuning uchun ixtiyoriy.
   final String? order;
@@ -421,6 +422,7 @@ class WorkflowStepInstance {
     required this.statusDisplay,
     required this.isAvailable,
     required this.photoRequirement,
+    this.commentRequirement = 'optional',
     this.order,
     this.orderDisplay,
     this.orderStatus,
@@ -462,6 +464,7 @@ class WorkflowStepInstance {
         statusDisplay: j['status_display'],
         isAvailable: j['is_available'] ?? false,
         photoRequirement: j['photo_requirement'] ?? 'optional',
+        commentRequirement: j['comment_requirement'] ?? 'optional',
         order: j['order'],
         orderDisplay: j['order_display'],
         orderStatus: j['order_status'],

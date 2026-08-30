@@ -42,6 +42,9 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
     photo_requirement_display = serializers.CharField(
         source="get_photo_requirement_display", read_only=True
     )
+    comment_requirement_display = serializers.CharField(
+        source="get_comment_requirement_display", read_only=True
+    )
     work_type_name = serializers.CharField(source="work_type.name", read_only=True, default=None)
     work_type_unit_display = serializers.CharField(source="work_type.get_unit_display", read_only=True, default=None)
     raw_material_name = serializers.CharField(source="raw_material.name", read_only=True, default=None)
@@ -60,6 +63,7 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
             "raw_material", "raw_material_name", "raw_material_unit",
             "cut_piece_length", "cut_piece_width", "cut_piece_count", "cut_note", "cutting_instruction",
             "required_materials", "photo_requirement", "photo_requirement_display",
+            "comment_requirement", "comment_requirement_display",
             "depends_on", "created_at",
         )
         read_only_fields = ("id", "product", "created_at")
@@ -96,6 +100,9 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
     employee_name = serializers.CharField(source="employee.user.first_name", read_only=True, default=None)
     photo_requirement_display = serializers.CharField(
         source="get_photo_requirement_display", read_only=True
+    )
+    comment_requirement_display = serializers.CharField(
+        source="get_comment_requirement_display", read_only=True
     )
     status_display = serializers.CharField(source="get_status_display", read_only=True)
     completed_by_name = serializers.CharField(source="completed_by.first_name", read_only=True, default=None)
@@ -163,7 +170,8 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
             "raw_material", "raw_material_name", "raw_material_unit", "material_consumed",
             "cut_piece_length", "cut_piece_width", "cut_piece_count", "cut_note", "cutting_instruction",
             "required_materials",
-            "photo_requirement", "photo_requirement_display", "depends_on",
+            "photo_requirement", "photo_requirement_display",
+            "comment_requirement", "comment_requirement_display", "depends_on",
             "status", "status_display", "is_available", "deadline",
             "started_at", "completed_at", "completed_by_name", "approved_at", "approved_by_name",
             "cancelled_at", "cancelled_by_name", "updates", "created_at",

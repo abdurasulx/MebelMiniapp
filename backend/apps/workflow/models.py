@@ -157,6 +157,14 @@ class WorkflowStep(BaseModel):
     photo_requirement = models.CharField(
         max_length=10, choices=PhotoRequirement.choices, default=PhotoRequirement.OPTIONAL
     )
+    # `PhotoRequirement` shu yerda IZOH uchun ham qayta ishlatiladi (nomi
+    # tarixiy sabab bilan "Photo" bo'lsa-da, uchta qiymat — majburiy/
+    # ixtiyoriy/kerak emas — ikkalasiga ham bab-baravar mos). "Bajardim"
+    # bosilganda (`complete`) shu bosqich uchun izoh yozish shart-shartsizligini
+    # belgilaydi — qarang apps.workflow.views.complete.
+    comment_requirement = models.CharField(
+        max_length=10, choices=PhotoRequirement.choices, default=PhotoRequirement.OPTIONAL
+    )
     depends_on = models.ManyToManyField(
         "self", symmetrical=False, blank=True, related_name="required_by"
     )
@@ -246,6 +254,14 @@ class WorkflowStepInstance(BaseModel):
     cut_note = models.CharField(max_length=255, blank=True)
     required_materials = models.TextField(blank=True)
     photo_requirement = models.CharField(
+        max_length=10, choices=PhotoRequirement.choices, default=PhotoRequirement.OPTIONAL
+    )
+    # `PhotoRequirement` shu yerda IZOH uchun ham qayta ishlatiladi (nomi
+    # tarixiy sabab bilan "Photo" bo'lsa-da, uchta qiymat — majburiy/
+    # ixtiyoriy/kerak emas — ikkalasiga ham bab-baravar mos). "Bajardim"
+    # bosilganda (`complete`) shu bosqich uchun izoh yozish shart-shartsizligini
+    # belgilaydi — qarang apps.workflow.views.complete.
+    comment_requirement = models.CharField(
         max_length=10, choices=PhotoRequirement.choices, default=PhotoRequirement.OPTIONAL
     )
     depends_on = models.ManyToManyField(
