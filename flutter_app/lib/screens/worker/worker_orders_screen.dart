@@ -274,6 +274,15 @@ class _OrderCard extends StatelessWidget {
     required this.onStart,
   });
 
+  /// Karta sarlavhasi — avval telefon raqami bo'lib, qaysi mahsulot
+  /// haqida ekani umuman ko'rinmasdi (ayniqsa test ma'lumotlarida manzil
+  /// ham "Erkin zayavka testi" kabi mazmunsiz bo'lganda). Endi buyurtma
+  /// qatoridagi mahsulot nomlari asosiy sarlavha sifatida ko'rsatiladi.
+  String get _title {
+    final names = order.items.map((i) => i.productName).where((n) => n.isNotEmpty).toSet();
+    return names.isEmpty ? order.phone : names.join(', ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final o = order;
@@ -301,10 +310,14 @@ class _OrderCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(o.phone, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(_title, style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   Text(o.statusDisplay, style: const TextStyle(fontSize: 12)),
                 ],
+              ),
+              Text(
+                o.phone,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               Text(o.address, style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 6),
@@ -351,8 +364,10 @@ class _OrderStepsScreen extends StatelessWidget {
     // Ko'p vazifa buyurtmaga bog'liq bo'lmasligi mumkin (qo'lda qo'shilgan) —
     // shunda `order.workflowSteps` bo'sh bo'ladi, faqat mySteps ko'rsatiladi.
     final allSteps = order.workflowSteps.isNotEmpty ? order.workflowSteps : mySteps;
+    final productNames = order.items.map((i) => i.productName).where((n) => n.isNotEmpty).toSet();
+    final title = productNames.isEmpty ? order.phone : productNames.join(', ');
     return Scaffold(
-      appBar: AppBar(title: Text('Buyurtma ${order.phone}')),
+      appBar: AppBar(title: Text(title)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -362,6 +377,8 @@ class _OrderStepsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(order.phone, style: const TextStyle(fontSize: 12.5, color: Colors.black54)),
+                  const SizedBox(height: 2),
                   Text(
                     '${formatSom(order.totalPrice)} so\'m',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
