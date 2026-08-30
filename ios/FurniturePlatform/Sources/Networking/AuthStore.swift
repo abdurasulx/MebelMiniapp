@@ -357,7 +357,21 @@ final class AuthStore: ObservableObject {
 
     func logout() {
         defaults.removeObject(forKey: tokensKey)
-        Task { await APIClient.shared.setTokens(nil) }
+        Task {
+            // MUHIM: signature'ni O'CHIRISH so'rov (unregister) ketishidan
+            // OLDIN emas, KEYIN — chunki bu so'rovning o'zi hali "ro'yxatdan
+            // o'tgan" holatda (backend'da hali mavjud) ketishi kerak (qarang
+            // push_service.dart'dagi bir xil izoh).
+            let deviceId = await DeviceSignature.shared.currentDeviceId
+            struct Body: Encodable { let deviceId: String }
+            struct StatusResp: Decodable { let status: String }
+            let _: StatusResp? = try? await APIClient.shared.post(
+                "/notifications/unregister_device/", body: Body(deviceId: deviceId), auth: false
+            )
+            await DeviceSignature.shared.markUnregistered()
+            await APIClient.shared.setTokens(nil)
+        }
+        didRegisterDeviceThisSession = false
         // Keyingi "Google orqali kirish" bosilganda hisob tanlash oynasi qayta
         // chiqishi uchun — aks holda oxirgi Google hisobiga jimgina kirib qolar edi.
         GIDSignIn.sharedInstance.signOut()
@@ -366,6 +380,41 @@ final class AuthStore: ObservableObject {
         isAuthenticated = false
         appMode = .customer
         activePosition = nil
+    }
+
+    // Bir xil qurilma bir necha marta qayta ro'yxatdan o'tkazilmasligi
+    // uchun (masalan har `refreshUser()` chaqiruvida) — sessiya davomida
+    // bir marta yetarli, backend baribir idempotent (`update_or_create`).
+    private var didRegisterDeviceThisSession = false
+
+    /// Mobil so'rov-imzosi qatlami (nwupdate.md) uchun qurilmani backend'da
+    /// ro'yxatdan o'tkazadi — FCM/APNs push YO'Q (Apple Developer Program
+    /// talab qilingani uchun hozircha sozlanmagan), shuning uchun `token`
+    /// yubormaymiz — faqat `device_id` orqali imzo-tekshiruv ishlashi uchun.
+    private func registerDeviceIfNeeded() async {
+        guard !didRegisterDeviceThisSession else { return }
+        struct Body: Encodable {
+            let deviceId: String
+            let platform: String
+            let deviceName: String
+            let vcode: Int
+        }
+        let signature = DeviceSignature.shared
+        let deviceId = await signature.currentDeviceId
+        let deviceName = await signature.currentDeviceName
+        let vcode = await signature.currentVcode
+        struct StatusResp: Decodable { let status: String }
+        do {
+            let _: StatusResp = try await APIClient.shared.post(
+                "/notifications/register_device/",
+                body: Body(deviceId: deviceId, platform: "ios", deviceName: deviceName, vcode: vcode),
+                auth: true
+            )
+            await DeviceSignature.shared.markRegistered()
+            didRegisterDeviceThisSession = true
+        } catch {
+            // Tarmoq xatosi — keyingi loadMe/refreshUser chaqiruvida qayta uriniladi.
+        }
     }
 
     /// Xodim rejimiga o'tish — bitta kasbi bo'lsa shu avtomatik, bir
@@ -384,6 +433,7 @@ final class AuthStore: ObservableObject {
             let me: User = try await APIClient.shared.get("/users/me/", auth: true)
             self.user = me
             self.isAuthenticated = true
+            await registerDeviceIfNeeded()
         } catch APIError.server(_, let statusCode) where statusCode == 401 {
             // Faqat server aniq "401 — token yaroqsiz" deb javob berganda
             // haqiqatan ham chiqarib yuboramiz.

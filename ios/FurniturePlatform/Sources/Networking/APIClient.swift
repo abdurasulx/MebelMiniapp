@@ -129,9 +129,16 @@ actor APIClient {
         if auth, let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
+        let signatureHeaders = await DeviceSignature.shared.buildHeaders()
+        for (key, value) in signatureHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
         request.httpBody = body
 
         let (data, response) = try await performRequest(request)
+        if !signatureHeaders.isEmpty {
+            await DeviceSignature.shared.markSuccess()
+        }
         guard let http = response as? HTTPURLResponse else {
             throw APIError.server("Server bilan bog'lanib bo'lmadi", statusCode: 0)
         }
@@ -204,8 +211,21 @@ actor APIClient {
         if auth, let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
+        // Qo'shimcha so'rov-imzosi (HMAC) — qarang DeviceSignature.swift /
+        // apps/notifications/security.py (nwupdate.md).
+        let signatureHeaders = await DeviceSignature.shared.buildHeaders()
+        for (key, value) in signatureHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
 
         let (data, response) = try await performRequest(request)
+        // Qurilma-imzosi headerlari yuborilgan bo'lsa, server nechta status
+        // qaytarmasin (device-imzo o'zi 400/401/403 bilan aniq rad etadi),
+        // "so'nggi urinish" vaqtini yangilaymiz — shu bilan keyingi so'rovning
+        // `day_delta`si serverning kutayotgan qiymatiga qayta moslanadi.
+        if !signatureHeaders.isEmpty {
+            await DeviceSignature.shared.markSuccess()
+        }
         guard let http = response as? HTTPURLResponse else {
             throw APIError.server("Server bilan bog'lanib bo'lmadi", statusCode: 0)
         }
