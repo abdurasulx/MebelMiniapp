@@ -151,6 +151,11 @@ class PushService {
       await _sendToken(deviceId, token);
     } else {
       _lastRegisteredToken = null;
+      // MUHIM: signature'ni O'CHIRISH so'rov (unregister) ketishidan OLDIN
+      // emas, KEYIN — chunki bu so'rovning o'zi hali "ro'yxatdan o'tgan"
+      // holatda (backend'da hali mavjud) ketishi kerak, aks holda imzosiz
+      // ketib, agar boshqa sabab bilan (masalan eski JWT) muvaffaqiyatsiz
+      // bo'lsa ham baribir signature qatlami buzilmaydi.
       try {
         await ApiClient.instance.post(
           '/notifications/unregister_device/',
@@ -160,6 +165,8 @@ class PushService {
       } catch (_) {
         // Muhim emas — bu qurilma baribir hech kimga tegishli bo'lmay qoladi
         // (keyingi login shu tokenni yangi userga o'tkazadi).
+      } finally {
+        await DeviceSignature.instance.markUnregistered();
       }
     }
   }
@@ -179,6 +186,7 @@ class PushService {
         },
       );
       if (token != null) _lastRegisteredToken = token;
+      await DeviceSignature.instance.markRegistered();
     } catch (_) {
       // Tarmoq xatosi — `_lastRegisteredToken` yangilanmagani uchun
       // keyingi `onAuthChanged`/`onTokenRefresh` chaqiruvida qayta uriniladi.

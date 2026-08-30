@@ -19,6 +19,7 @@ class DeviceSignature {
 
   static const _kDeviceId = 'device_signature_id';
   static const _kLastUpdated = 'device_signature_last_updated_ms';
+  static const _kRegistered = 'device_signature_registered';
 
   // Backend'dagi DEVICE_HMAC_SECRET bilan BIR XIL bo'lishi shart (`.env`da
   // sozlanadi). Prodda build vaqtida `--dart-define=DEVICE_HMAC_SECRET=...`
@@ -32,6 +33,7 @@ class DeviceSignature {
   String _deviceName = 'Android';
   int _vcode = 0;
   DateTime? _lastUpdated;
+  bool _registered = false;
 
   String? get deviceId => _deviceId;
 
@@ -44,6 +46,7 @@ class DeviceSignature {
     }
     final lastMs = prefs.getInt(_kLastUpdated);
     _lastUpdated = lastMs != null ? DateTime.fromMillisecondsSinceEpoch(lastMs) : null;
+    _registered = prefs.getBool(_kRegistered) ?? false;
 
     try {
       final info = await PackageInfo.fromPlatform();
@@ -60,14 +63,17 @@ class DeviceSignature {
     return List.generate(bytes, (_) => rand.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
   }
 
-  /// Har bir HTTP so'roviga qo'shiladigan headerlar to'plami. `_deviceId`
-  /// hali tayyor bo'lmasa (masalan `init()` chaqirilmagan bo'lsa) bo'sh
-  /// xarita qaytaradi — chaqiruvchi (`ApiClient`) shu holda headerlarni
-  /// oddiy qo'shmaydi, so'rov IMZOSIZ ketadi (server bunday so'rovni
-  /// `X-Device-Id` yo'qligi sababli oddiy — imzosiz — deb qabul qiladi).
+  /// Har bir HTTP so'roviga qo'shiladigan headerlar to'plami. Qurilma
+  /// hali backend'da RO'YXATDAN O'TMAGAN bo'lsa (`_registered == false` —
+  /// masalan yangi o'rnatilgan ilova, `register_device` hali tugallanmagan)
+  /// bo'sh xarita qaytaradi — aks holda ilova ochilishida parallel ketayotgan
+  /// BOSHQA so'rovlar (bootstrap, catalog va h.k.) `register_device`dan
+  /// OLDIN backend'ga signature bilan yetib borib, hali mavjud bo'lmagan
+  /// qurilma uchun "DEVICE_REVOKED" xatosi bilan rad etilar edi (haqiqiy
+  /// bekor qilinganidan emas, shunchaki hali ro'yxatdan o'tmaganidan).
   Map<String, String> buildHeaders() {
     final deviceId = _deviceId;
-    if (deviceId == null) return const {};
+    if (deviceId == null || !_registered) return const {};
 
     final now = DateTime.now();
     final dayDelta = _lastUpdated == null ? 0 : _daysBetween(_lastUpdated!, now);
@@ -102,6 +108,29 @@ class DeviceSignature {
     _lastUpdated = DateTime.now();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_kLastUpdated, _lastUpdated!.millisecondsSinceEpoch);
+  }
+
+  /// `register_device` MUVAFFAQIYATLI tugagach chaqiriladi (qarang
+  /// `push_service.dart::_sendToken`) — shundan keyingina so'rovlarga
+  /// imzo qo'shila boshlaydi (yuqoridagi `buildHeaders` izohiga qarang).
+  Future<void> markRegistered() async {
+    if (_registered) return;
+    _registered = true;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kRegistered, true);
+    await markSuccess();
+  }
+
+  /// Logout bo'lganda chaqiriladi — backend qurilma yozuvini butunlay
+  /// o'chiradi (`unregister_device`), shuning uchun mahalliy holat ham
+  /// "ro'yxatdan o'tmagan"ga qaytariladi — aks holda keyingi so'rovlar
+  /// mavjud bo'lmagan qurilma uchun imzolab yuborilib, DEVICE_REVOKED bilan
+  /// rad etilar edi (keyingi login `register_device`ni qayta chaqirganda
+  /// tuzatiladi, lekin shu oraliqda keraksiz xatolar chiqmasligi uchun).
+  Future<void> markUnregistered() async {
+    _registered = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kRegistered, false);
   }
 
   String get deviceName => _deviceName;

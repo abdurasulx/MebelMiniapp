@@ -157,7 +157,12 @@ TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", default="")
 # "Generate new private key" orqali olingan JSON fayl yo'li. Bo'sh bo'lsa
 # (default), push jim o'tkazib yuboriladi — qarang apps/notifications/push.py.
 # MUHIM: bu fayl HECH QACHON git'ga commit qilinmasin (.gitignore'da).
-FIREBASE_CREDENTIALS_PATH = env("FIREBASE_CREDENTIALS_PATH", default="")
+# Nisbiy yo'l berilsa (masalan ".env"dagi standart "firebase-credentials.json"),
+# ishga tushirilgan joydan (CWD) qat'i nazar doim BASE_DIR'ga nisbatan hal qilinadi.
+_firebase_credentials_raw = env("FIREBASE_CREDENTIALS_PATH", default="")
+FIREBASE_CREDENTIALS_PATH = (
+    str(BASE_DIR / _firebase_credentials_raw) if _firebase_credentials_raw else ""
+)
 
 # Mobil so'rov-imzosi (HMAC-SHA256, nwupdate.md §5) sirri — qarang
 # apps/notifications/security.py. MUHIM: bu APK ichiga joylashtiriladigan
