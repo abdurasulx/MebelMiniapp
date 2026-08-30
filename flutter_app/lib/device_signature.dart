@@ -21,12 +21,14 @@ class DeviceSignature {
   static const _kLastUpdated = 'device_signature_last_updated_ms';
   static const _kRegistered = 'device_signature_registered';
 
-  // Backend'dagi DEVICE_HMAC_SECRET bilan BIR XIL bo'lishi shart (`.env`da
-  // sozlanadi). Prodda build vaqtida `--dart-define=DEVICE_HMAC_SECRET=...`
-  // orqali almashtirilishi tavsiya etiladi.
+  // Backend'dagi DEVICE_HMAC_SECRET (`.env`) bilan BIR XIL bo'lishi SHART —
+  // aks holda HAR BIR imzo SIGNATURE_INVALID bilan rad etiladi (aynan shu
+  // sabab bilan sinovda muvaffaqiyatsiz bo'lgan edi). Prodda build vaqtida
+  // `--dart-define=DEVICE_HMAC_SECRET=...` bilan almashtirish tavsiya
+  // etiladi, lekin standart qiymat backend bilan HOZIRDA mos.
   static const String _secret = String.fromEnvironment(
     'DEVICE_HMAC_SECRET',
-    defaultValue: 'dev-only-change-me',
+    defaultValue: 'Vida7kQ3mN9pXr2LsT8wZcF5hJyU4bE6',
   );
 
   String? _deviceId;
