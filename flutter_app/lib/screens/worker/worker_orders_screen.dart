@@ -5,13 +5,15 @@ import '../../models.dart';
 import '../../widgets/offline_view.dart';
 
 /// Xodim (ustadan tortib sotuvchi/haydovchigacha) — o'z firmasi
-/// buyurtmalarini boshqaradi (status: qabul qilish/yetkazish) VA faqat
-/// o'ziga biriktirilgan ishlab chiqarish bosqichlarini bajaradi
-/// (progress/complete). Ikkinchisi `/orders/` ichidagi nested
-/// `workflow_steps`dan EMAS — u kompaniyaning barcha bosqichini qamrab
-/// oladi — balki alohida `/workflow-instances/`dan olinadi, chunki
-/// backend shu yerda xodimni o'ziniki bo'lmagan bosqichlarni ko'rishdan
-/// avtomatik cheklaydi (qarang apps/workflow/views.py get_queryset).
+/// buyurtmalarini KO'RADI (holatini o'zgartirish — qabul qilish/bekor
+/// qilish — bu yerda YO'Q, faqat firma egasi/menejer web/admin panelida
+/// qila oladi) VA faqat o'ziga biriktirilgan ishlab chiqarish
+/// bosqichlarini bajaradi (progress/complete). Ikkinchisi `/orders/`
+/// ichidagi nested `workflow_steps`dan EMAS — u kompaniyaning barcha
+/// bosqichini qamrab oladi — balki alohida `/workflow-instances/`dan
+/// olinadi, chunki backend shu yerda xodimni o'ziniki bo'lmagan
+/// bosqichlarni ko'rishdan avtomatik cheklaydi (qarang
+/// apps/workflow/views.py get_queryset).
 class WorkerOrdersScreen extends StatefulWidget {
   const WorkerOrdersScreen({super.key});
   @override
@@ -90,22 +92,6 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   /// o'z (barcha xodimlarga tegishli) `workflowSteps`i emas.
   List<WorkflowStepInstance> _myStepsFor(Order order) =>
       _myTasks.where((t) => t.order == order.id).toList();
-
-  Future<void> _setStatus(Order order, String status) async {
-    try {
-      await ApiClient.instance.post(
-        '/orders/${order.id}/set_status/',
-        (j) => j,
-        body: {'status': status},
-        auth: true,
-      );
-      await _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    }
-  }
 
   Future<void> _startTask(WorkflowStepInstance step) async {
     try {
@@ -262,7 +248,6 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                         _OrderCard(
                           order: order,
                           mySteps: _myStepsFor(order),
-                          onSetStatus: _setStatus,
                           onProgress: _postProgress,
                           onStart: _startTask,
                         ),
@@ -273,16 +258,18 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   }
 }
 
+/// Usta buyurtma HOLATINI o'zgartira olmaydi (qabul qilish/bekor qilish —
+/// faqat firma egasi/menejer, admin panelida) — shuning uchun bu yerda
+/// endi status tugmalari yo'q, butun karta bosilganda tafsilot ekrani
+/// (`_OrderStepsScreen`, mijozning OrderDetailScreen'iga o'xshash) ochiladi.
 class _OrderCard extends StatelessWidget {
   final Order order;
   final List<WorkflowStepInstance> mySteps;
-  final Future<void> Function(Order, String) onSetStatus;
   final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
   const _OrderCard({
     required this.order,
     required this.mySteps,
-    required this.onSetStatus,
     required this.onProgress,
     required this.onStart,
   });
@@ -290,82 +277,140 @@ class _OrderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final o = order;
-    final nextStatuses = nextOrderStatus[o.status] ?? [];
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(o.phone, style: const TextStyle(fontWeight: FontWeight.bold)),
-                ),
-                Text(o.statusDisplay, style: const TextStyle(fontSize: 12)),
-              ],
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _OrderStepsScreen(
+              order: o,
+              mySteps: mySteps,
+              onProgress: onProgress,
+              onStart: onStart,
             ),
-            Text(o.address, style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 6),
-            Text('${formatSom(o.totalPrice)} so\'m', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final s in nextStatuses)
-                  OutlinedButton(
-                    onPressed: () => onSetStatus(o, s),
-                    style: s == 'cancelled' ? OutlinedButton.styleFrom(foregroundColor: Colors.red) : null,
-                    child: Text(orderStatusLabel[s] ?? s),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(o.phone, style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                if (mySteps.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => _OrderStepsScreen(
-                          order: o,
-                          steps: mySteps,
-                          onProgress: onProgress,
-                          onStart: onStart,
-                        ),
-                      ),
+                  Text(o.statusDisplay, style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+              Text(o.address, style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('${formatSom(o.totalPrice)} so\'m', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  if (mySteps.isNotEmpty)
+                    Text(
+                      'Mening bosqichlarim: ${mySteps.length}',
+                      style: const TextStyle(fontSize: 12, color: Colors.black54),
                     ),
-                    icon: const Icon(Icons.handyman, size: 16),
-                    label: Text('Mening bosqichlarim (${mySteps.length})'),
-                  ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Buyurtmadagi (menga biriktirilgan) bosqichlar ro'yxati — avval
-/// `_OrderCard` ichida joyida ochilardi, endi alohida ekranda (buyurtmalar
-/// ro'yxati toza qolishi uchun so'ralgan o'zgarish).
+/// Buyurtma tafsiloti — avval `_OrderCard` ichida joyida ochilardi, endi
+/// alohida ekranda (buyurtmalar ro'yxati toza qolishi uchun). Ko'rinishi
+/// mijozning `OrderDetailScreen`iga o'xshash (narx/holat/progress bar +
+/// bosqichlar tarixi), farqi: FAQAT MENGA biriktirilgan bosqichlarda
+/// harakat (Boshlash/Yangilash/Yakunlash) tugmalari ko'rinadi — boshqa
+/// ustalarning bosqichlari shu yerda faqat holat sifatida ko'rsatiladi.
 class _OrderStepsScreen extends StatelessWidget {
   final Order order;
-  final List<WorkflowStepInstance> steps;
+  final List<WorkflowStepInstance> mySteps;
   final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
   const _OrderStepsScreen({
     required this.order,
-    required this.steps,
+    required this.mySteps,
     required this.onProgress,
     required this.onStart,
   });
 
   @override
   Widget build(BuildContext context) {
+    final myStepIds = mySteps.map((s) => s.id).toSet();
+    // Ko'p vazifa buyurtmaga bog'liq bo'lmasligi mumkin (qo'lda qo'shilgan) —
+    // shunda `order.workflowSteps` bo'sh bo'ladi, faqat mySteps ko'rsatiladi.
+    final allSteps = order.workflowSteps.isNotEmpty ? order.workflowSteps : mySteps;
     return Scaffold(
       appBar: AppBar(title: Text('Buyurtma ${order.phone}')),
       body: ListView(
-        children: steps.map((step) => _StepTile(step: step, onProgress: onProgress, onStart: onStart)).toList(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${formatSom(order.totalPrice)} so\'m',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECC299).withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(order.statusDisplay, style: const TextStyle(fontSize: 12)),
+                  ),
+                  if (order.progressPercent != null) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: (order.progressPercent ?? 0) / 100,
+                        minHeight: 8,
+                        backgroundColor: const Color(0xFFECC299).withOpacity(0.25),
+                        valueColor: const AlwaysStoppedAnimation(Color(0xFF8A5A2B)),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Ishlab chiqarish: ${order.progressPercent}%',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Ishlab chiqarish jarayoni',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 10),
+          ...allSteps.map(
+            (step) => _StepTile(
+              step: step,
+              isMine: myStepIds.contains(step.id),
+              onProgress: onProgress,
+              onStart: onStart,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -373,9 +418,17 @@ class _OrderStepsScreen extends StatelessWidget {
 
 class _StepTile extends StatelessWidget {
   final WorkflowStepInstance step;
+  // Boshqa ustaning bosqichi bo'lsa `false` — harakat tugmalari
+  // (Boshlash/Yangilash/Yakunlash) yashiriladi, faqat holat ko'rsatiladi.
+  final bool isMine;
   final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
-  const _StepTile({required this.step, required this.onProgress, required this.onStart});
+  const _StepTile({
+    required this.step,
+    this.isMine = true,
+    required this.onProgress,
+    required this.onStart,
+  });
 
   // "Bajardim"/"Yangilanish" tugmalari faqat hali yakunlanmagan bosqichda
   // ko'rsatiladi — "Tasdiqlangan"/"Bekor qilindi" allaqachon yakuniy holat
@@ -414,12 +467,16 @@ class _StepTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canAct = !_finishedStatuses.contains(step.status) &&
+    // `isMine == false` — boshqa ustaning bosqichi, faqat holat ko'rsatiladi
+    // (harakat tugmalari umuman chiqmaydi, backend ham baribir rad etardi,
+    // lekin UI'da oldindan yashirilgani tushunarliroq).
+    final canAct = isMine &&
+        !_finishedStatuses.contains(step.status) &&
         (step.status == 'in_progress' || step.isAvailable);
     // Faqat qo'lda qo'shilgan (manual) va hali kutilayotgan vazifalarga
     // aniq "Boshlash" (pending -> in_progress) tugmasi ko'rsatiladi — web'dagi
     // TaskCard.advance() bilan bir xil naqsh (FirmaProduction.jsx).
-    final canStart = step.isManual && step.status == 'pending' && step.isAvailable;
+    final canStart = isMine && step.isManual && step.status == 'pending' && step.isAvailable;
     return ListTile(
       dense: true,
       isThreeLine: step.description.isNotEmpty,
