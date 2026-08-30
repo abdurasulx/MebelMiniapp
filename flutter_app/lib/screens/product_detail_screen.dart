@@ -290,11 +290,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
   Widget _gallery(Product p) {
     final urls = p.galleryUrls;
-    // Marketplace ilovalaridagi (Uzum va h.k.) kabi kvadratga yaqin
-    // nisbat — avval qattiq 320px edi, tor-uzun ekranlarda (masalan S20
-    // Ultra) rasm ekranning katta qismini egallab, mazmun juda kam
-    // ko'rinardi.
-    final galleryHeight = MediaQuery.of(context).size.width;
+    // Marketplace ilovalaridagi (Uzum va h.k.) kabi — avval qattiq 320px,
+    // keyin kvadrat (1:1) edi, ikkalasi ham tor-uzun ekranda (masalan S20
+    // Ultra) hali ham katta ko'rinardi. Endi kenglikning ~0.62 qismi —
+    // 4:3ga yaqin nisbat, mazmun uchun ko'proq joy qoladi.
+    final galleryHeight = MediaQuery.of(context).size.width * 0.62;
     return Stack(
       children: [
         ClipRRect(
