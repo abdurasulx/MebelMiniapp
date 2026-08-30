@@ -26,7 +26,6 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   List<WorkflowStepInstance> _openTasks = [];
   bool _loading = true;
   Object? _error;
-  String? _applyingId;
 
   @override
   void initState() {
@@ -67,31 +66,22 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
     }
   }
 
-  /// Xodimi hali yo'q ("erkin") bosqichga zayavka yuboradi — firma egasi
-  /// tasdiqlashini kutadi, darhol biriktirmaydi (qarang backend `apply`).
-  Future<void> _applyToOpenTask(WorkflowStepInstance step) async {
-    setState(() => _applyingId = step.id);
-    try {
-      await ApiClient.instance.post(
-        '/workflow-instances/${step.id}/apply/',
-        (j) => j,
-        body: {},
-        auth: true,
-      );
-      await _load();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-      }
-    } finally {
-      if (mounted) setState(() => _applyingId = null);
-    }
-  }
-
   /// Shu buyurtmaga tegishli, MENGA biriktirilgan bosqichlar — order'ning
   /// o'z (barcha xodimlarga tegishli) `workflowSteps`i emas.
   List<WorkflowStepInstance> _myStepsFor(Order order) =>
       _myTasks.where((t) => t.order == order.id).toList();
+
+  /// Buyurtma ro'yxatda ko'rsatilishi uchun — MENING bosqichlarimdan
+  /// kamida bittasi HOZIR harakat qilinadigan bo'lishi kerak (navbatim
+  /// kelgan yoki allaqachon boshlanган). Aks holda (bosqichim allaqachon
+  /// bajarilgan/tasdiqlangan, yoki hali navbat boshqa ustaning bosqichida)
+  /// buyurtma ro'yxatdan yashiriladi — aks holda tugagan yoki hali
+  /// tegishli bo'lmagan buyurtmalar ham cheksiz ko'rinib turaverardi.
+  bool _isActiveForMe(Order order) {
+    return _myStepsFor(order).any(
+      (s) => s.status == 'in_progress' || (s.status == 'pending' && s.isAvailable),
+    );
+  }
 
   Future<void> _startTask(WorkflowStepInstance step) async {
     try {
@@ -224,6 +214,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
     }
 
     final manualTasks = _myTasks.where((t) => t.order == null).toList();
+    final activeOrders = _orders.where(_isActiveForMe).toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Buyurtmalar')),
@@ -252,11 +243,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           child: Column(
                             children: _openTasks
-                                .map((step) => _OpenTaskTile(
-                                      step: step,
-                                      applying: _applyingId == step.id,
-                                      onApply: () => _applyToOpenTask(step),
-                                    ))
+                                .map((step) => _OpenTaskTile(step: step, onApplied: _load))
                                 .toList(),
                           ),
                         ),
@@ -275,12 +262,12 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                           ),
                         ),
                       ],
-                      if (_orders.isEmpty && manualTasks.isEmpty)
+                      if (activeOrders.isEmpty && manualTasks.isEmpty && _openTasks.isEmpty)
                         const Padding(
                           padding: EdgeInsets.only(top: 60),
                           child: Center(child: Text('Hozircha vazifa yo\'q.', style: TextStyle(color: Colors.black54))),
                         ),
-                      for (final order in _orders)
+                      for (final order in activeOrders)
                         _OrderCard(
                           order: order,
                           mySteps: _myStepsFor(order),
@@ -596,14 +583,15 @@ class _StepTile extends StatelessWidget {
   }
 }
 
-/// Xodimi hali biriktirilmagan ("erkin") bosqich — usta "Zayavka yuborish"ni
-/// bosadi, firma egasi tasdiqlaguncha "Kutilmoqda" holatida turadi (qarang
-/// FirmaProduction.jsx OpenPoolView bilan bir xil g'oya).
+/// Xodimi hali biriktirilmagan ("erkin") bosqich — qatorga bosilganda
+/// alohida sahifa ochiladi, u yerda "Qabul qilish" (zayavka) yoki
+/// "O'tkazib yuborish" tanlanadi (qarang `_OpenTaskDetailScreen`) — avval
+/// bu yerning o'zida to'g'ridan-to'g'ri tugma bo'lardi, endi ochiq
+/// tanlov aniqroq bo'lishi uchun alohida ekranga ko'chirildi.
 class _OpenTaskTile extends StatelessWidget {
   final WorkflowStepInstance step;
-  final bool applying;
-  final VoidCallback onApply;
-  const _OpenTaskTile({required this.step, required this.applying, required this.onApply});
+  final Future<void> Function() onApplied;
+  const _OpenTaskTile({required this.step, required this.onApplied});
 
   @override
   Widget build(BuildContext context) {
@@ -632,12 +620,114 @@ class _OpenTaskTile extends StatelessWidget {
       ),
       trailing: pending
           ? const Chip(label: Text('Kutilmoqda', style: TextStyle(fontSize: 11)))
-          : OutlinedButton(
-              onPressed: applying ? null : onApply,
-              child: applying
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Zayavka yuborish'),
+          : const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.black38),
+      onTap: pending
+          ? null
+          : () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => _OpenTaskDetailScreen(step: step, onApplied: onApplied),
+                ),
+              ),
+    );
+  }
+}
+
+/// Erkin topshiriq tafsiloti — "Qabul qilish" (zayavka yuborish, firma
+/// egasi tasdiqlashini kutadi) yoki "O'tkazib yuborish" (hech narsa
+/// qilmasdan ro'yxatga qaytish) shu yerda tanlanadi.
+class _OpenTaskDetailScreen extends StatefulWidget {
+  final WorkflowStepInstance step;
+  final Future<void> Function() onApplied;
+  const _OpenTaskDetailScreen({required this.step, required this.onApplied});
+
+  @override
+  State<_OpenTaskDetailScreen> createState() => _OpenTaskDetailScreenState();
+}
+
+class _OpenTaskDetailScreenState extends State<_OpenTaskDetailScreen> {
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _apply() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await ApiClient.instance.post(
+        '/workflow-instances/${widget.step.id}/apply/',
+        (j) => j,
+        body: {},
+        auth: true,
+      );
+      await widget.onApplied();
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final step = widget.step;
+    return Scaffold(
+      appBar: AppBar(title: Text(step.name)),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (step.cuttingInstruction != null) ...[
+              Text(
+                step.cuttingInstruction!,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.teal),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Text(
+              [
+                if (step.orderDisplay != null) 'Buyurtma ${step.orderDisplay}',
+                if (step.roleDisplay != null) step.roleDisplay!,
+                if (step.workTypeName != null)
+                  '${step.quantity ?? ''} ${step.workTypeUnitDisplay ?? ''} × ${step.workTypeName}'.trim(),
+              ].join(' · '),
+              style: const TextStyle(color: Colors.black54),
             ),
+            const Spacer(),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : () => Navigator.pop(context),
+                    child: const Text('O\'tkazib yuborish'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _busy ? null : _apply,
+                    child: _busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Qabul qilish'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

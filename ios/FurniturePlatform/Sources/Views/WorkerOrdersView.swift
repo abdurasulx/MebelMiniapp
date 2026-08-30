@@ -15,13 +15,22 @@ struct WorkerOrdersView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var isOffline = false
-    @State private var applyingId: String?
 
     private var manualTasks: [WorkflowStepInstance] { myTasks.filter { $0.order == nil } }
 
     private func mySteps(for order: Order) -> [WorkflowStepInstance] {
         myTasks.filter { $0.order == order.id }
     }
+
+    /// Faqat MENING bosqichlarimdan kamida bittasi HOZIR harakat
+    /// qilinadigan (navbatim kelgan yoki allaqachon boshlangan) bo'lsa
+    /// buyurtma ro'yxatda ko'rinadi — bosqichim allaqachon bajarilgan/
+    /// tasdiqlangan yoki hali boshqa ustaning navbatida bo'lsa yashiriladi.
+    private func isActiveForMe(_ order: Order) -> Bool {
+        mySteps(for: order).contains { $0.status == "in_progress" || ($0.status == "pending" && $0.isAvailable) }
+    }
+
+    private var activeOrders: [Order] { orders.filter(isActiveForMe) }
 
     var body: some View {
         NavigationStack {
@@ -34,17 +43,14 @@ struct WorkerOrdersView: View {
                         ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if let errorMessage {
                         Text(errorMessage).foregroundStyle(.red).padding()
-                    } else if orders.isEmpty && manualTasks.isEmpty && openTasks.isEmpty {
+                    } else if activeOrders.isEmpty && manualTasks.isEmpty && openTasks.isEmpty {
                         Text("Hozircha vazifa yo'q").foregroundStyle(.secondary)
                     } else {
                         List {
                             if !openTasks.isEmpty {
                                 Section {
                                     ForEach(openTasks) { step in
-                                        OpenTaskRowView(
-                                            step: step, applying: applyingId == step.id,
-                                            onApply: { Task { await apply(step) } }
-                                        )
+                                        OpenTaskRowView(step: step, onApplied: { await load() })
                                     }
                                 } header: {
                                     Text("Erkin topshiriqlar")
@@ -59,7 +65,7 @@ struct WorkerOrdersView: View {
                                     }
                                 }
                             }
-                            ForEach(orders) { order in
+                            ForEach(activeOrders) { order in
                                 OrderCardView(order: order, mySteps: mySteps(for: order), onChanged: { Task { await load() } })
                                     .listRowSeparator(.hidden)
                             }
@@ -96,21 +102,6 @@ struct WorkerOrdersView: View {
         isLoading = false
     }
 
-    /// Xodimi hali yo'q ("erkin") bosqichga zayavka yuboradi — firma egasi
-    /// tasdiqlashini kutadi, darhol biriktirmaydi (qarang backend `apply`).
-    private func apply(_ step: WorkflowStepInstance) async {
-        applyingId = step.id
-        struct EmptyBody: Encodable {}
-        do {
-            let _: WorkflowStepInstance = try await APIClient.shared.post(
-                "/workflow-instances/\(step.id)/apply/", body: EmptyBody(), auth: true
-            )
-            await load()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-        applyingId = nil
-    }
 }
 
 private struct OrderCardView: View {
@@ -207,12 +198,16 @@ private struct OrderStepsView: View {
 /// Xodimi hali biriktirilmagan ("erkin") bosqich — usta "Zayavka yuborish"ni
 /// bosadi, firma egasi tasdiqlaguncha "Kutilmoqda" holatida turadi (qarang
 /// FirmaProduction.jsx OpenPoolView bilan bir xil g'oya).
+/// Xodimi hali yo'q ("erkin") bosqich — qatorga bosilganda alohida
+/// sahifa ochiladi (`OpenTaskDetailView`), u yerda "Qabul qilish"
+/// (zayavka) yoki "O'tkazib yuborish" tanlanadi. Avval bu yerning o'zida
+/// to'g'ridan-to'g'ri tugma bo'lardi, endi ochiq tanlov aniqroq bo'lishi
+/// uchun alohida sahifaga ko'chirildi.
 private struct OpenTaskRowView: View {
     let step: WorkflowStepInstance
-    let applying: Bool
-    let onApply: () -> Void
+    let onApplied: () async -> Void
 
-    var body: some View {
+    private var content: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(step.name).font(.subheadline)
@@ -232,13 +227,86 @@ private struct OpenTaskRowView: View {
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Color(.secondarySystemBackground))
                     .clipShape(Capsule())
-            } else if applying {
-                ProgressView()
             } else {
-                Button("Zayavka yuborish", action: onApply).font(.caption)
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
             }
         }
         .padding(.vertical, 4)
+    }
+
+    var body: some View {
+        if step.myApplicationStatus == "pending" {
+            content
+        } else {
+            NavigationLink {
+                OpenTaskDetailView(step: step, onApplied: onApplied)
+            } label: {
+                content
+            }
+        }
+    }
+}
+
+private struct OpenTaskDetailView: View {
+    let step: WorkflowStepInstance
+    let onApplied: () async -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var busy = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let cuttingInstruction = step.cuttingInstruction {
+                Text(cuttingInstruction).font(.subheadline).fontWeight(.semibold).foregroundStyle(.teal)
+            }
+            Text(
+                [step.orderDisplay.map { "Buyurtma \($0)" }, step.roleDisplay]
+                    .compactMap { $0 }.joined(separator: " · ")
+            )
+            .foregroundStyle(.secondary)
+            Spacer()
+            if let errorMessage {
+                Text(errorMessage).foregroundStyle(.red).font(.caption)
+            }
+            HStack(spacing: 12) {
+                Button("O'tkazib yuborish") { dismiss() }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+                    .disabled(busy)
+                Button {
+                    Task { await apply() }
+                } label: {
+                    Group {
+                        if busy { ProgressView() } else { Text("Qabul qilish") }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(busy)
+            }
+        }
+        .padding()
+        .navigationTitle(step.name)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// Firma egasi tasdiqlashini kutadi, darhol biriktirmaydi (qarang
+    /// backend `apply`).
+    private func apply() async {
+        busy = true
+        errorMessage = nil
+        struct EmptyBody: Encodable {}
+        do {
+            let _: WorkflowStepInstance = try await APIClient.shared.post(
+                "/workflow-instances/\(step.id)/apply/", body: EmptyBody(), auth: true
+            )
+            await onApplied()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        busy = false
     }
 }
 
