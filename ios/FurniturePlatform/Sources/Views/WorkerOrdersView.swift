@@ -352,6 +352,13 @@ private struct StepUpdateSheet: View {
 
     private var photoRequired: Bool { isCompletion && step.photoRequirement == "required" }
     private var commentRequired: Bool { isCompletion && step.commentRequirement == "required" }
+    // Ogohlantirish/tugma-o'chirish faqat talab HALI QONDIRILMAGAN bo'lsa —
+    // aks holda rasm/izoh allaqachon kiritilgandan keyin ham doimiy
+    // "majburiy" deb ko'rsatilib, foydalanuvchini chalg'itardi (sinovda
+    // aniqlangan haqiqiy muammo).
+    private var photoMissing: Bool { photoRequired && photoData == nil }
+    private var commentMissing: Bool { commentRequired && comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var canSubmit: Bool { !photoMissing && !commentMissing }
 
     var body: some View {
         NavigationStack {
@@ -359,7 +366,7 @@ private struct StepUpdateSheet: View {
                 Section(isCompletion ? "Bosqichni yakunlash" : "Yangilanish qo'shish") {
                     TextField(commentRequired ? "Izoh (majburiy)" : "Izoh (ixtiyoriy)", text: $comment, axis: .vertical)
                         .lineLimit(3, reservesSpace: true)
-                    if commentRequired {
+                    if commentMissing {
                         Text("Bu bosqichni yakunlash uchun izoh majburiy")
                             .font(.caption)
                             .foregroundStyle(.red)
@@ -375,7 +382,7 @@ private struct StepUpdateSheet: View {
                         Label(photoData == nil ? "Kamerani ochish" : "Rasm olindi ✓", systemImage: "camera")
                     }
                 } header: {
-                    if photoRequired { Text("Bu bosqichni yakunlash uchun rasm majburiy") }
+                    if photoMissing { Text("Bu bosqichni yakunlash uchun rasm majburiy") }
                 }
                 if let errorMessage {
                     Section { Text(errorMessage).foregroundStyle(.red) }
@@ -388,7 +395,7 @@ private struct StepUpdateSheet: View {
                     Button("Bekor") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(busy ? "..." : "Yuborish") { Task { await submit() } }.disabled(busy)
+                    Button(busy ? "..." : "Yuborish") { Task { await submit() } }.disabled(busy || !canSubmit)
                 }
             }
             .fullScreenCover(isPresented: $showCamera) {

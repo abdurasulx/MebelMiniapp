@@ -112,51 +112,70 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   Future<void> _postProgress(WorkflowStepInstance step, {required bool complete}) async {
     final commentController = TextEditingController();
     XFile? photo;
+    // Izoh yozilganini kuzatish uchun — `commentController`ning o'zi
+    // StatefulBuilder'ni qayta chizishga majburlamaydi, shuning uchun
+    // holatni alohida o'zgaruvchida (setDialogState orqali) saqlaymiz.
+    var hasComment = false;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(complete ? 'Bosqichni yakunlash' : 'Yangilanish qo\'shish'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: commentController,
-                decoration: InputDecoration(
-                  labelText: complete && step.commentRequirement == 'required'
-                      ? 'Izoh (majburiy)'
-                      : 'Izoh (ixtiyoriy)',
+        builder: (ctx, setDialogState) {
+          final photoMissing = complete && step.photoRequirement == 'required' && photo == null;
+          final commentMissing = complete && step.commentRequirement == 'required' && !hasComment;
+          final canSubmit = !photoMissing && !commentMissing;
+          return AlertDialog(
+            title: Text(complete ? 'Bosqichni yakunlash' : 'Yangilanish qo\'shish'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: commentController,
+                  decoration: InputDecoration(
+                    labelText: complete && step.commentRequirement == 'required'
+                        ? 'Izoh (majburiy)'
+                        : 'Izoh (ixtiyoriy)',
+                  ),
+                  maxLines: 3,
+                  onChanged: (v) => setDialogState(() => hasComment = v.trim().isNotEmpty),
                 ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 10),
-              if (complete && step.commentRequirement == 'required')
-                Text(
-                  'Bu bosqichni yakunlash uchun izoh majburiy',
-                  style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                const SizedBox(height: 10),
+                // Ogohlantirish faqat talab HALI QONDIRILMAGAN bo'lsa
+                // ko'rsatiladi — avval izoh/rasm kiritilgandan keyin ham
+                // doimiy ko'rinib, foydalanuvchini chalg'itadigan xato bor edi.
+                if (commentMissing)
+                  Text(
+                    'Bu bosqichni yakunlash uchun izoh majburiy',
+                    style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                  ),
+                if (photoMissing)
+                  Text(
+                    'Bu bosqichni yakunlash uchun rasm majburiy',
+                    style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                  ),
+                const SizedBox(height: 6),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 85);
+                    if (picked != null) setDialogState(() => photo = picked);
+                  },
+                  icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                  label: Text(photo == null ? 'Rasm olish' : 'Rasm olindi ✓'),
                 ),
-              if (complete && step.photoRequirement == 'required')
-                Text(
-                  'Bu bosqichni yakunlash uchun rasm majburiy',
-                  style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
-                ),
-              const SizedBox(height: 6),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final picked = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 85);
-                  if (picked != null) setDialogState(() => photo = picked);
-                },
-                icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                label: Text(photo == null ? 'Rasm olish' : 'Rasm olindi ✓'),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Bekor')),
+              // Talablar qondirilmaguncha tugma o'chirilgan — foydalanuvchi
+              // "Yuborish"ni bosib, keyin rad javobi olishi (reaktiv xato)
+              // o'rniga, oldindan aniq ko'radi nima yetishmayotganini.
+              ElevatedButton(
+                onPressed: canSubmit ? () => Navigator.pop(ctx, true) : null,
+                child: const Text('Yuborish'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Bekor')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yuborish')),
-          ],
-        ),
+          );
+        },
       ),
     );
     if (confirmed != true) return;
