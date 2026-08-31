@@ -92,6 +92,25 @@ const FIRMA_MENU = [
   { to: "/settings", icon: Settings, label: "Sozlamalar", group: "Tizim" },
 ];
 
+// Xodim (usta) uchun — faqat o'z ishiga tegishli bo'limlar. Xodimlar/Ish
+// haqi/Moliya/Sozlamalar/Omborlar/Ta'minot firma egasi darajasidagi
+// boshqaruv bo'limlari (maosh, moliya, kompaniya sozlamalari) — xodimga
+// ko'rsatilmasligi kerak (backend'da ham shunga mos cheklov qo'yilgan,
+// qarang apps/companies/views.py::EmployeeViewSet.get_queryset).
+const EMPLOYEE_FIRMA_MENU = FIRMA_MENU.filter((m) =>
+  ["/", "/orders", "/production"].includes(m.to)
+);
+
+// Firma egasi darajasidagi bo'limlar (xodimlar/maosh/moliya/sozlamalar/
+// omborlar/ta'minot) — menyudan yashirilgan, lekin to'g'ridan-to'g'ri URL
+// kiritilsa ham xodim ko'rmasligi kerak (backend baribir bloklaydi, bu esa
+// shunchaki chalkash bo'sh/xato sahifa o'rniga toza yo'naltirish beradi).
+function OwnerOnly({ children }) {
+  const { user } = useAuth();
+  if (user?.role === "employee") return <Navigate to="/" replace />;
+  return children;
+}
+
 function Protected({ children, roles }) {
   const { user, loading, logout } = useAuth();
   if (loading) return <div className="p-8" style={{ color: "var(--muted)" }}>Yuklanmoqda…</div>;
@@ -147,7 +166,7 @@ function FirmaShell() {
   return (
     <PortalLayout
       title="Firma kabineti"
-      menu={FIRMA_MENU}
+      menu={user.role === "employee" ? EMPLOYEE_FIRMA_MENU : FIRMA_MENU}
       activePosition={user.role === "employee" ? active : null}
       onSwitchPosition={setActive}
       showNotifications
@@ -295,16 +314,16 @@ export default function App() {
           <Route path="/products" element={<FirmaProducts />} />
           <Route path="/products/:id" element={<FirmaProductDetail />} />
           <Route path="/leads" element={<FirmaLeads />} />
-          <Route path="/employees" element={<Employees />} />
+          <Route path="/employees" element={<OwnerOnly><Employees /></OwnerOnly>} />
           <Route path="/orders" element={<FirmaOrders />} />
           <Route path="/orders/:id" element={<FirmaOrderDetail />} />
           <Route path="/production" element={<FirmaProduction />} />
-          <Route path="/warehouses" element={<FirmaWarehouses />} />
-          <Route path="/warehouses/:id" element={<FirmaWarehouseDetail />} />
-          <Route path="/suppliers" element={<FirmaSuppliers />} />
-          <Route path="/payroll" element={<FirmaPayroll />} />
-          <Route path="/finance" element={<AdminFinance />} />
-          <Route path="/settings" element={<FirmaSettings />} />
+          <Route path="/warehouses" element={<OwnerOnly><FirmaWarehouses /></OwnerOnly>} />
+          <Route path="/warehouses/:id" element={<OwnerOnly><FirmaWarehouseDetail /></OwnerOnly>} />
+          <Route path="/suppliers" element={<OwnerOnly><FirmaSuppliers /></OwnerOnly>} />
+          <Route path="/payroll" element={<OwnerOnly><FirmaPayroll /></OwnerOnly>} />
+          <Route path="/finance" element={<OwnerOnly><AdminFinance /></OwnerOnly>} />
+          <Route path="/settings" element={<OwnerOnly><FirmaSettings /></OwnerOnly>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

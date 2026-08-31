@@ -152,8 +152,23 @@ class CompanyScopedViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Faqat firma a'zolari ombor bilan ishlaydi")
         return company
 
+    # XAVFSIZLIK: `user_company()` egasi VA faol xodimni bir xil deb
+    # hisoblaydi, lekin ombor/ta'minotchi YOZUV/O'CHIRISH — sozlash darajasidagi
+    # amal — faqat egaga tegishli bo'lishi kerak (xuddi `perform_create`dagi
+    # kabi). Aks holda har qanday oddiy xodim butun kompaniya omborini
+    # o'zgartira/o'chira olardi.
+    def _require_owner(self):
+        company = self._own_company()
+        if not is_company_owner(self.request.user, company):
+            raise PermissionDenied("Faqat firma egasi bu amalni bajara oladi")
+        return company
+
     def perform_create(self, serializer):
         serializer.save(company=self._own_company())
+
+    def perform_update(self, serializer):
+        self._require_owner()
+        serializer.save()
 
 
 class WarehouseViewSet(CompanyScopedViewSet):
@@ -172,7 +187,7 @@ class WarehouseViewSet(CompanyScopedViewSet):
         serializer.save(company=company)
 
     def perform_destroy(self, instance):
-        self._own_company()
+        self._require_owner()
         instance.is_deleted = True
         instance.is_active = False
         instance.save(update_fields=["is_deleted", "is_active"])
@@ -188,7 +203,7 @@ class SupplierViewSet(CompanyScopedViewSet):
         return Supplier.objects.filter(company=company, is_deleted=False)
 
     def perform_destroy(self, instance):
-        self._own_company()
+        self._require_owner()
         instance.is_deleted = True
         instance.is_active = False
         instance.save(update_fields=["is_deleted", "is_active"])

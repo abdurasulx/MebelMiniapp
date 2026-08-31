@@ -100,12 +100,19 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         return company
 
     def get_queryset(self):
-        company = user_company(self.request.user)
+        user = self.request.user
+        company = user_company(user)
         if company is None:
             return Employee.objects.none()
-        return Employee.objects.filter(
-            company=company, is_deleted=False
-        ).select_related("user")
+        qs = Employee.objects.filter(company=company, is_deleted=False).select_related("user")
+        # XAVFSIZLIK: `user_company()` egasi VA faol xodimni bir xil deb
+        # hisoblaydi (ikkalasi ham "shu kompaniyaga tegishli"), lekin bu
+        # ro'yxatga (maosh/bonus/komissiya kabi maydonlar bilan, qarang
+        # EmployeeSerializer) faqat EGA to'liq kira olishi kerak — aks holda
+        # har qanday oddiy xodim boshqa hamkasblarining maoshini ko'ra olardi.
+        if not is_company_owner(user, company):
+            qs = qs.filter(user=user)
+        return qs
 
     def perform_update(self, serializer):
         self._own_company()
