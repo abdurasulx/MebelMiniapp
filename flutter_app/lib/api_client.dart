@@ -165,12 +165,40 @@ class ApiClient {
     );
     final resp = await http.Response.fromStream(streamed);
     if (request.headers.containsKey('X-Device-Id')) {
-      unawaited(DeviceSignature.instance.markSuccess());
+      // Rad javobi bo'lsa mahalliy holatni yangilamaymiz — aks holda server
+      // bilan sinxronlik butunlay uzilib qolar edi (qarang `_send`dagi
+      // bir xil izoh).
+      if (_isDeviceSignatureRejection(resp.body)) {
+        await DeviceSignature.instance.markUnregistered();
+      } else {
+        unawaited(DeviceSignature.instance.markSuccess());
+      }
     }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException(_extractError(resp.body, resp.statusCode), statusCode: resp.statusCode);
     }
     return fromJson(jsonDecode(resp.body));
+  }
+
+  /// `DeviceSignatureMiddleware` (backend/apps/notifications/security.py)
+  /// so'rovni rad etganda `{"code": "<KOD>"}` shaklida javob beradi — bu
+  /// JWT sessiyasi bilan HECH QANDAY aloqasi yo'q, faqat qo'shimcha
+  /// (ixtiyoriy) imzo qatlamining o'zi. Buni oddiy 401 bilan chalkashtirib,
+  /// foydalanuvchini sessiyadan chiqarib yuborish noto'g'ri edi — aynan shu
+  /// sabab bilan (mahalliy `lastUpdated` server bilan sinxronlanmay qolsa)
+  /// ilova HAR OCHILGANDA qayta login talab qilib qolar edi.
+  static const _deviceSignatureCodes = {
+    'MISSING_DEVICE_HEADERS', 'INVALID_DEVICE_HEADERS', 'UPDATE_REQUIRED',
+    'TIMESNAP_INVALID', 'NONCE_REUSED', 'DEVICE_REVOKED', 'SIGNATURE_INVALID',
+  };
+
+  bool _isDeviceSignatureRejection(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      return decoded is Map && _deviceSignatureCodes.contains(decoded['code']);
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<T> _send<T>(
@@ -180,6 +208,7 @@ class ApiClient {
     T Function(dynamic json) fromJson, {
     required bool auth,
     bool isRetry = false,
+    bool isSignatureRetry = false,
   }) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}$path');
     final headers = <String, String>{'Content-Type': 'application/json'};
@@ -212,13 +241,37 @@ class ApiClient {
       }
     });
 
-    // Qurilma-imzosi headerlari yuborilgan bo'lsa, server nechta status
-    // qaytarmasin (device-imzo o'zi 400/401/403 bilan aniq rad etadi),
-    // "so'nggi urinish" vaqtini yangilaymiz — shu bilan keyingi so'rovning
-    // `day_delta`si serverning kutayotgan qiymatiga qayta moslanadi (agar
-    // avval qandaydir sabab bilan chalkashib qolgan bo'lsa ham).
     if (headers.containsKey('X-Device-Id')) {
-      unawaited(DeviceSignature.instance.markSuccess());
+      if (_isDeviceSignatureRejection(resp.body)) {
+        // Imzo qatlami servertan uzilib qolgan (masalan `day_delta`
+        // desinxronlashgan) — buni JWT sessiyasi tugagani deb HISOBLAMAYMIZ.
+        // Mahalliy holatni tozalab, shu so'rovni imzosiz qayta yuboramiz —
+        // JWT o'zi hali to'liq amal qiladi. Serverdagi eski qurilma
+        // yozuvini ham (fon rejimida) o'chirtiramiz — aks holda
+        // `register_device` shu yozuvni YANGILAB qo'yar (last_seen
+        // o'zgarmay qolib), desinxronizatsiya darhol qaytalanar edi.
+        final deviceId = DeviceSignature.instance.deviceId;
+        await DeviceSignature.instance.markUnregistered();
+        if (deviceId != null) {
+          unawaited(
+            ApiClient.instance
+                .post('/notifications/unregister_device/', (j) => j, body: {'device_id': deviceId})
+                .catchError((_) => null),
+          );
+        }
+        if (!isSignatureRetry) {
+          return _send(
+            method, path, body, fromJson,
+            auth: auth, isRetry: isRetry, isSignatureRetry: true,
+          );
+        }
+      } else {
+        // Qurilma-imzosi headerlari yuborilgan bo'lsa, server nechta status
+        // qaytarmasin (device-imzo o'zi 400/401/403 bilan aniq rad etadi),
+        // "so'nggi urinish" vaqtini yangilaymiz — shu bilan keyingi so'rovning
+        // `day_delta`si serverning kutayotgan qiymatiga qayta moslanadi.
+        unawaited(DeviceSignature.instance.markSuccess());
+      }
     }
 
     if (resp.statusCode == 401 && auth && !isRetry) {

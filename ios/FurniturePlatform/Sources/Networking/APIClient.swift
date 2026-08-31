@@ -129,7 +129,14 @@ actor APIClient {
 
         let (data, response) = try await performRequest(request)
         if !signatureHeaders.isEmpty {
-            await DeviceSignature.shared.markSuccess()
+            // Rad javobi bo'lsa mahalliy holatni yangilamaymiz — aks holda
+            // server bilan sinxronlik butunlay uzilib qolar edi (qarang
+            // `rawRequest`dagi bir xil izoh).
+            if isDeviceSignatureRejection(data) {
+                await DeviceSignature.shared.markUnregistered()
+            } else {
+                await DeviceSignature.shared.markSuccess()
+            }
         }
         guard let http = response as? HTTPURLResponse else {
             throw APIError.server("Server bilan bog'lanib bo'lmadi", statusCode: 0)
@@ -189,7 +196,28 @@ actor APIClient {
         }
     }
 
-    private func rawRequest(path: String, method: String, body: Data?, auth: Bool, isRetry: Bool = false) async throws -> Data {
+    /// `DeviceSignatureMiddleware` (backend/apps/notifications/security.py)
+    /// so'rovni rad etganda `{"code": "<KOD>"}` shaklida javob beradi — bu
+    /// JWT sessiyasi bilan HECH QANDAY aloqasi yo'q, faqat qo'shimcha
+    /// (ixtiyoriy) imzo qatlamining o'zi. Buni oddiy 401 bilan chalkashtirib,
+    /// foydalanuvchini sessiyadan chiqarib yuborish noto'g'ri edi — aynan shu
+    /// sabab bilan (mahalliy `lastUpdated` server bilan sinxronlanmay qolsa)
+    /// ilova HAR OCHILGANDA qayta login talab qilib qolar edi.
+    private static let deviceSignatureCodes: Set<String> = [
+        "MISSING_DEVICE_HEADERS", "INVALID_DEVICE_HEADERS", "UPDATE_REQUIRED",
+        "TIMESNAP_INVALID", "NONCE_REUSED", "DEVICE_REVOKED", "SIGNATURE_INVALID",
+    ]
+
+    private func isDeviceSignatureRejection(_ data: Data) -> Bool {
+        struct CodeBody: Decodable { let code: String }
+        guard let body = try? JSONDecoder().decode(CodeBody.self, from: data) else { return false }
+        return Self.deviceSignatureCodes.contains(body.code)
+    }
+
+    private func rawRequest(
+        path: String, method: String, body: Data?, auth: Bool,
+        isRetry: Bool = false, isSignatureRetry: Bool = false
+    ) async throws -> Data {
         var request = URLRequest(url: APIConfig.url(for: path))
         request.httpMethod = method
         // 3s juda tez edi — mobil tarmoqda oddiy kechikish ham "oflayn" deb
@@ -211,15 +239,43 @@ actor APIClient {
         }
 
         let (data, response) = try await performRequest(request)
-        // Qurilma-imzosi headerlari yuborilgan bo'lsa, server nechta status
-        // qaytarmasin (device-imzo o'zi 400/401/403 bilan aniq rad etadi),
-        // "so'nggi urinish" vaqtini yangilaymiz — shu bilan keyingi so'rovning
-        // `day_delta`si serverning kutayotgan qiymatiga qayta moslanadi.
-        if !signatureHeaders.isEmpty {
-            await DeviceSignature.shared.markSuccess()
-        }
         guard let http = response as? HTTPURLResponse else {
             throw APIError.server("Server bilan bog'lanib bo'lmadi", statusCode: 0)
+        }
+
+        if !signatureHeaders.isEmpty {
+            if isDeviceSignatureRejection(data) {
+                // Imzo qatlami servertan uzilib qolgan (masalan `day_delta`
+                // desinxronlashgan) — buni JWT sessiyasi tugagani deb
+                // HISOBLAMAYMIZ. Mahalliy holatni tozalab, shu so'rovni
+                // imzosiz qayta yuboramiz — JWT o'zi hali to'liq amal
+                // qiladi. Serverdagi eski qurilma yozuvini ham (fon
+                // rejimida, natijasiga qaramay) o'chirtiramiz — aks holda
+                // `register_device` shu yozuvni YANGILAB qo'yar (last_seen
+                // o'zgarmay qolib), keyingi safar ham xuddi shu
+                // desinxronizatsiya darhol qaytalanar edi.
+                let deviceId = await DeviceSignature.shared.currentDeviceId
+                await DeviceSignature.shared.markUnregistered()
+                struct UnregisterBody: Encodable { let deviceId: String }
+                Task.detached {
+                    let _: [String: String]? = try? await APIClient.shared.post(
+                        "/notifications/unregister_device/", body: UnregisterBody(deviceId: deviceId), auth: true
+                    )
+                }
+                if !isSignatureRetry {
+                    return try await rawRequest(
+                        path: path, method: method, body: body, auth: auth,
+                        isRetry: isRetry, isSignatureRetry: true
+                    )
+                }
+            } else {
+                // Qurilma-imzosi headerlari yuborilgan bo'lsa, server nechta
+                // status qaytarmasin (device-imzo o'zi 400/401/403 bilan aniq
+                // rad etadi), "so'nggi urinish" vaqtini yangilaymiz — shu
+                // bilan keyingi so'rovning `day_delta`si serverning kutayotgan
+                // qiymatiga qayta moslanadi.
+                await DeviceSignature.shared.markSuccess()
+            }
         }
 
         if http.statusCode == 401, auth, !isRetry {
