@@ -117,7 +117,11 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
             <Menu size={20} />
           </button>
           <h1 className="text-lg font-semibold">{current}</h1>
-          <div className="ml-auto flex items-center gap-2">
+          {/* Menyu (drawer) mobilda ochiq bo'lganda bu boshqaruvlar
+              (bildirishnoma, tema, chiqish va h.k.) qorong'ilashtirilgan
+              fon ustida hamon to'liq yorqin/aniq ko'rinib, chalkash va
+              "singan" taassurot qoldirardi — endi shu holatda yashiriladi. */}
+          <div className={`ml-auto ${open ? "hidden lg:flex" : "flex"} items-center gap-2`}>
             {activePosition && (
               <select
                 className="input !w-auto !py-1.5 text-xs"
