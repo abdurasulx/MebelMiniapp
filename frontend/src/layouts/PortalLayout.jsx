@@ -1,12 +1,68 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Menu, Sofa } from "lucide-react";
+import { LogOut, Menu, Sofa } from "lucide-react";
 import { useAuth } from "../auth";
 import { POSITIONS, setActivePosition } from "../positions";
 import { useTheme } from "../theme";
 import { BRAND_NAME } from "../portal";
 import ThemeSwitch from "../components/ThemeSwitch";
 import NotificationBell from "../components/NotificationBell";
+
+/** Avatar + ism/kompaniya/tema/chiqish — avval hammasi qatorda alohida-alohida
+ * ko'rsatilib, tor ekranda (va hatto kengida ham) chalkash/siqilgan ko'rinardi.
+ * Endi bitta avatar tugmasi, bosilganda ochiladigan kichik menyu ichida. */
+function UserMenu({ user, dark, onToggleTheme, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [open]);
+
+  if (!user) return null;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold"
+        style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Foydalanuvchi menyusi"
+      >
+        {(user.first_name || user.email)[0].toUpperCase()}
+      </button>
+      {open && (
+        <div
+          className="card absolute right-0 top-full z-30 mt-2 flex w-56 flex-col gap-1 p-2"
+          style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
+        >
+          <div className="px-2 py-1.5">
+            <div className="truncate text-sm font-medium">{user.first_name || user.email}</div>
+            <div className="truncate text-xs" style={{ color: "var(--muted)" }}>
+              {user.company?.name || user.role}
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm" style={{ borderTop: "1px solid var(--border)" }}>
+            <span>Qorong'i rejim</span>
+            <ThemeSwitch dark={dark} onToggle={onToggleTheme} />
+          </div>
+          <button
+            onClick={onLogout}
+            className="btn-ghost inline-flex items-center gap-1.5 !justify-start text-sm"
+            style={{ color: "#e74c3c", borderTop: "1px solid var(--border)" }}
+          >
+            <LogOut size={15} /> Chiqish
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * ERP uslubidagi layout (Dream ERP tuzilishiga mos): chapda brend sidebar
@@ -140,26 +196,7 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
               </select>
             )}
             {showNotifications && <NotificationBell />}
-            <ThemeSwitch dark={dark} onToggle={toggle} />
-            {user && (
-              <div className="flex items-center gap-2">
-                <div
-                  className="hidden h-8 w-8 items-center justify-center rounded-full text-sm font-bold sm:flex"
-                  style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
-                >
-                  {(user.first_name || user.email)[0].toUpperCase()}
-                </div>
-                <div className="hidden text-right sm:block">
-                  <div className="text-xs font-medium">{user.first_name || user.email}</div>
-                  <div className="text-[10px]" style={{ color: "var(--muted)" }}>
-                    {user.company?.name || user.role}
-                  </div>
-                </div>
-                <button onClick={logout} className="btn-ghost !px-3 !py-1.5 text-xs">
-                  Chiqish
-                </button>
-              </div>
-            )}
+            <UserMenu user={user} dark={dark} onToggleTheme={toggle} onLogout={logout} />
           </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
