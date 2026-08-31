@@ -141,7 +141,14 @@ class CompleteRegistrationView(APIView):
         user.first_name = data["first_name"].strip()
         user.last_name = data.get("last_name", "").strip()
         if data.get("phone"):
-            user.phone = data["phone"].strip()
+            phone = data["phone"].strip()
+            # PhoneVerifyConfirmView bilan bir xil tekshiruv — aks holda
+            # ikkita hisob bitta raqamga ega bo'lib qolishi mumkin edi
+            # (telefon DB darajasida unique emas, faqat shu tekshiruv
+            # himoya qiladi).
+            if User.objects.filter(phone=phone).exclude(phone="").exclude(pk=user.pk).exists():
+                raise ValidationError("Bu telefon raqami boshqa hisobga bog'langan")
+            user.phone = phone
         user.registration_completed = True
         user.save(update_fields=["role", "first_name", "last_name", "phone", "registration_completed"])
 
