@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Phone, MapPin, MessageSquare, X, Workflow } from "lucide-react";
 import { api } from "../../api";
+import { useAuth } from "../../auth";
 import { NEXT_STATUS, ORDER_STATUS, StatusBadge } from "../../orderStatus";
 import LoadMoreButton from "../../components/LoadMoreButton";
 
 export default function FirmaOrders() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [filter, setFilter] = useState("");
@@ -122,7 +124,7 @@ export default function FirmaOrders() {
               </div>
             ))}
           </div>
-          {employees.length > 0 && (
+          {user?.role === "company_owner" && employees.length > 0 && (
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
               <span>Sotuvchi (komissiya uchun):</span>
               <select
@@ -153,7 +155,10 @@ export default function FirmaOrders() {
                   <Workflow size={13} /> Ishlab chiqarish ({o.progress_percent ?? 0}%)
                 </Link>
               )}
-              {(NEXT_STATUS[o.status] || []).map((s) => {
+              {/* Buyurtma holatini o'zgartirish (qabul/bekor) — menejerlik
+                  qarori, faqat firma egasi uchun (backend ham shunday
+                  cheklaydi, qarang OrderViewSet.set_status). */}
+              {user?.role === "company_owner" && (NEXT_STATUS[o.status] || []).map((s) => {
                 const Icon = ORDER_STATUS[s].icon;
                 return s === "cancelled" ? (
                   <button key={s} className="btn-danger inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={() => setStatus(o, s)}>

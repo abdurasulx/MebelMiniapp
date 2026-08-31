@@ -50,7 +50,20 @@ class OrderViewSet(
             return qs
         company = user_company(user)
         if company:
-            return qs.filter(company=company)
+            if is_company_owner(user, company):
+                return qs.filter(company=company)
+            # XAVFSIZLIK: oddiy xodim (usta) butun kompaniyaning barcha
+            # buyurtmalarini ko'rmasligi kerak — faqat o'ziga ish bosqichi
+            # tayinlangan buyurtmalarni (mobil ilovadagi `_isActiveForMe`
+            # bilan bir xil maqsad, qarang worker_orders_screen.dart).
+            from apps.companies.models import Employee
+
+            employee = Employee.objects.filter(
+                company=company, user=user, is_active=True, is_deleted=False
+            ).first()
+            if employee is None:
+                return qs.none()
+            return qs.filter(company=company, workflow_steps__employee=employee).distinct()
         return qs.filter(customer=user)
 
     @action(detail=True, methods=["post"])
@@ -62,7 +75,17 @@ class OrderViewSet(
 
         user = request.user
         company = user_company(user)
-        is_company_side = company is not None and company.id == order.company_id
+        # XAVFSIZLIK: `user_company()` egasi VA faol xodimni bir xil deb
+        # hisoblaydi, lekin buyurtmani QABUL QILISH/BEKOR QILISH — menejerlik
+        # qarori — faqat firma egasiga tegishli bo'lishi kerak (xuddi
+        # `set_sold_by`dagi kabi). Aks holda har qanday oddiy usta o'ziga
+        # umuman aloqasi yo'q har qanday mijoz buyurtmasini qabul/bekor
+        # qila olardi.
+        is_company_side = (
+            company is not None
+            and company.id == order.company_id
+            and is_company_owner(user, company)
+        )
 
         if is_company_side or user.role == "platform_admin":
             allowed = Order.TRANSITIONS.get(order.status, [])
