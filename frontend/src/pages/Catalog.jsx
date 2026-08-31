@@ -91,12 +91,15 @@ export default function Catalog() {
   const toggleLike = async (e, product) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) return;
+    if (!user) {
+      setError("Sevimlilarga qo'shish uchun tizimga kiring");
+      return;
+    }
     try {
       const res = await api("/likes/toggle/", { method: "POST", body: { product: product.id } });
       setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, is_liked: res.liked } : p)));
-    } catch {
-      // jim turamiz
+    } catch (err) {
+      setError(err.message);
     }
   };
 

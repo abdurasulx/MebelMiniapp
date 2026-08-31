@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Heart, Factory, Sofa, Image, Box, ShoppingBasket, Play, ArrowRight } from "lucide-react";
+import { Heart, Factory, Sofa, Image, Box, ShoppingBasket, ArrowRight } from "lucide-react";
 import { api } from "../api";
 import { addToCart } from "../cart";
 import ModelViewer from "../components/ModelViewer";
@@ -19,6 +19,7 @@ export default function ProductDetail() {
   const [show3d, setShow3d] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
+  const [likeError, setLikeError] = useState("");
   const [companyTier, setCompanyTier] = useState(null);
 
   useEffect(() => {
@@ -44,10 +45,15 @@ export default function ProductDetail() {
   }, [id]);
 
   const variant = p?.variants.find((v) => v.id === variantId);
+  // Ko'p materialli mahsulotlarda variant o'zining alohida 3D faylini olishi
+  // mumkin (masalan eshikli shkaf) — bo'lsa o'sha ishlatiladi, aks holda
+  // mahsulotning umumiy modeliga runtime rang/tekstura tint qo'llanadi.
+  const hasOwnModel = variant?.model3d?.glb_url && variant.model3d.status === "ready";
+  const activeModel3d = hasOwnModel ? variant.model3d : p?.model3d;
 
-  // Variant almashtirilganda AR ko'rinishi shu mahsulotning bitta modeliga qarab tiklanadi
+  // Variant almashtirilganda AR ko'rinishi mos model mavjud bo'lmasa yopiladi
   useEffect(() => {
-    if (!p?.model3d?.glb_url) setShow3d(false);
+    if (!activeModel3d?.glb_url) setShow3d(false);
   }, [variantId]);
 
   const price = useMemo(() => {
@@ -58,8 +64,9 @@ export default function ProductDetail() {
   }, [variant, dims]);
 
   const toggleLike = async () => {
+    setLikeError("");
     if (!user) {
-      setError("Sevimlilarga qo'shish uchun tizimga kiring");
+      setLikeError("Sevimlilarga qo'shish uchun tizimga kiring");
       return;
     }
     setLikeBusy(true);
@@ -67,7 +74,7 @@ export default function ProductDetail() {
       const res = await api("/likes/toggle/", { method: "POST", body: { product: p.id } });
       setLiked(res.liked);
     } catch (e) {
-      setError(e.message);
+      setLikeError(e.message);
     } finally {
       setLikeBusy(false);
     }
@@ -100,6 +107,7 @@ export default function ProductDetail() {
           <Heart size={18} fill={liked ? "currentColor" : "none"} style={{ color: liked ? "#e74c3c" : "var(--muted)" }} />
         </button>
       </div>
+      {likeError && <div className="error mb-4">{likeError}</div>}
       <Link
         to={`/shop/${p.company_slug}`}
         className="card mb-6 flex items-center gap-3 !p-3 transition hover:shadow-md"
@@ -124,14 +132,14 @@ export default function ProductDetail() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Rasm / 3D */}
         <div>
-          {show3d && p.model3d?.glb_url ? (
+          {show3d && activeModel3d?.glb_url ? (
             <ModelViewer
-              glb={p.model3d.glb_url}
-              usdz={p.model3d.usdz_url}
+              glb={activeModel3d.glb_url}
+              usdz={activeModel3d.usdz_url}
               alt={`${p.name_uz} — ${variant.name}`}
               poster={p.image_url}
-              colorHex={variant.color_hex}
-              textureUrl={variant.texture_url}
+              colorHex={hasOwnModel ? null : variant.color_hex}
+              textureUrl={hasOwnModel ? null : variant.texture_url}
             />
           ) : (p.image_url || p.images?.[0]?.image_url) ? (
             <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="card w-full object-cover" />
@@ -144,7 +152,7 @@ export default function ProductDetail() {
             </div>
           )}
 
-          {p.model3d?.glb_url && (
+          {activeModel3d?.glb_url && (
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 className={show3d ? "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn btn-brand inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
@@ -188,7 +196,7 @@ export default function ProductDetail() {
                   <select className="input" value={variantId} onChange={(e) => setVariantId(e.target.value)}>
                     {p.variants.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.name} — {Number(v.base_price).toLocaleString()} so'm/m³{p.model3d?.glb_url ? " · AR" : ""}
+                        {v.name} — {Number(v.base_price).toLocaleString()} so'm/m³{(v.model3d?.glb_url || p.model3d?.glb_url) ? " · AR" : ""}
                       </option>
                     ))}
                   </select>
@@ -267,17 +275,6 @@ export default function ProductDetail() {
             </>
           ) : (
             <p className="text-sm" style={{ color: "var(--muted)" }}>Variantlar hali qo'shilmagan.</p>
-          )}
-          {p.video_url && (
-            <a
-              href={p.video_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1"
-              style={{ color: "var(--secondary)" }}
-            >
-              <Play size={14} /> Video ko'rish
-            </a>
           )}
         </div>
       </div>
