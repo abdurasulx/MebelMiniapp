@@ -26,13 +26,20 @@ export default function WorkflowPanel({ order, editable = false, onChanged }) {
     >
       {editable && order.production_cost && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <CostTile label="Ishlab chiqarish" value={order.production_cost.total_cost} />
+          {/* Tannarx/foyda faqat firma egasiga qaytariladi (qarang
+              OrderSerializer.get_production_cost) — oddiy xodimga
+              `production_cost` faqat `selling_price` bilan keladi. */}
+          {order.production_cost.profit !== undefined && (
+            <>
+              <CostTile label="Ishlab chiqarish" value={order.production_cost.total_cost} />
+              <CostTile
+                label="Foyda"
+                value={order.production_cost.profit}
+                color={order.production_cost.profit >= 0 ? "#27ae60" : "#e74c3c"}
+              />
+            </>
+          )}
           <CostTile label="Sotuv narxi" value={order.production_cost.selling_price} />
-          <CostTile
-            label="Foyda"
-            value={order.production_cost.profit}
-            color={order.production_cost.profit >= 0 ? "#27ae60" : "#e74c3c"}
-          />
           {prediction?.estimated_finish && (
             <CostTile
               label={`Taxminiy tugash (${Math.round((prediction.confidence || 0) * 100)}%)`}

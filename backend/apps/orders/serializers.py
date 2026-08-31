@@ -71,9 +71,33 @@ class OrderSerializer(serializers.ModelSerializer):
         ).data
 
     def get_production_cost(self, obj):
+        total_price = obj.total_price or Decimal("0")
+
+        # XAVFSIZLIK: tannarx/foyda — menejerlik ma'lumoti, oddiy xodim
+        # (usta) buyurtmani (endi to'g'ri, faqat o'ziga tegishlisini) ko'ra
+        # olsa ham, bu moliyaviy tafsilotni ko'rmasligi kerak. Sotuv narxi
+        # esa baribir boshqa joylarda (buyurtma ro'yxati va h.k.) ko'rinadi,
+        # shuning uchun uni qoldiramiz — faqat tannarx/foyda yashiriladi.
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        is_owner = False
+        if user is not None and user.is_authenticated:
+            if user.role == "platform_admin":
+                is_owner = True
+            else:
+                from apps.companies.views import is_company_owner, user_company
+
+                company = user_company(user)
+                is_owner = (
+                    company is not None
+                    and company.id == obj.company_id
+                    and is_company_owner(user, company)
+                )
+        if not is_owner:
+            return {"selling_price": total_price}
+
         steps = self._steps(obj)
         labor_cost = sum((s.cost for s in steps), Decimal("0"))
-        total_price = obj.total_price or Decimal("0")
         return {
             "labor_cost": labor_cost,
             "total_cost": labor_cost,
