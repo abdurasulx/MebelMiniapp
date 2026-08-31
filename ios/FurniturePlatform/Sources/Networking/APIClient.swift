@@ -21,20 +21,12 @@ enum APIError: LocalizedError, Equatable {
     }
 }
 
-/// Simulatorda Mac'ning localhost'i to'g'ridan-to'g'ri ko'rinadi, lekin haqiqiy
-/// qurilma (masalan USB orqali ulangan iPhone) o'zining tarmog'ida ishlaydi —
-/// shuning uchun Mac'ning **Tailscale** IP manziliga ulanadi (Flutter/Android
-/// bilan bir xil sabab: oddiy LAN Wi-Fi IP ba'zi tarmoqlarda — AP-izolyatsiya
-/// va h.k. — sekin/beqaror bo'lib chiqdi, Tailscale VPN orqali bundan qat'iy
-/// nazar barqaror ulanadi). Backend shu tarmoqda ishlab turishi kerak.
+/// Haqiqiy domen (`https://api.qrbite.uz`) — nginx TLS terminatsiya qilib,
+/// backend'ga proksi qiladi. Avval Tailscale VPN IP'siga ulanardi (Mac'ning
+/// tarmog'i qurilma tarmog'idan farqli bo'lgani uchun), endi hojati yo'q —
+/// domen qayerdan bo'lmasin (Wi-Fi, mobil tarmoq) barqaror ishlaydi.
 enum APIConfig {
-    static let baseURL: URL = {
-        #if targetEnvironment(simulator)
-        return URL(string: "http://127.0.0.1:8000/api/v1")!
-        #else
-        return URL(string: "http://100.69.182.71:8000/api/v1")!
-        #endif
-    }()
+    static let baseURL = URL(string: "https://api.qrbite.uz/api/v1")!
 
     /// `baseURL.appendingPathComponent(path)` ishlatilmaydi — u `path`ni
     /// fayl-yo'li segmenti deb hisoblab, `?`/`&` kabi so'rov-satr belgilarini

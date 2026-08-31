@@ -34,18 +34,6 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - "com.googleusercontent.apps.857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa"
-        # Faqat lokal dev backend uchun (Mac'ning LAN/Tailscale IP'si, haqiqiy
-        # qurilma shu orqali ulanadi). Prodda domen.uz HTTPS bo'lgani uchun kerak emas.
-        NSAppTransportSecurity:
-          NSExceptionDomains:
-            127.0.0.1:
-              NSExceptionAllowsInsecureHTTPLoads: true
-            localhost:
-              NSExceptionAllowsInsecureHTTPLoads: true
-            192.168.100.185:
-              NSExceptionAllowsInsecureHTTPLoads: true
-            100.69.182.71:
-              NSExceptionAllowsInsecureHTTPLoads: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: uz.furnitureplatform.app

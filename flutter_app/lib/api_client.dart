@@ -48,22 +48,16 @@ Future<T> _guardNetwork<T>(Future<T> Function() action) async {
   }
 }
 
-/// Backend Mac'da ishlab turadi (Asus noutbukda alohida backend ishga
-/// tushirish shart emas) — Flutter ilova (Asus'dagi emulyator yoki haqiqiy
-/// Android qurilma) Mac'ga **Tailscale VPN tarmog'i** orqali ulanadi (LAN
-/// Wi-Fi emas — telefon boshqa tarmoqda/AP-izolyatsiyada bo'lsa ham ishlaydi).
-/// Mac va Android qurilma ikkalasida ham Tailscale ilovasi o'rnatilgan va
-/// bir xil hisobga kirgan (signed in) holda, doim ishga tushirilgan bo'lishi
-/// shart.
-///
-/// Mac'ning Tailscale IP'si o'zgarsa (kamdan-kam holat), Mac'da
-/// `tailscale ip` bilan yangi IP'ni tekshirib, pastdagi qiymatni yangilang
-/// (yoki qayta kompilyatsiyasiz:
-/// `flutter run --dart-define=API_BASE_URL=http://<yangi-ip>:8000/api/v1`).
+/// Haqiqiy domen (`https://api.qrbite.uz`) — nginx TLS terminatsiya qilib,
+/// backend'ga proksi qiladi. Avval Tailscale VPN orqali Mac'ning IP'siga
+/// to'g'ridan-to'g'ri ulanardi (Asus noutbuk/Android qurilma boshqa tarmoqda
+/// bo'lsa ham ishlashi uchun), endi hojati yo'q — domen qayerdan bo'lmasin
+/// barqaror ishlaydi. Kerak bo'lsa qayta kompilyatsiyasiz almashtirish
+/// mumkin: `flutter run --dart-define=API_BASE_URL=<boshqa-manzil>`.
 class ApiConfig {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://100.69.182.71:8000/api/v1',
+    defaultValue: 'https://api.qrbite.uz/api/v1',
   );
 }
 
