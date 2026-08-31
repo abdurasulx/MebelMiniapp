@@ -10,17 +10,29 @@ struct LikeButton: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var likes: LikesStore
     @State private var busy = false
+    // Avval bosilganda (tizimga kirilmagan yoki tarmoq xatosi bo'lsa)
+    // tugma jimgina hech narsa qilmasdi — foydalanuvchi buni "ishlamayabdi"
+    // deb qabul qildi. Endi ikkala holatda ham aniq xabar ko'rsatiladi.
+    @State private var alertMessage: String?
 
     private var liked: Bool { likes.isLiked(productId) }
 
     var body: some View {
         Button {
-            guard auth.isAuthenticated, !busy else { return }
+            guard !busy else { return }
+            guard auth.isAuthenticated else {
+                alertMessage = "Sevimlilarga qo'shish uchun tizimga kiring"
+                return
+            }
             busy = true
             Task {
-                await likes.toggle(productId)
+                let error = await likes.toggle(productId)
                 busy = false
-                onToggle?(likes.isLiked(productId))
+                if let error {
+                    alertMessage = error
+                } else {
+                    onToggle?(likes.isLiked(productId))
+                }
             }
         } label: {
             Image(systemName: liked ? "heart.fill" : "heart")
@@ -33,5 +45,10 @@ struct LikeButton: View {
         .opacity(auth.isAuthenticated ? 1 : 0.5)
         .accessibilityLabel(liked ? "Sevimlilardan olib tashlash" : "Sevimlilarga qo'shish")
         .accessibilityIdentifier("likeButton-\(productId)")
+        .alert("Xatolik", isPresented: Binding(get: { alertMessage != nil }, set: { if !$0 { alertMessage = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(alertMessage ?? "")
+        }
     }
 }

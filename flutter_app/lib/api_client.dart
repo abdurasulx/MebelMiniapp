@@ -68,6 +68,11 @@ class ApiClient {
   String? _accessToken;
   String? _refreshToken;
   void Function(TokenPair)? onTokensRotated;
+  /// Refresh tokeni haqiqatan ham yaroqsiz deb topilganda (tarmoq xatosi
+  /// emas) chaqiriladi — `AuthStore` shuni `logout()`ga ulaydi, aks holda
+  /// `isAuthenticated` eskirgan holda "kirgan" bo'lib qolar, lekin har
+  /// qanday himoyalangan so'rov sababsiz 401 bilan muvaffaqiyatsiz bo'lardi.
+  void Function()? onSessionExpired;
 
   /// Global ulanish holati — har qanday so'rov tarmoq xatosiga uchraganda
   /// `true`, muvaffaqiyatli so'rovdan keyin `false` bo'ladi. `main.dart`
@@ -229,7 +234,9 @@ class ApiClient {
         throw NetworkException();
       }
       // refreshed == false: refresh tokeni haqiqatan ham eskirgan/yaroqsiz —
-      // pastda asl 401 javobi bo'yicha ApiException tashlanadi.
+      // pastda asl 401 javobi bo'yicha ApiException tashlanadi, lekin
+      // avval sessiya holatini ham tozalaymiz (qarang onSessionExpired izohi).
+      if (refreshed == false) onSessionExpired?.call();
     }
 
     if (resp.statusCode < 200 || resp.statusCode >= 300) {

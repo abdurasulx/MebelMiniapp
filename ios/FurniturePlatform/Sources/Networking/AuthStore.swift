@@ -43,6 +43,7 @@ final class AuthStore: ObservableObject {
     private let activePositionKey = "fp.activePosition"
     private var cancellable: AnyCancellable?
     private var connectivityCancellable: AnyCancellable?
+    private var sessionExpiredCancellable: AnyCancellable?
     // Tokenlar saqlangan, lekin `/users/me/` hali muvaffaqiyatli yuklanmagan
     // (masalan ilova oflaynda ochilgan). Shu holatda ulanish tiklanganda
     // qayta urinish kerak — aks holda `user`/`isAuthenticated` doim `nil`/
@@ -84,6 +85,14 @@ final class AuthStore: ObservableObject {
                 guard let self, online, self.hasStoredTokens, self.user == nil else { return }
                 Task { await self.loadMe() }
             }
+        // Refresh tokeni haqiqatan ham yaroqsiz deb topilsa (APIClient) —
+        // aks holda `isAuthenticated`/`user` eskirgan holda "kirgan" bo'lib
+        // qolar, lekin har qanday himoyalangan so'rov (masalan like)
+        // sababsiz 401 bilan muvaffaqiyatsiz bo'lardi.
+        sessionExpiredCancellable = NotificationCenter.default
+            .publisher(for: .authSessionExpired)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.logout() }
     }
 
     func login(email: String, password: String) async {

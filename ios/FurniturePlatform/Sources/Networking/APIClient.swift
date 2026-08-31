@@ -263,6 +263,13 @@ actor APIClient {
         } catch let error as APIError where error == .offline {
             return nil
         } catch {
+            // Refresh tokeni haqiqatan ham yaroqsiz — `AuthStore`ga xabar
+            // beramiz, aks holda `isAuthenticated`/`user` eskirgan holda
+            // "kirgan" bo'lib qolar edi, lekin har qanday himoyalangan
+            // so'rov (masalan like) sababsiz 401 bilan muvaffaqiyatsiz
+            // bo'lardi ("like ishlamayabdi" kabi noaniq shikoyatlarga
+            // sabab bo'lgan haqiqiy ildiz shu edi).
+            NotificationCenter.default.post(name: .authSessionExpired, object: nil)
             return false
         }
     }
@@ -290,4 +297,7 @@ extension Notification.Name {
     static let authTokensRotated = Notification.Name("authTokensRotated")
     /// `object` — `Bool` (`true`: so'rov muvaffaqiyatli, `false`: tarmoq xatosi).
     static let connectivityChanged = Notification.Name("connectivityChanged")
+    /// Refresh tokeni haqiqatan ham yaroqsiz deb topilganda (tarmoq xatosi
+    /// emas) yuboriladi — `AuthStore` shuni tinglab `logout()` chaqiradi.
+    static let authSessionExpired = Notification.Name("authSessionExpired")
 }

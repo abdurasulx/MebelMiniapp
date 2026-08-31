@@ -55,11 +55,21 @@ class AuthStore extends ChangeNotifier {
     if (savedMode == 'worker') appMode = AppMode.worker;
     activePosition = prefs.getString(_activePositionKey);
 
+    // Oldin faqat saqlangan tokenlar bo'lgan holatda ulanardi — shu sessiya
+    // ichida yangi login qilinganda (masalan Google/Telegram) bu callbacklar
+    // ulanmay qolar, keyinchalik refresh tokeni haqiqatan ham yaroqsiz
+    // bo'lib qolsa (sessiya tugasa) hech kim `logout()` chaqirmas, `user`/
+    // `isAuthenticated` eskirgan holda "kirgan" bo'lib qolar edi — natijada
+    // like/savat kabi har qanday himoyalangan amal sababsiz ishlamay qolgan
+    // ("like ishlamayabdi" kabi noaniq shikoyatlarga sabab bo'lgan haqiqiy
+    // ildiz shu edi).
+    ApiClient.instance.onTokensRotated = _persist;
+    ApiClient.instance.onSessionExpired = logout;
+
     final raw = prefs.getString(_tokensKey);
     if (raw != null) {
       final tokens = TokenPair.fromJson(jsonDecode(raw));
       ApiClient.instance.setTokens(tokens);
-      ApiClient.instance.onTokensRotated = _persist;
       _hasStoredTokens = true;
       await _loadMe();
     }

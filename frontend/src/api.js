@@ -23,6 +23,14 @@ async function refreshAccess() {
   });
   if (!res.ok) {
     setTokens(null);
+    // Faqat tokenni tozalash yetarli emas — `AuthProvider`dagi `user` holati
+    // xotirada eskirgan holda qolib ketardi (masalan sahifa ochilgandan keyin
+    // sessiya orada tugab qolsa): UI hamon "kirgan" ko'rsatib turar, lekin
+    // har qanday himoyalangan so'rov (like, savat va h.k.) 401 bilan
+    // muvaffaqiyatsiz tugab, sababi hech qayerda tushuntirilmasdi ("like
+    // ishlamayabdi" kabi noaniq shikoyatlarga sabab bo'lgan). Shu event
+    // orqali `AuthProvider` darhol `user`ni `null`ga tushiradi.
+    window.dispatchEvent(new Event("auth:session-expired"));
     return null;
   }
   const data = await res.json();

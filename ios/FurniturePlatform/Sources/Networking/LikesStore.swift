@@ -15,7 +15,12 @@ final class LikesStore: ObservableObject {
         likedIds.removeAll()
     }
 
-    func toggle(_ productId: String) async {
+    /// Muvaffaqiyatli bo'lsa `nil`, aks holda ko'rsatish uchun xato matnini
+    /// qaytaradi — avval bu yerda xato jim yutilardi, natijada tugma
+    /// bosilganda (masalan tarmoq xatosi yoki sessiya eskirgan bo'lsa)
+    /// hech narsa o'zgarmagandek ko'rinar, sababi hech qayerda ko'rinmasdi.
+    @discardableResult
+    func toggle(_ productId: String) async -> String? {
         struct Body: Encodable { let product: String }
         struct Response: Decodable { let liked: Bool }
         do {
@@ -23,8 +28,9 @@ final class LikesStore: ObservableObject {
                 "/likes/toggle/", body: Body(product: productId), auth: true
             )
             if res.liked { likedIds.insert(productId) } else { likedIds.remove(productId) }
+            return nil
         } catch {
-            // jim turamiz — UI holati o'zgarmaydi
+            return error.localizedDescription
         }
     }
 }

@@ -15,6 +15,17 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Sessiya sahifa ochilgandan keyin biror joyda (masalan like/savat
+  // tugmasi bosilganda) tugab qolsa — `api.js` refresh tokenini ham
+  // yaroqsiz deb topganda shu eventni yuboradi. Shunda `user`ni darhol
+  // `null`ga tushiramiz, aks holda UI "kirgan" ko'rsatib turaverar, lekin
+  // har qanday himoyalangan amal sababsiz muvaffaqiyatsiz bo'lardi.
+  useEffect(() => {
+    const onExpired = () => setUser(null);
+    window.addEventListener("auth:session-expired", onExpired);
+    return () => window.removeEventListener("auth:session-expired", onExpired);
+  }, []);
+
   // Tokenlar qanday olinishidan qat'iy nazar (parol, Google, Telegram) —
   // saqlash va profil yuklash bir xil.
   const applyTokens = async (tokens) => {
