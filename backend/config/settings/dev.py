@@ -1,6 +1,12 @@
 from .base import *  # noqa
 
-DEBUG = True
+# MUHIM: bu server nafaqat lokal dev uchun, balki `.qrbite.uz` ORQALI
+# TASHQI INTERNETGA HAM ochiq (qarang pastdagi ALLOWED_HOSTS izohi) — shuning
+# uchun DEBUG standart holatda O'CHIQ. Faqat haqiqatan ham lokal debugging
+# kerak bo'lganda `.env`ga `DEBUG=True` qo'shib vaqtincha yoqing — aks holda
+# har qanday xato (404/500) butun internetga ichki fayl yo'llari, URL
+# ro'yxati va hatto stack trace'ni ko'rsatib qo'yadi.
+DEBUG = env.bool("DEBUG", default=False)
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Lokal subdomen portallari: lvh.me va uning subdomenlari 127.0.0.1 ga ishora qiladi
