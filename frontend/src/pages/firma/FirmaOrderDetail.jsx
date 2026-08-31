@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, Phone, MapPin, MessageSquare, X } from "lucide-react";
 import { api } from "../../api";
+import { useAuth } from "../../auth";
 import { NEXT_STATUS, ORDER_STATUS, StatusBadge } from "../../orderStatus";
 import WorkflowPanel from "../../components/WorkflowPanel";
 
@@ -9,6 +10,7 @@ import WorkflowPanel from "../../components/WorkflowPanel";
 /// avval FirmaOrders ro'yxatida joyida ("Ishlab chiqarish" tugmasi bilan)
 /// ochilardi, endi ro'yxat toza qolishi uchun shu alohida sahifada.
 export default function FirmaOrderDetail() {
+  const { user } = useAuth();
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [employees, setEmployees] = useState([]);
@@ -77,7 +79,7 @@ export default function FirmaOrderDetail() {
             </div>
           ))}
         </div>
-        {employees.length > 0 && (
+        {user?.role === "company_owner" && employees.length > 0 && (
           <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
             <span>Sotuvchi (komissiya uchun):</span>
             <select
@@ -100,7 +102,10 @@ export default function FirmaOrderDetail() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
           <span className="text-lg font-bold">{Number(order.total_price).toLocaleString()} so'm</span>
           <div className="flex flex-wrap gap-2">
-            {(NEXT_STATUS[order.status] || []).map((s) => {
+            {/* Buyurtma holatini o'zgartirish (qabul/bekor) — menejerlik
+                qarori, faqat firma egasi uchun (backend ham shunday
+                cheklaydi, qarang OrderViewSet.set_status). */}
+            {user?.role === "company_owner" && (NEXT_STATUS[order.status] || []).map((s) => {
               const Icon = ORDER_STATUS[s].icon;
               return s === "cancelled" ? (
                 <button key={s} className="btn-danger inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={() => setStatus(s)}>

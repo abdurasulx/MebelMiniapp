@@ -85,12 +85,24 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
 
   Future<void> _startTask(WorkflowStepInstance step) async {
     try {
-      await ApiClient.instance.patch(
-        '/workflow-instances/${step.id}/',
-        (j) => j,
-        body: {'status': 'in_progress'},
-        auth: true,
-      );
+      if (step.isManual) {
+        await ApiClient.instance.patch(
+          '/workflow-instances/${step.id}/',
+          (j) => j,
+          body: {'status': 'in_progress'},
+          auth: true,
+        );
+      } else {
+        // Retsept bosqichi to'g'ridan-to'g'ri PATCH orqali boshlanmaydi
+        // (backend qasddan rad etadi) — `progress` amali ichida
+        // `activate_if_ready()` chaqirib, xuddi shu pending->in_progress
+        // o'tishni bajaradi; bo'sh so'rov "qabul qilish"ning to'g'ri usuli.
+        await ApiClient.instance.post(
+          '/workflow-instances/${step.id}/progress/',
+          (j) => j,
+          body: const {},
+        );
+      }
       await _load();
     } catch (e) {
       if (mounted) {
@@ -470,11 +482,6 @@ class _StepTile extends StatelessWidget {
     required this.onStart,
   });
 
-  // "Bajardim"/"Yangilanish" tugmalari faqat hali yakunlanmagan bosqichda
-  // ko'rsatiladi — "Tasdiqlangan"/"Bekor qilindi" allaqachon yakuniy holat
-  // (web'dagi StepStatus.COMPLETED/APPROVED/CANCELLED bilan bir xil).
-  static const _finishedStatuses = {'completed', 'approved', 'cancelled'};
-
   IconData get _icon {
     switch (step.status) {
       case 'completed':
@@ -510,13 +517,16 @@ class _StepTile extends StatelessWidget {
     // `isMine == false` — boshqa ustaning bosqichi, faqat holat ko'rsatiladi
     // (harakat tugmalari umuman chiqmaydi, backend ham baribir rad etardi,
     // lekin UI'da oldindan yashirilgani tushunarliroq).
-    final canAct = isMine &&
-        !_finishedStatuses.contains(step.status) &&
-        (step.status == 'in_progress' || step.isAvailable);
-    // Faqat qo'lda qo'shilgan (manual) va hali kutilayotgan vazifalarga
-    // aniq "Boshlash" (pending -> in_progress) tugmasi ko'rsatiladi — web'dagi
-    // TaskCard.advance() bilan bir xil naqsh (FirmaProduction.jsx).
-    final canStart = isMine && step.isManual && step.status == 'pending' && step.isAvailable;
+    //
+    // Bosqich hali "erkin" (pending + isAvailable) bo'lsa — avval aniq
+    // BOSHLASH (qabul qilish) kerak, undan keyingina yangilanish/yakunlash
+    // tugmalari ko'rinadi. Avval bu faqat qo'lda qo'shilgan (manual)
+    // vazifalarga tegishli edi — retsept bosqichlari esa to'g'ridan-to'g'ri
+    // yangilanish/yakunlash tugmalarini ko'rsatib, hech kim aniq
+    // boshlamasdan turib "bajardim" deb belgilanishi mumkin edi (web'da ham
+    // xuddi shu naqsh qo'llanadi, qarang WorkflowPanel.jsx).
+    final canStart = isMine && step.status == 'pending' && step.isAvailable;
+    final canAct = isMine && step.status == 'in_progress';
     return ListTile(
       dense: true,
       isThreeLine: step.description.isNotEmpty,
@@ -563,18 +573,30 @@ class _StepTile extends StatelessWidget {
               child: const Text('Boshlash'),
             )
           : canAct
-              ? Wrap(
-                  spacing: 4,
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.send, size: 18),
-                      tooltip: 'Yangilanish qo\'shish',
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: const Size(0, 32),
+                        visualDensity: VisualDensity.compact,
+                      ),
                       onPressed: () => onProgress(step, complete: false),
+                      icon: const Icon(Icons.send, size: 14),
+                      label: const Text('Yangilash', style: TextStyle(fontSize: 12)),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.check, size: 18),
-                      tooltip: 'Yakunlash',
+                    const SizedBox(height: 4),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: const Size(0, 32),
+                        visualDensity: VisualDensity.compact,
+                      ),
                       onPressed: () => onProgress(step, complete: true),
+                      icon: const Icon(Icons.check, size: 14),
+                      label: const Text('Yakunlash', style: TextStyle(fontSize: 12)),
                     ),
                   ],
                 )

@@ -73,7 +73,14 @@ function CostTile({ label, value, color, isText }) {
 function StepCard({ step, editable, active, onToggle, onChanged }) {
   const Icon = STATUS_ICON[step.status];
   const color = STATUS_COLOR[step.status];
-  const canAct = editable && step.status !== "completed" && (step.status === "in_progress" || step.is_available);
+  // Bosqich hali "erkin" (pending + is_available) bo'lsa — avval aniq
+  // QABUL QILISH kerak, undan keyingina yangilanish/yakunlash ko'rinadi
+  // (mobil ilovadagi "Boshlash" bilan bir xil qadam — avval bittasi
+  // to'g'ridan-to'g'ri yakunlash tugmasini bosib qo'yishi mumkin bo'lib,
+  // kim qachon boshlaganini bilib bo'lmas edi).
+  const canStart = editable && step.status === "pending" && step.is_available;
+  const canProgress = editable && step.status === "in_progress";
+  const canAct = canStart || canProgress;
 
   return (
     <div className="card p-3">
@@ -112,9 +119,46 @@ function StepCard({ step, editable, active, onToggle, onChanged }) {
               ))}
             </div>
           )}
-          {canAct && <StepActions step={step} onChanged={onChanged} />}
+          {canStart && <StartAction step={step} onChanged={onChanged} />}
+          {canProgress && <StepActions step={step} onChanged={onChanged} />}
         </div>
       )}
+    </div>
+  );
+}
+
+function StartAction({ step, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const start = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      if (step.is_manual) {
+        await api(`/workflow-instances/${step.id}/`, { method: "PATCH", body: { status: "in_progress" } });
+      } else {
+        // Retsept bosqichi to'g'ridan-to'g'ri PATCH orqali boshlanmaydi
+        // (backend qasddan rad etadi — qarang WorkflowStepInstanceViewSet.
+        // perform_update). `progress` amali esa ichida `activate_if_ready()`
+        // chaqiradi, u xuddi shu pending->in_progress o'tishni bajaradi —
+        // bo'sh so'rov bilan chaqirish "qabul qilish"ning to'g'ri usuli.
+        await api(`/workflow-instances/${step.id}/progress/`, { method: "POST", body: {} });
+      }
+      onChanged?.();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button className="btn btn-brand inline-flex w-fit items-center gap-1.5 !px-3 !py-1.5 text-xs" disabled={busy} onClick={start}>
+        <CircleCheckBig size={13} /> {busy ? "Qabul qilinmoqda…" : "Qabul qilish"}
+      </button>
+      {error && <div className="error">{error}</div>}
     </div>
   );
 }
