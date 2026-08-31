@@ -53,17 +53,36 @@ class OrderViewSet(
             if is_company_owner(user, company):
                 return qs.filter(company=company)
             # XAVFSIZLIK: oddiy xodim (usta) butun kompaniyaning barcha
-            # buyurtmalarini ko'rmasligi kerak — faqat o'ziga ish bosqichi
-            # tayinlangan buyurtmalarni (mobil ilovadagi `_isActiveForMe`
-            # bilan bir xil maqsad, qarang worker_orders_screen.dart).
+            # buyurtmalarini ko'rmasligi kerak — mobil ilovadagi
+            # `_isActiveForMe` bilan BIR XIL mezon: faqat hozir o'zi uchun
+            # FAOL (in_progress) yoki BOSHLASH MUMKIN (pending + barcha
+            # bog'liqlar tugagan) bosqichi bor buyurtmalar (qarang
+            # worker_orders_screen.dart::_isActiveForMe,
+            # WorkflowStepInstance.is_available). Shunchaki "unga qachondir
+            # tayinlangan" (masalan allaqachon tasdiqlangan/eski) bosqichlar
+            # yetarli emas — aks holda mobil va web'da ko'rinadigan
+            # buyurtmalar soni mos kelmay qolardi.
             from apps.companies.models import Employee
+            from apps.workflow.models import StepStatus, WorkflowStepInstance
 
             employee = Employee.objects.filter(
                 company=company, user=user, is_active=True, is_deleted=False
             ).first()
             if employee is None:
                 return qs.none()
-            return qs.filter(company=company, workflow_steps__employee=employee).distinct()
+            candidate_steps = WorkflowStepInstance.objects.filter(
+                company=company,
+                employee=employee,
+                is_deleted=False,
+                status__in=[StepStatus.IN_PROGRESS, StepStatus.PENDING],
+                order__isnull=False,
+            ).prefetch_related("depends_on")
+            active_order_ids = {
+                s.order_id
+                for s in candidate_steps
+                if s.status == StepStatus.IN_PROGRESS or s.is_available
+            }
+            return qs.filter(company=company, id__in=active_order_ids)
         return qs.filter(customer=user)
 
     @action(detail=True, methods=["post"])
