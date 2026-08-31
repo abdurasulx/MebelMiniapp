@@ -181,4 +181,14 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# nginx (deploy/nginx/qrbite.uz.conf) TLS'ni o'zida tugatib, Django'ga
+# oddiy HTTP orqali proksi qiladi (backend Mac'da, tashqi domen VPS'da) —
+# shu sabab `request.is_secure()` standart holatda HAR DOIM False bo'lardi,
+# va `request.build_absolute_uri()` (masalan mahsulot rasm URL'lari,
+# qarang common/serializers.py::visible_file_url) `https://` o'rniga
+# `http://` qaytarardi. iOS ATS esa oddiy HTTP so'rovlarini standart
+# rad etadi — rasm sirtqi ko'rinmasdan, bo'sh joy ko'rsatilib qolardi.
+# nginx yuboradigan `X-Forwarded-Proto` headeriga ishonib, shu muammoni tuzatadi.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
