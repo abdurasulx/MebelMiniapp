@@ -113,7 +113,18 @@ class PushService {
   /// ochadi.
   Future<void> _handleMessage(RemoteMessage message) async {
     final type = message.data['type'];
-    final navigator = navigatorKey.currentState;
+    // MUHIM: ilova YOPIQ holatda notification bosilib ochilganda,
+    // `getInitialMessage()` natijasi `runApp()`dan OLDIN (main.dart) shu
+    // funksiyaga uzatiladi — o'sha paytda `MaterialApp` hali qurilmagani
+    // uchun `navigatorKey.currentState` doim `null` bo'lardi, navigatsiya
+    // sababsiz bekor qilinib, foydalanuvchi shunchaki ilovaning standart
+    // boshlang'ich ekranida (masalan usta paneli) qolib ketardi. Shu sabab
+    // birinchi kadr chizilishini bir necha soniya kutamiz.
+    var navigator = navigatorKey.currentState;
+    for (var i = 0; navigator == null && i < 25; i++) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      navigator = navigatorKey.currentState;
+    }
     if (navigator == null) return;
 
     switch (type) {
