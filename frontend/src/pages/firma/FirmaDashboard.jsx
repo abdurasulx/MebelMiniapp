@@ -1,11 +1,55 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sofa, Palette, HardHat, Package, Target, Factory, ArrowRight, AlertTriangle, CheckCircle2, PackageX } from "lucide-react";
+import { Sofa, Palette, HardHat, Package, Target, Factory, ArrowRight, AlertTriangle, CheckCircle2, PackageX, Hammer } from "lucide-react";
+import { useAuth } from "../../auth";
 import { api } from "../../api";
 import { StatusBadge } from "../../orderStatus";
 import StatCard from "../../components/StatCard";
 
+// Xodim (usta) uchun — kompaniyaning butun katalogi/xodimlari/leadlari
+// kabi menejerlik ma'lumotlarisiz, faqat o'ziga tegishli buyurtmalar soni
+// va tezkor havolalar (backend `/orders/` allaqachon xodim uchun faqat
+// o'ziga tegishlilarni qaytaradi, qarang OrderViewSet.get_queryset).
+function EmployeeDashboard() {
+  const { user } = useAuth();
+  const [orders, setOrders] = useState([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api("/orders/")
+      .then((d) => setOrders(d.results || []))
+      .catch((e) => setError(e.message));
+  }, []);
+
+  if (error) return <div className="error">{error}</div>;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="card p-6">
+        <h1 className="mb-1 text-lg font-bold">
+          Xush kelibsiz, {user?.first_name || user?.email}
+        </h1>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          {user?.company?.name}
+        </p>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <StatCard tone={3} icon={Package} label="Faol buyurtmalarim" value={orders.length} />
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Link to="/orders" className="btn inline-flex items-center gap-1.5">
+          <Package size={15} /> Buyurtmalarim
+        </Link>
+        <Link to="/production" className="btn inline-flex items-center gap-1.5">
+          <Hammer size={15} /> Ishlab chiqarish
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function FirmaDashboard() {
+  const { user } = useAuth();
   const [me, setMe] = useState(null);
   const [products, setProducts] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -36,8 +80,11 @@ export default function FirmaDashboard() {
       .catch((e) => setError(e.message));
 
   useEffect(() => {
-    load();
-  }, []);
+    if (user?.role !== "employee") load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role]);
+
+  if (user?.role === "employee") return <EmployeeDashboard />;
 
   const acceptOrder = async (order) => {
     setBusyOrderId(order.id);
