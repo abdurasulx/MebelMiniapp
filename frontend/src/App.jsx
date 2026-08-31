@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth";
 import PortalLayout from "./layouts/PortalLayout";
-import { BRAND_NAME, PORTAL } from "./portal";
+import { BRAND_NAME, PORTAL, portalURLFor } from "./portal";
 import { getActivePosition, setActivePosition } from "./positions";
 import RolePicker from "./pages/firma/RolePicker";
 import { useTheme } from "./theme";
@@ -93,17 +93,38 @@ const FIRMA_MENU = [
 ];
 
 function Protected({ children, roles }) {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   if (loading) return <div className="p-8" style={{ color: "var(--muted)" }}>Yuklanmoqda…</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(user.role))
+  if (roles && !roles.includes(user.role)) {
+    const marketURL = portalURLFor("market");
     return (
-      <div className="p-8">
-        <div className="error">
-          Bu portal siz uchun emas ({user.email} — {user.role}).
+      <div className="flex min-h-[70vh] items-center justify-center p-4">
+        <div className="card flex w-full max-w-sm flex-col items-center gap-3 p-8 text-center">
+          <div
+            className="flex h-14 w-14 items-center justify-center rounded-full"
+            style={{ background: "color-mix(in srgb, var(--primary) 20%, transparent)" }}
+          >
+            <HardHat size={26} style={{ color: "var(--secondary)" }} />
+          </div>
+          <h1 className="text-lg font-bold">Kirish faqat xodimlarga</h1>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            Bu bo'lim faqat firma egasi va xodimlari uchun. Sizning hisobingiz ({user.email}) mijoz sifatida ro'yxatdan o'tgan.
+          </p>
+          <div className="flex w-full flex-col gap-2">
+            {marketURL && (
+              <a className="btn btn-brand w-full" href={marketURL}>
+                Asosiy saytga o'tish
+              </a>
+            )}
+            <button className="btn w-full" onClick={logout}>
+              Chiqish
+            </button>
+          </div>
         </div>
       </div>
     );
+  }
   return children;
 }
 
