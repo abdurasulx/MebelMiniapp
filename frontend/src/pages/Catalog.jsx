@@ -297,7 +297,7 @@ export default function Catalog() {
                   style={{ background: "var(--card)" }}
                   title={p.is_liked ? "Sevimlilardan olib tashlash" : "Sevimlilarga qo'shish"}
                 >
-                  <Heart size={14} fill={p.is_liked ? "currentColor" : "none"} style={{ color: p.is_liked ? "#e74c3c" : "var(--muted)" }} />
+                  <Heart size={14} fill={p.is_liked ? "currentColor" : "none"} style={{ color: p.is_liked ? "var(--danger)" : "var(--muted)" }} />
                 </button>
               )}
             </div>

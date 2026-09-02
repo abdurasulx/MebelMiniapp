@@ -39,7 +39,7 @@ function GoogleLinkRow({ hasGoogle }) {
           <span className="text-sm font-medium">Google</span>
         </div>
         {hasGoogle ? (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--success, #16a34a)" }}>
+          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--success)" }}>
             <CheckCircle2 size={14} /> Bog'langan
           </span>
         ) : (
@@ -131,7 +131,7 @@ function TelegramLinkRow({ hasTelegram, onLinked }) {
           <span className="text-sm font-medium">Telegram</span>
         </div>
         {hasTelegram ? (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--success, #16a34a)" }}>
+          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--success)" }}>
             <CheckCircle2 size={14} /> Bog'langan
           </span>
         ) : (
@@ -194,7 +194,7 @@ export default function Profile() {
           className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-bold"
           style={{
             background: "color-mix(in srgb, var(--primary) 25%, transparent)",
-            border: `3px solid ${user.phone_verified ? "#16a34a" : "#f59e0b"}`,
+            border: `3px solid ${user.phone_verified ? "var(--success)" : "#f59e0b"}`,
             cursor: user.phone_verified ? "default" : "pointer",
           }}
           title={user.phone_verified ? "Tasdiqlangan" : "Tasdiqlash uchun bosing"}

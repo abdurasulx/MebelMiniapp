@@ -77,9 +77,9 @@ export default function MyProjects() {
                 className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold"
                 style={{
                   background: p.is_paid
-                    ? "color-mix(in srgb, #2ecc71 20%, transparent)"
+                    ? "color-mix(in srgb, var(--success) 20%, transparent)"
                     : "color-mix(in srgb, var(--muted) 16%, transparent)",
-                  color: p.is_paid ? "#1e8449" : "var(--muted)",
+                  color: p.is_paid ? "var(--success)" : "var(--muted)",
                 }}
               >
                 {p.is_paid ? <Unlock size={13} /> : <Lock size={13} />}

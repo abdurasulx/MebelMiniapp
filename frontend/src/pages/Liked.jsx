@@ -30,7 +30,7 @@ export default function Liked() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold">
-        <Heart size={22} fill="currentColor" style={{ color: "#e74c3c" }} /> Sevimlilar
+        <Heart size={22} fill="currentColor" style={{ color: "var(--danger)" }} /> Sevimlilar
       </h1>
       {error && <div className="error mb-4">{error}</div>}
       {loaded && likes.length === 0 && (
@@ -51,7 +51,7 @@ export default function Liked() {
               style={{ background: "var(--card)" }}
               title="Sevimlilardan olib tashlash"
             >
-              <Heart size={14} fill="currentColor" style={{ color: "#e74c3c" }} />
+              <Heart size={14} fill="currentColor" style={{ color: "var(--danger)" }} />
             </button>
             <Link to={`/products/${p.id}`}>
               {(p.image_url || p.images?.[0]?.image_url) ? (

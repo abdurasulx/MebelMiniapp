@@ -107,8 +107,11 @@ export default function ProjectComposer() {
   };
 
   return (
-    <div className="relative flex flex-col" style={{ background: "#eef1f5", height: "calc(100vh - 57px)" }}>
-      <div className="flex items-center justify-between gap-3 border-b bg-white px-4 py-2" style={{ borderColor: "var(--border)" }}>
+    <div className="relative flex flex-col" style={{ background: "var(--bg)", height: "calc(100vh - 57px)" }}>
+      <div
+        className="flex items-center justify-between gap-3 border-b px-4 py-2"
+        style={{ background: "var(--card)", borderColor: "var(--border)" }}
+      >
         <div className="flex items-center gap-2">
           <button className="btn-ghost !p-2" onClick={() => setShowList((v) => !v)} title="Elementlar ro'yxati">
             <List size={18} />
@@ -144,7 +147,10 @@ export default function ProjectComposer() {
         )}
 
         {showList && (
-          <div className="absolute left-3 top-3 max-h-[70%] w-56 overflow-y-auto rounded-xl border bg-white/95 p-2 shadow-lg" style={{ borderColor: "var(--border)" }}>
+          <div
+            className="card absolute left-3 top-3 max-h-[70%] w-56 overflow-y-auto p-2"
+            style={{ background: "color-mix(in srgb, var(--card) 95%, transparent)" }}
+          >
             {project.items.length === 0 && (
               <p className="p-2 text-xs" style={{ color: "var(--muted)" }}>Hali element yo'q</p>
             )}
@@ -195,7 +201,7 @@ function ToolButton({ icon: Icon, active, onClick, title, disabled, danger }) {
       className="rounded-lg p-2 transition disabled:opacity-30"
       style={{
         background: active ? "var(--primary)" : "transparent",
-        color: danger ? "#e74c3c" : active ? "var(--primary-deep)" : "var(--text)",
+        color: danger ? "var(--danger)" : active ? "var(--primary-deep)" : "var(--text)",
       }}
     >
       <Icon size={18} />
@@ -276,7 +282,10 @@ function AddItemPanel({ projectId, onClose, onAdded }) {
   const filteredDetails = details.filter((d) => d.name.toLowerCase().includes(q));
 
   return (
-    <div className="absolute inset-y-0 right-0 flex w-80 flex-col border-l bg-white shadow-2xl" style={{ borderColor: "var(--border)" }}>
+    <div
+      className="absolute inset-y-0 right-0 flex w-80 flex-col border-l shadow-2xl"
+      style={{ background: "var(--card)", borderColor: "var(--border)" }}
+    >
       <div className="flex items-center justify-between border-b p-3" style={{ borderColor: "var(--border)" }}>
         <span className="font-bold">Element qo'shish</span>
         <button onClick={onClose} className="btn-ghost !p-1.5"><X size={16} /></button>
@@ -284,14 +293,20 @@ function AddItemPanel({ projectId, onClose, onAdded }) {
       <div className="flex gap-1 p-2">
         <button
           className="flex-1 rounded-lg py-1.5 text-sm font-semibold"
-          style={{ background: tab === "products" ? "var(--primary)" : "var(--bg)" }}
+          style={{
+            background: tab === "products" ? "var(--primary)" : "var(--bg)",
+            color: tab === "products" ? "var(--primary-deep)" : "var(--text)",
+          }}
           onClick={() => setTab("products")}
         >
           Mahsulotlar
         </button>
         <button
           className="flex-1 rounded-lg py-1.5 text-sm font-semibold"
-          style={{ background: tab === "details" ? "var(--primary)" : "var(--bg)" }}
+          style={{
+            background: tab === "details" ? "var(--primary)" : "var(--bg)",
+            color: tab === "details" ? "var(--primary-deep)" : "var(--text)",
+          }}
           onClick={() => setTab("details")}
         >
           Detal elementlar

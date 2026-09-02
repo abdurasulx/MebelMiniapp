@@ -104,7 +104,7 @@ export default function ProductDetail() {
           style={{ border: "1px solid var(--border)", background: "var(--card)" }}
           title={liked ? "Sevimlilardan olib tashlash" : "Sevimlilarga qo'shish"}
         >
-          <Heart size={18} fill={liked ? "currentColor" : "none"} style={{ color: liked ? "#e74c3c" : "var(--muted)" }} />
+          <Heart size={18} fill={liked ? "currentColor" : "none"} style={{ color: liked ? "var(--danger)" : "var(--muted)" }} />
         </button>
       </div>
       {likeError && <div className="error mb-4">{likeError}</div>}

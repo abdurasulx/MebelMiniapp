@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sofa } from "lucide-react";
 import { useAuth } from "../auth";
-import { PORTAL, portalForUser } from "../portal";
+import { PORTAL, portalForUser, portalURLFor } from "../portal";
 import { api, getTokens } from "../api";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
