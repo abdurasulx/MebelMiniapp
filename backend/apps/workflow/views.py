@@ -39,6 +39,7 @@ from .services import (
     approve_step_and_credit_payroll,
     cancel_step,
     consume_material_on_completion,
+    credit_payroll,
     sync_order_status_on_step_completion,
 )
 
@@ -396,7 +397,11 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def complete(self, request, pk=None):
         """Bosqichni yakunlaydi — talab qilingan bo'lsa rasm shart, keyingi
-        bog'liq bosqich(lar) avtomatik ochiladi."""
+        bog'liq bosqich(lar) avtomatik ochiladi. Ish haqi (agar xodim
+        biriktirilgan bo'lsa) DARHOL kreditlanadi — firma egasi/menejer
+        tasdiqlashini (`approve()`) kutmaydi (avval faqat approve
+        kreditlagan, endi "kutilmoqda" summasi usta "Bajardim" bosishi
+        bilanoq yangilanadi)."""
         instance = self.get_object()
         self._check_company_access(instance)
         if instance.status in (StepStatus.COMPLETED, StepStatus.APPROVED):
@@ -421,6 +426,8 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
             instance.completed_by = request.user
             instance.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
             consume_material_on_completion(instance, request.user)
+            if instance.employee_id:
+                credit_payroll(instance)
 
         activated, newly_open = instance.activate_dependents()
         for activated_step in activated:

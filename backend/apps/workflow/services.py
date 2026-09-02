@@ -31,8 +31,9 @@ def consume_material_on_completion(instance, user):
     """Usta "Bajardim" bosganda — agar bosqichga xom ashyo biriktirilgan
     bo'lsa, `quantity` miqdorda ombordan AVTOMATIK ayiriladi
     (`MaterialMovement`, turi "chiqim"). Material jismonan shu daqiqada
-    sarflangani uchun bu tasdiqni (`approve`) kutmaydi — ish haqi esa
-    kutadi (qarang `approve_step_and_credit_payroll`).
+    sarflangani uchun bu tasdiqni (`approve`) kutmaydi — ish haqi ham
+    endi kutmaydi (qarang `credit_payroll`, `views.py::complete`da
+    darhol chaqiriladi).
 
     Chaqiruvchi (`views.py::complete`) buni status COMPLETED qilib
     saqlangandan KEYIN, bitta `transaction.atomic()` bloki ichida
@@ -48,9 +49,11 @@ def consume_material_on_completion(instance, user):
 
 def approve_step_and_credit_payroll(instance, approved_by):
     """Firma egasi/menejer yakunlangan bosqichni tekshirib tasdiqlaganda
-    chaqiriladi — status APPROVED ga o'tadi va agar bosqichga xodim
-    biriktirilgan bo'lsa, shu oyning ish haqi (`Payslip`) shu daqiqada
-    qayta hisoblanadi. Ombordan ayirish esa allaqachon "Bajardim"
+    chaqiriladi — status APPROVED ga o'tadi. Ish haqi ESA endi yangilik
+    emas — u allaqachon `complete()`da kreditlangan (qarang
+    `credit_payroll`); shu yerdagi qayta chaqiruv shunchaki hisobni
+    yangilaydi (xavfsiz takroriy chaqiruv — `recompute()` har doim
+    noldan qayta hisoblaydi). Ombordan ayirish esa allaqachon "Bajardim"
     bosilganda sodir bo'lgan (qarang `consume_material_on_completion`) —
     bu yerda takrorlanmaydi."""
     with transaction.atomic():
@@ -59,7 +62,7 @@ def approve_step_and_credit_payroll(instance, approved_by):
         instance.approved_by = approved_by
         instance.save(update_fields=["status", "approved_at", "approved_by", "updated_at"])
         if instance.employee_id:
-            _credit_payroll(instance)
+            credit_payroll(instance)
 
 
 def _consume_material(instance, user):
@@ -111,7 +114,13 @@ def _consume_material(instance, user):
     )
 
 
-def _credit_payroll(instance):
+def credit_payroll(instance):
+    """Xodimning shu oyidagi ish haqini (`Payslip`) qayta hisoblaydi va
+    saqlaydi. Avval faqat `approve()` (firma egasi tasdiqlagach) chaqirar
+    edi — endi `complete()`da HAM chaqiriladi, ya'ni usta "Bajardim"
+    bosishi bilanoq bonus/vazifa haqi "kutilmoqda" summasiga qo'shiladi,
+    egasi tasdiqlashini kutmaydi (`Payslip.recompute()` COMPLETED va
+    APPROVED bosqichlarni bir xil hisoblaydi, qarang production/models.py)."""
     from apps.production.models import Payslip
 
     period = (instance.completed_at or timezone.now()).date().replace(day=1)
@@ -179,8 +188,8 @@ def _return_material(instance, user):
 
 
 def _reverse_payroll_if_credited(instance):
-    """`_credit_payroll`dan farqi — bo'sh `Payslip` yo'q joyda yangisini
-    yaratmaydi (bekor qilinayotgan bosqich hech qachon tasdiqlanmagan
+    """`credit_payroll`dan farqi — bo'sh `Payslip` yo'q joyda yangisini
+    yaratmaydi (bekor qilinayotgan bosqich hech qachon yakunlanmagan
     bo'lishi mumkin, bunday holda hisoblanadigan hech narsa yo'q)."""
     from apps.production.models import Payslip
 

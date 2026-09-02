@@ -518,9 +518,11 @@ class MaterialConsumptionAndPayrollTests(APITestCase):
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.quantity, Decimal("6.000"))
 
-    def test_complete_does_not_credit_payslip(self):
-        """Payroll faqat firma egasi tasdiqlaganda kreditlanadi — usta
-        "Bajardim" bosgani bilanoq emas (qarang test_owner_approve_credits_payslip)."""
+    def test_complete_credits_payslip_immediately(self):
+        """Payroll usta "Bajardim" bosishi bilanoq kreditlanadi — firma
+        egasi/menejer tasdiqlashini (`approve()`) kutmaydi (qarang
+        test_owner_approve_credits_payslip — u shu hisobni yana bir bor
+        tasdiqlaydi, xolos)."""
         from apps.production.models import Payslip
 
         instance = self._make_instance()
@@ -529,7 +531,8 @@ class MaterialConsumptionAndPayrollTests(APITestCase):
         self.assertEqual(resp.status_code, 200, resp.data)
         self.assertEqual(resp.data["status"], "completed")
 
-        self.assertFalse(Payslip.objects.filter(company=self.company, employee=self.employee, period=self.period).exists())
+        payslip = Payslip.objects.get(company=self.company, employee=self.employee, period=self.period)
+        self.assertEqual(payslip.base_salary, Decimal("1000000"))
 
     def test_owner_approve_credits_payslip(self):
         from apps.production.models import Payslip
@@ -648,13 +651,21 @@ class CancelStepTests(APITestCase):
         payslip.refresh_from_db()
         self.assertEqual(payslip.workflow_earnings, 0)
 
-    def test_cancel_never_approved_step_does_not_create_payslip(self):
+    def test_cancel_never_approved_step_removes_payroll_credit(self):
+        """Ish haqi endi "Bajardim" bosilishi bilanoq kreditlanadi (hali
+        tasdiqlanmagan bo'lsa ham) — bekor qilinsa, shu hissa ham darhol
+        olib tashlanishi kerak (qarang test_cancel_after_approval_removes_payroll_credit
+        — tasdiqlangan holat uchun bir xil tekshiruv)."""
         from apps.production.models import Payslip
 
         instance = self._completed_instance()
+        payslip = Payslip.objects.get(company=self.company, employee=self.employee, period=self.period)
+        self.assertEqual(payslip.workflow_earnings, Decimal("1000.00"))
+
         self.client.post(f"/api/v1/workflow-instances/{instance.id}/cancel/", {}, format="json")
 
-        self.assertFalse(Payslip.objects.filter(company=self.company, employee=self.employee, period=self.period).exists())
+        payslip.refresh_from_db()
+        self.assertEqual(payslip.workflow_earnings, 0)
 
     def test_cannot_cancel_twice(self):
         instance = self._completed_instance()
