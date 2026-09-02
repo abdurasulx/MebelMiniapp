@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, AlertTriangle, PhoneCall } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useAuth } from "../auth";
 import { api } from "../api";
 import PhoneVerifyModal from "../components/PhoneVerifyModal";
@@ -182,28 +182,31 @@ export default function Profile() {
       {notice && <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{notice}</div>}
       {noticeError && <div className="error mb-4">{noticeError}</div>}
 
-      <div className="card mb-4 flex flex-col gap-3 p-5">
-        <h2 className="text-base font-semibold">Tasdiqlash holati</h2>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <PhoneCall size={16} style={{ color: "var(--muted)" }} />
-            <span className="text-sm">{user.phone || "Telefon raqam kiritilmagan"}</span>
+      {/* Tasdiqlash holati endi alohida banner emas — avatar borderida
+          (yashil=tasdiqlangan, to'q sariq=tasdiqlanmagan) ko'rsatiladi,
+          bosilsa (tasdiqlanmagan bo'lsa) tasdiqlash oynasi ochiladi. Majburiy
+          tasdiqlash talabi hamon buyurtma berishda ishlaydi (Cart.jsx, 403
+          "tasdiqlang" javobi) — shu bilan shunchaki ko'rib chiqayotgan
+          foydalanuvchi darhol tasdiqlashga majburlanmaydi. */}
+      <div className="card mb-4 flex items-center gap-4 p-5">
+        <button
+          onClick={() => !user.phone_verified && setShowPhoneVerify(true)}
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-bold"
+          style={{
+            background: "color-mix(in srgb, var(--primary) 25%, transparent)",
+            border: `3px solid ${user.phone_verified ? "#16a34a" : "#f59e0b"}`,
+            cursor: user.phone_verified ? "default" : "pointer",
+          }}
+          title={user.phone_verified ? "Tasdiqlangan" : "Tasdiqlash uchun bosing"}
+        >
+          {(user.first_name || user.email || "?").charAt(0).toUpperCase()}
+        </button>
+        <div className="min-w-0">
+          <div className="truncate font-semibold">{user.first_name || user.email}</div>
+          <div className="truncate text-xs" style={{ color: "var(--muted)" }}>
+            {user.phone || user.email}
           </div>
-          {user.phone_verified ? (
-            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--success, #16a34a)" }}>
-              <CheckCircle2 size={14} /> Tasdiqlangan
-            </span>
-          ) : (
-            <button className="btn btn-brand" onClick={() => setShowPhoneVerify(true)}>
-              Tasdiqlash
-            </button>
-          )}
         </div>
-        {!user.phone_verified && (
-          <p className="flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
-            <AlertTriangle size={12} /> Tasdiqlanmagan profil bilan buyurtma bera olmaysiz.
-          </p>
-        )}
       </div>
 
       <div className="card flex flex-col gap-4 p-5">
