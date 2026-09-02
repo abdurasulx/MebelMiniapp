@@ -7,10 +7,8 @@ import SwiftUI
 struct CartView: View {
     @EnvironmentObject private var cart: CartStore
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var location: LocationStore
 
-    @State private var phone = ""
-    @State private var address = ""
-    @State private var note = ""
     @State private var busy = false
     @State private var errorMessage: String?
     @State private var didSucceed = false
@@ -47,11 +45,6 @@ struct CartView: View {
                     cartRow(item)
                 }
             }
-            Section("Yetkazish ma'lumotlari") {
-                TextField("Telefon (+998…)", text: $phone).keyboardType(.phonePad)
-                TextField("Manzil", text: $address)
-                TextField("Izoh (ixtiyoriy)", text: $note)
-            }
             Section {
                 HStack {
                     Text("Jami")
@@ -66,7 +59,7 @@ struct CartView: View {
                 Button(action: checkout) {
                     if busy { ProgressView() } else { Text("Buyurtma berish").bold() }
                 }
-                .disabled(phone.isEmpty || address.isEmpty || busy)
+                .disabled(busy)
                 .frame(maxWidth: .infinity)
                 .listRowBackground(Color.brandDeep)
                 .foregroundStyle(Color.brandPrimary)
@@ -78,7 +71,7 @@ struct CartView: View {
             Text("Kompaniya(lar) siz bilan tez orada bog'lanadi.")
         }
         .sheet(isPresented: $showPhoneVerify) {
-            PhoneVerifySheet(initialPhone: phone, onVerified: checkout)
+            PhoneVerifySheet(initialPhone: auth.user?.phone ?? "", onVerified: checkout)
         }
     }
 
@@ -124,20 +117,26 @@ struct CartView: View {
             errorMessage = "Buyurtma berish uchun Profil bo'limidan tizimga kiring"
             return
         }
+        // Telefon/manzil endi so'ralmaydi — tasdiqlangan profildan (backend
+        // `request.user.phone`) va shu yerdagi GPS'dan (`LocationStore`)
+        // avtomatik olinadi. Agar hali aniqlanmagan bo'lsa, so'rab ko'ramiz
+        // (ruxsat allaqachon berilgan bo'lsa darhol qaytadi) — lekin
+        // topilmasa ham buyurtmani to'xtatmaymiz (koordinatasiz yuboriladi).
+        if location.lat == nil { location.detectFromGps() }
         busy = true
         errorMessage = nil
         struct Item: Encodable {
             let variant: String; let width: Double; let height: Double
             let depth: Double; let quantity: Int
         }
-        struct Body: Encodable { let phone: String; let address: String; let note: String; let items: [Item] }
+        struct Body: Encodable { let latitude: Double?; let longitude: Double?; let items: [Item] }
         struct AnyOrder: Decodable { let id: String }
 
         Task {
             do {
                 for group in cart.byCompany.values {
                     let body = Body(
-                        phone: phone, address: address, note: note,
+                        latitude: location.lat, longitude: location.lng,
                         items: group.map {
                             Item(variant: $0.variantId, width: $0.width, height: $0.height, depth: $0.depth, quantity: $0.qty)
                         }

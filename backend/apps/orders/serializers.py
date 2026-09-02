@@ -48,7 +48,7 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = (
             "id", "company", "company_name", "customer", "customer_email", "customer_name",
-            "status", "status_display", "phone", "address", "note",
+            "status", "status_display", "phone", "address", "latitude", "longitude", "note",
             "total_price", "items", "workflow_steps", "production_cost", "progress_percent",
             "sold_by", "sold_by_name",
             "created_at", "updated_at",
@@ -115,11 +115,16 @@ class OrderSerializer(serializers.ModelSerializer):
 
 class OrderCreateSerializer(serializers.Serializer):
     """Buyurtma yaratish: variantlar bitta kompaniyaniki bo'lishi shart,
-    narx serverda variantning m³ narxidan hisoblanadi (snapshot)."""
+    narx serverda variantning m³ narxidan hisoblanadi (snapshot).
 
-    phone = serializers.CharField(max_length=20)
-    address = serializers.CharField(max_length=500)
-    note = serializers.CharField(required=False, allow_blank=True, default="")
+    Telefon/manzil endi mijozdan SO'RALMAYDI — tasdiqlangan profildan
+    (`request.user.phone`) va qurilma GPS'idan (`latitude`/`longitude`)
+    avtomatik olinadi (qarang `create()`). Faqat tasdiqlanmagan
+    foydalanuvchi buyurtma bera olmaydi (qarang OrderViewSet.perform_create)
+    — shu bilan telefon har doim ishonchli manbadan kelishi kafolatlanadi."""
+
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
     items = OrderItemInputSerializer(many=True, allow_empty=False)
 
     def validate(self, data):
@@ -148,12 +153,16 @@ class OrderCreateSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         variants = validated_data["_variants"]
+        user = self.context["request"].user
+        lat = validated_data.get("latitude")
+        lng = validated_data.get("longitude")
         order = Order.objects.create(
             company_id=validated_data["_company_id"],
-            customer=self.context["request"].user,
-            phone=validated_data["phone"],
-            address=validated_data["address"],
-            note=validated_data.get("note", ""),
+            customer=user,
+            phone=user.phone or "",
+            address=f"{lat}, {lng}" if lat is not None and lng is not None else "",
+            latitude=lat,
+            longitude=lng,
         )
         total = Decimal("0")
         for item in validated_data["items"]:

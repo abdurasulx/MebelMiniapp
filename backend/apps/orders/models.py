@@ -32,8 +32,17 @@ class Order(BaseModel):
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="orders"
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
-    phone = models.CharField(max_length=20)
-    address = models.CharField(max_length=500)
+    # Endi mijozdan so'ralmaydi (tasdiqlangan profildan avtomatik olinadi) —
+    # shuning uchun `blank=True`, lekin backward-compat uchun maydonning
+    # o'zi saqlanadi (eski buyurtmalar, admin ko'rinishi va h.k.).
+    phone = models.CharField(max_length=20, blank=True)
+    # Qo'lda kiritiladigan manzil o'rniga endi GPS geolokatsiyasi
+    # (`latitude`/`longitude`) yuboriladi — bu maydon endi faqat
+    # ko'rsatish/qidiruv uchun (masalan koordinatalarning o'qiladigan
+    # ko'rinishi) saqlanadi, mijozdan so'ralmaydi.
+    address = models.CharField(max_length=500, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     note = models.TextField(blank=True)
     total_price = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     # Komissiyali xodim (masalan sotuvchi/menejer) uchun — shu buyurtma kim

@@ -10,7 +10,6 @@ export default function Cart() {
   const { user } = useAuth();
   const nav = useNavigate();
   const [items, setItems] = useState(getCart());
-  const [form, setForm] = useState({ phone: "", address: "", note: "" });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   // Google/Telegram orqali kirgan-u hali telefonini tasdiqlamagan
@@ -25,7 +24,25 @@ export default function Cart() {
     return () => window.removeEventListener("cart-changed", onChange);
   }, []);
 
+  // Telefon/manzil endi so'ralmaydi — tasdiqlangan profildan
+  // (backend `request.user.phone`) va shu yerdagi GPS'dan avtomatik
+  // olinadi. Aniqlanmasa ham (ruxsat berilmagan, qo'llab-quvvatlanmaydi)
+  // buyurtmani to'xtatmaymiz — koordinatasiz yuboriladi.
+  const getLocation = () =>
+    new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({ latitude: null, longitude: null });
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => resolve({ latitude: null, longitude: null }),
+        { timeout: 5000 }
+      );
+    });
+
   const placeOrders = async () => {
+    const { latitude, longitude } = await getLocation();
     // har bir kompaniya uchun alohida buyurtma
     const byCompany = {};
     items.forEach((i) => {
@@ -35,7 +52,8 @@ export default function Cart() {
       await api("/orders/", {
         method: "POST",
         body: {
-          ...form,
+          latitude,
+          longitude,
           items: group.map((i) => ({
             variant: i.variantId,
             width: i.width,
@@ -138,34 +156,6 @@ export default function Cart() {
 
         <form className="card flex h-fit flex-col gap-4 p-6" onSubmit={checkout}>
           <h2 className="text-base font-semibold">Buyurtma berish</h2>
-          <div>
-            <label className="label">Telefon *</label>
-            <input
-              className="input"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="+998…"
-              required
-            />
-          </div>
-          <div>
-            <label className="label">Manzil *</label>
-            <input
-              className="input"
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-              required
-            />
-          </div>
-          <div>
-            <label className="label">Izoh</label>
-            <textarea
-              className="input"
-              rows={2}
-              value={form.note}
-              onChange={(e) => setForm({ ...form, note: e.target.value })}
-            />
-          </div>
           <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: "var(--border)" }}>
             <span className="text-sm" style={{ color: "var(--muted)" }}>Jami</span>
             <span className="text-xl font-bold">{cartTotal(items).toLocaleString()} so'm</span>
@@ -178,7 +168,7 @@ export default function Cart() {
       </div>
       {showPhoneVerify && (
         <PhoneVerifyModal
-          initialPhone={form.phone}
+          initialPhone={user?.phone || ""}
           onVerified={afterPhoneVerified}
           onClose={() => setShowPhoneVerify(false)}
         />

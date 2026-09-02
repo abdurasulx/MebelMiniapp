@@ -4,6 +4,7 @@ import '../api_client.dart';
 import '../auth_store.dart';
 import '../cart_store.dart';
 import '../locale_store.dart';
+import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/phone_verify_dialog.dart';
@@ -19,29 +20,22 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  final _phoneCtrl = TextEditingController();
-  final _addressCtrl = TextEditingController();
-  final _noteCtrl = TextEditingController();
   bool _busy = false;
   String? _error;
 
-  @override
-  void dispose() {
-    _phoneCtrl.dispose();
-    _addressCtrl.dispose();
-    _noteCtrl.dispose();
-    super.dispose();
-  }
-
   Future<void> _placeOrders(CartStore cart) async {
+    // Telefon/manzil endi so'ralmaydi — tasdiqlangan profildan (backend
+    // `request.user.phone`) va shu yerdagi GPS'dan (`LocationStore`)
+    // avtomatik olinadi.
+    final location = context.read<LocationStore>();
+    if (location.lat == null) await location.detectFromGps();
     for (final group in cart.byCompany.values) {
       await ApiClient.instance.post(
         '/orders/',
         (j) => j,
         body: {
-          'phone': _phoneCtrl.text.trim(),
-          'address': _addressCtrl.text.trim(),
-          'note': _noteCtrl.text.trim(),
+          'latitude': location.lat,
+          'longitude': location.lng,
           'items': group
               .map(
                 (i) => {
@@ -73,10 +67,6 @@ class _CartScreenState extends State<CartScreen> {
       ).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
       return;
     }
-    if (_phoneCtrl.text.trim().isEmpty || _addressCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Telefon va manzilni kiriting');
-      return;
-    }
     setState(() {
       _busy = true;
       _error = null;
@@ -91,7 +81,7 @@ class _CartScreenState extends State<CartScreen> {
         setState(() => _busy = false);
         final verified = await showPhoneVerifyDialog(
           context,
-          initialPhone: _phoneCtrl.text.trim(),
+          initialPhone: auth.user?.phone ?? '',
         );
         if (verified == true && mounted) {
           await auth.refreshUser();
@@ -154,23 +144,6 @@ class _CartScreenState extends State<CartScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         for (int i = 0; i < cart.items.length; i++) _cartTile(cart, i),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _phoneCtrl,
-          keyboardType: TextInputType.phone,
-          decoration: InputDecoration(labelText: loc.t('cart_phone')),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _addressCtrl,
-          decoration: InputDecoration(labelText: loc.t('cart_address')),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _noteCtrl,
-          maxLines: 2,
-          decoration: InputDecoration(labelText: loc.t('cart_note')),
-        ),
         const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
