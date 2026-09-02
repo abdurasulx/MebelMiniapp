@@ -14,7 +14,8 @@ function timeAgo(iso) {
 
 /// Xabarnomalar qo'ng'irog'i — mijozga buyurtma holati, xodimga vazifa
 /// tayinlash/tayyorlik xabarlarini ko'rsatadi (qarang backend
-/// apps.notifications). Push hali yo'q — 30s'da bir marta so'raladi.
+/// apps.notifications). 30s'da bir marta so'raladi, shuningdek push
+/// ilova ochiq paytida kelsa (`src/push.js`) darhol yangilanadi.
 export default function NotificationBell({ surface = false }) {
   const [count, setCount] = useState(0);
   const [items, setItems] = useState([]);
@@ -30,7 +31,11 @@ export default function NotificationBell({ surface = false }) {
     };
     loadCount();
     const interval = setInterval(loadCount, 30000);
-    return () => clearInterval(interval);
+    window.addEventListener("notifications:refresh", loadCount);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notifications:refresh", loadCount);
+    };
   }, []);
 
   useEffect(() => {

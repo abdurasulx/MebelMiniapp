@@ -39,6 +39,19 @@ def _get_app():
     return _firebase_app
 
 
+def _web_link(data):
+    """Web'da bosilganda ochiladigan sahifa — hozircha faqat buyurtma
+    holati xabarnomasi uchun (`order_id` bilan `/orders` ro'yxatida shu
+    buyurtmani belgilab ko'rsatish uchun `highlight` query'si, qarang
+    frontend/src/pages/MyOrders.jsx)."""
+    if not data:
+        return settings.FRONTEND_URL
+    order_id = data.get("order_id")
+    if data.get("type") == "order_status" and order_id:
+        return f"{settings.FRONTEND_URL}/orders?highlight={order_id}"
+    return settings.FRONTEND_URL
+
+
 def send_push(user, title, body, data=None):
     """`user`ning barcha ro'yxatdan o'tgan qurilmalariga push yuboradi.
     Eskirgan/bekor qilingan token uchun FCM xato qaytarsa, o'sha
@@ -50,7 +63,7 @@ def send_push(user, title, body, data=None):
 
     from .models import PushDevice
 
-    devices = list(PushDevice.objects.filter(user=user, is_deleted=False))
+    devices = list(PushDevice.objects.filter(user=user, is_deleted=False, token__isnull=False).exclude(token=""))
     if not devices:
         return
 
@@ -62,6 +75,15 @@ def send_push(user, title, body, data=None):
             notification=messaging.Notification(title=title, body=body),
             data={k: str(v) for k, v in (data or {}).items()},
             android=messaging.AndroidConfig(priority="high"),
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(sound="default", content_available=True)
+                )
+            ),
+            webpush=messaging.WebpushConfig(
+                notification=messaging.WebpushNotification(title=title, body=body),
+                fcm_options=messaging.WebpushFCMOptions(link=_web_link(data)),
+            ),
         )
         try:
             messaging.send(message, app=app)

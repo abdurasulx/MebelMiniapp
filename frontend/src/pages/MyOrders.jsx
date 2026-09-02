@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Workflow } from "lucide-react";
 import { api } from "../api";
 import { FLOW, ORDER_STATUS, StatusBadge } from "../orderStatus";
@@ -8,6 +9,11 @@ export default function MyOrders() {
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState("");
   const [openWorkflow, setOpenWorkflow] = useState(null);
+  // Push bosilganda (`/orders?highlight=<id>`) o'sha buyurtmaga o'tib,
+  // vizual ajratib ko'rsatish uchun — qarang src/push.js va
+  // public/firebase-messaging-sw.js.
+  const [searchParams] = useSearchParams();
+  const highlightId = searchParams.get("highlight");
 
   const load = () =>
     api("/orders/")
@@ -17,6 +23,12 @@ export default function MyOrders() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    if (!highlightId || orders.length === 0) return;
+    const el = document.getElementById(`order-${highlightId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightId, orders]);
 
   const cancel = async (o) => {
     if (!confirm("Buyurtma bekor qilinsinmi?")) return;
@@ -37,7 +49,16 @@ export default function MyOrders() {
       )}
       <div className="flex flex-col gap-4">
         {orders.map((o) => (
-          <div key={o.id} className="card flex flex-col gap-4 p-5">
+          <div
+            key={o.id}
+            id={`order-${o.id}`}
+            className="card flex flex-col gap-4 p-5"
+            style={
+              String(o.id) === highlightId
+                ? { outline: "2px solid var(--brand-cta-bg)", outlineOffset: "2px" }
+                : undefined
+            }
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <span className="font-semibold">{o.company_name}</span>

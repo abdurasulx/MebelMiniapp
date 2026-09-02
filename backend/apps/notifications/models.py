@@ -16,9 +16,10 @@ class NotificationType(models.TextChoices):
 class Notification(BaseModel):
     """Ilova-ichi (in-app) xabarnoma — mijozga buyurtma holati o'zgarganda,
     xodimga vazifa tayinlanganda/boshlashga tayyor bo'lganda yaratiladi
-    (qarang `apps.notifications.services`). Push (FCM/APNs) hali ulanmagan —
-    bu model shu tayyor bo'lganda ham o'zgarishsiz qoladi, faqat yetkazish
-    qatlami (device token + push yuborish) ustiga qo'shiladi."""
+    (qarang `apps.notifications.services`). Real push (FCM) — bu yozuv
+    yaratilgan paytda `send_push()` orqali ham yuboriladi (qarang
+    `apps.notifications.push`); bu model shundan qat'iy nazar o'zgarishsiz
+    qoladi, faqat yetkazish qatlami (device token + push yuborish)."""
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications"
@@ -44,6 +45,7 @@ class Notification(BaseModel):
 class DevicePlatform(models.TextChoices):
     ANDROID = "android", "Android"
     IOS = "ios", "iOS"
+    WEB = "web", "Web"
 
 
 class PushDevice(BaseModel):

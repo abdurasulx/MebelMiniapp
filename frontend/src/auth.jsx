@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { api, setTokens } from "./api";
 import { setActivePosition } from "./positions";
+import { initPush } from "./push";
 
 const AuthContext = createContext(null);
 
@@ -25,6 +26,14 @@ export function AuthProvider({ children }) {
     window.addEventListener("auth:session-expired", onExpired);
     return () => window.removeEventListener("auth:session-expired", onExpired);
   }, []);
+
+  // Login bo'lgach web push (FCM) qurilmasini ro'yxatdan o'tkazamiz —
+  // Flutter/iOS bilan bir xil oqim (qarang src/push.js). Firebase Web
+  // config hali qo'yilmagan bo'lsa `initPush` jim o'zini o'chiradi.
+  useEffect(() => {
+    if (!user) return;
+    initPush(() => window.dispatchEvent(new Event("notifications:refresh")));
+  }, [user?.id]);
 
   // Tokenlar qanday olinishidan qat'iy nazar (parol, Google, Telegram) —
   // saqlash va profil yuklash bir xil.
