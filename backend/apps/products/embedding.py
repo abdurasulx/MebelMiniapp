@@ -42,6 +42,20 @@ def _load_model():
     return _model, _preprocess
 
 
+def preload_model():
+    """Server ishga tushganda (qarang ProductsConfig.ready()) chaqiriladi —
+    ~80s'lik yuklashni birinchi haqiqiy foydalanuvchi so'rovidan OLDIN
+    bajarib qo'yadi. Xatolik (masalan internet yo'q, model fayli hali
+    yuklab olinmagan) serverni yiqitmasligi kerak — shunchaki keyingi
+    haqiqiy so'rovda (`compute_embedding` -> `_load_model()`) qayta
+    urinilaveradi."""
+    try:
+        _load_model()
+        logger.info("CLIP modeli oldindan yuklandi")
+    except Exception:
+        logger.exception("CLIP modelini oldindan yuklab bo'lmadi — birinchi so'rovda qayta urinib ko'riladi")
+
+
 def compute_embedding(image_file):
     """Fayl-omonlik obyektidan (Django `ImageField` yoki oddiy fayl)
     normallashtirilgan 512-o'lchamli CLIP embedding hisoblaydi. Rasmni
