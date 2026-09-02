@@ -46,6 +46,12 @@ class PushService {
   final _localNotifications = FlutterLocalNotificationsPlugin();
   String? _lastRegisteredToken;
   bool _initialized = false;
+  // `onAuthChanged` har safar (login/logout) chaqirilganda yangilanadi —
+  // `_route()` shu orqali bildirishnoma turiga mos rejimga (customer/usta)
+  // avtomatik o'tkazadi, aks holda foydalanuvchi noto'g'ri rejimda qolib
+  // ketardi (masalan "user" rejimida turib usta vazifasi bildirishnomasini
+  // bosgach, orqaga qaytganda hamon "user" rejimida qolar edi).
+  AuthStore? _auth;
 
   /// `main.dart`da `Firebase.initializeApp()`dan KEYIN, ilova to'liq
   /// ochilishidan oldin bir marta chaqiriladi.
@@ -172,6 +178,12 @@ class PushService {
 
     switch (type) {
       case 'order_status':
+        // Bu — mijozning O'Z bozor xaridi haqidagi bildirishnoma
+        // (`OrderDetailScreen` faqat shu kontekst uchun, qarang uning
+        // docstringi) — "usta" rejimida turib bosilsa, avval "user"
+        // rejimiga o'tkazamiz, aks holda orqaga qaytganda foydalanuvchi
+        // hamon usta panelida qolib ketar edi.
+        _auth?.setAppMode(AppMode.customer);
         final orderId = data['order_id'];
         if (orderId == null) return;
         try {
@@ -189,6 +201,17 @@ class PushService {
       case 'task_assigned':
       case 'task_available':
       case 'task_pool_open':
+        // Aksincha — vazifaga oid bildirishnoma "user" rejimida turib
+        // kelsa, avval "usta" rejimiga o'tkazamiz (mavjud lavozimlaridan
+        // birini tanlab — allaqachon tanlangani bo'lsa o'shani saqlab
+        // qoladi).
+        final positions = _auth?.user?.positions ?? const [];
+        if (positions.isNotEmpty) {
+          final position = _auth!.activePosition != null && positions.contains(_auth!.activePosition)
+              ? _auth!.activePosition!
+              : positions.first;
+          _auth?.enterWorkerMode(position);
+        }
         navigator.push(MaterialPageRoute(builder: (_) => const WorkerOrdersScreen()));
         break;
     }
@@ -197,6 +220,7 @@ class PushService {
   /// `AuthStore`ga listener sifatida ulanadi (qarang main.dart) — login/
   /// logout bo'lganda avtomatik chaqiriladi.
   Future<void> onAuthChanged(AuthStore auth) async {
+    _auth = auth;
     if (!_initialized) return;
     final deviceId = DeviceSignature.instance.deviceId;
     if (deviceId == null) return;
