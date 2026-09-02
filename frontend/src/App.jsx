@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth";
 import PortalLayout from "./layouts/PortalLayout";
 import { BRAND_NAME, PORTAL, portalURLFor } from "./portal";
@@ -208,34 +208,34 @@ function MarketLayout({ children }) {
           <Sofa size={22} /> {BRAND_NAME}
         </Link>
         <nav className="flex items-center gap-1 text-sm">
-          <Link to="/" className="rounded-lg px-3 py-1.5 transition hover:bg-black/10">
+          <NavLink to="/" end className={({ isActive }) => `top-link ${isActive ? "active" : ""}`}>
             Katalog
-          </Link>
-          <Link to="/cart" className="relative flex items-center rounded-lg px-3 py-1.5 transition hover:bg-black/10">
+          </NavLink>
+          <NavLink to="/cart" className={({ isActive }) => `top-link relative flex items-center ${isActive ? "active" : ""}`}>
             <ShoppingBasket size={18} />
             {count > 0 && (
               <span
                 className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
-                style={{ background: "#e74c3c", color: "#fff" }}
+                style={{ background: "var(--danger)", color: "#fff" }}
               >
                 {count}
               </span>
             )}
-          </Link>
+          </NavLink>
           {user && (
             <>
-              <Link to="/liked" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition hover:bg-black/10">
+              <NavLink to="/liked" className={({ isActive }) => `top-link flex items-center gap-1.5 ${isActive ? "active" : ""}`}>
                 <Heart size={16} /> Sevimlilar
-              </Link>
-              <Link to="/projects" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition hover:bg-black/10">
+              </NavLink>
+              <NavLink to="/projects" className={({ isActive }) => `top-link flex items-center gap-1.5 ${isActive ? "active" : ""}`}>
                 <FolderKanban size={16} /> Loyihalarim
-              </Link>
-              <Link to="/orders" className="rounded-lg px-3 py-1.5 transition hover:bg-black/10">
+              </NavLink>
+              <NavLink to="/orders" className={({ isActive }) => `top-link ${isActive ? "active" : ""}`}>
                 Buyurtmalarim
-              </Link>
-              <Link to="/profile" className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition hover:bg-black/10">
+              </NavLink>
+              <NavLink to="/profile" className={({ isActive }) => `top-link flex items-center gap-1.5 ${isActive ? "active" : ""}`}>
                 <UserCircle size={16} /> Profil
-              </Link>
+              </NavLink>
               <NotificationBell surface />
             </>
           )}

@@ -191,6 +191,19 @@ body {
   color: #e74c3c;
 }
 
+/* Market top nav — sidebar (.side-link) bilan bir xil naqsh: faol havola
+   to'q brend rangida ajratiladi (qarang MarketLayout, App.jsx). */
+.top-link {
+  @apply rounded-lg px-3 py-1.5 text-sm font-medium transition;
+}
+.top-link:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+.top-link.active {
+  background: var(--brand-cta-bg);
+  color: var(--brand-cta-text);
+}
+
 /* Sidebar */
 .side-group-label {
   @apply px-4 pb-1 pt-4 text-[11px] font-bold uppercase tracking-wider;
