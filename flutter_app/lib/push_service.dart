@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -59,6 +60,15 @@ class PushService {
       const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
+      // MUHIM: ilova OLDINDA (foreground) ochiq bo'lganda FCM'ning o'zi
+      // emas, pastdagi `onMessage` qo'lda shu mahalliy bildirishnomani
+      // ko'rsatadi (chunki OS avtomatik chiqarmaydi) — lekin bu tugma
+      // bosilganda hech qanday navigatsiya ulanmagan edi (payload ham
+      // yuborilmagan edi), shuning uchun foreground holatida kelgan
+      // bildirishnomani bosish HECH NARSA qilmasdi. Endi shu callback
+      // orqali xuddi fon/yopiq holatdagi bilan bir xil marshrutlashga
+      // ulanadi.
+      onDidReceiveNotificationResponse: _handleLocalNotificationTap,
     );
 
     // Android 13+ da runtime ruxsat so'raladi (avtomatik rad javobi bo'lsa
@@ -82,6 +92,10 @@ class PushService {
             priority: Priority.high,
           ),
         ),
+        // `_handleLocalNotificationTap` shu payload'ni o'qib, xuddi
+        // fon/yopiq holatdagi bosishlar bilan bir xil marshrutlashni
+        // ishlatadi (qarang `_route`).
+        payload: jsonEncode(message.data),
       );
     });
 
@@ -111,8 +125,37 @@ class PushService {
   /// — muddat torligi sababli. `order_status` esa `/orders/{id}/` orqali
   /// haqiqiy buyurtmani olib, to'g'ridan-to'g'ri uning tafsilot sahifasini
   /// ochadi.
-  Future<void> _handleMessage(RemoteMessage message) async {
-    final type = message.data['type'];
+  Future<void> _handleMessage(RemoteMessage message) => _route(message.data);
+
+  /// Ilova OLDINDA (foreground) ochiq bo'lganda qo'lda ko'rsatilgan mahalliy
+  /// bildirishnoma (`onMessage` -> `_localNotifications.show`) bosilganda
+  /// chaqiriladi — `payload`da saqlangan `data`ni o'qib, xuddi fon/yopiq
+  /// holatdagi bosish bilan bir xil marshrutlashga (`_route`) yuboradi.
+  /// Buning ulanmaganligi avval shu holatda bosishni butunlay ishlamas
+  /// qilgan edi.
+  void _handleLocalNotificationTap(NotificationResponse response) {
+    final payload = response.payload;
+    if (payload == null) return;
+    try {
+      final data = Map<String, dynamic>.from(jsonDecode(payload) as Map);
+      _route(data);
+    } catch (_) {
+      // Payload buzilgan bo'lsa — jim o'tkaziladi.
+    }
+  }
+
+  /// `data`dagi `type`ga qarab tegishli sahifaga o'tadi (nwupdate.md
+  /// §2.2-2.3: payload faqat ROUTING uchun, haqiqiy ma'lumot API'dan qayta
+  /// olinadi — eskirib qolgan bo'lishi mumkin).
+  ///
+  /// MUHIM (bilinib turgan soddalashtirish): hozircha "task_*" turlari
+  /// aniq bitta vazifa sahifasiga emas, usta "Buyurtmalar" ro'yxatiga olib
+  /// boradi (alohida bitta-vazifa-ID bo'yicha yuklaydigan ekran hali yo'q)
+  /// — muddat torligi sababli. `order_status` esa `/orders/{id}/` orqali
+  /// haqiqiy buyurtmani olib, to'g'ridan-to'g'ri uning tafsilot sahifasini
+  /// ochadi.
+  Future<void> _route(Map<String, dynamic> data) async {
+    final type = data['type'];
     // MUHIM: ilova YOPIQ holatda notification bosilib ochilganda,
     // `getInitialMessage()` natijasi `runApp()`dan OLDIN (main.dart) shu
     // funksiyaga uzatiladi — o'sha paytda `MaterialApp` hali qurilmagani
@@ -129,7 +172,7 @@ class PushService {
 
     switch (type) {
       case 'order_status':
-        final orderId = message.data['order_id'];
+        final orderId = data['order_id'];
         if (orderId == null) return;
         try {
           final order = await ApiClient.instance.get(
