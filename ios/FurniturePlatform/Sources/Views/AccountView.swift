@@ -52,10 +52,30 @@ private struct ProfileView: View {
         List {
             Section {
                 HStack {
-                    Circle()
-                        .fill(Color.brandPrimary)
-                        .frame(width: 48, height: 48)
-                        .overlay(Text(String((user.firstName?.first ?? user.email.first) ?? "?")).bold().foregroundColor(.brandDeep))
+                    // Tasdiqlash holati endi alohida bo'lim/banner sifatida
+                    // emas, shu avatarning atrofidagi rang orqali (yashil —
+                    // tasdiqlangan, to'q sariq — tasdiqlanmagan) ko'rsatiladi
+                    // — profilni ochgan HAR BIR foydalanuvchini darhol
+                    // "tasdiqlang" deb bezovta qilmaslik uchun. Haqiqiy
+                    // tasdiqlash so'rovi endi FAQAT buyurtma berishga
+                    // urinilganda chiqadi (qarang CartView.checkout — 403
+                    // "tasdiqlang" xatosini ushlab PhoneVerifySheet ochadi) —
+                    // shu bilan hech qachon xarid qilmoqchi bo'lmagan
+                    // "bekorchi" foydalanuvchilarni ham tasdiqlashga
+                    // majburlashdan qutulamiz.
+                    Button {
+                        if !(user.phoneVerified ?? true) { showPhoneVerify = true }
+                    } label: {
+                        Circle()
+                            .fill(Color.brandPrimary)
+                            .frame(width: 48, height: 48)
+                            .overlay(Text(String((user.firstName?.first ?? user.email.first) ?? "?")).bold().foregroundColor(.brandDeep))
+                            .overlay(
+                                Circle().strokeBorder((user.phoneVerified ?? true) ? .green : .orange, lineWidth: 2.5)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(user.phoneVerified ?? true)
                     VStack(alignment: .leading) {
                         Text(user.firstName?.isEmpty == false ? user.firstName! : user.email).bold()
                         Text(user.email).font(.caption).foregroundStyle(.secondary)
@@ -70,22 +90,6 @@ private struct ProfileView: View {
                             }
                         }
                     }
-                }
-            }
-
-            Section("Tasdiqlash holati") {
-                HStack {
-                    Image(systemName: (user.phoneVerified ?? true) ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle((user.phoneVerified ?? true) ? .green : .orange)
-                    Text((user.phoneVerified ?? true) ? "Tasdiqlangan profil" : "Tasdiqlanmagan profil")
-                    Spacer()
-                    if !(user.phoneVerified ?? true) {
-                        Button("Tasdiqlash") { showPhoneVerify = true }.font(.caption)
-                    }
-                }
-                if !(user.phoneVerified ?? true) {
-                    Text("Tasdiqlanmagan profil bilan buyurtma bera olmaysiz.")
-                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
             .sheet(isPresented: $showPhoneVerify) {
