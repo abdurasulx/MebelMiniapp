@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api";
+import { useAuth } from "../../auth";
 import { POSITIONS } from "../../positions";
 
 const PAY_TYPES = {
@@ -21,7 +22,17 @@ const EMPTY = {
   kpi_bonus_multiplier: "1",
 };
 
-export default function AdminPayStandards() {
+/// Lavozim bo'yicha ISHBU FIRMAGA tegishli ish haqi standarti — xodim
+/// ishga taklif qilinganda shu standart boshlang'ich taklif sifatida
+/// ko'rsatiladi (Employees.jsx), lekin har bir xodimning o'zi keyinchalik
+/// individual sozlanadi (backend PositionPayStandard, company=shu firma).
+/// Firma o'zi belgilamagan lavozim uchun platforma standarti (agar bor
+/// bo'lsa) ishlatiladi — bu yerda faqat FIRMANING O'Z qiymatlari
+/// tahrirlanadi, platforma standarti ko'rinmaydi/o'zgartirilmaydi (u faqat
+/// platforma admini tomonidan boshqariladi).
+export default function FirmaPayStandards() {
+  const { user } = useAuth();
+  const companyId = user?.company?.id;
   const [standards, setStandards] = useState({});
   const [drafts, setDrafts] = useState({});
   const [error, setError] = useState("");
@@ -32,7 +43,7 @@ export default function AdminPayStandards() {
       .then((d) => {
         const byPosition = {};
         (d.results || []).forEach((s) => {
-          if (s.is_platform_default) byPosition[s.position] = s;
+          if (s.company === companyId) byPosition[s.position] = s;
         });
         setStandards(byPosition);
         const nextDrafts = {};
@@ -58,6 +69,7 @@ export default function AdminPayStandards() {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateDraft = (position, field, value) =>
@@ -68,6 +80,7 @@ export default function AdminPayStandards() {
     setSavingPosition(position);
     const d = drafts[position];
     const body = {
+      company: companyId,
       position,
       pay_type: d.pay_type,
       min_salary: d.min_salary || 0,
@@ -99,10 +112,10 @@ export default function AdminPayStandards() {
       <div className="card p-5">
         <h2 className="mb-1 text-base font-semibold">Lavozim bo'yicha ish haqi standartlari</h2>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Har bir lavozim uchun platforma darajasidagi standart to'lov turi, tavsiya etilgan maosh oralig'i
-          va KPI maqsadi. Firma xodim qo'shganda shu standart boshlang'ich taklif sifatida ko'rsatiladi,
-          lekin o'zi individual sozlashi mumkin. Firma o'z kompaniyasi uchun bu standartni override qilishi
-          ham mumkin (Sozlamalar bo'limida).
+          Har bir lavozim uchun kompaniyangizning standart to'lov turi, tavsiya etilgan maosh oralig'i va
+          KPI maqsadi. Xodim ishga taklif qilinganda shu standart boshlang'ich taklif sifatida
+          ko'rsatiladi — har bir xodimning o'zi <strong>Xodimlar</strong> sahifasida individual
+          sozlanadi, bu yerdagi qiymatlar faqat umumiy taklif/nazorat uchun.
         </p>
       </div>
       {error && <div className="error">{error}</div>}

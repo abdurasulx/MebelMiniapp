@@ -11,7 +11,6 @@ import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminFinance from "./pages/admin/AdminFinance";
 import AdminOrders from "./pages/admin/AdminOrders";
-import AdminPayStandards from "./pages/admin/AdminPayStandards";
 import AdminTariffPlans from "./pages/admin/AdminTariffPlans";
 import AdminUsers from "./pages/admin/AdminUsers";
 import Cart from "./pages/Cart";
@@ -24,6 +23,7 @@ import FirmaLeads from "./pages/firma/FirmaLeads";
 import FirmaOrders from "./pages/firma/FirmaOrders";
 import FirmaOrderDetail from "./pages/firma/FirmaOrderDetail";
 import FirmaPayroll from "./pages/firma/FirmaPayroll";
+import FirmaPayStandards from "./pages/firma/FirmaPayStandards";
 import FirmaProduction from "./pages/firma/FirmaProduction";
 import FirmaProductDetail from "./pages/firma/FirmaProductDetail";
 import FirmaProducts from "./pages/firma/FirmaProducts";
@@ -72,7 +72,6 @@ const ADMIN_MENU = [
   { to: "/companies", icon: Factory, label: "Kompaniyalar", group: "Boshqaruv" },
   { to: "/users", icon: Users, label: "Foydalanuvchilar", group: "Boshqaruv" },
   { to: "/categories", icon: FolderTree, label: "Kategoriyalar", group: "Boshqaruv" },
-  { to: "/pay-standards", icon: HardHat, label: "Ish haqi standartlari", group: "Boshqaruv" },
   { to: "/tariff-plans", icon: Banknote, label: "Tarif rejalari", group: "Boshqaruv" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
   { to: "/finance", icon: Wallet, label: "Moliya", group: "Savdo" },
@@ -88,6 +87,7 @@ const FIRMA_MENU = [
   { to: "/suppliers", icon: Truck, label: "Ta'minot", group: "Ishlab chiqarish" },
   { to: "/employees", icon: HardHat, label: "Xodimlar", group: "Xodimlar" },
   { to: "/payroll", icon: Wallet, label: "Ish haqi", group: "Xodimlar" },
+  { to: "/pay-standards", icon: HardHat, label: "Ish haqi standartlari", group: "Xodimlar" },
   { to: "/finance", icon: TrendingUp, label: "Moliya", group: "Savdo" },
   { to: "/settings", icon: Settings, label: "Sozlamalar", group: "Tizim" },
 ];
@@ -290,7 +290,6 @@ export default function App() {
           <Route path="/companies" element={<AdminCompanies />} />
           <Route path="/users" element={<AdminUsers />} />
           <Route path="/categories" element={<AdminCategories />} />
-          <Route path="/pay-standards" element={<AdminPayStandards />} />
           <Route path="/tariff-plans" element={<AdminTariffPlans />} />
           <Route path="/orders" element={<AdminOrders />} />
           <Route path="/finance" element={<AdminFinance />} />
@@ -322,6 +321,7 @@ export default function App() {
           <Route path="/warehouses/:id" element={<OwnerOnly><FirmaWarehouseDetail /></OwnerOnly>} />
           <Route path="/suppliers" element={<OwnerOnly><FirmaSuppliers /></OwnerOnly>} />
           <Route path="/payroll" element={<OwnerOnly><FirmaPayroll /></OwnerOnly>} />
+          <Route path="/pay-standards" element={<OwnerOnly><FirmaPayStandards /></OwnerOnly>} />
           <Route path="/finance" element={<OwnerOnly><AdminFinance /></OwnerOnly>} />
           <Route path="/settings" element={<OwnerOnly><FirmaSettings /></OwnerOnly>} />
         </Route>
