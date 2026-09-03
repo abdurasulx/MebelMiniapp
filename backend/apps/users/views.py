@@ -235,12 +235,25 @@ def _resolve_google_user(claims: dict) -> tuple:
         user = link.user
         if not user.is_active:
             raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+        if user.role == "platform_admin":
+            raise ValidationError(
+                "Platforma admini uchun Google orqali kirish o'chirilgan. Email va parol bilan kiring."
+            )
         return user, False
 
     existing = User.objects.filter(email__iexact=email).first() if email else None
     if existing is not None:
         if not existing.is_active:
             raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+        # XAVFSIZLIK: platforma admini hech qachon Google orqali kira
+        # olmasligi kerak (faqat email+parol, qarang AdminLogin) — aks
+        # holda, agar adminning email manzili biror Google hisobiga
+        # tegishli bo'lib qolsa, shu email-bo'yicha avtomatik bog'lash
+        # orqali admin hisobiga OAuth orqali kirish imkoni ochilib qolardi.
+        if existing.role == "platform_admin":
+            raise ValidationError(
+                "Platforma admini uchun Google orqali kirish o'chirilgan. Email va parol bilan kiring."
+            )
         GoogleAccount.objects.create(user=existing, google_sub=sub, email=email)
         return existing, False
 
@@ -287,7 +300,14 @@ def _link_google_account(user, claims: dict) -> None:
     foydalanuvchiga bog'laydi — profil sahifasidagi "Google'ni bog'lash"
     uchun. Shu `google_sub` allaqachon BOSHQA foydalanuvchiga bog'langan
     bo'lsa rad etiladi; xuddi shu foydalanuvchiga bog'langan bo'lsa
-    (masalan qayta bosilgan) — jim o'tkazib yuboriladi."""
+    (masalan qayta bosilgan) — jim o'tkazib yuboriladi.
+
+    XAVFSIZLIK: platforma admini Google hisobini bog'lay olmaydi — bu
+    hisob faqat email+parol bilan kirishi kerak (qarang AdminLogin);
+    aks holda keyinchalik shu Google hisobi orqali kirish imkoni
+    ochilib qolardi."""
+    if user.role == "platform_admin":
+        raise ValidationError("Platforma admini Google hisobini bog'lay olmaydi")
     sub = claims["sub"]
     existing = GoogleAccount.objects.filter(google_sub=sub).first()
     if existing is not None:
@@ -315,16 +335,21 @@ def _google_redirect_uri() -> str:
     return f"{settings.BACKEND_URL.rstrip('/')}/api/v1/auth/google/callback/"
 
 
-PORTAL_CHOICES = ("market", "admin", "firma")
+# XAVFSIZLIK: "admin" ataylab shu ro'yxatda YO'Q — platforma admini
+# Google/Telegram orqali umuman kira olmasligi kerak (faqat AdminLogin
+# email+parol), shuning uchun `?portal=admin` bilan boshlangan Google
+# login so'rovi ham (pastda `GoogleLoginStartView`da) jim jimgina
+# "market"ga tushib qoladi.
+PORTAL_CHOICES = ("market", "firma")
 
 
 def _portal_base_url(portal: str) -> str:
     """`portal.js`dagi `portalURLFor` bilan bir xil qoidani serverda
-    takrorlaydi: market — asosiy domen (prefiks yo'q), admin/firma — mos
+    takrorlaydi: market — asosiy domen (prefiks yo'q), firma — mos
     subdomen. Faqat FRONTEND_URL'ga nisbatan hisoblanadi (bitta, doimiy
     market subdomen — firma wildcard emas)."""
     base = settings.FRONTEND_URL.rstrip("/")
-    if portal not in ("admin", "firma"):
+    if portal != "firma":
         return base
     scheme_sep = "://"
     scheme, _, host = base.partition(scheme_sep)
@@ -646,6 +671,12 @@ class TelegramSessionPollView(APIView):
             user = link.user
             if not user.is_active:
                 raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+            # XAVFSIZLIK: platforma admini uchun Google bilan bir xil
+            # cheklov — faqat email+parol (qarang AdminLogin).
+            if user.role == "platform_admin":
+                raise ValidationError(
+                    "Platforma admini uchun Telegram orqali kirish o'chirilgan. Email va parol bilan kiring."
+                )
             is_new_user = False
         else:
             user = User(
@@ -680,9 +711,14 @@ class TelegramLinkSessionCreateView(APIView):
     """Profildagi "Telegram'ni bog'lash" tugmasi bosilganda chaqiriladi —
     `TelegramSessionCreateView`ga o'xshash, lekin `link_to_user`ga joriy
     autentifikatsiyalangan foydalanuvchi yoziladi (webhook mantig'i bir
-    xil — qarang TelegramWebhookView; farq faqat poll bosqichida)."""
+    xil — qarang TelegramWebhookView; farq faqat poll bosqichida).
+
+    XAVFSIZLIK: platforma admini Telegram hisobini bog'lay olmaydi —
+    Google bilan bir xil sabab (qarang `_link_google_account`)."""
 
     def post(self, request):
+        if request.user.role == "platform_admin":
+            raise ValidationError("Platforma admini Telegram hisobini bog'lay olmaydi")
         session = TelegramLoginSession.objects.create(
             link_to_user=request.user, client=_client_from_request(request)
         )

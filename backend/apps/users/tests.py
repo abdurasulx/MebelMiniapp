@@ -191,6 +191,25 @@ class GoogleLoginTests(TestCase):
         resp = self._login()
         self.assertEqual(resp.status_code, 400)
 
+    def test_platform_admin_cannot_login_via_google(self):
+        """XAVFSIZLIK: platforma admini faqat email+parol bilan kirishi
+        kerak — Google email-bo'yicha avtomatik bog'lash orqali ham
+        kirolmasligi kerak."""
+        User.objects.create_user(
+            email="user@example.com", password="StrongPass123", role=User.Role.PLATFORM_ADMIN
+        )
+        resp = self._login()
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(GoogleAccount.objects.filter(user__email="user@example.com").exists())
+
+    def test_platform_admin_with_linked_google_sub_still_blocked(self):
+        user = User.objects.create_user(
+            email="admin2@example.com", password="StrongPass123", role=User.Role.PLATFORM_ADMIN
+        )
+        GoogleAccount.objects.create(user=user, google_sub="google-sub-1", email="admin2@example.com")
+        resp = self._login(email="admin2@example.com")
+        self.assertEqual(resp.status_code, 400)
+
     def test_unverified_email_is_rejected(self):
         from rest_framework.exceptions import ValidationError
 
@@ -254,6 +273,14 @@ class GoogleLoginStartTests(TestCase):
         self.assertTrue(resp.url.startswith("https://accounts.google.com/o/oauth2/v2/auth?"))
         self.assertIn("google_oauth_state", resp.client.cookies)
         self.assertIn(f"state={resp.client.cookies['google_oauth_state'].value}", resp.url)
+
+    def test_admin_portal_falls_back_to_market(self):
+        """XAVFSIZLIK: `?portal=admin` bilan Google login boshlab
+        bo'lmaydi — admin faqat email+parol bilan kiradi (qarang
+        AdminLogin), shuning uchun bu so'rov jimgina "market"ga tushadi."""
+        resp = self.client.get(reverse("google-login-start"), {"portal": "admin"})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp.client.cookies["google_oauth_portal"].value, "market")
 
 
 class GoogleLoginCallbackTests(TestCase):
@@ -507,6 +534,16 @@ class TelegramLoginTests(TestCase):
         self.assertFalse(data["is_new_user"])
         self.assertEqual(User.objects.filter(email="existing@example.com").count(), 1)
 
+    def test_platform_admin_cannot_login_via_telegram(self):
+        user = User(email="admin@example.com", role=User.Role.PLATFORM_ADMIN)
+        user.set_password("StrongPass123")
+        user.save()
+        TelegramAccount.objects.create(user=user, telegram_id=321)
+
+        session = TelegramLoginSession.objects.create(telegram_id=321, telegram_first_name="Admin")
+        resp = self.client.get(reverse("telegram-session-poll", args=[session.id]))
+        self.assertEqual(resp.status_code, 400)
+
     def test_consumed_session_cannot_be_polled_again(self):
         session = TelegramLoginSession.objects.create(telegram_id=888, telegram_first_name="Vali")
         first = self.client.get(reverse("telegram-session-poll", args=[session.id]))
@@ -594,6 +631,18 @@ class GoogleLinkViewTests(AccountLinkTestMixin, TestCase):
         )
         self.assertEqual(resp.status_code, 401)
 
+    def test_platform_admin_cannot_link_google(self):
+        admin = User.objects.create_user(
+            email="admin@example.com", password="StrongPass123", role=User.Role.PLATFORM_ADMIN
+        )
+        self._auth_client(admin)
+        with patch("apps.users.views.verify_google_credential", return_value=self._claims()):
+            resp = self.client.post(
+                reverse("google-link"), {"credential": "fake"}, content_type="application/json"
+            )
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(GoogleAccount.objects.filter(user=admin).exists())
+
 
 class GoogleLinkWebFlowTests(AccountLinkTestMixin, TestCase):
     """Veb: Prepare -> Start -> Callback (imzolangan `state` orqali
@@ -652,6 +701,14 @@ class TelegramLinkSessionTests(AccountLinkTestMixin, TestCase):
     def test_create_session_requires_auth(self):
         resp = self.client.post(reverse("telegram-link-session-create"))
         self.assertEqual(resp.status_code, 401)
+
+    def test_platform_admin_cannot_link_telegram(self):
+        admin = User.objects.create_user(
+            email="admin-tg@example.com", password="StrongPass123", role=User.Role.PLATFORM_ADMIN
+        )
+        self._auth_client(admin)
+        resp = self.client.post(reverse("telegram-link-session-create"))
+        self.assertEqual(resp.status_code, 400)
 
     def test_full_flow_links_telegram_account(self):
         user = self._new_user()
