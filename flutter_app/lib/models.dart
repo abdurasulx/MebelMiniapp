@@ -721,6 +721,12 @@ class AppNotification {
   final String body;
   final bool isRead;
   final String createdAt;
+  // Bosilganda qayerga o'tishni aniqlash uchun (qarang
+  // notifications_screen.dart::_open) — `order_status` uchun `orderId`,
+  // `task_*` turlari uchun `workflowInstanceId` to'ldiriladi (backend
+  // NotificationSerializer, boshqalarida null qoladi).
+  final String? orderId;
+  final String? workflowInstanceId;
 
   AppNotification({
     required this.id,
@@ -730,6 +736,8 @@ class AppNotification {
     required this.body,
     required this.isRead,
     required this.createdAt,
+    this.orderId,
+    this.workflowInstanceId,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> j) => AppNotification(
@@ -740,6 +748,8 @@ class AppNotification {
         body: j['body'] ?? '',
         isRead: j['is_read'] ?? false,
         createdAt: j['created_at'] ?? '',
+        orderId: j['order'],
+        workflowInstanceId: j['workflow_instance'],
       );
 }
 

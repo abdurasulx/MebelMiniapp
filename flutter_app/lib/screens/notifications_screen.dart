@@ -1,9 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../api_client.dart';
+import '../auth_store.dart';
 import '../models.dart';
 import '../widgets/offline_view.dart';
+import 'order_detail_screen.dart';
+import 'worker/worker_orders_screen.dart';
 
 String _timeAgo(String iso) {
   final date = DateTime.tryParse(iso);
@@ -124,6 +128,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 body: item.body,
                 isRead: true,
                 createdAt: item.createdAt,
+                orderId: item.orderId,
+                workflowInstanceId: item.workflowInstanceId,
               )
             else
               item,
@@ -131,6 +137,71 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       });
     } catch (_) {
       // jim o'tkazamiz
+    }
+  }
+
+  /// Backend `NotificationViewSet.get_queryset` "erkin topshiriq"
+  /// (TASK_POOL_OPEN) turidagi eskirgan (boshqa usta olib ulgurgan yoki
+  /// bosqich holati o'zgargan) xabarnomalarni chiqarib tashlaydi — shu
+  /// bir xil filtrdan retrieve orqali ham foydalanamiz: agar shu ID endi
+  /// ko'rinmasa (404), demak eskirgan.
+  Future<bool> _stillOpen(AppNotification n) async {
+    try {
+      await ApiClient.instance.get('/notifications/${n.id}/', (j) => j, auth: true);
+      return true;
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return false;
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  Future<void> _open(AppNotification n) async {
+    await _markRead(n);
+    switch (n.notifType) {
+      case 'order_status':
+        if (n.orderId == null) return;
+        try {
+          final order = await ApiClient.instance.get(
+            '/orders/${n.orderId}/',
+            (j) => Order.fromJson(j),
+            auth: true,
+          );
+          if (!mounted) return;
+          context.read<AuthStore>().setAppMode(AppMode.customer);
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)),
+          );
+        } catch (_) {
+          // Buyurtma topilmadi/tarmoq xatosi — jim o'tkaziladi.
+        }
+        break;
+      case 'task_assigned':
+      case 'task_available':
+      case 'task_pool_open':
+        if (n.notifType == 'task_pool_open') {
+          final stillOpen = await _stillOpen(n);
+          if (!stillOpen) {
+            if (mounted) {
+              setState(() => _items = _items.where((x) => x.id != n.id).toList());
+            }
+            return;
+          }
+        }
+        if (!mounted) return;
+        final auth = context.read<AuthStore>();
+        final positions = auth.user?.positions ?? const [];
+        if (positions.isNotEmpty) {
+          final position = auth.activePosition != null && positions.contains(auth.activePosition)
+              ? auth.activePosition!
+              : positions.first;
+          auth.enterWorkerMode(position);
+        }
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const WorkerOrdersScreen()),
+        );
+        break;
     }
   }
 
@@ -185,7 +256,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         itemBuilder: (context, i) {
                           final n = _items[i];
                           return ListTile(
-                            onTap: () => _markRead(n),
+                            onTap: () => _open(n),
                             tileColor: n.isRead ? null : Theme.of(context).colorScheme.primary.withValues(alpha: 0.06),
                             title: Text(n.title, style: const TextStyle(fontWeight: FontWeight.w600)),
                             subtitle: Column(

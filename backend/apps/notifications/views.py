@@ -1,21 +1,42 @@
+from django.db.models import Q
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import DevicePlatform, Notification, PushDevice
+from apps.workflow.models import StepStatus
+
+from .models import DevicePlatform, Notification, NotificationType, PushDevice
 from .serializers import NotificationSerializer
 
 
-class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """Foydalanuvchining o'z xabarnomalari — mijoz (buyurtma holati) va
     xodim (vazifa tayinlash/tayyorlik) uchun bitta ro'yxat, `recipient`ga
-    qarab avtomatik cheklanadi."""
+    qarab avtomatik cheklanadi. `retrieve` (`GET /notifications/{id}/`)
+    ilova tomonidan bitta xabarnoma hali dolzarbmi (masalan "erkin
+    topshiriq" hali ochiqmi) tekshirish uchun ishlatiladi — pastdagi
+    filtr tufayli eskirgan bo'lsa 404 qaytaradi (qarang mobil
+    `notifications_screen.dart::_checkStillOpen`)."""
 
     serializer_class = NotificationSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        return Notification.objects.filter(recipient=self.request.user, is_deleted=False)
+        qs = Notification.objects.filter(recipient=self.request.user, is_deleted=False)
+        # "Erkin topshiriq" (TASK_POOL_OPEN) bir nechta ustaga BIR VAQTDA
+        # yuboriladi, lekin faqat bittasi qabul qila oladi — boshqa usta
+        # allaqachon olib ulgurgan yoki bosqich endi "ochiq havzada" bo'lmasa
+        # (bekor qilingan, boshqa holatga o'tgan) bu xabarnoma endi hech
+        # kimga ochilmaydigan "o'lik" holga tushadi, shuning uchun bu yerda
+        # butunlay ko'rsatilmaydi (`unread_count` ham shu queryset'dan
+        # foydalanadi — sanoq ham to'g'irlanadi). Mezon `open_pool`dagi
+        # bilan bir xil (qarang apps.workflow.views.WorkflowStepInstanceViewSet).
+        stale_pool = Q(notif_type=NotificationType.TASK_POOL_OPEN) & (
+            Q(workflow_instance__isnull=True)
+            | Q(workflow_instance__employee__isnull=False)
+            | ~Q(workflow_instance__status=StepStatus.PENDING)
+        )
+        return qs.exclude(stale_pool)
 
     @action(detail=False, methods=["get"])
     def unread_count(self, request):
