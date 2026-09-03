@@ -6,12 +6,21 @@ import '../likes_store.dart';
 import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../viloyat.dart';
 import '../widgets/offline_view.dart';
 import '../widgets/product_card.dart';
 
-/// Bosh sahifa — kolleksiyalar + ommabop mahsulotlar + qidiruv (nom yoki
-/// rasm bo'yicha). Brend hero matni endi splash_screen.dart'da — bu yerda
-/// bekorchi turmasin deb olib tashlandi.
+/// Bosh sahifa — endi alohida "Katalog" tabi yo'q, bu ekranning o'zi
+/// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha), viloyat/
+/// "Top" filtri, kategoriya bo'yicha filtr, kolleksiyalar/ommabop
+/// mahsulotlar bannerlari va to'liq mahsulotlar to'ri — bittagina umumiy
+/// holat (`_products`/`_categories`/filtrlar) asosida, ikkita alohida
+/// so'rov/state o'rniga (avval Katalog alohida tab bo'lib, xuddi shu
+/// `/products/` so'rovini ikkinchi marta, o'z holati bilan yuklardi).
+/// `RootScreen`dagi `IndexedStack` bu ekranni tab almashtirilganda
+/// yo'q qilmaydi — shuning uchun qidiruv/filtr/scroll holati va yuklangan
+/// ro'yxat boshqa tabga o'tib qaytganda ham saqlanib qoladi, qayta
+/// yuklanmaydi.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -26,6 +35,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _searchCtrl = TextEditingController();
   String _query = '';
+  String? _selectedCategorySlug;
+  // "Top tovarlar" — serverga `ordering=top` bilan qayta so'raladi (Katalog
+  // sahifasidagi eski `_topOnly` bilan bir xil), shuning uchun boshqa
+  // filtrlardan farqli, o'zgarganda `_load()` chaqiriladi.
+  bool _topOnly = false;
 
   List<Product>? _imageResults;
   bool _imageSearching = false;
@@ -58,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
           'lat': location.lat!.toString(),
           'lng': location.lng!.toString(),
         } else if (location.viloyat != null) 'viloyat': location.viloyat!,
+        if (_topOnly) 'ordering': 'top',
       };
       final query = params.isEmpty
           ? ''
@@ -83,16 +98,86 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  List<Product> get _nameMatches {
-    if (_query.isEmpty) return const [];
-    final q = _query.toLowerCase();
-    return _products
-        .where(
-          (p) =>
-              p.nameUz.toLowerCase().contains(q) ||
-              p.companyName.toLowerCase().contains(q),
-        )
-        .toList();
+  void _toggleTopOnly() {
+    setState(() => _topOnly = !_topOnly);
+    _load();
+  }
+
+  void _toggleCategory(String slug) {
+    setState(() {
+      _selectedCategorySlug = _selectedCategorySlug == slug ? null : slug;
+    });
+  }
+
+  /// Qidiruv matni va/yoki tanlangan kategoriya bo'yicha — server tomonidan
+  /// allaqachon olingan `_products`ning o'zidan mijoz tomonida filtrlanadi
+  /// (bitta so'rov, bitta ro'yxat — ikkita alohida holat emas).
+  List<Product> get _filtered {
+    var items = _products;
+    if (_selectedCategorySlug != null) {
+      items = items.where((p) => p.categorySlug == _selectedCategorySlug).toList();
+    }
+    if (_query.isNotEmpty) {
+      final q = _query.toLowerCase();
+      items = items
+          .where(
+            (p) =>
+                p.nameUz.toLowerCase().contains(q) ||
+                p.companyName.toLowerCase().contains(q),
+          )
+          .toList();
+    }
+    return items;
+  }
+
+  bool get _isFiltering =>
+      _query.isNotEmpty ||
+      _selectedCategorySlug != null ||
+      _imageResults != null ||
+      _imageSearching;
+
+  Future<void> _pickViloyat() async {
+    final location = context.read<LocationStore>();
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              title: const Text('Barchasi'),
+              trailing: location.viloyat == null && location.lat == null
+                  ? const Icon(Icons.check, color: AppColors.deep)
+                  : null,
+              onTap: () => Navigator.pop(ctx, '__all__'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.my_location_rounded),
+              title: const Text('GPS orqali aniqlash'),
+              onTap: () => Navigator.pop(ctx, '__gps__'),
+            ),
+            for (final v in viloyatlar)
+              ListTile(
+                title: Text(v.label),
+                trailing: location.viloyat == v.code
+                    ? const Icon(Icons.check, color: AppColors.deep)
+                    : null,
+                onTap: () => Navigator.pop(ctx, v.code),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null) return;
+    if (choice == '__gps__') {
+      await location.detectFromGps();
+    } else if (choice == '__all__') {
+      await location.setViloyat(null);
+    } else {
+      await location.setViloyat(choice);
+    }
+    if (mounted) _load();
   }
 
   Future<void> _pickAndSearchByImage() async {
@@ -156,6 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _backToHome() {
     _searchCtrl.clear();
+    setState(() => _selectedCategorySlug = null);
     _clearImageSearch();
   }
 
@@ -165,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return Scaffold(body: SafeArea(child: OfflineView(onRetry: _load)));
     }
 
-    final searching = _query.isNotEmpty || _imageResults != null || _imageSearching;
+    final location = context.watch<LocationStore>();
 
     return Scaffold(
       body: SafeArea(
@@ -175,6 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.only(bottom: 24, top: 8),
             children: [
               _searchBar(),
+              _filterChips(location),
               if (_error != null && !OfflineView.isNetworkError(_error))
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -190,18 +277,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: CircularProgressIndicator(color: AppColors.deep),
                   ),
                 )
-              else if (searching)
-                _searchResults()
               else ...[
-                if (_categories.isNotEmpty) ...[
+                if (!_isFiltering && _categories.isNotEmpty) ...[
                   _sectionHeader('Kolleksiyalar', 'Har xona uchun'),
                   _collectionsRow(),
                   const SizedBox(height: 24),
                 ],
-                if (_products.isNotEmpty) ...[
+                if (!_isFiltering && _products.isNotEmpty) ...[
                   _sectionHeader('Ommabop mahsulotlar', 'Eng ko\'p tanlangan'),
                   _featuredRow(),
+                  const SizedBox(height: 24),
                 ],
+                _productsSection(),
               ],
             ],
           ),
@@ -212,7 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _searchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Row(
         children: [
           Expanded(
@@ -258,7 +345,48 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _searchResults() {
+  Widget _filterChips(LocationStore location) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SizedBox(
+        height: 36,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: [
+            ActionChip(
+              avatar: location.status == LocationStatus.loading
+                  ? const SizedBox(
+                      width: 14, height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.place_rounded, size: 16, color: AppColors.deep),
+              label: Text(location.viloyatLabelText),
+              onPressed: _pickViloyat,
+            ),
+            const SizedBox(width: 8),
+            ChoiceChip(
+              avatar: Icon(
+                Icons.trending_up_rounded,
+                size: 16,
+                color: _topOnly ? AppColors.primary : AppColors.deep,
+              ),
+              label: Text(
+                'Top tovarlar',
+                style: TextStyle(color: _topOnly ? AppColors.primary : AppColors.deep),
+              ),
+              selected: _topOnly,
+              onSelected: (_) => _toggleTopOnly(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _productsSection() {
+    final items = _imageResults ?? _filtered;
+
     if (_imageSearching) {
       return const Padding(
         padding: EdgeInsets.only(top: 30),
@@ -278,32 +406,34 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    final items = _imageResults ?? _nameMatches;
     final isImageSearch = _imageResults != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 0, 16, 12),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: AppColors.deep),
-                onPressed: _backToHome,
-                tooltip: 'Bosh sahifaga',
-              ),
-              Expanded(
-                child: Text(
-                  isImageSearch
-                      ? '${items.length} ta o\'xshash mahsulot topildi'
-                      : '${items.length} ta natija',
-                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+        if (_isFiltering)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 16, 12),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, color: AppColors.deep),
+                  onPressed: _backToHome,
+                  tooltip: 'Bosh sahifaga',
                 ),
-              ),
-            ],
-          ),
-        ),
+                Expanded(
+                  child: Text(
+                    isImageSearch
+                        ? '${items.length} ta o\'xshash mahsulot topildi'
+                        : '${items.length} ta natija',
+                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          _sectionHeader('Barcha mahsulotlar', '${items.length} ta mahsulot'),
         if (items.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
@@ -358,35 +488,42 @@ class _HomeScreenState extends State<HomeScreen> {
         separatorBuilder: (_, __) => const SizedBox(width: 14),
         itemBuilder: (context, i) {
           final c = _categories[i];
-          return SizedBox(
-            width: 78,
-            child: Column(
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.4),
-                    shape: BoxShape.circle,
+          final selected = _selectedCategorySlug == c.slug;
+          return InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _toggleCategory(c.slug),
+            child: SizedBox(
+              width: 78,
+              child: Column(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.deep
+                          : AppColors.primary.withOpacity(0.4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.chair_rounded,
+                      color: selected ? AppColors.primary : AppColors.deep,
+                      size: 28,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.chair_rounded,
-                    color: AppColors.deep,
-                    size: 28,
+                  const SizedBox(height: 6),
+                  Text(
+                    c.nameUz,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  c.nameUz,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -415,7 +552,11 @@ class _HomeScreenState extends State<HomeScreen> {
 class _Category {
   final String id;
   final String nameUz;
-  _Category({required this.id, required this.nameUz});
-  factory _Category.fromJson(Map<String, dynamic> j) =>
-      _Category(id: j['id'], nameUz: j['name_uz'] ?? '');
+  final String slug;
+  _Category({required this.id, required this.nameUz, required this.slug});
+  factory _Category.fromJson(Map<String, dynamic> j) => _Category(
+        id: j['id'],
+        nameUz: j['name_uz'] ?? '',
+        slug: j['slug'] ?? '',
+      );
 }

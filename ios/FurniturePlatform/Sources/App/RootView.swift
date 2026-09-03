@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Katalog hammaga ochiq (web'dagi kabi); buyurtma berishda login talab qilinadi.
-/// To'rt bo'lim: Bosh sahifa (landing, "Plank" uslubi) — Katalog (do'kon, "Darix" uslubi)
-/// — Sevimlilar (serverda saqlangan) — Profil.
+/// To'rt bo'lim: Bosh sahifa (endi katalog vazifasini ham bajaradi, qarang
+/// HomeView) — Sevimlilar (serverda saqlangan) — Savat — Profil.
 struct RootView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var likes: LikesStore
@@ -53,11 +53,6 @@ struct RootView: View {
             } else {
                 HomeView()
                     .tabItem { Label("Bosh sahifa", systemImage: "house.fill") }
-
-                NavigationStack {
-                    ShopView()
-                }
-                .tabItem { Label("Katalog", systemImage: "square.grid.2x2.fill") }
 
                 LikesView()
                     .tabItem { Label("Sevimlilar", systemImage: "heart.fill") }

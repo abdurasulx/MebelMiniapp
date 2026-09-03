@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Qidiruv panelidagi kamera tugmasi — bosilganda kamera yoki galereyadan
 /// rasm tanlashni so'raydi, tanlangach JPEG `Data` sifatida qaytaradi.
-/// Bosh sahifa (`HomeView`) va katalog (`ShopView`)da bir xil ishlatiladi.
+/// `HomeView`da ishlatiladi (endi katalog vazifasini ham shu bajaradi).
 struct ImageSearchButton: View {
     var onImagePicked: (Data) -> Void
 

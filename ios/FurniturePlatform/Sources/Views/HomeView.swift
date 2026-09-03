@@ -1,9 +1,26 @@
 import SwiftUI
 
-/// Bosh sahifa — kolleksiyalar + ommabop mahsulotlar + qidiruv (nom yoki
-/// rasm bo'yicha). Brend hero matni endi `SplashScreenView`da — bu yerda
-/// bekorchi turmasin deb olib tashlandi, "AR bilan sinab ko'ring" banneri
-/// ham (foydasiz qo'shimcha reklama sifatida) olib tashlandi.
+enum SortOption: String, CaseIterable, Identifiable {
+    case popular = "Ommabop"
+    case top = "Top tovarlar"
+    case priceLow = "Arzon avval"
+    case priceHigh = "Qimmat avval"
+    case nameAZ = "Nomi (A-Z)"
+    var id: String { rawValue }
+}
+
+/// Bosh sahifa — endi alohida "Katalog" tabi yo'q, bu ekranning o'zi
+/// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha), viloyat/
+/// saralash/AR filtri, kategoriya bo'yicha filtr, kolleksiyalar/ommabop
+/// mahsulotlar bannerlari va to'liq mahsulotlar to'ri — bittagina umumiy
+/// holat (`products`/`categories`/filtrlar) asosida, ikkita alohida
+/// so'rov/state o'rniga (avval `ShopView` alohida tab bo'lib, xuddi shu
+/// `/products/` so'rovini ikkinchi marta, o'z holati bilan yuklardi).
+///
+/// Bu ekran doim mounted holatda qoladi (qarang RootView'dagi izoh —
+/// `mainTabs` hech qachon if/else bilan yo'q qilinmaydi), shuning uchun
+/// qidiruv/filtr/scroll holati va yuklangan ro'yxat boshqa tabga o'tib
+/// qaytganda ham saqlanib qoladi, qayta yuklanmaydi.
 struct HomeView: View {
     @EnvironmentObject private var likes: LikesStore
     @EnvironmentObject private var location: LocationStore
@@ -14,18 +31,54 @@ struct HomeView: View {
     @State private var isOffline = false
 
     @State private var query = ""
+    @State private var selectedCategory: String?
+    @State private var sort: SortOption = .popular
+    @State private var onlyWithAR = false
+    @State private var showFilters = false
+    @State private var showViloyatPicker = false
+
     @State private var imageResults: [Product]?
     @State private var isImageSearching = false
     @State private var imageSearchError: String?
+    @State private var didLoadOnce = false
 
-    private var nameMatches: [Product] {
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
-        let q = query.lowercased()
-        return products.filter { $0.nameUz.lowercased().contains(q) || $0.companyName.lowercased().contains(q) }
+    /// Server tomonidan allaqachon olingan `products`ning o'zidan mijoz
+    /// tomonida filtrlanadi/saralanadi (bitta so'rov, bitta ro'yxat —
+    /// ikkita alohida holat emas). `.top` saralash — serverga
+    /// `?ordering=top` bilan qayta so'raladi (qarang `load()`), shuning
+    /// uchun bu yerda qayta saralanmaydi.
+    private var filtered: [Product] {
+        if let imageResults { return imageResults }
+        var list = products
+        if let selectedCategory {
+            list = list.filter { $0.category == selectedCategory }
+        }
+        if onlyWithAR {
+            list = list.filter { p in p.model3d?.glbUrl != nil }
+        }
+        if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+            let q = query.lowercased()
+            list = list.filter { $0.nameUz.lowercased().contains(q) || $0.companyName.lowercased().contains(q) }
+        }
+        switch sort {
+        case .popular, .top:
+            break
+        case .priceLow:
+            list.sort { ($0.variants.first?.basePriceValue ?? 0) < ($1.variants.first?.basePriceValue ?? 0) }
+        case .priceHigh:
+            list.sort { ($0.variants.first?.basePriceValue ?? 0) > ($1.variants.first?.basePriceValue ?? 0) }
+        case .nameAZ:
+            list.sort { $0.nameUz.localizedCaseInsensitiveCompare($1.nameUz) == .orderedAscending }
+        }
+        return list
     }
 
-    private var isSearching: Bool {
-        !query.trimmingCharacters(in: .whitespaces).isEmpty || imageResults != nil || isImageSearching
+    private var isFiltering: Bool {
+        !query.trimmingCharacters(in: .whitespaces).isEmpty
+            || selectedCategory != nil
+            || onlyWithAR
+            || imageResults != nil
+            || isImageSearching
     }
 
     var body: some View {
@@ -35,27 +88,36 @@ struct HomeView: View {
                     .navigationBarHidden(true)
             } else {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 14) {
                         searchBar
+                        toolbarRow
 
                         if let errorMessage {
                             Text(errorMessage).foregroundStyle(.red).padding(.horizontal)
                         }
+                        if let imageSearchError {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(imageSearchError).foregroundStyle(.red)
+                                Button("Yopish") { self.imageSearchError = nil }
+                            }
+                            .padding(.horizontal)
+                        }
 
                         if isLoading {
                             ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
-                        } else if isSearching {
-                            searchResultsSection
                         } else {
-                            if !categories.isEmpty {
-                                sectionHeader("Kolleksiyalar", subtitle: "Har xona uchun")
-                                collectionsRow
+                            if !isFiltering {
+                                if !categories.isEmpty {
+                                    sectionHeader("Kolleksiyalar", subtitle: "Har xona uchun")
+                                    collectionsRow
+                                }
+                                if !products.isEmpty {
+                                    sectionHeader("Ommabop mahsulotlar", subtitle: "Eng ko'p tanlangan")
+                                    featuredRow
+                                }
+                                sectionHeader("Barcha mahsulotlar", subtitle: "\(filtered.count) ta mahsulot")
                             }
-
-                            if !products.isEmpty {
-                                sectionHeader("Ommabop mahsulotlar", subtitle: "Eng ko'p tanlangan")
-                                featuredRow
-                            }
+                            productsGrid
                         }
                     }
                     .padding(.top, 8)
@@ -63,13 +125,27 @@ struct HomeView: View {
                 }
                 .navigationTitle("")
                 .navigationBarHidden(true)
-                .task { await load() }
+                .task {
+                    guard !didLoadOnce else { return }
+                    didLoadOnce = true
+                    await load()
+                }
                 .refreshable { await load() }
+                .onChange(of: sort) { _, _ in Task { await load() } }
+                .onChange(of: location.viloyat) { _, _ in Task { await load() } }
+                .sheet(isPresented: $showFilters) { filterSheet }
+                .confirmationDialog("Viloyat", isPresented: $showViloyatPicker, titleVisibility: .visible) {
+                    Button("Barchasi") { location.setViloyat(nil) }
+                    Button("📍 GPS orqali aniqlash") { location.detectFromGps() }
+                    ForEach(viloyatlar) { v in
+                        Button(v.label) { location.setViloyat(v.code) }
+                    }
+                }
             }
         }
     }
 
-    // MARK: - Qidiruv
+    // MARK: - Qidiruv / filtrlar
 
     private var searchBar: some View {
         HStack(spacing: 8) {
@@ -84,6 +160,7 @@ struct HomeView: View {
                     Button { query = "" } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                     }
+                    .accessibilityIdentifier("clearSearchButton")
                 }
             }
             .padding(12)
@@ -97,8 +174,87 @@ struct HomeView: View {
         .padding(.horizontal)
     }
 
+    private var toolbarRow: some View {
+        HStack(spacing: 8) {
+            viloyatChip
+            Spacer()
+            if imageResults == nil {
+                sortMenu
+                Button {
+                    showFilters = true
+                } label: {
+                    Image(systemName: onlyWithAR ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                        .foregroundStyle(onlyWithAR ? Color.brandDeep : .primary)
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private var viloyatChip: some View {
+        Button {
+            showViloyatPicker = true
+        } label: {
+            HStack(spacing: 6) {
+                if location.status == .loading {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: "mappin.circle.fill")
+                }
+                Text(location.viloyatLabelText).font(.caption).bold()
+                Image(systemName: "chevron.down").font(.caption2)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Color(.secondarySystemBackground))
+            .foregroundStyle(.primary)
+            .clipShape(Capsule())
+        }
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            ForEach(SortOption.allCases) { option in
+                Button {
+                    sort = option
+                } label: {
+                    if sort == option {
+                        Label(option.rawValue, systemImage: "checkmark")
+                    } else {
+                        Text(option.rawValue)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(sort.rawValue).font(.caption).bold()
+                Image(systemName: "chevron.down").font(.caption2)
+            }
+            .foregroundStyle(Color.brandSecondary)
+        }
+    }
+
+    private var filterSheet: some View {
+        NavigationStack {
+            Form {
+                Section("Qo'shimcha filtrlar") {
+                    Toggle("Faqat 🧊 AR / 3D mavjud", isOn: $onlyWithAR)
+                }
+            }
+            .navigationTitle("Filtrlar")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Tayyor") { showFilters = false }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
     private func backToHome() {
         query = ""
+        selectedCategory = nil
+        onlyWithAR = false
         imageResults = nil
         imageSearchError = nil
     }
@@ -120,57 +276,6 @@ struct HomeView: View {
         isImageSearching = false
     }
 
-    @ViewBuilder
-    private var searchResultsSection: some View {
-        if isImageSearching {
-            ProgressView().frame(maxWidth: .infinity).padding(.top, 30)
-        } else if let imageSearchError {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(imageSearchError).foregroundStyle(.red)
-                Button("Yopish") { self.imageSearchError = nil }
-            }
-            .padding(.horizontal)
-        } else {
-            let items = imageResults ?? nameMatches
-            HStack(spacing: 8) {
-                Button {
-                    backToHome()
-                } label: {
-                    Image(systemName: "arrow.left").foregroundStyle(Color.brandDeep)
-                }
-                Text(
-                    imageResults != nil
-                        ? "\(items.count) ta o'xshash mahsulot"
-                        : "\(items.count) ta natija"
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal)
-
-            if items.isEmpty {
-                Text("Hech narsa topilmadi.")
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal)
-                    .padding(.top, 20)
-            } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
-                    ForEach(items) { product in
-                        ZStack(alignment: .topTrailing) {
-                            NavigationLink(destination: ProductDetailView(productId: product.id)) {
-                                FeaturedGridCard(product: product)
-                            }
-                            .buttonStyle(.plain)
-                            LikeButton(productId: product.id).padding(6)
-                        }
-                    }
-                }
-                .padding(.horizontal)
-            }
-        }
-    }
-
     private func sectionHeader(_ title: String, subtitle: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
@@ -178,9 +283,6 @@ struct HomeView: View {
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            NavigationLink("Hammasi", destination: ShopView())
-                .font(.caption).bold()
-                .foregroundStyle(Color.brandSecondary)
         }
         .padding(.horizontal)
     }
@@ -189,15 +291,18 @@ struct HomeView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 14) {
                 ForEach(categories) { cat in
-                    NavigationLink(destination: ShopView(initialCategory: cat)) {
+                    let isSelected = selectedCategory == cat.id
+                    Button {
+                        selectedCategory = isSelected ? nil : cat.id
+                    } label: {
                         VStack(spacing: 8) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.brandPrimary.opacity(0.28))
+                                    .fill(isSelected ? Color.brandDeep : Color.brandPrimary.opacity(0.28))
                                     .frame(width: 76, height: 76)
                                 Image(systemName: "sofa.fill")
                                     .font(.system(size: 26))
-                                    .foregroundStyle(Color.brandDeep)
+                                    .foregroundStyle(isSelected ? Color.brandPrimary : Color.brandDeep)
                             }
                             Text(cat.nameUz)
                                 .font(.caption).bold()
@@ -207,6 +312,7 @@ struct HomeView: View {
                                 .frame(width: 92)
                         }
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
@@ -236,6 +342,70 @@ struct HomeView: View {
         }
     }
 
+    @ViewBuilder
+    private var productsGrid: some View {
+        if isImageSearching {
+            ProgressView().frame(maxWidth: .infinity).padding(.top, 30)
+        } else if isFiltering {
+            HStack(spacing: 8) {
+                Button {
+                    backToHome()
+                } label: {
+                    Image(systemName: "arrow.left").foregroundStyle(Color.brandDeep)
+                }
+                Text(
+                    imageResults != nil
+                        ? "\(filtered.count) ta o'xshash mahsulot"
+                        : "\(filtered.count) ta natija"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal)
+            productsGridContent
+        } else {
+            productsGridContent
+        }
+    }
+
+    @ViewBuilder
+    private var productsGridContent: some View {
+        if filtered.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "tray").font(.largeTitle).foregroundStyle(.secondary)
+                Text("Mahsulot topilmadi").foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 60)
+        } else {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
+                ForEach(filtered) { product in
+                    // LikeButton `NavigationLink`ning label'i ICHIDA emas, sibling
+                    // sifatida joylashtiriladi — aks holda yurakchaga bosish, tugma
+                    // o'z harakatini bajarish o'rniga, navigatsiyani ishga tushirib
+                    // yuboradi (SwiftUI: Button ichidagi NavigationLink taplarni
+                    // yutib yuboradigan holat).
+                    ZStack(alignment: .topTrailing) {
+                        NavigationLink(destination: ProductDetailView(productId: product.id)) {
+                            FeaturedGridCard(product: product)
+                        }
+                        .buttonStyle(.plain)
+
+                        HStack(spacing: 6) {
+                            if product.model3d?.glbUrl != nil {
+                                ARBadge()
+                            }
+                            LikeButton(productId: product.id)
+                        }
+                        .padding(6)
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
     private func load() async {
         isLoading = true
         errorMessage = nil
@@ -246,6 +416,9 @@ struct HomeView: View {
             params.append("lng=\(lng)")
         } else if let viloyat = location.viloyat {
             params.append("viloyat=\(viloyat)")
+        }
+        if sort == .top {
+            params.append("ordering=top")
         }
         let query = params.isEmpty ? "" : "?\(params.joined(separator: "&"))"
         async let productsResult: Paginated<Product> = APIClient.shared.get("/products/\(query)", auth: true)
@@ -296,7 +469,7 @@ struct FeaturedProductCard: View {
     }
 }
 
-/// Qidiruv natijalari to'rida ishlatiladigan kartochka (2 ustunli grid).
+/// Grid'da ishlatiladigan kartochka (2 ustunli, markazlashtirilgan matn).
 struct FeaturedGridCard: View {
     let product: Product
 

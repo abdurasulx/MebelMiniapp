@@ -4,7 +4,6 @@ import '../auth_store.dart';
 import '../cart_store.dart';
 import '../locale_store.dart';
 import 'cart_screen.dart';
-import 'catalog_screen.dart';
 import 'home_screen.dart';
 import 'likes_screen.dart';
 import 'profile_screen.dart';
@@ -12,9 +11,10 @@ import 'worker/worker_home_screen.dart';
 import 'worker/worker_orders_screen.dart';
 import 'worker/worker_payslips_screen.dart';
 
-/// Xaridor — Bosh sahifa / Katalog / Sevimlilar / Savat / Profil (savat
-/// tabida checkout, buyurtma tarixi Profil ichida ko'rsatiladi);
-/// `appMode == worker` bo'lganda usta paneli tablariga almashadi.
+/// Xaridor — Bosh sahifa (endi katalog vazifasini ham bajaradi, qarang
+/// home_screen.dart) / Sevimlilar / Savat / Profil (savat tabida
+/// checkout, buyurtma tarixi Profil ichida ko'rsatiladi); `appMode ==
+/// worker` bo'lganda usta paneli tablariga almashadi.
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
   @override
@@ -42,8 +42,7 @@ class _RootScreenState extends State<RootScreen> {
           ]
         : [
             const HomeScreen(),
-            const CatalogScreen(),
-            LikesScreen(visible: _index == 2),
+            LikesScreen(visible: _index == 1),
             const CartScreen(),
             const ProfileScreen(),
           ];
@@ -68,10 +67,6 @@ class _RootScreenState extends State<RootScreen> {
             BottomNavigationBarItem(
               icon: const Icon(Icons.home_rounded),
               label: loc.t('nav_home'),
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.grid_view_rounded),
-              label: loc.t('nav_catalog'),
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.favorite_rounded),
