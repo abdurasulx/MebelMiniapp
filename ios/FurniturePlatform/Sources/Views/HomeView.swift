@@ -333,7 +333,7 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
 
-                        LikeButton(productId: product.id)
+                        LikeButton(productId: product.id, product: product)
                             .padding(6)
                     }
                 }
@@ -396,7 +396,7 @@ struct HomeView: View {
                             if product.model3d?.glbUrl != nil {
                                 ARBadge()
                             }
-                            LikeButton(productId: product.id)
+                            LikeButton(productId: product.id, product: product)
                         }
                         .padding(6)
                     }

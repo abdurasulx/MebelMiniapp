@@ -59,7 +59,7 @@ struct ProductDetailView: View {
                         gallery(product)
 
                         HStack(spacing: 8) {
-                            LikeButton(productId: product.id, compact: false)
+                            LikeButton(productId: product.id, compact: false, product: product)
                             ShareLink(
                                 item: "\(product.nameUz) — \(product.companyName)\nFurniture Platform ilovasida ko'ring."
                             ) {

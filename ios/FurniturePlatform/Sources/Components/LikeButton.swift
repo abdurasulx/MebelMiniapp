@@ -4,6 +4,10 @@ import SwiftUI
 struct LikeButton: View {
     let productId: String
     var compact: Bool = true
+    // Berilsa, LIKE qilinganda `LikesStore.likedProducts`ga darhol
+    // qo'shiladi (server so'rovisiz Sevimlilar ekranida ko'rinishi uchun,
+    // qarang LikesStore.toggle).
+    var product: Product? = nil
     /// Toggle tugagach chaqiriladi (masalan Sevimlilar ro'yxatidan darhol olib tashlash uchun).
     var onToggle: ((Bool) -> Void)? = nil
 
@@ -26,7 +30,7 @@ struct LikeButton: View {
             }
             busy = true
             Task {
-                let error = await likes.toggle(productId)
+                let error = await likes.toggle(productId, product: product)
                 busy = false
                 if let error {
                     alertMessage = error
