@@ -146,17 +146,40 @@ class _ProfileBodyState extends State<_ProfileBody> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundColor: const Color(0xFFECC299),
-                child: Text(
-                  (user.firstName?.isNotEmpty == true
-                          ? user.firstName![0]
-                          : user.email[0])
-                      .toUpperCase(),
-                  style: const TextStyle(
-                    color: Color(0xFF4C2C24),
-                    fontWeight: FontWeight.bold,
+              // Tasdiqlash holati endi alohida banner emas — avatar
+              // borderida (yashil=tasdiqlangan, to'q sariq=tasdiqlanmagan)
+              // ko'rsatiladi, xuddi iOS/Web'dagi kabi (bosilsa tasdiqlanmagan
+              // profilda tasdiqlash oynasi ochiladi). Majburiy tasdiqlash
+              // hamon buyurtma berishda ishlaydi.
+              GestureDetector(
+                onTap: user.phoneVerified
+                    ? null
+                    : () async {
+                        final ok = await showPhoneVerifyDialog(context, initialPhone: user.phone);
+                        if (ok == true && context.mounted) auth.refreshUser();
+                      },
+                child: Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: user.phoneVerified ? Colors.green : Colors.orange,
+                      width: 2.5,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundColor: const Color(0xFFECC299),
+                    child: Text(
+                      (user.firstName?.isNotEmpty == true
+                              ? user.firstName![0]
+                              : user.email[0])
+                          .toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFF4C2C24),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -199,39 +222,6 @@ class _ProfileBodyState extends State<_ProfileBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Icon(
-                        user.phoneVerified ? Icons.verified : Icons.error_outline,
-                        color: user.phoneVerified ? Colors.green : Colors.orange,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          user.phoneVerified ? 'Tasdiqlangan profil' : 'Tasdiqlanmagan profil',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      if (!user.phoneVerified)
-                        TextButton(
-                          onPressed: () async {
-                            final ok = await showPhoneVerifyDialog(context, initialPhone: user.phone);
-                            if (ok == true && context.mounted) auth.refreshUser();
-                          },
-                          child: const Text('Tasdiqlash'),
-                        ),
-                    ],
-                  ),
-                  if (!user.phoneVerified)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 2),
-                      child: Text(
-                        'Tasdiqlanmagan profil bilan buyurtma bera olmaysiz.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
-                      ),
-                    ),
-                  const Divider(height: 24),
                   const Text("Bog'langan hisoblar", style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   _LinkedAccountRow(

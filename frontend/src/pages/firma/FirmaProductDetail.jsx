@@ -11,38 +11,23 @@ import { portalURLFor } from "../../portal";
 import { POSITIONS } from "../../positions";
 import Model3DPartPicker from "../../components/Model3DPartPicker";
 
-// Bu sahifa o'z ichida mustaqil "enterprise" rang tizimidan foydalanadi —
-// platformaning umumiy amber brendi (sidebar, boshqa sahifalar) o'zgarishsiz
-// qoladi. Har bir rang CSS custom property'ga ISHORA (masalan "var(--ent-bg)")
-// sifatida yozilgan, o'zi emas — haqiqiy qiymatlar pastdagi <style> blokida
-// ".ent-root"/".dark-mode .ent-root" orqali belgilanadi. Shu tufayli tungi
-// rejim shu sahifa ichida ham ishlaydi (avval qiymatlar to'g'ridan-to'g'ri
-// hex bo'lib, tungi rejimni butunlay e'tiborsiz qoldirar edi), va ~30+ joyda
-// `ENT.text` kabi ishlatilgan barcha komponentlarni o'zgartirish shart emas.
+// Bu sahifa avval o'zining alohida "enterprise" rang tizimidan
+// foydalanardi (--ent-* nomli mustaqil, qo'lda dark-mode moslashtirilgan
+// tokenlar). Endi ENT.* faqat platformaning umumiy dizayn-tokenlariga
+// (index.css) ISHORA — shu bilan bu sahifa boshqa firma sahifalari bilan
+// bir xil rangdan foydalanadi, alohida palitra saqlamaydi. `ENT.xxx`
+// ismlari ~30+ joyda ishlatilgani uchun (masalan `ENT.text`) shu obyekt
+// saqlab qolindi — faqat qiymatlari umumiy tokenlarga o'zgartirildi.
 const ENT = {
-  bg: "var(--ent-bg)",
-  card: "var(--ent-card)",
-  border: "var(--ent-border)",
-  primary: "var(--ent-primary)",
-  success: "var(--ent-success)",
-  warning: "var(--ent-warning)",
-  danger: "var(--ent-danger)",
-  text: "var(--ent-text)",
-  muted: "var(--ent-muted)",
-};
-
-const ENT_VARS = {
-  "--bg": ENT.bg,
-  "--card": ENT.card,
-  "--border": ENT.border,
-  "--text": ENT.text,
-  "--muted": ENT.muted,
-  "--secondary": ENT.primary,
-  "--primary": ENT.primary,
-  "--primary-deep": "var(--ent-primary-deep)",
-  "--brand-cta-bg": ENT.primary,
-  "--brand-cta-text": "var(--ent-primary-deep)",
-  "--shadow": "0 1px 2px rgba(16,24,40,0.04)",
+  bg: "var(--bg)",
+  card: "var(--card)",
+  border: "var(--border)",
+  primary: "var(--secondary)",
+  success: "var(--success)",
+  warning: "var(--warning)",
+  danger: "var(--danger)",
+  text: "var(--text)",
+  muted: "var(--muted)",
 };
 
 const PHOTO_REQUIREMENT = {
@@ -138,7 +123,7 @@ export default function FirmaProductDetail() {
   const completeness = computeCompleteness(product, steps);
 
   return (
-    <div className="ent-root" style={{ ...ENT_VARS, background: ENT.bg, margin: "-24px", minHeight: "100%" }}>
+    <div style={{ background: ENT.bg, margin: "-24px", minHeight: "100%" }}>
       <HeroHeader
         product={product}
         completeness={completeness}
@@ -167,30 +152,6 @@ export default function FirmaProductDetail() {
       </div>
 
       <style>{`
-        .ent-root {
-          --ent-bg: #F7F8FA;
-          --ent-card: #FFFFFF;
-          --ent-border: #E5E7EB;
-          --ent-primary: #2563EB;
-          --ent-primary-deep: #FFFFFF;
-          --ent-success: #16A34A;
-          --ent-warning: #F59E0B;
-          --ent-danger: #DC2626;
-          --ent-text: #111827;
-          --ent-muted: #6B7280;
-        }
-        .dark-mode .ent-root {
-          --ent-bg: #0f1115;
-          --ent-card: #1a1c22;
-          --ent-border: rgba(255,255,255,0.1);
-          --ent-primary: #3b82f6;
-          --ent-primary-deep: #FFFFFF;
-          --ent-success: #22c55e;
-          --ent-warning: #f59e0b;
-          --ent-danger: #f87171;
-          --ent-text: #e5e7eb;
-          --ent-muted: #9ca3af;
-        }
         @media (min-width: 1080px) {
           .ent-grid { grid-template-columns: 1fr 320px !important; align-items: start; }
         }
@@ -207,10 +168,10 @@ export default function FirmaProductDetail() {
 
 function Pill({ tone = "muted", children, icon: Icon }) {
   const map = {
-    success: { bg: "rgba(22,163,74,0.1)", fg: ENT.success },
-    warning: { bg: "rgba(245,158,11,0.12)", fg: ENT.warning },
-    danger: { bg: "rgba(220,38,38,0.1)", fg: ENT.danger },
-    primary: { bg: "rgba(37,99,235,0.1)", fg: ENT.primary },
+    success: { bg: `color-mix(in srgb, ${ENT.success} 10%, transparent)`, fg: ENT.success },
+    warning: { bg: `color-mix(in srgb, ${ENT.warning} 12%, transparent)`, fg: ENT.warning },
+    danger: { bg: `color-mix(in srgb, ${ENT.danger} 10%, transparent)`, fg: ENT.danger },
+    primary: { bg: `color-mix(in srgb, ${ENT.primary} 10%, transparent)`, fg: ENT.primary },
     muted: { bg: ENT.card, fg: ENT.muted },
   };
   const c = map[tone] || map.muted;
@@ -251,22 +212,17 @@ function Card({ title, description, icon: Icon, children, actions }) {
   );
 }
 
+// Endi umumiy .btn/.btn-brand/.btn-ghost/.btn-danger klasslaridan
+// foydalanadi (boshqa firma sahifalari bilan bir xil), o'zining alohida
+// stilini/hover-effektini qo'lda hisoblamaydi.
 function EntButton({ children, variant = "primary", onClick, type = "button", disabled, small }) {
-  const base = {
-    display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
-    borderRadius: 8, fontWeight: 600, cursor: disabled ? "default" : "pointer",
-    fontSize: small ? 12.5 : 13.5, padding: small ? "6px 10px" : "8px 14px",
-    opacity: disabled ? 0.55 : 1, transition: "filter .1s", border: "1px solid transparent",
-  };
-  const styles = {
-    primary: { ...base, background: ENT.primary, color: "#fff" },
-    ghost: { ...base, background: ENT.card, color: ENT.text, border: `1px solid ${ENT.border}` },
-    danger: { ...base, background: ENT.card, color: ENT.danger, border: `1px solid #FCA5A5` },
-  };
+  const cls = { primary: "btn btn-brand", ghost: "btn-ghost", danger: "btn-danger" }[variant];
   return (
-    <button type={type} disabled={disabled} onClick={onClick} style={styles[variant]}
-      onMouseEnter={(e) => !disabled && (e.currentTarget.style.filter = "brightness(0.96)")}
-      onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
+    <button
+      type={type}
+      disabled={disabled}
+      onClick={onClick}
+      className={`${cls} ${small ? "!px-2.5 !py-1.5 text-xs" : ""}`}
     >
       {children}
     </button>
@@ -302,7 +258,7 @@ function Dropzone({ hint, accept, onFile, previewUrl, currentLabel, busy }) {
         onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
         style={{
           border: `1.5px dashed ${dragOver ? ENT.primary : ENT.border}`,
-          background: dragOver ? "rgba(37,99,235,0.04)" : "#FAFBFC",
+          background: dragOver ? `color-mix(in srgb, ${ENT.primary} 4%, transparent)` : ENT.bg,
           borderRadius: 12, padding: "22px 16px", cursor: "pointer", textAlign: "center", transition: "all .12s",
         }}
       >
@@ -455,7 +411,7 @@ function TabsNav({ tab, setTab, product, steps }) {
               <t.icon size={15} />
               {t.label}
               {typeof count === "number" && count > 0 && (
-                <span style={{ fontSize: 11, fontWeight: 700, color: active ? ENT.primary : ENT.muted, background: active ? "rgba(37,99,235,0.1)" : ENT.card, borderRadius: 999, padding: "1px 6px" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: active ? ENT.primary : ENT.muted, background: active ? `color-mix(in srgb, ${ENT.primary} 10%, transparent)` : ENT.card, borderRadius: 999, padding: "1px 6px" }}>
                   {count}
                 </span>
               )}
@@ -1045,7 +1001,7 @@ function ProductionTab({ product, steps, onStepsChange }) {
             return (
               <div key={s.id} style={{ display: "flex", gap: 12 }}>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 32 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(37,99,235,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: `color-mix(in srgb, ${ENT.primary} 10%, transparent)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     {Icon ? <Icon size={15} style={{ color: ENT.primary }} /> : <span style={{ fontSize: 12, fontWeight: 700, color: ENT.primary }}>{i + 1}</span>}
                   </div>
                   {!isLast && <div style={{ width: 2, flex: 1, background: ENT.border, minHeight: 22 }} />}
@@ -1504,7 +1460,7 @@ function IconBtn({ children, title, onClick, disabled, danger }) {
       title={title} disabled={disabled} onClick={onClick}
       style={{
         width: 26, height: 26, borderRadius: 7, border: `1px solid ${ENT.border}`, background: ENT.card,
-        color: disabled ? "#D1D5DB" : danger ? ENT.danger : ENT.muted,
+        color: disabled ? ENT.border : danger ? ENT.danger : ENT.muted,
         display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer",
       }}
     >
