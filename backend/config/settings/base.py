@@ -20,6 +20,11 @@ DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 INSTALLED_APPS = [
+    # `daphne` ENG BOSHIDA turishi shart — shunda `manage.py runserver`
+    # avtomatik Daphne'ning ASGI-serverini ishlatadi (WebSocket'ni ham
+    # to'g'ri boshqaradi), aks holda Channels'ning cheklangan dev-server
+    # zaxira varianti ishlatilib qolar edi.
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -30,6 +35,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "corsheaders",
+    "channels",
     # local apps
     "apps.users",
     "apps.companies",
@@ -192,3 +198,16 @@ MEDIA_ROOT = BASE_DIR / "media"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# WebSocket (Django Channels) — bildirishnoma qo'ng'irog'i sanog'ini real
+# vaqtda yangilash uchun (avval 30s'da bir marta so'rab turilardi, qarang
+# apps/notifications/consumers.py). `InMemoryChannelLayer` yetarli —
+# backend HALI BIR JARAYON (`manage.py runserver`) sifatida serve
+# qilinadi (qarang deploy/nginx/qrbite.uz.conf docstringi), Redis kabi
+# tashqi channel layer faqat KO'P worker-jarayon bo'lganda kerak bo'ladi.
+ASGI_APPLICATION = "config.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}

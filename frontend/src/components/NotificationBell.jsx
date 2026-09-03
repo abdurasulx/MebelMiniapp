@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { api } from "../api";
+import { connectNotificationSocket } from "../ws";
 
 function timeAgo(iso) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -14,8 +15,10 @@ function timeAgo(iso) {
 
 /// Xabarnomalar qo'ng'irog'i — mijozga buyurtma holati, xodimga vazifa
 /// tayinlash/tayyorlik xabarlarini ko'rsatadi (qarang backend
-/// apps.notifications). 30s'da bir marta so'raladi, shuningdek push
-/// ilova ochiq paytida kelsa (`src/push.js`) darhol yangilanadi.
+/// apps.notifications). Son WebSocket orqali real vaqtda yangilanadi
+/// (avval 30s'da bir marta HTTP bilan so'ralardi, qarang src/ws.js) —
+/// birinchi qiymat esa ulanish o'rnatilishini kutmasdan darhol
+/// so'raladi (tezroq birinchi chizish uchun).
 export default function NotificationBell({ surface = false }) {
   const [count, setCount] = useState(0);
   const [items, setItems] = useState([]);
@@ -30,11 +33,13 @@ export default function NotificationBell({ surface = false }) {
         .catch(() => {});
     };
     loadCount();
-    const interval = setInterval(loadCount, 30000);
     window.addEventListener("notifications:refresh", loadCount);
+    const disconnect = connectNotificationSocket((data) => {
+      if (data.type === "unread_count") setCount(data.count || 0);
+    });
     return () => {
-      clearInterval(interval);
       window.removeEventListener("notifications:refresh", loadCount);
+      disconnect();
     };
   }, []);
 

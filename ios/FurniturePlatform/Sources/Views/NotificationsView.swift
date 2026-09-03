@@ -19,12 +19,14 @@ private func timeAgo(_ iso: String) -> String {
     return "\(hours / 24) kun oldin"
 }
 
-/// AppBar/toolbar'ga qo'yiladigan qo'ng'iroq — o'qilmagan sonini 30s'da bir
-/// marta so'raydi, bosilganda [NotificationsView]ni ochadi.
+/// AppBar/toolbar'ga qo'yiladigan qo'ng'iroq — o'qilmagan sonini WebSocket
+/// orqali real vaqtda oladi (avval 30s'da bir marta HTTP bilan so'ralardi,
+/// qarang NotificationSocket.swift), bosilganda [NotificationsView]ni
+/// ochadi.
 struct NotificationBellButton: View {
     @State private var count = 0
     @State private var showList = false
-    private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
+    @State private var socket: NotificationSocket?
 
     var body: some View {
         Button {
@@ -44,7 +46,15 @@ struct NotificationBellButton: View {
             }
         }
         .task { await loadCount() }
-        .onReceive(timer) { _ in Task { await loadCount() } }
+        .onAppear {
+            let s = NotificationSocket(onCount: { count = $0 })
+            socket = s
+            s.start()
+        }
+        .onDisappear {
+            socket?.stop()
+            socket = nil
+        }
         .sheet(isPresented: $showList, onDismiss: { Task { await loadCount() } }) {
             NotificationsView()
         }

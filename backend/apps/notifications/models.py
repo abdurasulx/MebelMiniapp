@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 from common.models import BaseModel
 
@@ -11,6 +12,27 @@ class NotificationType(models.TextChoices):
     MATERIAL_SUGGESTION = "material_suggestion", "Material tavsiyasi"
     TASK_POOL_OPEN = "task_pool_open", "Yangi erkin topshiriq"
     TASK_APPLICATION_REJECTED = "task_application_rejected", "Zayavka rad etildi"
+
+
+class NotificationQuerySet(models.QuerySet):
+    def visible_for(self, user):
+        """Foydalanuvchiga ko'rsatiladigan xabarnomalar — REST ro'yxati
+        (`NotificationViewSet`) va WebSocket sanog'i (`consumers.py`)
+        IKKALASI ham shu bir xil filtrdan foydalanadi (bir joyda saqlash —
+        boshqacha bo'lib qolmasin). "Erkin topshiriq" (TASK_POOL_OPEN) bir
+        nechta ustaga bir vaqtda yuboriladi, lekin faqat bittasi qabul
+        qila oladi — boshqa usta olib ulgurgan yoki bosqich holati
+        o'zgargan (endi ochiq havzada emas) bo'lsa, bu yerda ko'rsatilmaydi
+        (mezon `WorkflowStepInstanceViewSet.open_pool` bilan bir xil)."""
+        from apps.workflow.models import StepStatus
+
+        qs = self.filter(recipient=user, is_deleted=False)
+        stale_pool = Q(notif_type=NotificationType.TASK_POOL_OPEN) & (
+            Q(workflow_instance__isnull=True)
+            | Q(workflow_instance__employee__isnull=False)
+            | ~Q(workflow_instance__status=StepStatus.PENDING)
+        )
+        return qs.exclude(stale_pool)
 
 
 class Notification(BaseModel):
@@ -34,6 +56,8 @@ class Notification(BaseModel):
         "workflow.WorkflowStepInstance", on_delete=models.CASCADE, null=True, blank=True, related_name="+"
     )
     is_read = models.BooleanField(default=False)
+
+    objects = NotificationQuerySet.as_manager()
 
     class Meta:
         ordering = ("-created_at",)

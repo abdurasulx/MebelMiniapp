@@ -1,8 +1,11 @@
 from decimal import Decimal
 
+from asgiref.sync import sync_to_async
+from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from rest_framework.test import APIClient, APITestCase
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.companies.models import Company, Employee
 from apps.orders.models import Order
@@ -147,3 +150,96 @@ class NotificationApiTests(APITestCase):
         self.assertEqual(Notification.objects.filter(recipient=self.user, is_read=False).count(), 0)
         self.other.refresh_from_db()
         self.assertEqual(Notification.objects.filter(recipient=self.other, is_read=True).count(), 0)
+
+
+class NotificationWebSocketTests(TransactionTestCase):
+    """`/ws/notifications/` — 30s'lik HTTP polling o'rniga real vaqtda
+    o'qilmagan son yuboradi (qarang apps.notifications.consumers/ws).
+
+    `TransactionTestCase` ishlatiladi (oddiy `TestCase` emas) — Channels'
+    `WebsocketCommunicator` ORM so'rovlarini ALOHIDA thread'da bajaradi
+    (`database_sync_to_async`), `TestCase`ning bitta ulanishga bog'langan
+    tranzaksiyasi esa shu holatda "connection already closed" xatosini
+    beradi."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="ws1@test.uz", password="pass12345", role=User.Role.CUSTOMER
+        )
+        self.other = User.objects.create_user(
+            email="ws2@test.uz", password="pass12345", role=User.Role.CUSTOMER
+        )
+
+    def _token(self, user):
+        return str(RefreshToken.for_user(user).access_token)
+
+    async def test_connect_without_token_rejected(self):
+        from config.asgi import application
+
+        communicator = WebsocketCommunicator(application, "/ws/notifications/")
+        connected, _ = await communicator.connect()
+        self.assertFalse(connected)
+        await communicator.disconnect()
+
+    async def test_connect_with_valid_token_receives_initial_count(self):
+        from config.asgi import application
+
+        await sync_to_async(Notification.objects.create)(
+            recipient=self.user, notif_type=NotificationType.ORDER_STATUS, title="A", body="a"
+        )
+        token = await sync_to_async(self._token)(self.user)
+        communicator = WebsocketCommunicator(application, f"/ws/notifications/?token={token}")
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+        message = await communicator.receive_json_from()
+        self.assertEqual(message, {"type": "unread_count", "count": 1})
+        await communicator.disconnect()
+
+    async def test_new_notification_pushes_updated_count_to_connected_client(self):
+        from config.asgi import application
+
+        token = await sync_to_async(self._token)(self.user)
+        communicator = WebsocketCommunicator(application, f"/ws/notifications/?token={token}")
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+        initial = await communicator.receive_json_from()
+        self.assertEqual(initial["count"], 0)
+
+        await sync_to_async(notify_order_status)(
+            await sync_to_async(self._order_for_customer)(self.user)
+        )
+
+        pushed = await communicator.receive_json_from()
+        self.assertEqual(pushed, {"type": "unread_count", "count": 1})
+        await communicator.disconnect()
+
+    def _order_for_customer(self, customer):
+        owner = User.objects.create_user(
+            email=f"owner-ws-{customer.id}@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+        )
+        company = Company.objects.create(owner=owner, name="WS Shop", slug=f"ws-shop-{customer.id}")
+        order = Order.objects.create(
+            company=company, customer=customer, phone="+998900000000", address="Toshkent"
+        )
+        order.status = Order.Status.ACCEPTED
+        order.save(update_fields=["status"])
+        return order
+
+    async def test_other_users_notification_does_not_reach_this_socket(self):
+        from config.asgi import application
+
+        token = await sync_to_async(self._token)(self.user)
+        communicator = WebsocketCommunicator(application, f"/ws/notifications/?token={token}")
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+        await communicator.receive_json_from()  # boshlang'ich (0)
+
+        await sync_to_async(Notification.objects.create)(
+            recipient=self.other, notif_type=NotificationType.ORDER_STATUS, title="Boshqa", body="x"
+        )
+        from .ws import push_unread_count
+
+        await sync_to_async(push_unread_count)(self.other.id)
+
+        self.assertTrue(await communicator.receive_nothing(timeout=0.2))
+        await communicator.disconnect()

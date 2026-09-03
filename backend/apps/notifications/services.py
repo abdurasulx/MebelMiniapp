@@ -1,5 +1,6 @@
 from .models import Notification, NotificationType
 from .push import send_push
+from .ws import push_unread_count
 
 
 def notify_order_status(order):
@@ -17,6 +18,7 @@ def notify_order_status(order):
         order=order,
     )
     send_push(order.customer, title, body, data={"type": "order_status", "order_id": str(order.id)})
+    push_unread_count(order.customer_id)
 
 
 def notify_task_assigned(step):
@@ -33,6 +35,7 @@ def notify_task_assigned(step):
         workflow_instance=step,
     )
     send_push(step.employee.user, title, step.name, data={"type": "task_assigned", "step_id": str(step.id)})
+    push_unread_count(step.employee.user_id)
 
 
 def notify_pool_open(step):
@@ -68,6 +71,7 @@ def notify_pool_open(step):
                 emp.user, "Yangi erkin topshiriq", step.name,
                 data={"type": "task_pool_open", "step_id": str(step.id)},
             )
+            push_unread_count(emp.user_id)
 
 
 def notify_application_rejected(application):
@@ -84,6 +88,7 @@ def notify_application_rejected(application):
         workflow_instance=application.step,
     )
     send_push(application.employee.user, title, body, data={"type": "task_application_rejected"})
+    push_unread_count(application.employee.user_id)
 
 
 def notify_material_suggestion(user, material, remnant_width, remnant_length, cut_width, cut_length):
@@ -104,6 +109,7 @@ def notify_material_suggestion(user, material, remnant_width, remnant_length, cu
         body=body,
     )
     send_push(user, title, body, data={"type": "material_suggestion"})
+    push_unread_count(user.id)
 
 
 def notify_task_available(step):
@@ -121,3 +127,4 @@ def notify_task_available(step):
         workflow_instance=step,
     )
     send_push(step.employee.user, title, step.name, data={"type": "task_available", "step_id": str(step.id)})
+    push_unread_count(step.employee.user_id)

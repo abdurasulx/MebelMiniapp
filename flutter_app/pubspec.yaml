@@ -38,6 +38,9 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   # Mobil so'rov-imzosi (HMAC-SHA256) uchun — qarang device_signature.dart.
   crypto: ^3.0.5
+  # Bildirishnoma qo'ng'irog'i sonini real vaqtda yangilash uchun — avval
+  # 30s'da bir marta HTTP so'rov bilan so'ralardi (qarang notification_ws.dart).
+  web_socket_channel: ^3.0.1
   # Ilova versiyasi/build raqamini (vcode) runtime'da o'qish uchun — qo'lda
   # qattiq yozib qo'yish o'rniga, `pubspec.yaml`dagi `version: X.Y.Z+BUILD`
   # avtomatik o'qiladi.

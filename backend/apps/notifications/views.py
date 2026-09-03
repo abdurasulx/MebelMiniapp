@@ -1,12 +1,10 @@
-from django.db.models import Q
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.workflow.models import StepStatus
-
-from .models import DevicePlatform, Notification, NotificationType, PushDevice
+from .models import DevicePlatform, Notification, PushDevice
 from .serializers import NotificationSerializer
+from .ws import push_unread_count
 
 
 class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -22,21 +20,7 @@ class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        qs = Notification.objects.filter(recipient=self.request.user, is_deleted=False)
-        # "Erkin topshiriq" (TASK_POOL_OPEN) bir nechta ustaga BIR VAQTDA
-        # yuboriladi, lekin faqat bittasi qabul qila oladi — boshqa usta
-        # allaqachon olib ulgurgan yoki bosqich endi "ochiq havzada" bo'lmasa
-        # (bekor qilingan, boshqa holatga o'tgan) bu xabarnoma endi hech
-        # kimga ochilmaydigan "o'lik" holga tushadi, shuning uchun bu yerda
-        # butunlay ko'rsatilmaydi (`unread_count` ham shu queryset'dan
-        # foydalanadi — sanoq ham to'g'irlanadi). Mezon `open_pool`dagi
-        # bilan bir xil (qarang apps.workflow.views.WorkflowStepInstanceViewSet).
-        stale_pool = Q(notif_type=NotificationType.TASK_POOL_OPEN) & (
-            Q(workflow_instance__isnull=True)
-            | Q(workflow_instance__employee__isnull=False)
-            | ~Q(workflow_instance__status=StepStatus.PENDING)
-        )
-        return qs.exclude(stale_pool)
+        return Notification.objects.visible_for(self.request.user)
 
     @action(detail=False, methods=["get"])
     def unread_count(self, request):
@@ -45,7 +29,9 @@ class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
 
     @action(detail=False, methods=["post"])
     def mark_all_read(self, request):
-        self.get_queryset().filter(is_read=False).update(is_read=True)
+        updated = self.get_queryset().filter(is_read=False).update(is_read=True)
+        if updated:
+            push_unread_count(request.user.id)
         return Response({"status": "ok"})
 
     @action(detail=True, methods=["post"])
@@ -54,6 +40,7 @@ class NotificationViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, view
         if not notif.is_read:
             notif.is_read = True
             notif.save(update_fields=["is_read"])
+            push_unread_count(request.user.id)
         return Response(NotificationSerializer(notif).data)
 
     @action(detail=False, methods=["post"])

@@ -67,6 +67,10 @@ class ApiClient {
 
   String? _accessToken;
   String? _refreshToken;
+  // WebSocket ulanishi (notification_ws.dart) joriy access token'ni shu
+  // orqali o'qiydi — qayta ulanishda har doim ENG YANGI qiymatni olish
+  // uchun (token yangilanib qolgan bo'lishi mumkin).
+  String? get accessToken => _accessToken;
   void Function(TokenPair)? onTokensRotated;
   /// Refresh tokeni haqiqatan ham yaroqsiz deb topilganda (tarmoq xatosi
   /// emas) chaqiriladi — `AuthStore` shuni `logout()`ga ulaydi, aks holda

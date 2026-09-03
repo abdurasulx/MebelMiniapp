@@ -57,6 +57,11 @@ actor APIClient {
     private var accessToken: String?
     private var refreshToken: String?
 
+    /// WebSocket ulanishi (NotificationSocket) joriy access token'ni shu
+    /// orqali o'qiydi — qayta ulanishda har doim ENG YANGI qiymatni olish
+    /// uchun (token yangilanib qolgan bo'lishi mumkin).
+    var currentAccessToken: String? { accessToken }
+
     func setTokens(_ tokens: TokenPair?) {
         accessToken = tokens?.access
         refreshToken = tokens?.refresh

@@ -1,10 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../auth_store.dart';
 import '../models.dart';
+import '../notification_ws.dart';
 import '../widgets/offline_view.dart';
 import 'order_detail_screen.dart';
 import 'worker/worker_orders_screen.dart';
@@ -19,8 +18,10 @@ String _timeAgo(String iso) {
   return '${diff.inDays} kun oldin';
 }
 
-/// Bell tugmasi — AppBar `actions`ga qo'yiladi, o'qilmagan sonini 30s'da
-/// bir marta so'raydi va bosilganda [NotificationsScreen]ni ochadi.
+/// Bell tugmasi — AppBar `actions`ga qo'yiladi, o'qilmagan sonini
+/// WebSocket orqali real vaqtda oladi (avval 30s'da bir marta HTTP bilan
+/// so'ralardi, qarang notification_ws.dart) va bosilganda
+/// [NotificationsScreen]ni ochadi.
 class NotificationBellButton extends StatefulWidget {
   const NotificationBellButton({super.key});
   @override
@@ -29,18 +30,20 @@ class NotificationBellButton extends StatefulWidget {
 
 class _NotificationBellButtonState extends State<NotificationBellButton> {
   int _count = 0;
-  Timer? _timer;
+  NotificationSocket? _socket;
 
   @override
   void initState() {
     super.initState();
     _loadCount();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _loadCount());
+    _socket = NotificationSocket(onCount: (c) {
+      if (mounted) setState(() => _count = c);
+    })..start();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _socket?.stop();
     super.dispose();
   }
 
