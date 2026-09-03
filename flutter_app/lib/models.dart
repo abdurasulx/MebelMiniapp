@@ -547,6 +547,10 @@ class Payslip {
   final String kpiBonusAmount;
   final String totalAmount;
   final bool isPaid;
+  // Haqiqiy to'langan/qolgan summa — `isPaid` faqat "to'liq yopildi" degan
+  // ikkilik belgi (qarang backend Payslip.paid_total/outstanding_amount).
+  final String paidTotal;
+  final String outstandingAmount;
 
   Payslip({
     required this.id,
@@ -566,6 +570,8 @@ class Payslip {
     required this.kpiBonusAmount,
     required this.totalAmount,
     required this.isPaid,
+    this.paidTotal = '0',
+    this.outstandingAmount = '0',
   });
 
   factory Payslip.fromJson(Map<String, dynamic> j) => Payslip(
@@ -586,6 +592,41 @@ class Payslip {
         kpiBonusAmount: j['kpi_bonus_amount']?.toString() ?? '0',
         totalAmount: j['total_amount']?.toString() ?? '0',
         isPaid: j['is_paid'] ?? false,
+        paidTotal: j['paid_total']?.toString() ?? '0',
+        outstandingAmount: j['outstanding_amount']?.toString() ?? '0',
+      );
+}
+
+/// Xodimga HAQIQIY to'langan pul harakati (avans/yakuniy) — Payslip.totalAmount
+/// HISOBLANGAN summadan farqli, bu haqiqiy kassa tarixi (qarang backend
+/// PayslipPayment, worker_payslips_screen.dart::_PaymentHistory).
+class PayslipPayment {
+  final String id;
+  final String kind;
+  final String kindDisplay;
+  final String amount;
+  final String paidAt;
+  final String note;
+  final String? recordedByName;
+
+  PayslipPayment({
+    required this.id,
+    required this.kind,
+    required this.kindDisplay,
+    required this.amount,
+    required this.paidAt,
+    required this.note,
+    this.recordedByName,
+  });
+
+  factory PayslipPayment.fromJson(Map<String, dynamic> j) => PayslipPayment(
+        id: j['id'],
+        kind: j['kind'] ?? '',
+        kindDisplay: j['kind_display'] ?? '',
+        amount: j['amount']?.toString() ?? '0',
+        paidAt: j['paid_at'] ?? '',
+        note: j['note'] ?? '',
+        recordedByName: j['recorded_by_name'],
       );
 }
 

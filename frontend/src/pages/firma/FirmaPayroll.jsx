@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { Calculator, Wallet } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { Calculator, ChevronDown, ChevronUp, Wallet } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { POSITIONS } from "../../positions";
 import LoadMoreButton from "../../components/LoadMoreButton";
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function currentPeriod() {
   const now = new Date();
@@ -49,6 +53,7 @@ function ManagerPayroll() {
   const [nextPage, setNextPage] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hoursDraft, setHoursDraft] = useState({});
+  const [expandedId, setExpandedId] = useState(null);
 
   const load = () => {
     setLoaded(false);
@@ -183,7 +188,8 @@ function ManagerPayroll() {
             </thead>
             <tbody>
               {payslips.map((p) => (
-                <tr key={p.id}>
+                <Fragment key={p.id}>
+                <tr>
                   <td className="font-medium">{p.employee_name}</td>
                   <td>
                     <div className="flex flex-wrap gap-1">
@@ -226,15 +232,36 @@ function ManagerPayroll() {
                     <span className={p.is_paid ? "badge" : "badge badge-off"}>
                       {p.is_paid ? "To'landi" : "Kutilmoqda"}
                     </span>
-                  </td>
-                  <td className="text-right">
-                    {!p.is_paid && (
-                      <button className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={() => markPaid(p)}>
-                        <Wallet size={13} /> To'landi deb belgilash
-                      </button>
+                    {!p.is_paid && Number(p.paid_total) > 0 && (
+                      <div className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
+                        {Number(p.paid_total).toLocaleString()} avans berilgan
+                      </div>
                     )}
                   </td>
+                  <td className="text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {!p.is_paid && (
+                        <button className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={() => markPaid(p)}>
+                          <Wallet size={13} /> To'liq to'lash
+                        </button>
+                      )}
+                      <button
+                        className="btn-ghost inline-flex items-center gap-1 !px-2 !py-1.5 text-xs"
+                        onClick={() => setExpandedId((id) => (id === p.id ? null : p.id))}
+                      >
+                        To'lovlar {expandedId === p.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
+                {expandedId === p.id && (
+                  <tr>
+                    <td colSpan={9} className="!p-0">
+                      <PayslipPaymentsPanel payslip={p} onChanged={load} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -250,6 +277,114 @@ function ManagerPayroll() {
         <strong>Xodimlar</strong>, KPI maqsadlarini esa <strong>Sozlamalar</strong> yoki platforma admin
         panelida sozlang. To'langan oylar qayta hisoblanganda o'zgarmaydi.
       </p>
+    </div>
+  );
+}
+
+/// Bitta oylik uchun to'lovlar tarixi (avans + yakuniy) + yangi to'lov
+/// qo'shish formasi — jadval qatori kengaytirilganda ko'rinadi (qarang
+/// ManagerPayroll). Backend `/payslips/{id}/payments/` (GET/POST) orqali.
+function PayslipPaymentsPanel({ payslip, onChanged }) {
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ kind: "advance", amount: "", paid_at: todayISO(), note: "" });
+
+  const load = () => {
+    setLoading(true);
+    api(`/payslips/${payslip.id}/payments/`)
+      .then(setPayments)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payslip.id]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await api(`/payslips/${payslip.id}/payments/`, {
+        method: "POST",
+        body: { kind: form.kind, amount: form.amount, paid_at: form.paid_at, note: form.note },
+      });
+      setForm({ kind: "advance", amount: "", paid_at: todayISO(), note: "" });
+      load();
+      onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const outstanding = Number(payslip.outstanding_amount);
+
+  return (
+    <div className="flex flex-col gap-3 p-4" style={{ background: "var(--bg)", borderTop: "1px solid var(--border)" }}>
+      <div className="flex flex-wrap gap-4 text-xs" style={{ color: "var(--muted)" }}>
+        <span>Jami: <strong style={{ color: "var(--text)" }}>{Number(payslip.total_amount).toLocaleString()} so'm</strong></span>
+        <span>To'langan: <strong style={{ color: "var(--success)" }}>{Number(payslip.paid_total).toLocaleString()} so'm</strong></span>
+        <span>Qoldiq: <strong style={{ color: outstanding > 0 ? "var(--warning)" : "var(--success)" }}>{outstanding.toLocaleString()} so'm</strong></span>
+      </div>
+
+      {loading ? (
+        <p className="text-xs" style={{ color: "var(--muted)" }}>Yuklanmoqda…</p>
+      ) : payments.length === 0 ? (
+        <p className="text-xs" style={{ color: "var(--muted)" }}>Hali to'lov qilinmagan.</p>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {payments.map((pm) => (
+            <div key={pm.id} className="flex items-center justify-between rounded-lg px-3 py-1.5 text-xs" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
+              <span>
+                <strong>{pm.kind_display}</strong> — {Number(pm.amount).toLocaleString()} so'm
+                {pm.note && <span style={{ color: "var(--muted)" }}> ({pm.note})</span>}
+              </span>
+              <span style={{ color: "var(--muted)" }}>{pm.paid_at}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && <div className="error">{error}</div>}
+
+      {outstanding > 0 && (
+        <form onSubmit={submit} className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className="label">Turi</label>
+            <select className="input !w-32 !py-1.5 text-xs" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
+              <option value="advance">Avans</option>
+              <option value="final">Yakuniy</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Summa (max {outstanding.toLocaleString()})</label>
+            <input
+              className="input !w-32 !py-1.5 text-xs" type="number" min="1" max={outstanding} required
+              value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="label">Sana</label>
+            <input
+              className="input !w-36 !py-1.5 text-xs" type="date"
+              value={form.paid_at} onChange={(e) => setForm({ ...form, paid_at: e.target.value })}
+            />
+          </div>
+          <div className="min-w-[160px] flex-1">
+            <label className="label">Izoh (ixtiyoriy)</label>
+            <input className="input !py-1.5 text-xs" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+          </div>
+          <button className="btn !px-3 !py-1.5 text-xs" disabled={busy} type="submit">
+            {busy ? "Saqlanmoqda…" : "To'lov qo'shish"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
@@ -306,6 +441,11 @@ function MyPayslips() {
               <span className={p.is_paid ? "badge" : "badge badge-off"}>
                 {p.is_paid ? "To'landi" : "Kutilmoqda"}
               </span>
+              {!p.is_paid && Number(p.paid_total) > 0 && (
+                <div className="mt-1 text-[11px]" style={{ color: "var(--muted)" }}>
+                  {Number(p.paid_total).toLocaleString()} avans olingan
+                </div>
+              )}
             </div>
           </div>
         ))}

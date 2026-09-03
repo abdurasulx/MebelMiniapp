@@ -1,5 +1,7 @@
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import mixins, permissions, viewsets
 from rest_framework.decorators import action
@@ -9,8 +11,8 @@ from rest_framework.response import Response
 from apps.companies.models import Company, Employee
 from apps.companies.views import user_company
 
-from .models import Payslip
-from .serializers import PayslipSerializer
+from .models import Payslip, PayslipPayment
+from .serializers import PayslipPaymentSerializer, PayslipSerializer
 
 
 def is_manager(user, company):
@@ -66,7 +68,11 @@ class PayslipViewSet(
             payslip, _ = Payslip.objects.get_or_create(
                 company=company, employee=emp, period=period
             )
-            if not payslip.is_paid:
+            # Avans/to'lov berilgan (`paid_total > 0`) oylik endi qayta
+            # hisoblanmaydi — aks holda summasi to'lovlar ortidan
+            # o'zgarib, hisob-kitob buzilib qolardi (qarang
+            # Payslip.apply_payment).
+            if payslip.paid_total == 0:
                 payslip.recompute()
                 payslip.save()
             results.append(payslip)
@@ -83,8 +89,8 @@ class PayslipViewSet(
         company = user_company(request.user)
         if not is_manager(request.user, company):
             raise PermissionDenied("Faqat kompaniya egasi soat kiritadi")
-        if payslip.is_paid:
-            raise ValidationError("To'langan ish haqini o'zgartirib bo'lmaydi")
+        if payslip.paid_total > 0:
+            raise ValidationError("Avans/to'lov berilgan ish haqini o'zgartirib bo'lmaydi")
         try:
             hours = float(request.data.get("manual_hours"))
         except (TypeError, ValueError):
@@ -98,13 +104,57 @@ class PayslipViewSet(
 
     @action(detail=True, methods=["post"])
     def mark_paid(self, request, pk=None):
+        """Butun qoldiqni bir zumda "yakuniy to'lov" sifatida yopadi —
+        oldingi (avans yo'q) UI oqimi bilan bir xil, lekin endi ham
+        `PayslipPayment` tarixiga real yozuv qoldiradi (qarang
+        `Payslip.apply_payment`), shunda "to'landi" belgisi hech qachon
+        haqiqiy to'lov tarixidan uzilib qolmaydi."""
         payslip = self.get_object()
         company = user_company(request.user)
         if not is_manager(request.user, company):
             raise PermissionDenied("Faqat kompaniya egasi to'langan deb belgilaydi")
-        payslip.is_paid = True
-        payslip.paid_at = timezone.now()
-        payslip.save(update_fields=["is_paid", "paid_at"])
+        if payslip.is_paid:
+            raise ValidationError("Bu oylik allaqachon to'langan")
+        try:
+            payslip.apply_payment(
+                kind=PayslipPayment.Kind.FINAL,
+                amount=payslip.outstanding_amount,
+                paid_at=timezone.now().date(),
+                recorded_by=request.user,
+            )
+        except DjangoValidationError as e:
+            raise ValidationError(e.message)
+        return Response(self.get_serializer(payslip).data)
+
+    @action(detail=True, methods=["get", "post"])
+    def payments(self, request, pk=None):
+        """GET — shu oylik uchun barcha to'lovlar tarixi (avans + yakuniy),
+        xodim ham (o'zinikini) ko'ra oladi. POST — yangi to'lov (avans yoki
+        qisman/to'liq yakuniy) qo'shadi, faqat firma egasi/menejer."""
+        payslip = self.get_object()
+        if request.method == "GET":
+            qs = payslip.payments.filter(is_deleted=False)
+            return Response(PayslipPaymentSerializer(qs, many=True).data)
+
+        company = user_company(request.user)
+        if not is_manager(request.user, company):
+            raise PermissionDenied("Faqat kompaniya egasi to'lov qo'sha oladi")
+        kind = request.data.get("kind")
+        if kind not in PayslipPayment.Kind.values:
+            raise ValidationError("kind 'advance' yoki 'final' bo'lishi kerak")
+        try:
+            amount = Decimal(str(request.data.get("amount")))
+        except (TypeError, ValueError, InvalidOperation):
+            raise ValidationError("amount raqam bo'lishi kerak")
+        paid_at_raw = request.data.get("paid_at")
+        paid_at = date.fromisoformat(paid_at_raw) if paid_at_raw else timezone.now().date()
+        try:
+            payslip.apply_payment(
+                kind=kind, amount=amount, paid_at=paid_at,
+                note=request.data.get("note", ""), recorded_by=request.user,
+            )
+        except DjangoValidationError as e:
+            raise ValidationError(e.message)
         return Response(self.get_serializer(payslip).data)
 
 

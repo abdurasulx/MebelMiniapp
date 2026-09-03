@@ -8,7 +8,7 @@ from django.utils import timezone
 from apps.companies.models import Company, Employee, PayType, PositionPayStandard
 from apps.orders.models import Order
 
-from .models import Payslip
+from .models import Payslip, PayslipPayment
 
 User = get_user_model()
 
@@ -227,3 +227,116 @@ class PositionPayStandardPermissionTests(TestCase):
         )
         self.assertEqual(resp.status_code, 201, resp.data)
         self.assertTrue(resp.data["is_platform_default"])
+
+
+class PayslipPaymentTests(TestCase):
+    """Avans/qisman to'lov oqimi — portable payroll dizayn hujjatidagi
+    "kassa asosida, hisoblangandan alohida" tamoyili."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        self.client_api = APIClient()
+        self.owner, self.company = make_owner_and_company(email="owner14@pay.uz", slug="pay-shop-14")
+        self.employee = make_employee(
+            self.company, email="worker14@pay.uz", pay_type=PayType.FIXED, base_salary=Decimal("3000000")
+        )
+        now = timezone.now()
+        self.payslip = Payslip.objects.create(
+            company=self.company, employee=self.employee, period=date(now.year, now.month, 1)
+        )
+        self.payslip.recompute()
+        self.payslip.save()
+
+    def test_advance_reduces_outstanding_without_marking_paid(self):
+        self.assertEqual(self.payslip.outstanding_amount, Decimal("3000000"))
+        self.client_api.force_authenticate(self.owner)
+        resp = self.client_api.post(
+            f"/api/v1/payslips/{self.payslip.id}/payments/",
+            {"kind": "advance", "amount": "1000000", "note": "Avans"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.payslip.refresh_from_db()
+        self.assertEqual(self.payslip.paid_total, Decimal("1000000"))
+        self.assertEqual(self.payslip.outstanding_amount, Decimal("2000000"))
+        self.assertFalse(self.payslip.is_paid)
+
+    def test_final_payment_covering_outstanding_marks_paid(self):
+        self.client_api.force_authenticate(self.owner)
+        self.client_api.post(
+            f"/api/v1/payslips/{self.payslip.id}/payments/",
+            {"kind": "advance", "amount": "1000000"},
+            format="json",
+        )
+        resp = self.client_api.post(
+            f"/api/v1/payslips/{self.payslip.id}/payments/",
+            {"kind": "final", "amount": "2000000"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.payslip.refresh_from_db()
+        self.assertTrue(self.payslip.is_paid)
+        self.assertEqual(self.payslip.outstanding_amount, 0)
+        self.assertEqual(PayslipPayment.objects.filter(payslip=self.payslip).count(), 2)
+
+    def test_overpayment_rejected(self):
+        self.client_api.force_authenticate(self.owner)
+        resp = self.client_api.post(
+            f"/api/v1/payslips/{self.payslip.id}/payments/",
+            {"kind": "final", "amount": "5000000"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.payslip.refresh_from_db()
+        self.assertEqual(self.payslip.paid_total, 0)
+
+    def test_employee_cannot_add_payment(self):
+        self.client_api.force_authenticate(self.employee.user)
+        resp = self.client_api.post(
+            f"/api/v1/payslips/{self.payslip.id}/payments/",
+            {"kind": "advance", "amount": "500000"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_employee_can_view_own_payment_history(self):
+        self.client_api.force_authenticate(self.owner)
+        self.client_api.post(
+            f"/api/v1/payslips/{self.payslip.id}/payments/",
+            {"kind": "advance", "amount": "500000"},
+            format="json",
+        )
+        self.client_api.force_authenticate(self.employee.user)
+        resp = self.client_api.get(f"/api/v1/payslips/{self.payslip.id}/payments/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.data), 1)
+
+    def test_mark_paid_creates_final_payment_for_full_outstanding(self):
+        self.client_api.force_authenticate(self.owner)
+        resp = self.client_api.post(f"/api/v1/payslips/{self.payslip.id}/mark_paid/")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.payslip.refresh_from_db()
+        self.assertTrue(self.payslip.is_paid)
+        self.assertEqual(self.payslip.paid_total, Decimal("3000000"))
+        payment = PayslipPayment.objects.get(payslip=self.payslip)
+        self.assertEqual(payment.kind, PayslipPayment.Kind.FINAL)
+
+    def test_recompute_blocked_once_payment_exists(self):
+        self.client_api.force_authenticate(self.owner)
+        self.client_api.post(
+            f"/api/v1/payslips/{self.payslip.id}/payments/",
+            {"kind": "advance", "amount": "500000"},
+            format="json",
+        )
+        now = timezone.now()
+        resp = self.client_api.post(
+            "/api/v1/payslips/generate/",
+            {"period": f"{now.year}-{now.month:02d}"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.payslip.refresh_from_db()
+        # base_salary shu paytgacha o'zgarmaganidan tashqari, hech bo'lmasa
+        # `paid_total` (avans) daxlsiz qolganini tekshiramiz.
+        self.assertEqual(self.payslip.paid_total, Decimal("500000"))

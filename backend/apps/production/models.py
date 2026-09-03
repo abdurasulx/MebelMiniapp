@@ -1,3 +1,6 @@
+from decimal import Decimal
+
+from django.conf import settings
 from django.db import models
 from django.db.models import Sum
 
@@ -42,6 +45,12 @@ class Payslip(BaseModel):
     kpi_met = models.BooleanField(default=False)
     kpi_bonus_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # `is_paid`/`paid_at` — hisob-kitob TO'LIQ yopilganini bildiradi (barcha
+    # to'lovlar `total_amount`ni qopladi). Bu ikkalasi endi mustaqil
+    # o'rnatilmaydi — faqat `payments` (haqiqiy kassa harakati) orqali
+    # AVTOMATIK hisoblanadi (qarang `PayslipPayment`/`apply_payment`), aks
+    # holda "to'landi" belgisi bilan haqiqiy to'lov tarixi bir-biridan
+    # uzilib qolishi mumkin edi.
     is_paid = models.BooleanField(default=False)
     paid_at = models.DateTimeField(null=True, blank=True)
 
@@ -51,6 +60,41 @@ class Payslip(BaseModel):
 
     def __str__(self):
         return f"{self.employee} — {self.period:%Y-%m}"
+
+    @property
+    def paid_total(self):
+        return self.payments.filter(is_deleted=False).aggregate(t=Sum("amount"))["t"] or Decimal("0")
+
+    @property
+    def outstanding_amount(self):
+        remaining = self.total_amount - self.paid_total
+        return remaining if remaining > 0 else Decimal("0")
+
+    def apply_payment(self, *, kind, amount, paid_at, note="", recorded_by=None):
+        """Avans yoki yakuniy to'lov qo'shadi (haqiqiy kassa harakati) —
+        `PayslipPayment` yaratadi va shundan keyingi qoldiqqa qarab
+        `is_paid`/`paid_at`ni AVTOMATIK yangilaydi. Qoldiqdan ortiq summa
+        rad etiladi (portable payroll dizayn hujjati §6/§7 — to'lovlar
+        hech qachon hisoblangan summadan oshmasligi va HAQIQIY kassa
+        asosida bo'lishi kerak)."""
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        if amount <= 0:
+            raise DjangoValidationError("Summa musbat bo'lishi kerak")
+        if amount > self.outstanding_amount:
+            raise DjangoValidationError(
+                f"Summa qoldiqdan ({self.outstanding_amount}) oshmasligi kerak"
+            )
+        payment = self.payments.create(
+            kind=kind, amount=amount, paid_at=paid_at, note=note, recorded_by=recorded_by,
+        )
+        if self.outstanding_amount <= 0:
+            from django.utils import timezone
+
+            self.is_paid = True
+            self.paid_at = timezone.now()
+            self.save(update_fields=["is_paid", "paid_at"])
+        return payment
 
     def recompute(self):
         """Berilgan oy uchun xodimning `pay_type`iga mos summani va KPI
@@ -159,3 +203,29 @@ class Payslip(BaseModel):
 
         bonus = base_for_bonus * (standard.kpi_bonus_multiplier - 1)
         return True, bonus
+
+
+class PayslipPayment(BaseModel):
+    """Xodimga HAQIQIY (kassa asosida) to'langan pul harakati —
+    `Payslip.total_amount` HISOBLANGAN summa, bu esa haqiqatan
+    to'langanining tarixi (avans + yakuniy). Ikkalasi hech qachon
+    aralashtirilmaydi (portable payroll dizayn hujjati §6/§7-6)."""
+
+    class Kind(models.TextChoices):
+        ADVANCE = "advance", "Avans"
+        FINAL = "final", "Yakuniy to'lov"
+
+    payslip = models.ForeignKey(Payslip, on_delete=models.CASCADE, related_name="payments")
+    kind = models.CharField(max_length=10, choices=Kind.choices)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    paid_at = models.DateField()
+    note = models.CharField(max_length=255, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        ordering = ("-paid_at", "-created_at")
+
+    def __str__(self):
+        return f"{self.payslip} — {self.get_kind_display()} {self.amount}"

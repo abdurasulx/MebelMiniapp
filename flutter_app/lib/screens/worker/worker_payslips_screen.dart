@@ -106,64 +106,153 @@ class _WorkerPayslipsScreenState extends State<WorkerPayslipsScreen> {
                     : ListView.builder(
                         padding: const EdgeInsets.all(12),
                         itemCount: _payslips.length,
-                        itemBuilder: (context, i) {
-                          final p = _payslips[i];
-                          final extras = StringBuffer('${p.payTypeDisplay} · ${_payBreakdown(p)}');
-                          final workflowEarnings = double.tryParse(p.workflowEarnings) ?? 0;
-                          final kpiBonus = double.tryParse(p.kpiBonusAmount) ?? 0;
-                          if (workflowEarnings > 0) {
-                            extras.write(' + ${formatSom(workflowEarnings.toStringAsFixed(0))} workflow');
-                          }
-                          if (kpiBonus > 0) {
-                            extras.write(' + ${formatSom(kpiBonus.toStringAsFixed(0))} KPI bonus');
-                          }
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(_periodLabel(p.period), style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Text(extras.toString(), style: Theme.of(context).textTheme.bodySmall),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        "${formatSom(p.totalAmount)} so'm",
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: p.isPaid ? Colors.green.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: Text(
-                                          p.isPaid ? "To'landi" : 'Kutilmoqda',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: p.isPaid ? Colors.green.shade800 : Colors.orange.shade800,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+                        itemBuilder: (context, i) => _PayslipTile(payslip: _payslips[i]),
                       ),
+      ),
+    );
+  }
+}
+
+/// Bitta oylik kartochkasi — bosilsa to'lovlar tarixini (avans/yakuniy,
+/// qarang backend `PayslipPayment`) ochib/yopib turadi.
+class _PayslipTile extends StatefulWidget {
+  final Payslip payslip;
+  const _PayslipTile({required this.payslip});
+
+  @override
+  State<_PayslipTile> createState() => _PayslipTileState();
+}
+
+class _PayslipTileState extends State<_PayslipTile> {
+  bool _expanded = false;
+  List<PayslipPayment>? _payments;
+  bool _loading = false;
+  Object? _error;
+
+  Future<void> _toggle() async {
+    setState(() => _expanded = !_expanded);
+    if (_expanded && _payments == null) {
+      setState(() => _loading = true);
+      try {
+        final list = await ApiClient.instance.get(
+          '/payslips/${widget.payslip.id}/payments/',
+          (j) => (j as List).map((e) => PayslipPayment.fromJson(e)).toList(),
+          auth: true,
+        );
+        if (mounted) setState(() => _payments = list);
+      } catch (e) {
+        if (mounted) setState(() => _error = e);
+      } finally {
+        if (mounted) setState(() => _loading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.payslip;
+    final extras = StringBuffer('${p.payTypeDisplay} · ${_payBreakdown(p)}');
+    final workflowEarnings = double.tryParse(p.workflowEarnings) ?? 0;
+    final kpiBonus = double.tryParse(p.kpiBonusAmount) ?? 0;
+    if (workflowEarnings > 0) {
+      extras.write(' + ${formatSom(workflowEarnings.toStringAsFixed(0))} workflow');
+    }
+    if (kpiBonus > 0) {
+      extras.write(' + ${formatSom(kpiBonus.toStringAsFixed(0))} KPI bonus');
+    }
+    final paidTotal = double.tryParse(p.paidTotal) ?? 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        onTap: _toggle,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_periodLabel(p.period), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Text(extras.toString(), style: Theme.of(context).textTheme.bodySmall),
+                        if (!p.isPaid && paidTotal > 0) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            "${formatSom(paidTotal.toStringAsFixed(0))} avans olingan",
+                            style: const TextStyle(fontSize: 11, color: Colors.black45),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        "${formatSom(p.totalAmount)} so'm",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: p.isPaid ? Colors.green.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          p.isPaid ? "To'landi" : 'Kutilmoqda',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: p.isPaid ? Colors.green.shade800 : Colors.orange.shade800,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 16,
+                        color: Colors.black45,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              if (_expanded) ...[
+                const Divider(height: 20),
+                if (_loading)
+                  const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator(strokeWidth: 2)))
+                else if (_error != null)
+                  Text(_error.toString(), style: const TextStyle(color: Colors.red, fontSize: 12))
+                else if ((_payments ?? []).isEmpty)
+                  const Text("Hali to'lov qilinmagan.", style: TextStyle(fontSize: 12, color: Colors.black54))
+                else
+                  ..._payments!.map(
+                    (pm) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${pm.kindDisplay} — ${formatSom(pm.amount)} so\'m'
+                              '${pm.note.isNotEmpty ? " (${pm.note})" : ""}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          Text(pm.paidAt, style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
