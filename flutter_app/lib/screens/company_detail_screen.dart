@@ -38,6 +38,11 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
       final company = await ApiClient.instance.get(
         '/companies/${widget.companySlug}/',
         (j) => Company.fromJson(j),
+        // Tizimga kirmagan bo'lsa ham token yo'q holda ishlaydi (qarang
+        // ApiClient._send), lekin kirgan bo'lsa `can_review` (baho qoldirish
+        // formasini ko'rsatish/yashirish) shu foydalanuvchiga to'g'ri
+        // hisoblanishi uchun token yuborilishi kerak.
+        auth: true,
       );
       final productsPage = await ApiClient.instance.get(
         '/products/?company=${widget.companySlug}',
@@ -212,9 +217,15 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                       ),
                     ),
                   ),
-                if (isAuthenticated) ...[
+                if (isAuthenticated && company.canReview) ...[
                   const SizedBox(height: 24),
                   _reviewForm(),
+                ] else if (isAuthenticated) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Faqat shu firmadan yakunlangan buyurtmangiz bo\'lsa baho qoldira olasiz.',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
                 ],
               ],
             ),
@@ -267,11 +278,6 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
               child: _submitBusy
                   ? const CircularProgressIndicator()
                   : const Text('Baho qoldirish'),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Faqat shu firmadan yakunlangan buyurtmangiz bo\'lsa baho qoldira olasiz.',
-              style: TextStyle(fontSize: 11, color: Colors.black54),
             ),
           ],
         ),

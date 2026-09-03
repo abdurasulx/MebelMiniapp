@@ -144,7 +144,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                       children: p.variants.map((v) {
                         final selected = _selectedVariant?.id == v.id;
                         return ChoiceChip(
-                          label: Text(v.name),
+                          label: Text(
+                            v.name,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? const Color(0xFFECC299)
+                                  : const Color(0xFF4C2C24),
+                            ),
+                          ),
                           selected: selected,
                           onSelected: (_) =>
                               setState(() => _selectedVariant = v),

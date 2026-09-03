@@ -24,7 +24,14 @@ struct CompanyShopView: View {
                     productsSection
                     reviewsSection
                     if auth.isAuthenticated {
-                        reviewForm(company)
+                        if company.canReview == true {
+                            reviewForm(company)
+                        } else {
+                            Text("Faqat shu firmadan yakunlangan buyurtmangiz bo'lsa baho qoldira olasiz.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal)
+                        }
                     }
                 }
                 .padding(.bottom, 24)

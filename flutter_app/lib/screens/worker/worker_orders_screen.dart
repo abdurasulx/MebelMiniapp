@@ -15,7 +15,11 @@ import '../../widgets/offline_view.dart';
 /// bosqichlarni ko'rishdan avtomatik cheklaydi (qarang
 /// apps/workflow/views.py get_queryset).
 class WorkerOrdersScreen extends StatefulWidget {
-  const WorkerOrdersScreen({super.key});
+  // Bildirishnoma (task_assigned/task_available) orqali kelinganda —
+  // buyurtmalar ro'yxatida "faol" filtrga tushmasligi mumkin bo'lgan
+  // ANIQ buyurtmani ochish uchun (qarang notifications_screen.dart::_open).
+  final String? openOrderId;
+  const WorkerOrdersScreen({super.key, this.openOrderId});
   @override
   State<WorkerOrdersScreen> createState() => _WorkerOrdersScreenState();
 }
@@ -26,11 +30,37 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   List<WorkflowStepInstance> _openTasks = [];
   bool _loading = true;
   Object? _error;
+  bool _openedInitial = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  /// `_isActiveForMe` filtri (pastda) bosqich allaqachon bajarilgan/
+  /// tasdiqlangan bo'lsa buyurtmani ro'yxatdan yashiradi — bildirishnoma
+  /// orqali kelgan ANIQ buyurtma aynan shu holatda bo'lishi mumkin, shuning
+  /// uchun bu yerda filtrsiz, to'g'ridan-to'g'ri ochamiz.
+  void _maybeOpenInitial() {
+    if (_openedInitial || widget.openOrderId == null) return;
+    final matches = _orders.where((o) => o.id == widget.openOrderId);
+    if (matches.isEmpty) return;
+    final order = matches.first;
+    _openedInitial = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _OrderStepsScreen(
+            order: order,
+            mySteps: _myStepsFor(order),
+            onProgress: _postProgress,
+            onStart: _startTask,
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> _load() async {
@@ -59,6 +89,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
         _myTasks = tasksPage.results;
         _openTasks = openPage.results;
       });
+      _maybeOpenInitial();
     } catch (e) {
       setState(() => _error = e);
     } finally {

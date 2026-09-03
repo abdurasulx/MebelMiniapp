@@ -29,6 +29,7 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
     )
     tariff_plan_name = serializers.CharField(source="tariff_plan.name", read_only=True, default=None)
     billing_summary = serializers.SerializerMethodField()
+    can_review = serializers.SerializerMethodField()
 
     def get_logo_url(self, obj):
         return visible_file_url(obj, "logo", self.context.get("request"))
@@ -38,6 +39,21 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
 
     def get_billing_summary(self, obj):
         return obj.billing_summary
+
+    def get_can_review(self, obj):
+        # Do'kon sahifasida "Baho qoldirish" formasi FAQAT shu kompaniyadan
+        # yakunlangan buyurtmasi bor mijozga ko'rsatilishi kerak (aks holda
+        # forma ko'rinib-u, yuborilganda baribir rad etiladi — chalkash UX).
+        # Mezon `ReviewSerializer.validate_company` bilan bir xil.
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return False
+        from apps.orders.models import Order
+
+        return Order.objects.filter(
+            company=obj, customer=user, status=Order.Status.COMPLETED, is_deleted=False
+        ).exists()
 
     class Meta:
         model = Company
@@ -65,6 +81,7 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
             "tariff_plan",
             "tariff_plan_name",
             "billing_summary",
+            "can_review",
             "employment_contract_template",
             "created_at",
         )

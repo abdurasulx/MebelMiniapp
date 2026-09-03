@@ -128,6 +128,10 @@ struct Company: Codable, Identifiable {
     // Backend DecimalField — string sifatida keladi (masalan "41.311081").
     let latitude: String?
     let longitude: String?
+    // Faqat shu firmadan YAKUNLANGAN buyurtmasi bor mijozga true (qarang
+    // backend CompanySerializer.get_can_review) — "Baho qoldirish" formasi
+    // shunga qarab ko'rsatiladi/yashiriladi (CompanyShopView).
+    let canReview: Bool?
 
     /// Do'kon sahifasida bosiladigan ikonkalar — bo'sh havolalar chiqarib
     /// tashlanadi, tartib doim bir xil (Instagram, Telegram, Facebook, sayt).

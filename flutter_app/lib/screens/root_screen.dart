@@ -40,12 +40,12 @@ class _RootScreenState extends State<RootScreen> {
             WorkerPayslipsScreen(),
             ProfileScreen(),
           ]
-        : const [
-            HomeScreen(),
-            CatalogScreen(),
-            LikesScreen(),
-            CartScreen(),
-            ProfileScreen(),
+        : [
+            const HomeScreen(),
+            const CatalogScreen(),
+            LikesScreen(visible: _index == 2),
+            const CartScreen(),
+            const ProfileScreen(),
           ];
 
     final items = isWorker

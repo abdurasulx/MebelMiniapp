@@ -180,6 +180,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'task_assigned':
       case 'task_available':
       case 'task_pool_open':
+        // "Erkin topshiriq" bir nechta ustaga BIR VAQTDA yuboriladi, lekin
+        // faqat bittasi qabul qila oladi — boshqa usta olib ulgurgan yoki
+        // bosqich holati o'zgargan bo'lsa, bu yerda hech qayerga ochilmaydi,
+        // ro'yxatdan olib tashlanadi ("g'oyib bo'ladi").
         if (n.notifType == 'task_pool_open') {
           final stillOpen = await _stillOpen(n);
           if (!stillOpen) {
@@ -187,6 +191,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               setState(() => _items = _items.where((x) => x.id != n.id).toList());
             }
             return;
+          }
+        }
+        // task_assigned/task_available uchun — bosqichning ANIQ qaysi
+        // buyurtmaga tegishli ekanini olib, to'g'ridan-to'g'ri o'sha
+        // buyurtmani ochamiz (aks holda ro'yxat filtrida ko'rinmasligi
+        // mumkin, qarang WorkerOrdersScreen._isActiveForMe).
+        String? orderId;
+        if (n.notifType != 'task_pool_open' && n.workflowInstanceId != null) {
+          try {
+            final step = await ApiClient.instance.get(
+              '/workflow-instances/${n.workflowInstanceId}/',
+              (j) => WorkflowStepInstance.fromJson(j),
+              auth: true,
+            );
+            orderId = step.order;
+          } catch (_) {
+            // Bosqich topilmadi/tarmoq xatosi — umumiy ro'yxatga o'tamiz.
           }
         }
         if (!mounted) return;
@@ -199,7 +220,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           auth.enterWorkerMode(position);
         }
         Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const WorkerOrdersScreen()),
+          MaterialPageRoute(builder: (_) => WorkerOrdersScreen(openOrderId: orderId)),
         );
         break;
     }

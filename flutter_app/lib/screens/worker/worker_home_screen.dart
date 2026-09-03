@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../api_client.dart';
 import '../../auth_store.dart';
 import '../../models.dart';
+import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
 import 'warehouses_screen.dart';
 
@@ -56,7 +57,12 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Usta paneli'),
+        // Avval bildirishnoma tugmasi faqat Profil bo'limida bor edi —
+        // usta ko'pincha shu yerda ("Usta paneli" tabida) qolgani uchun
+        // vazifa/erkin-topshiriq bildirishnomalarini ko'rish uchun Profilga
+        // o'tishga majbur bo'lardi.
         actions: [
+          const NotificationBellButton(),
           IconButton(
             icon: const Icon(Icons.warehouse_outlined),
             tooltip: 'Omborlar',

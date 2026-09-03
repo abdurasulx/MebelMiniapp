@@ -212,7 +212,26 @@ class PushService {
               : positions.first;
           _auth?.enterWorkerMode(position);
         }
-        navigator.push(MaterialPageRoute(builder: (_) => const WorkerOrdersScreen()));
+        // task_assigned/task_available uchun bosqichning qaysi buyurtmaga
+        // tegishli ekanini olib, to'g'ridan-to'g'ri o'sha buyurtmani
+        // ochamiz (aks holda "Buyurtmalar" ro'yxati filtrida ko'rinmasligi
+        // mumkin, qarang WorkerOrdersScreen._isActiveForMe) —
+        // notifications_screen.dart::_open bilan bir xil mantiq.
+        String? orderId;
+        final stepId = data['step_id'];
+        if (type != 'task_pool_open' && stepId != null) {
+          try {
+            final step = await ApiClient.instance.get(
+              '/workflow-instances/$stepId/',
+              (j) => WorkflowStepInstance.fromJson(j),
+              auth: true,
+            );
+            orderId = step.order;
+          } catch (_) {
+            // Bosqich topilmadi/tarmoq xatosi — umumiy ro'yxatga o'tamiz.
+          }
+        }
+        navigator.push(MaterialPageRoute(builder: (_) => WorkerOrdersScreen(openOrderId: orderId)));
         break;
     }
   }

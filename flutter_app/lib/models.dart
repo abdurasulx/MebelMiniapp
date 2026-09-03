@@ -173,6 +173,10 @@ class Company {
   final String? websiteUrl;
   final double? latitude;
   final double? longitude;
+  // Faqat shu firmadan YAKUNLANGAN buyurtmasi bor mijozga true (qarang
+  // backend CompanySerializer.get_can_review) — "Baho qoldirish" formasi
+  // shunga qarab ko'rsatiladi/yashiriladi (company_detail_screen.dart).
+  final bool canReview;
 
   Company({
     required this.id,
@@ -188,6 +192,7 @@ class Company {
     this.websiteUrl,
     this.latitude,
     this.longitude,
+    this.canReview = false,
   });
 
   /// Google Maps'da shu nuqtani ochadigan havola — lat/lng bo'lmasa null.
@@ -217,6 +222,7 @@ class Company {
     latitude: double.tryParse(j['latitude']?.toString() ?? ''),
     longitude: double.tryParse(j['longitude']?.toString() ?? ''),
     websiteUrl: j['website_url'],
+    canReview: j['can_review'] ?? false,
   );
 }
 

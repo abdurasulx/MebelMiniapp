@@ -11,7 +11,16 @@ import '../widgets/product_card.dart';
 /// "Sevimlilar" — marketplace'lardagi kabi, serverda saqlangan sevimli
 /// mahsulotlar ro'yxati (iOS'dagi `LikesView` bilan bir xil).
 class LikesScreen extends StatefulWidget {
-  const LikesScreen({super.key});
+  // `RootScreen` bu tabni `IndexedStack` ichida saqlaydi (boshqa tablarga
+  // o'tganda ham holati/scroll o'rni yo'qolmasin deb) — lekin shu sabab bu
+  // widget FAQAT bir marta (ilova ochilganda) quriladi, keyin faqat
+  // ko'rsatilib/yashirilib turadi. Shuning uchun boshqa ekranda (Katalog,
+  // Bosh sahifa) yoqtirilgan/yoqtirilmagan mahsulot shu tab qayta faol
+  // bo'lganda (`visible` `false`dan `true`ga o'tganda, qarang
+  // didUpdateWidget) qayta yuklanmasa, ro'yxat abadiy eski holatda
+  // qolib ketardi (aynan shu bag kuzatilgan edi).
+  final bool visible;
+  const LikesScreen({super.key, this.visible = true});
   @override
   State<LikesScreen> createState() => _LikesScreenState();
 }
@@ -25,6 +34,16 @@ class _LikesScreenState extends State<LikesScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (context.read<AuthStore>().isAuthenticated) _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant LikesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.visible &&
+        widget.visible &&
+        context.read<AuthStore>().isAuthenticated) {
+      _load();
+    }
   }
 
   Future<void> _load() async {

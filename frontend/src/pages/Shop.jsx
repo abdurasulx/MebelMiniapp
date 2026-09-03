@@ -191,7 +191,7 @@ export default function Shop() {
           )}
         </div>
 
-        {user && (
+        {user && company.can_review && (
           <div className="card h-fit p-6">
             <h2 className="mb-3 text-lg font-semibold">Baho qoldirish</h2>
             <form onSubmit={submitReview} className="flex flex-col gap-3">
@@ -211,10 +211,14 @@ export default function Shop() {
               <button className="btn btn-brand" disabled={busy} type="submit">
                 {busy ? "Yuborilmoqda…" : "Baho qoldirish"}
               </button>
-              <p className="text-xs" style={{ color: "var(--muted)" }}>
-                Faqat shu firmadan yakunlangan buyurtmangiz bo'lsa baho qoldira olasiz.
-              </p>
             </form>
+          </div>
+        )}
+        {user && !company.can_review && (
+          <div className="card h-fit p-6">
+            <p className="text-xs" style={{ color: "var(--muted)" }}>
+              Faqat shu firmadan yakunlangan buyurtmangiz bo'lsa baho qoldira olasiz.
+            </p>
           </div>
         )}
       </div>
