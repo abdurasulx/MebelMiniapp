@@ -37,6 +37,7 @@ private struct ProfileView: View {
     @State private var invitations: [EmployeeInvitation] = []
     @State private var career: [CareerEntry] = []
     @State private var isLoading = false
+    @State private var didLoadOnce = false
     @State private var busyInvitationId: String?
     @State private var showLanguagePicker = false
     @State private var showRolePicker = false
@@ -292,7 +293,19 @@ private struct ProfileView: View {
                 }
             }
         }
-        .task { await loadAll() }
+        .task {
+            // `TabView`da bu ekran har safar tab qayta faol bo'lganda emas,
+            // faqat BIR MARTA (birinchi ochilganda) yuklanishi kerak — aks
+            // holda Savat/boshqa tabga o'tib qaytganda hech narsa
+            // o'zgarmagan bo'lsa ham qayta "Loading..." ko'rsatilib, so'rov
+            // qayta yuborilardi (`.task` TabView'da tab qayta ko'ringanda
+            // qayta ishga tushishi mumkin — SwiftUI'ning ma'lum xatti-
+            // harakati). Zayavkaga javob berilganda esa `loadAll()`
+            // to'g'ridan-to'g'ri (shu guard'ni chetlab) chaqiriladi.
+            guard !didLoadOnce else { return }
+            didLoadOnce = true
+            await loadAll()
+        }
     }
 
     private func loadAll() async {
