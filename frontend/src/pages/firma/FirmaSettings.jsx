@@ -412,7 +412,7 @@ function WorkTypesCard() {
                 {wt.required_role_display && ` · ${wt.required_role_display}`}
               </div>
             </div>
-            <button onClick={() => remove(wt)} style={{ background: "transparent", border: "none", color: "#e74c3c", cursor: "pointer", display: "flex" }}>
+            <button onClick={() => remove(wt)} className="btn-ghost !px-2 !py-2" style={{ color: "var(--danger)" }}>
               <Trash2 size={16} />
             </button>
           </div>

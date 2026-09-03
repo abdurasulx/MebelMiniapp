@@ -124,7 +124,7 @@ export default function FirmaWarehouses() {
                   <button
                     className="btn-ghost !px-2 !py-2"
                     title="O'chirish"
-                    style={{ color: "#e74c3c" }}
+                    style={{ color: "var(--danger)" }}
                     onClick={() => removeWarehouse(wh)}
                   >
                     <Trash2 size={15} />

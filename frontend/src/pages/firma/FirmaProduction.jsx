@@ -81,7 +81,7 @@ function CapacityView() {
                 {r.positions.map((p) => POSITIONS[p]?.label || p).join(", ")}
               </span>
             </div>
-            <span className="text-sm font-bold" style={{ color: r.pending_hours > 0 ? "#e67e22" : "#27ae60" }}>
+            <span className="text-sm font-bold" style={{ color: r.pending_hours > 0 ? "var(--warning)" : "var(--success)" }}>
               {r.pending_hours} soat navbatda
               {r.in_progress_count > 0 && ` · ${r.in_progress_count} ta bajarilmoqda`}
             </span>
@@ -91,7 +91,7 @@ function CapacityView() {
               className="h-full rounded-full"
               style={{
                 width: `${Math.min(100, (r.pending_hours / maxHours) * 100)}%`,
-                background: r.pending_hours > 0 ? "#e67e22" : "#27ae60",
+                background: r.pending_hours > 0 ? "var(--warning)" : "var(--success)",
               }}
             />
           </div>
@@ -233,7 +233,7 @@ function WorkflowPipeline({ isManager }) {
                       <span
                         style={
                           step.status !== "completed" && new Date(step.deadline) < new Date()
-                            ? { color: "#e74c3c", fontWeight: 600 }
+                            ? { color: "var(--danger)", fontWeight: 600 }
                             : undefined
                         }
                       >
@@ -798,7 +798,7 @@ function TaskCard({ task, manager, onChanged }) {
             {TASK_STATUS[task.status].label}
           </span>
           {isOverdue && (
-            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: "rgba(231,76,60,.15)", color: "#e74c3c" }}>
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: "color-mix(in srgb, var(--danger) 15%, transparent)", color: "var(--danger)" }}>
               <Clock size={11} /> Muddati o'tdi
             </span>
           )}

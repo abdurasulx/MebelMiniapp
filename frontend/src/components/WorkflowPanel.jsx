@@ -3,7 +3,7 @@ import { CircleCheckBig, Loader2, CircleDashed, Camera, Send } from "lucide-reac
 import { api } from "../api";
 
 const STATUS_ICON = { completed: CircleCheckBig, in_progress: Loader2, pending: CircleDashed };
-const STATUS_COLOR = { completed: "#27ae60", in_progress: "#3498db", pending: "var(--muted)" };
+const STATUS_COLOR = { completed: "var(--success)", in_progress: "var(--secondary)", pending: "var(--muted)" };
 
 /**
  * Buyurtma ishlab chiqarish jarayoni — firma tomonida progress/complete
@@ -35,7 +35,7 @@ export default function WorkflowPanel({ order, editable = false, onChanged }) {
               <CostTile
                 label="Foyda"
                 value={order.production_cost.profit}
-                color={order.production_cost.profit >= 0 ? "#27ae60" : "#e74c3c"}
+                color={order.production_cost.profit >= 0 ? "var(--success)" : "var(--danger)"}
               />
             </>
           )}
@@ -117,7 +117,7 @@ function StepCard({ step, editable, active, onToggle, onChanged }) {
                   )}
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5" style={{ color: "var(--muted)" }}>
-                      {u.is_completion && <CircleCheckBig size={11} style={{ color: "#27ae60" }} />}
+                      {u.is_completion && <CircleCheckBig size={11} style={{ color: "var(--success)" }} />}
                       {u.employee_name} · {new Date(u.created_at).toLocaleString("uz-UZ")}
                     </div>
                     {u.comment && <p className="mt-0.5">{u.comment}</p>}

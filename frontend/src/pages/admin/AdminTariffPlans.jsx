@@ -121,13 +121,10 @@ export default function AdminTariffPlans() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px", background: "transparent", color: "var(--text)", cursor: "pointer", fontSize: 13 }}
-                onClick={() => toggleActive(p)}
-              >
+              <button className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => toggleActive(p)}>
                 {p.is_active ? "Yashirish" : "Faollashtirish"}
               </button>
-              <button onClick={() => remove(p)} style={{ background: "transparent", border: "none", color: "#e74c3c", cursor: "pointer", display: "flex" }}>
+              <button onClick={() => remove(p)} className="btn-ghost !px-2 !py-2" style={{ color: "var(--danger)" }}>
                 <Trash2 size={16} />
               </button>
             </div>

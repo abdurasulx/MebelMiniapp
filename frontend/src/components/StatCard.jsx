@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown } from "lucide-react";
 
-const PALETTE = ["var(--primary)", "var(--secondary)", "#27ae60", "#e67e22"];
+const PALETTE = ["var(--primary)", "var(--secondary)", "var(--success)", "var(--warning)"];
 
 export default function StatCard({ icon: Icon, label, value, hint, trend, tone = 0 }) {
   const accent = PALETTE[tone % PALETTE.length];

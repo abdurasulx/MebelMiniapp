@@ -147,11 +147,11 @@ function ManagerPayroll() {
           </div>
           <div className="card p-4">
             <div className="text-xs" style={{ color: "var(--muted)" }}>To'langan</div>
-            <div className="text-xl font-bold" style={{ color: "#27ae60" }}>{totals.paid.toLocaleString()} so'm</div>
+            <div className="text-xl font-bold" style={{ color: "var(--success)" }}>{totals.paid.toLocaleString()} so'm</div>
           </div>
           <div className="card p-4">
             <div className="text-xs" style={{ color: "var(--muted)" }}>To'lanmagan</div>
-            <div className="text-xl font-bold" style={{ color: "#e67e22" }}>{totals.unpaid.toLocaleString()} so'm</div>
+            <div className="text-xl font-bold" style={{ color: "var(--warning)" }}>{totals.unpaid.toLocaleString()} so'm</div>
           </div>
         </div>
       )}

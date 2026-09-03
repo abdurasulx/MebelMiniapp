@@ -137,7 +137,7 @@ function Suppliers() {
                   {s.phone || "Telefon kiritilmagan"}{s.address ? ` · ${s.address}` : ""}
                 </div>
               </div>
-              <button className="btn-ghost !px-2 !py-2" style={{ color: "#e74c3c" }} onClick={() => remove(s)}>
+              <button className="btn-ghost !px-2 !py-2" style={{ color: "var(--danger)" }} onClick={() => remove(s)}>
                 <Trash2 size={15} />
               </button>
             </div>
@@ -198,8 +198,8 @@ function PurchaseOrders() {
   return (
     <div className="flex flex-col gap-4">
       {lowStock.length > 0 && (
-        <div className="card flex flex-col gap-2 p-4" style={{ borderColor: "#e67e22" }}>
-          <div className="inline-flex items-center gap-2 text-sm font-semibold" style={{ color: "#e67e22" }}>
+        <div className="card flex flex-col gap-2 p-4" style={{ borderColor: "var(--warning)" }}>
+          <div className="inline-flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--warning)" }}>
             <AlertTriangle size={16} /> Kam qolgan xom ashyo ({lowStock.length})
           </div>
           <div className="flex flex-wrap gap-2">
@@ -207,7 +207,7 @@ function PurchaseOrders() {
               <button
                 key={m.id}
                 className="badge inline-flex items-center gap-1.5"
-                style={{ background: "#e67e2222", color: "#e67e22", cursor: "pointer" }}
+                style={{ background: "color-mix(in srgb, var(--warning) 13%, transparent)", color: "var(--warning)", cursor: "pointer" }}
                 onClick={() => { setPrefillMaterial(m); setShowForm(true); }}
                 title="Shu material uchun xarid buyurtmasi yaratish"
               >
@@ -254,10 +254,10 @@ function PurchaseOrders() {
                     className="rounded-full px-2 py-0.5 text-[10px] font-medium"
                     style={
                       o.status === "received"
-                        ? { background: "#27ae6022", color: "#27ae60" }
+                        ? { background: "color-mix(in srgb, var(--success) 13%, transparent)", color: "var(--success)" }
                         : o.status === "cancelled"
-                        ? { background: "#e74c3c22", color: "#e74c3c" }
-                        : { background: "#3498db22", color: "#3498db" }
+                        ? { background: "color-mix(in srgb, var(--danger) 13%, transparent)", color: "var(--danger)" }
+                        : { background: "color-mix(in srgb, var(--secondary) 13%, transparent)", color: "var(--secondary)" }
                     }
                   >
                     {o.status_display}
@@ -394,7 +394,7 @@ function PurchaseOrderForm({ suppliers, materials, warehouses, prefillMaterial, 
                 style={{ width: 130 }} value={item.unit_cost} onChange={(e) => setItem(i, "unit_cost", e.target.value)}
               />
               {items.length > 1 && (
-                <button type="button" className="btn-ghost !px-2 !py-2" style={{ color: "#e74c3c" }} onClick={() => removeItem(i)}>
+                <button type="button" className="btn-ghost !px-2 !py-2" style={{ color: "var(--danger)" }} onClick={() => removeItem(i)}>
                   <Trash2 size={14} />
                 </button>
               )}

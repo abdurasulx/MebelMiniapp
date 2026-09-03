@@ -211,7 +211,7 @@ function Pill({ tone = "muted", children, icon: Icon }) {
     warning: { bg: "rgba(245,158,11,0.12)", fg: ENT.warning },
     danger: { bg: "rgba(220,38,38,0.1)", fg: ENT.danger },
     primary: { bg: "rgba(37,99,235,0.1)", fg: ENT.primary },
-    muted: { bg: "#F1F2F4", fg: ENT.muted },
+    muted: { bg: ENT.card, fg: ENT.muted },
   };
   const c = map[tone] || map.muted;
   return (
@@ -260,8 +260,8 @@ function EntButton({ children, variant = "primary", onClick, type = "button", di
   };
   const styles = {
     primary: { ...base, background: ENT.primary, color: "#fff" },
-    ghost: { ...base, background: "#fff", color: ENT.text, border: `1px solid ${ENT.border}` },
-    danger: { ...base, background: "#fff", color: ENT.danger, border: `1px solid #FCA5A5` },
+    ghost: { ...base, background: ENT.card, color: ENT.text, border: `1px solid ${ENT.border}` },
+    danger: { ...base, background: ENT.card, color: ENT.danger, border: `1px solid #FCA5A5` },
   };
   return (
     <button type={type} disabled={disabled} onClick={onClick} style={styles[variant]}
@@ -387,7 +387,7 @@ function HeroHeader({ product, completeness, menuOpen, setMenuOpen, onTogglePubl
             href={previewHref} target="_blank" rel="noreferrer"
             style={{
               display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 8, border: `1px solid ${ENT.border}`,
-              padding: "8px 14px", fontSize: 13.5, fontWeight: 600, color: ENT.text, background: "#fff",
+              padding: "8px 14px", fontSize: 13.5, fontWeight: 600, color: ENT.text, background: ENT.card,
             }}
           >
             <Eye size={14} /> Ko'rish
@@ -400,7 +400,7 @@ function HeroHeader({ product, completeness, menuOpen, setMenuOpen, onTogglePubl
               onClick={() => setMenuOpen((v) => !v)}
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34,
-                borderRadius: 8, border: `1px solid ${ENT.border}`, color: ENT.muted, background: "#fff", cursor: "pointer",
+                borderRadius: 8, border: `1px solid ${ENT.border}`, color: ENT.muted, background: ENT.card, cursor: "pointer",
               }}
             >
               <MoreHorizontal size={16} />
@@ -408,7 +408,7 @@ function HeroHeader({ product, completeness, menuOpen, setMenuOpen, onTogglePubl
             {menuOpen && (
               <div
                 style={{
-                  position: "absolute", top: "calc(100% + 6px)", right: 0, background: "#fff",
+                  position: "absolute", top: "calc(100% + 6px)", right: 0, background: ENT.card,
                   border: `1px solid ${ENT.border}`, borderRadius: 10, padding: 4, minWidth: 170,
                   boxShadow: "0 8px 24px rgba(16,24,40,0.12)", zIndex: 10,
                 }}
@@ -455,7 +455,7 @@ function TabsNav({ tab, setTab, product, steps }) {
               <t.icon size={15} />
               {t.label}
               {typeof count === "number" && count > 0 && (
-                <span style={{ fontSize: 11, fontWeight: 700, color: active ? ENT.primary : ENT.muted, background: active ? "rgba(37,99,235,0.1)" : "#F1F2F4", borderRadius: 999, padding: "1px 6px" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: active ? ENT.primary : ENT.muted, background: active ? "rgba(37,99,235,0.1)" : ENT.card, borderRadius: 999, padding: "1px 6px" }}>
                   {count}
                 </span>
               )}
@@ -646,7 +646,7 @@ function ImagesCard({ product, onDone }) {
                     <button
                       onClick={() => makePrimary(img.id)}
                       title="Asosiy qilish"
-                      style={{ width: 30, height: 30, borderRadius: 8, background: "#fff", border: "none", color: ENT.primary, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                      style={{ width: 30, height: 30, borderRadius: 8, background: ENT.card, border: "none", color: ENT.primary, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                     >
                       <Check size={14} />
                     </button>
@@ -654,7 +654,7 @@ function ImagesCard({ product, onDone }) {
                   <button
                     onClick={() => remove(img.id)}
                     title="O'chirish"
-                    style={{ width: 30, height: 30, borderRadius: 8, background: "#fff", border: "none", color: ENT.danger, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                    style={{ width: 30, height: 30, borderRadius: 8, background: ENT.card, border: "none", color: ENT.danger, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1453,7 +1453,7 @@ function ManufacturedUnitsTab({ product }) {
             style={{
               padding: "5px 12px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
               border: `1px solid ${ENT.border}`,
-              background: statusFilter === k ? ENT.primary : "#fff",
+              background: statusFilter === k ? ENT.primary : ENT.card,
               color: statusFilter === k ? "#fff" : ENT.muted,
             }}
           >
@@ -1503,7 +1503,7 @@ function IconBtn({ children, title, onClick, disabled, danger }) {
     <button
       title={title} disabled={disabled} onClick={onClick}
       style={{
-        width: 26, height: 26, borderRadius: 7, border: `1px solid ${ENT.border}`, background: "#fff",
+        width: 26, height: 26, borderRadius: 7, border: `1px solid ${ENT.border}`, background: ENT.card,
         color: disabled ? "#D1D5DB" : danger ? ENT.danger : ENT.muted,
         display: "flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "default" : "pointer",
       }}
