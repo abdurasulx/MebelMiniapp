@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sofa } from "lucide-react";
 import { useAuth } from "../auth";
+import { useLocale } from "../locale";
 import { PORTAL, portalForUser, portalURLFor } from "../portal";
 import { api, getTokens } from "../api";
 
@@ -99,6 +100,7 @@ function AdminLogin() {
 // chiqib-kirib o'tirishning hojati yo'q.
 function AuthButtons({ portal }) {
   const { loginWithTokens } = useAuth();
+  const { t } = useLocale();
   const afterLogin = useAfterLogin();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -142,7 +144,7 @@ function AuthButtons({ portal }) {
     setBusy(true);
     const tgWindow = window.open("about:blank", "_blank");
     if (!tgWindow) {
-      setError("Brauzer popup oynani bloklab qo'ydi. Popup blokerni o'chirib, qayta urining.");
+      setError(t("profile_popup_blocked"));
       setBusy(false);
       return;
     }
@@ -178,7 +180,7 @@ function AuthButtons({ portal }) {
           clearInterval(pollRef.current);
           pollRef.current = null;
           setBusy(false);
-          setError("Kutish vaqti tugadi. Qayta urining.");
+          setError(t("profile_link_timeout"));
         }
       }, 5 * 60 * 1000);
     } catch (err) {
@@ -203,7 +205,7 @@ function AuthButtons({ portal }) {
             <path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.03l2.99-2.33z" />
             <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58A8.6 8.6 0 0 0 9 0 9 9 0 0 0 .96 4.97l2.99 2.33C4.66 5.17 6.65 3.58 9 3.58z" />
           </svg>
-          Google orqali kirish
+          {t("login_google_button")}
         </a>
       )}
       {botUsername && (
@@ -222,7 +224,7 @@ function AuthButtons({ portal }) {
               />
             </svg>
           )}
-          {busy ? "Kutilmoqda…" : "Telegram orqali kirish"}
+          {busy ? t("profile_link_waiting") : t("login_telegram_button")}
         </button>
       )}
     </>
@@ -293,14 +295,15 @@ function FirmaLogin() {
 // Market — yagona login/ro'yxatdan o'tish nuqtasi: Google va Telegram.
 // Email/parol yo'q (faqat admin uchun qoldirilgan).
 function MarketLogin() {
+  const { t } = useLocale();
   return (
     <div className="flex min-h-[70vh] items-center justify-center p-4">
       <div className="card flex w-full max-w-sm flex-col gap-4 p-8">
         <div className="text-center">
           <Sofa className="mx-auto mb-1" size={30} style={{ color: "var(--secondary)" }} />
-          <h1 className="text-lg font-bold">Xush kelibsiz</h1>
+          <h1 className="text-lg font-bold">{t("login_welcome_title")}</h1>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Google yoki Telegram bilan kiring — hisobingiz yo'q bo'lsa, avtomatik yaratiladi.
+            {t("login_welcome_subtitle")}
           </p>
         </div>
         <AuthButtons portal="market" />

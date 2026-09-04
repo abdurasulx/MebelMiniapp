@@ -98,6 +98,10 @@ const STRINGS = {
     profile_link_timeout: "Kutish vaqti tugadi. Qayta urining.",
     profile_verified: "Tasdiqlangan",
     profile_verify_prompt: "Tasdiqlash uchun bosing",
+    login_welcome_title: "Xush kelibsiz",
+    login_welcome_subtitle: "Google yoki Telegram bilan kiring — hisobingiz yo'q bo'lsa, avtomatik yaratiladi.",
+    login_google_button: "Google orqali kirish",
+    login_telegram_button: "Telegram orqali kirish",
   },
   en: {
     nav_home: "Home",
@@ -180,6 +184,10 @@ const STRINGS = {
     profile_link_timeout: "Waiting timed out. Please try again.",
     profile_verified: "Verified",
     profile_verify_prompt: "Tap to verify",
+    login_welcome_title: "Welcome",
+    login_welcome_subtitle: "Sign in with Google or Telegram — an account is created automatically if you don't have one.",
+    login_google_button: "Sign in with Google",
+    login_telegram_button: "Sign in with Telegram",
   },
   ru: {
     nav_home: "Главная",
@@ -262,6 +270,10 @@ const STRINGS = {
     profile_link_timeout: "Время ожидания истекло. Попробуйте снова.",
     profile_verified: "Подтверждено",
     profile_verify_prompt: "Нажмите для подтверждения",
+    login_welcome_title: "Добро пожаловать",
+    login_welcome_subtitle: "Войдите через Google или Telegram — если у вас нет аккаунта, он будет создан автоматически.",
+    login_google_button: "Войти через Google",
+    login_telegram_button: "Войти через Telegram",
   },
   tg: {
     nav_home: "Саҳифаи асосӣ",
@@ -344,6 +356,10 @@ const STRINGS = {
     profile_link_timeout: "Вақти интизорӣ тамом шуд. Бори дигар кӯшиш кунед.",
     profile_verified: "Тасдиқшуда",
     profile_verify_prompt: "Барои тасдиқ пахш кунед",
+    login_welcome_title: "Хуш омадед",
+    login_welcome_subtitle: "Тавассути Google ё Telegram ворид шавед — агар ҳисоб надошта бошед, он худкор эҷод мешавад.",
+    login_google_button: "Тавассути Google ворид шудан",
+    login_telegram_button: "Тавассути Telegram ворид шудан",
   },
   tr: {
     nav_home: "Ana sayfa",
@@ -426,6 +442,10 @@ const STRINGS = {
     profile_link_timeout: "Bekleme süresi doldu. Tekrar deneyin.",
     profile_verified: "Doğrulandı",
     profile_verify_prompt: "Doğrulamak için dokunun",
+    login_welcome_title: "Hoş geldiniz",
+    login_welcome_subtitle: "Google veya Telegram ile giriş yapın — hesabınız yoksa otomatik oluşturulur.",
+    login_google_button: "Google ile giriş yap",
+    login_telegram_button: "Telegram ile giriş yap",
   },
   ky: {
     nav_home: "Башкы бет",
@@ -508,6 +528,10 @@ const STRINGS = {
     profile_link_timeout: "Күтүү убактысы бүттү. Кайра аракет кылыңыз.",
     profile_verified: "Ырасталган",
     profile_verify_prompt: "Ырастоо үчүн басыңыз",
+    login_welcome_title: "Кош келдиңиз",
+    login_welcome_subtitle: "Google же Telegram аркылуу кириңиз — аккаунтуңуз жок болсо, автоматтык түрдө түзүлөт.",
+    login_google_button: "Google аркылуу кирүү",
+    login_telegram_button: "Telegram аркылуу кирүү",
   },
   kk: {
     nav_home: "Басты бет",
@@ -590,6 +614,10 @@ const STRINGS = {
     profile_link_timeout: "Күту уақыты бітті. Қайта көріңіз.",
     profile_verified: "Расталған",
     profile_verify_prompt: "Растау үшін басыңыз",
+    login_welcome_title: "Қош келдіңіз",
+    login_welcome_subtitle: "Google немесе Telegram арқылы кіріңіз — есептік жазбаңыз болмаса, автоматты түрде жасалады.",
+    login_google_button: "Google арқылы кіру",
+    login_telegram_button: "Telegram арқылы кіру",
   },
   de: {
     nav_home: "Start",
@@ -672,6 +700,10 @@ const STRINGS = {
     profile_link_timeout: "Wartezeit abgelaufen. Bitte versuchen Sie es erneut.",
     profile_verified: "Verifiziert",
     profile_verify_prompt: "Zum Verifizieren tippen",
+    login_welcome_title: "Willkommen",
+    login_welcome_subtitle: "Melden Sie sich mit Google oder Telegram an — falls Sie kein Konto haben, wird es automatisch erstellt.",
+    login_google_button: "Mit Google anmelden",
+    login_telegram_button: "Mit Telegram anmelden",
   },
   az: {
     nav_home: "Ana səhifə",
@@ -754,6 +786,10 @@ const STRINGS = {
     profile_link_timeout: "Gözləmə vaxtı bitdi. Yenidən cəhd edin.",
     profile_verified: "Təsdiqlənib",
     profile_verify_prompt: "Təsdiqləmək üçün toxunun",
+    login_welcome_title: "Xoş gəlmisiniz",
+    login_welcome_subtitle: "Google və ya Telegram ilə daxil olun — hesabınız yoxdursa, avtomatik yaradılır.",
+    login_google_button: "Google ilə daxil ol",
+    login_telegram_button: "Telegram ilə daxil ol",
   },
 };
 
