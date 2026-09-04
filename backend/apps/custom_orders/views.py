@@ -89,6 +89,16 @@ class SiteSurveyViewSet(viewsets.ModelViewSet):
         serializer = CreateCustomOrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        # Mijoz — avval survey.customer (admin tayinlaganda kiritgan bo'lsa),
+        # bo'lmasa yoki usta boshqasini bergan bo'lsa shu yerdan olinadi.
+        # Ikkalasi ham bo'lmasa buyurtma yaratib bo'lmaydi (Order.customer
+        # majburiy) — mijoz ilovada kuzata olishi uchun aniq bog'lanish shart.
+        customer = getattr(serializer, "_customer", None) or survey.customer
+        if customer is None:
+            raise ValidationError(
+                "Mijozning qidiruvchi ID'sini kiriting — buyurtmani kuzatib borishi uchun"
+            )
+
         company = survey.company
         resolved_items = []
         for raw in serializer.validated_data["items"]:
@@ -102,7 +112,9 @@ class SiteSurveyViewSet(viewsets.ModelViewSet):
                     raise ValidationError("Variant topilmadi")
             resolved_items.append({**raw, "product": product, "variant": variant})
 
-        order = create_custom_order(survey=survey, items=resolved_items, created_by=request.user)
+        order = create_custom_order(
+            survey=survey, items=resolved_items, created_by=request.user, customer=customer
+        )
         from apps.orders.serializers import OrderSerializer
 
         return Response(OrderSerializer(order, context={"request": request}).data, status=201)

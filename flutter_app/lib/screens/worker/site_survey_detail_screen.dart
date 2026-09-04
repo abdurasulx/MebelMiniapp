@@ -204,6 +204,7 @@ class CreateCustomOrderScreen extends StatefulWidget {
 class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
   List<Product> _products = [];
   final List<_OrderItemDraft> _items = [_OrderItemDraft()];
+  final _customerWorkerIdController = TextEditingController();
   bool _busy = false;
   String? _error;
 
@@ -237,6 +238,7 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
                     'is_custom_size': it.isCustomSize,
                   })
               .toList(),
+          'customer_worker_id': _customerWorkerIdController.text,
         },
         auth: true,
       );
@@ -255,6 +257,16 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          TextField(
+            controller: _customerWorkerIdController,
+            decoration: InputDecoration(
+              labelText: 'Mijoz qidiruvchi ID',
+              helperText: 'Mijoz shu ID orqali o\'z ilovasida buyurtmani kuzatib borishi mumkin bo\'ladi.'
+                  '${widget.survey.customerName != null ? ' (hozir: ${widget.survey.customerName})' : ''}',
+              helperMaxLines: 2,
+            ),
+          ),
+          const SizedBox(height: 12),
           for (final item in _items) ...[
             DropdownButtonFormField<String>(
               initialValue: item.productId,

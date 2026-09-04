@@ -23,14 +23,24 @@ def _log(entity_type, entity_id, action, changed_by, old_value=None, new_value=N
 
 
 @transaction.atomic
-def create_custom_order(*, survey, items, created_by):
+def create_custom_order(*, survey, items, created_by, customer=None):
     """Usta site-survey asosida CUSTOM_PROJECT buyurtmasini yaratadi.
     `items` — har biri {product, variant (ixtiyoriy), width, height, depth,
     quantity, is_custom_size} lug'ati. Bo'sh `Design` yozuvi ham AVTOMATIK
-    yaratiladi — dizayner bosqichi hech qachon o'tkazib yuborilmaydi (docs §5)."""
+    yaratiladi — dizayner bosqichi hech qachon o'tkazib yuborilmaydi (docs §5).
+
+    `customer` — usta buyurtma yaratayotganda mijozning ilova ID'sini
+    (worker_id) kiritgan bo'lsa shu yerga uzatiladi (survey.customer'dan
+    ustun turadi) — mijoz shu orqali o'z ilovasida buyurtmani kuzatib
+    borishi mumkin bo'ladi. Berilmasa `survey.customer` ishlatiladi."""
+    resolved_customer = customer or survey.customer
+    if survey.customer_id != getattr(resolved_customer, "id", None):
+        survey.customer = resolved_customer
+        survey.save(update_fields=["customer"])
+
     order = Order.objects.create(
         company=survey.company,
-        customer=survey.customer,
+        customer=resolved_customer,
         order_type=Order.OrderType.CUSTOM_PROJECT,
         status=Order.Status.NEW,
         latitude=survey.latitude,

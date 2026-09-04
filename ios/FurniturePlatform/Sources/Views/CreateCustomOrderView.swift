@@ -26,6 +26,12 @@ private struct CreateOrderItemBody: Encodable {
 
 private struct CreateOrderBody: Encodable {
     let items: [CreateOrderItemBody]
+    let customerWorkerId: String
+
+    enum CodingKeys: String, CodingKey {
+        case items
+        case customerWorkerId = "customer_worker_id"
+    }
 }
 
 /// Usta site-survey asosida CUSTOM_PROJECT buyurtmasini yaratadi.
@@ -35,11 +41,19 @@ struct CreateCustomOrderView: View {
 
     @State private var products: [Product] = []
     @State private var items: [OrderItemDraft] = [OrderItemDraft()]
+    @State private var customerWorkerId = ""
     @State private var isBusy = false
     @State private var errorMessage: String?
 
     var body: some View {
         Form {
+            Section {
+                TextField("Mijoz qidiruvchi ID", text: $customerWorkerId)
+                    .keyboardType(.numberPad)
+                Text("Mijoz shu ID orqali o'z ilovasida buyurtmani kuzatib borishi mumkin bo'ladi."
+                     + (survey.customerName.map { " (hozir: \($0))" } ?? ""))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             ForEach($items) { $item in
                 Section {
                     Picker("Mahsulot", selection: $item.productId) {
@@ -106,7 +120,8 @@ struct CreateCustomOrderView: View {
                     quantity: Int(item.quantity) ?? 1,
                     isCustomSize: item.isCustomSize
                 )
-            }
+            },
+            customerWorkerId: customerWorkerId
         )
         do {
             struct OrderResponse: Decodable { let id: String }

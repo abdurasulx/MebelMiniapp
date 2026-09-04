@@ -59,9 +59,10 @@ export default function FirmaSiteSurveys() {
       {user?.role === "company_owner" && (
         <form onSubmit={assign} className="card flex flex-wrap items-end gap-3 p-5">
           <div>
-            <label className="label">Mijoz qidiruvchi ID</label>
-            <input className="input !w-40" value={form.customer_worker_id}
-              onChange={(e) => setForm({ ...form, customer_worker_id: e.target.value })} required />
+            <label className="label">Mijoz qidiruvchi ID (ixtiyoriy)</label>
+            <input className="input !w-40" placeholder="Hali noma'lum bo'lsa bo'sh qoldiring"
+              value={form.customer_worker_id}
+              onChange={(e) => setForm({ ...form, customer_worker_id: e.target.value })} />
           </div>
           <div>
             <label className="label">Usta</label>
@@ -95,7 +96,7 @@ export default function FirmaSiteSurveys() {
             <div key={s.id} className="flex flex-col gap-2 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <span className="font-semibold">{s.customer_name || s.customer_worker_id_display || "Mijoz"}</span>
+                  <span className="font-semibold">{s.customer_name || s.customer_worker_id_display || "Mijoz hali belgilanmagan"}</span>
                   <span className="ml-2 text-xs" style={{ color: "var(--muted)" }}>{s.address}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -139,6 +140,7 @@ export default function FirmaSiteSurveys() {
 function CreateOrderForm({ survey, onCreated }) {
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([{ product: "", is_custom_size: true, width: 1, height: 1, depth: 1, quantity: 1 }]);
+  const [customerWorkerId, setCustomerWorkerId] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -155,7 +157,10 @@ function CreateOrderForm({ survey, onCreated }) {
     setError("");
     setBusy(true);
     try {
-      await api(`/site-surveys/${survey.id}/create-order/`, { method: "POST", body: { items } });
+      await api(`/site-surveys/${survey.id}/create-order/`, {
+        method: "POST",
+        body: { items, customer_worker_id: customerWorkerId },
+      });
       onCreated();
     } catch (err) {
       setError(err.message);
@@ -166,6 +171,19 @@ function CreateOrderForm({ survey, onCreated }) {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-2 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+      <div>
+        <label className="label">
+          Mijoz qidiruvchi ID {survey.customer_name || survey.customer_worker_id_display ? "(o'zgartirish uchun)" : ""}
+        </label>
+        <input
+          className="input !w-40" placeholder={survey.customer_worker_id_display || "Masalan: 1234567890"}
+          value={customerWorkerId} onChange={(e) => setCustomerWorkerId(e.target.value)}
+          required={!survey.customer_name && !survey.customer_worker_id_display}
+        />
+        <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+          Mijoz shu ID orqali o'z ilovasida buyurtmani kuzatib borishi mumkin bo'ladi.
+        </p>
+      </div>
       {items.map((it, i) => (
         <div key={i} className="flex flex-wrap items-end gap-2">
           <select className="input !w-48" value={it.product} onChange={(e) => updateItem(i, { product: e.target.value })} required>
