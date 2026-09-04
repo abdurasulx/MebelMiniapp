@@ -44,10 +44,17 @@ export function AuthProvider({ children }) {
     return me;
   };
 
-  // Email+parol — endi faqat admin portalida ishlatiladi (mijoz/firma
-  // egasi/xodim Google yoki Telegram orqali kiradi).
+  // Email+parol — admin portalida (faqat platforma admini uchun).
   const login = async (email, password) => {
     const tokens = await api("/auth/token/", { method: "POST", body: { email, password } });
+    return applyTokens(tokens);
+  };
+
+  // Email+parol — firma portalida (faqat firma egasi uchun, qarang
+  // backend FirmaTokenObtainPairSerializer). Xodimlar hamon Google/Telegram
+  // orqali kiradi.
+  const loginFirma = async (email, password) => {
+    const tokens = await api("/auth/token/firma/", { method: "POST", body: { email, password } });
     return applyTokens(tokens);
   };
 
@@ -71,7 +78,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, loginWithTokens, refreshUser, logout }}
+      value={{ user, loading, login, loginFirma, loginWithTokens, refreshUser, logout }}
     >
       {children}
     </AuthContext.Provider>

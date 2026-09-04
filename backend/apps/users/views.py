@@ -30,6 +30,7 @@ from .serializers import (
     AdminTokenObtainPairSerializer,
     CareerEntrySerializer,
     CompleteRegistrationSerializer,
+    FirmaTokenObtainPairSerializer,
     GoogleLoginSerializer,
     OTPRequestSerializer,
     OTPVerifySerializer,
@@ -44,6 +45,14 @@ class AdminTokenObtainPairView(TokenObtainPairView):
     AdminTokenObtainPairSerializer). Boshqa rollar Google/Telegram orqali kiradi."""
 
     serializer_class = AdminTokenObtainPairSerializer
+
+
+class FirmaTokenObtainPairView(TokenObtainPairView):
+    """Email+parol bilan kirish — faqat firma egasi uchun (qarang
+    FirmaTokenObtainPairSerializer). firma.qrbite.uz login sahifasida
+    ishlatiladi, platforma admini bilan aralashmaydi."""
+
+    serializer_class = FirmaTokenObtainPairSerializer
 
 
 class IsPlatformAdmin(permissions.BasePermission):

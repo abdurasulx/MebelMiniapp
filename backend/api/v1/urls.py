@@ -53,6 +53,7 @@ from apps.users.views import (
     AdminUserToggleActiveView,
     CareerView,
     CompleteRegistrationView,
+    FirmaTokenObtainPairView,
     GoogleLinkCallbackView,
     GoogleLinkPrepareView,
     GoogleLinkStartView,
@@ -138,6 +139,7 @@ ar_collection_item_detail = ARCollectionItemViewSet.as_view({"delete": "destroy"
 
 urlpatterns = [
     path("auth/token/", AdminTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("auth/token/firma/", FirmaTokenObtainPairView.as_view(), name="firma_token_obtain_pair"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("users/me/", MeView.as_view(), name="me"),
     path("users/me/career/", CareerView.as_view(), name="career"),

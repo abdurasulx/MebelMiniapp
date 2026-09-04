@@ -7,7 +7,8 @@ User = get_user_model()
 
 class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Email+parol bilan kirish — endi faqat platforma admini uchun (mijoz/
-    firma egasi/xodim Google yoki Telegram orqali kiradi). `self.user` ni
+    xodim Google yoki Telegram orqali kiradi, firma egasi esa alohida
+    `FirmaTokenObtainPairSerializer` orqali). `self.user` ni
     `super().validate()` autentifikatsiyadan keyin o'rnatadi, shundan
     keyingina rolni tekshiramiz — noto'g'ri parol bilan urinishlarda ham
     "faqat admin uchun" deb emas, oddiy autentifikatsiya xatosi chiqadi."""
@@ -17,6 +18,22 @@ class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
         if self.user.role != User.Role.PLATFORM_ADMIN:
             raise serializers.ValidationError(
                 "Bu usul faqat administratorlar uchun. Google yoki Telegram orqali kiring."
+            )
+        return data
+
+
+class FirmaTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Email+parol bilan kirish — faqat firma egasi (company_owner) uchun.
+    Xodimlar (employee) va boshqa rollar hamon Google/Telegram orqali
+    kiradi — bu endpoint faqat firma.qrbite.uz login sahifasida ishlatiladi,
+    admin portali bilan aralashmasin deb ataylab alohida serializer/endpoint
+    qilingan (qarang AdminTokenObtainPairSerializer)."""
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        if self.user.role != User.Role.COMPANY_OWNER:
+            raise serializers.ValidationError(
+                "Bu usul faqat firma egalari uchun. Google yoki Telegram orqali kiring."
             )
         return data
 

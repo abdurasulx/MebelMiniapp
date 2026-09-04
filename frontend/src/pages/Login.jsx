@@ -232,7 +232,29 @@ function AuthButtons({ portal }) {
 // Firma — endi o'z login sahifasiga ega: Google callback subdomen-ogohli
 // (`?portal=firma`), Telegram esa har doim shu sahifada to'g'ridan-to'g'ri
 // ishlagan. Hisobi yo'q bo'lsa avtomatik yaratiladi (market bilan bir xil).
+// Email+parol ham qo'shildi — lekin FAQAT firma egasi uchun (xodimlar hamon
+// Google/Telegram orqali kiradi, qarang backend FirmaTokenObtainPairSerializer).
 function FirmaLogin() {
+  const { loginFirma } = useAuth();
+  const afterLogin = useAfterLogin();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      afterLogin(await loginFirma(email, password));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex min-h-[70vh] items-center justify-center p-4">
       <div className="card flex w-full max-w-sm flex-col gap-4 p-8">
@@ -240,8 +262,27 @@ function FirmaLogin() {
           <Sofa className="mx-auto mb-1" size={30} style={{ color: "var(--secondary)" }} />
           <h1 className="text-lg font-bold">Firma kabinetiga kirish</h1>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
-            Google yoki Telegram bilan kiring.
+            Firma egasi — email/parol, xodimlar — Google yoki Telegram bilan kiring.
           </p>
+        </div>
+        <form className="flex flex-col gap-4" onSubmit={submit}>
+          <div>
+            <label className="label">Email</label>
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+          <div>
+            <label className="label">Parol</label>
+            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </div>
+          {error && <div className="error">{error}</div>}
+          <button className="btn btn-brand w-full" type="submit" disabled={busy}>
+            {busy ? "Kirilmoqda…" : "Kirish"}
+          </button>
+        </form>
+        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+          <div className="h-px flex-1" style={{ background: "var(--border)" }} />
+          yoki
+          <div className="h-px flex-1" style={{ background: "var(--border)" }} />
         </div>
         <AuthButtons portal="firma" />
       </div>
