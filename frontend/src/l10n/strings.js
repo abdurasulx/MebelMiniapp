@@ -148,6 +148,8 @@ const STRINGS = {
     composer_tab_details: "Detal elementlar",
     composer_search_placeholder: "Qidirish…",
     composer_no_3d: "3D yo'q",
+    viewer_access_denied_title: "Kirish mumkin emas",
+    viewer_login_link: "Tizimga kirish",
   },
   en: {
     nav_home: "Home",
@@ -280,6 +282,8 @@ const STRINGS = {
     composer_tab_details: "Detail elements",
     composer_search_placeholder: "Search…",
     composer_no_3d: "No 3D",
+    viewer_access_denied_title: "Access denied",
+    viewer_login_link: "Sign in",
   },
   ru: {
     nav_home: "Главная",
@@ -412,6 +416,8 @@ const STRINGS = {
     composer_tab_details: "Детальные элементы",
     composer_search_placeholder: "Поиск…",
     composer_no_3d: "Нет 3D",
+    viewer_access_denied_title: "Доступ запрещён",
+    viewer_login_link: "Войти",
   },
   tg: {
     nav_home: "Саҳифаи асосӣ",
@@ -544,6 +550,8 @@ const STRINGS = {
     composer_tab_details: "Унсурҳои деталӣ",
     composer_search_placeholder: "Ҷустуҷӯ…",
     composer_no_3d: "3D нест",
+    viewer_access_denied_title: "Дастрасӣ имконнопазир аст",
+    viewer_login_link: "Ворид шудан",
   },
   tr: {
     nav_home: "Ana sayfa",
@@ -676,6 +684,8 @@ const STRINGS = {
     composer_tab_details: "Detay öğeleri",
     composer_search_placeholder: "Ara…",
     composer_no_3d: "3D yok",
+    viewer_access_denied_title: "Erişim mümkün değil",
+    viewer_login_link: "Giriş yap",
   },
   ky: {
     nav_home: "Башкы бет",
@@ -808,6 +818,8 @@ const STRINGS = {
     composer_tab_details: "Деталдык элементтер",
     composer_search_placeholder: "Издөө…",
     composer_no_3d: "3D жок",
+    viewer_access_denied_title: "Кирүү мүмкүн эмес",
+    viewer_login_link: "Кирүү",
   },
   kk: {
     nav_home: "Басты бет",
@@ -940,6 +952,8 @@ const STRINGS = {
     composer_tab_details: "Детальды элементтер",
     composer_search_placeholder: "Іздеу…",
     composer_no_3d: "3D жоқ",
+    viewer_access_denied_title: "Кіру мүмкін емес",
+    viewer_login_link: "Кіру",
   },
   de: {
     nav_home: "Start",
@@ -1072,6 +1086,8 @@ const STRINGS = {
     composer_tab_details: "Detailelemente",
     composer_search_placeholder: "Suchen…",
     composer_no_3d: "Kein 3D",
+    viewer_access_denied_title: "Zugriff nicht möglich",
+    viewer_login_link: "Anmelden",
   },
   az: {
     nav_home: "Ana səhifə",
@@ -1204,6 +1220,8 @@ const STRINGS = {
     composer_tab_details: "Detal elementlər",
     composer_search_placeholder: "Axtar…",
     composer_no_3d: "3D yoxdur",
+    viewer_access_denied_title: "Giriş mümkün deyil",
+    viewer_login_link: "Daxil ol",
   },
 };
 
