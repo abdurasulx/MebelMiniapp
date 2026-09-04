@@ -168,7 +168,11 @@ class OrderCreateSerializer(serializers.Serializer):
         for item in validated_data["items"]:
             v = variants[str(item["variant"])]
             volume = item["width"] * item["height"] * item["depth"]
-            subtotal = (v.base_price * volume * item["quantity"]).quantize(Decimal("0.01"))
+            # Chegirma faol bo'lsa haqiqiy (chegirmali) narx bo'yicha hisoblanadi
+            # va shu tarzda MUHRLANADI — keyinchalik chegirma tugasa/o'zgarsa
+            # ham bu buyurtma narxi o'zgarmay qoladi (qarang Variant.effective_base_price).
+            unit_price = v.effective_base_price
+            subtotal = (unit_price * volume * item["quantity"]).quantize(Decimal("0.01"))
             OrderItem.objects.create(
                 order=order,
                 product=v.product,
@@ -179,7 +183,7 @@ class OrderCreateSerializer(serializers.Serializer):
                 height=item["height"],
                 depth=item["depth"],
                 quantity=item["quantity"],
-                unit_m3_price=v.base_price,
+                unit_m3_price=unit_price,
                 subtotal=subtotal,
             )
             total += subtotal

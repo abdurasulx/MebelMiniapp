@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, Sofa } from "lucide-react";
 import { api } from "../api";
+import PriceTag from "../components/PriceTag";
 
 export default function Liked() {
   const [likes, setLikes] = useState([]);
@@ -67,11 +68,7 @@ export default function Liked() {
               <div className="flex flex-col gap-1 p-4">
                 <span className="font-semibold">{p.name_uz}</span>
                 <span className="text-xs" style={{ color: "var(--muted)" }}>{p.company_name}</span>
-                {p.variants.length > 0 && (
-                  <span className="mt-1 text-sm font-bold" style={{ color: "var(--secondary)" }}>
-                    {Number(p.variants[0].base_price).toLocaleString()} so'm/m³ dan
-                  </span>
-                )}
+                <PriceTag variant={p.variants[0]} />
               </div>
             </Link>
           </div>

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Box, Camera, Heart, Search, Sofa, ArrowRight, X } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import PriceTag from "../components/PriceTag";
 import { PORTAL, portalForUser, portalURLFor } from "../portal";
 
 const PORTAL_LABEL = { admin: "platforma boshqaruvi", firma: "firma kabineti" };
@@ -323,11 +324,7 @@ export default function Catalog() {
                 </span>
               )}
               <span className="text-xs" style={{ color: "var(--muted)" }}>{p.company_name}</span>
-              {p.variants.length > 0 && (
-                <span className="mt-1 text-sm font-bold" style={{ color: "var(--secondary)" }}>
-                  {Number(p.variants[0].base_price).toLocaleString()} so'm/m³ dan
-                </span>
-              )}
+              <PriceTag variant={p.variants[0]} />
             </div>
           </Link>
         ))}

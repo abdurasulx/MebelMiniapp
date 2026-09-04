@@ -104,13 +104,54 @@ class Variant(BaseModel, StoredFileMixin):
     depth = models.DecimalField(max_digits=6, decimal_places=2, default=1)
     color_hex = models.CharField(max_length=7, blank=True)  # masalan "#8B5A2B"
     texture = models.ImageField(upload_to="variants/textures/", blank=True, null=True)
+    # Tannarx (1 m³) — ixtiyoriy; berilgan bo'lsa, chegirma shu qiymatdan
+    # pastga tushirilishi taqiqlanadi (qarang clean()/discount_percent).
+    cost_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Vaqtinchalik chegirma — foiz va tugash vaqti. `discount_ends_at`
+    # o'tib ketsa chegirma avtomatik faolsiz hisoblanadi (qarang
+    # `discount_active`), maydonlarni qo'lda tozalash shart emas.
+    discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    discount_ends_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ("name",)
 
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        if self.discount_percent:
+            if not (0 < self.discount_percent <= 100):
+                raise ValidationError("Chegirma foizi 0 dan 100 gacha bo'lishi kerak")
+            if not self.discount_ends_at:
+                raise ValidationError("Chegirma tugash sanasi/vaqti ko'rsatilishi kerak")
+            if self.cost_price is not None and self.effective_base_price < self.cost_price:
+                raise ValidationError("Chegirma narxi tannarxdan pastga tushirilmasin")
+
+    @property
+    def discount_active(self):
+        from django.utils import timezone
+
+        return bool(
+            self.discount_percent and self.discount_ends_at and self.discount_ends_at > timezone.now()
+        )
+
+    @property
+    def effective_base_price(self):
+        """Chegirma faol bo'lsa chegirmali, aks holda oddiy 1 m³ narxi."""
+        from decimal import Decimal
+
+        if self.discount_active:
+            return self.base_price * (Decimal("1") - self.discount_percent / Decimal("100"))
+        return self.base_price
+
     def price_for(self, width, height, depth):
-        """Berilgan o'lcham (m) uchun narx — hajmga proporsional."""
+        """Berilgan o'lcham (m) uchun narx (chegirmasiz) — hajmga proporsional."""
         return self.base_price * width * height * depth
+
+    def discounted_price_for(self, width, height, depth):
+        """Berilgan o'lcham (m) uchun HAQIQIY (chegirma inobatga olingan) narx —
+        buyurtma/savat summasi shu asosda hisoblanishi kerak."""
+        return self.effective_base_price * width * height * depth
 
     def __str__(self):
         return f"{self.product} — {self.name}"

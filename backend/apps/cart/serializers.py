@@ -12,8 +12,12 @@ class CartItemSerializer(serializers.ModelSerializer):
     company_name = serializers.CharField(source="product.company.name", read_only=True)
     variant_name = serializers.CharField(source="variant.name", read_only=True)
     m3_price = serializers.DecimalField(
+        source="variant.effective_base_price", max_digits=12, decimal_places=2, read_only=True
+    )
+    m3_original_price = serializers.DecimalField(
         source="variant.base_price", max_digits=12, decimal_places=2, read_only=True
     )
+    discount_active = serializers.BooleanField(source="variant.discount_active", read_only=True)
 
     class Meta:
         model = CartItem
@@ -27,6 +31,8 @@ class CartItemSerializer(serializers.ModelSerializer):
             "variant",
             "variant_name",
             "m3_price",
+            "m3_original_price",
+            "discount_active",
             "width",
             "height",
             "depth",

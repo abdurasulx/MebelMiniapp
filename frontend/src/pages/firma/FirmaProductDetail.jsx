@@ -775,7 +775,29 @@ function VariantsTab({ product: p, onDone }) {
                     </button>
                   </div>
                 </div>
-                <Row label="Narx (m³)"><span style={{ fontWeight: 600, color: ENT.text }}>{Number(v.base_price).toLocaleString()} so'm</span></Row>
+                <Row label="Narx (m³)">
+                  {v.discount_active ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ textDecoration: "line-through", color: ENT.muted, fontSize: 12 }}>
+                        {Number(v.base_price).toLocaleString()} so'm
+                      </span>
+                      <span style={{ fontWeight: 600, color: ENT.success }}>
+                        {Number(v.effective_base_price).toLocaleString()} so'm
+                      </span>
+                      <Pill tone="success">-{Number(v.discount_percent)}%</Pill>
+                    </span>
+                  ) : (
+                    <span style={{ fontWeight: 600, color: ENT.text }}>{Number(v.base_price).toLocaleString()} so'm</span>
+                  )}
+                </Row>
+                {v.discount_percent > 0 && (
+                  <Row label="Chegirma tugaydi">
+                    <span style={{ color: v.discount_active ? ENT.text : ENT.muted, fontSize: 12.5 }}>
+                      {new Date(v.discount_ends_at).toLocaleString("uz-UZ")}
+                      {!v.discount_active && " (tugagan)"}
+                    </span>
+                  </Row>
+                )}
                 <Row label="O'lcham"><span style={{ color: ENT.text }}>{v.width} × {v.height} × {v.depth} m</span></Row>
                 <Row label="Rang / material"><span style={{ color: ENT.text }}>{v.color_hex || "Tanlanmagan"}</span></Row>
                 <Row label="3D model">
@@ -834,6 +856,14 @@ function VariantsTab({ product: p, onDone }) {
   );
 }
 
+/// ISO datetime -> `<input type="datetime-local">` kutgan "YYYY-MM-DDTHH:mm" formatga.
+function toDatetimeLocal(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function VariantEditForm({ productId, variant, onDone, onClose }) {
   const [form, setForm] = useState({
     name: variant.name,
@@ -841,6 +871,9 @@ function VariantEditForm({ productId, variant, onDone, onClose }) {
     width: variant.width,
     height: variant.height,
     depth: variant.depth,
+    cost_price: variant.cost_price || "",
+    discount_percent: variant.discount_percent || "",
+    discount_ends_at: toDatetimeLocal(variant.discount_ends_at),
   });
   const [colorHex, setColorHex] = useState(variant.color_hex || "#8B5A2B");
   const [texture, setTexture] = useState(null);
@@ -853,7 +886,14 @@ function VariantEditForm({ productId, variant, onDone, onClose }) {
     setBusy(true);
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      Object.entries(form).forEach(([k, v]) => {
+        if (k === "discount_percent") { fd.append(k, v || 0); return; }
+        if (k === "cost_price" || k === "discount_ends_at") {
+          if (v) fd.append(k, k === "discount_ends_at" ? new Date(v).toISOString() : v);
+          return;
+        }
+        fd.append(k, v);
+      });
       fd.append("color_hex", colorHex);
       if (texture) fd.append("texture", texture);
       await api(`/products/${productId}/variants/${variant.id}/`, { method: "PATCH", body: fd, isForm: true });
@@ -890,6 +930,23 @@ function VariantEditForm({ productId, variant, onDone, onClose }) {
       <div>
         <label className="label">Naqsh surati (ixtiyoriy)</label>
         <input className="input" type="file" accept="image/*" onChange={(e) => setTexture(e.target.files[0])} />
+      </div>
+      <div style={{ width: "100%", marginTop: 4, paddingTop: 10, borderTop: `1px dashed ${ENT.border}`, display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 10 }}>
+        <div style={{ minWidth: 130 }}>
+          <label className="label">Tannarx (1 m³, ixtiyoriy)</label>
+          <input className="input" type="number" min="0" placeholder="—"
+            value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: e.target.value })} />
+        </div>
+        <div style={{ minWidth: 110 }}>
+          <label className="label">Chegirma (%)</label>
+          <input className="input" type="number" min="0" max="100" placeholder="0"
+            value={form.discount_percent} onChange={(e) => setForm({ ...form, discount_percent: e.target.value })} />
+        </div>
+        <div style={{ minWidth: 200 }}>
+          <label className="label">Chegirma tugash vaqti</label>
+          <input className="input" type="datetime-local"
+            value={form.discount_ends_at} onChange={(e) => setForm({ ...form, discount_ends_at: e.target.value })} />
+        </div>
       </div>
       {error && <div className="error">{error}</div>}
       <div style={{ display: "flex", gap: 8 }}>

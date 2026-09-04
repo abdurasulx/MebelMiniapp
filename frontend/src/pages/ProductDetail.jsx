@@ -60,6 +60,15 @@ export default function ProductDetail() {
     if (!variant) return null;
     const w = parseFloat(dims.width), h = parseFloat(dims.height), d = parseFloat(dims.depth);
     if (!(w > 0 && h > 0 && d > 0)) return null;
+    const unit = variant.discount_active ? parseFloat(variant.effective_base_price) : parseFloat(variant.base_price);
+    return Math.round(unit * w * h * d);
+  }, [variant, dims]);
+
+  // Chegirmasiz narx — faqat chegirma faol bo'lganda chizib ko'rsatish uchun.
+  const originalPrice = useMemo(() => {
+    if (!variant || !variant.discount_active) return null;
+    const w = parseFloat(dims.width), h = parseFloat(dims.height), d = parseFloat(dims.depth);
+    if (!(w > 0 && h > 0 && d > 0)) return null;
     return Math.round(parseFloat(variant.base_price) * w * h * d);
   }, [variant, dims]);
 
@@ -196,7 +205,10 @@ export default function ProductDetail() {
                   <select className="input" value={variantId} onChange={(e) => setVariantId(e.target.value)}>
                     {p.variants.map((v) => (
                       <option key={v.id} value={v.id}>
-                        {v.name} — {Number(v.base_price).toLocaleString()} so'm/m³{(v.model3d?.glb_url || p.model3d?.glb_url) ? " · AR" : ""}
+                        {v.name} — {v.discount_active
+                          ? `${Number(v.effective_base_price).toLocaleString()} so'm/m³ (-${Number(v.discount_percent)}%)`
+                          : `${Number(v.base_price).toLocaleString()} so'm/m³`}
+                        {(v.model3d?.glb_url || p.model3d?.glb_url) ? " · AR" : ""}
                       </option>
                     ))}
                   </select>
@@ -232,8 +244,27 @@ export default function ProductDetail() {
                   className="rounded-xl p-4"
                   style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
                 >
-                  <div className="text-xs" style={{ color: "var(--muted)" }}>Taxminiy narx</div>
-                  <div className="text-2xl font-bold">{(price * qty).toLocaleString()} so'm</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs" style={{ color: "var(--muted)" }}>Taxminiy narx</div>
+                    {variant.discount_active && (
+                      <span className="badge" style={{ background: "var(--danger)", color: "#fff" }}>
+                        -{Number(variant.discount_percent)}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    {originalPrice !== null && (
+                      <span className="text-base line-through" style={{ color: "var(--muted)" }}>
+                        {(originalPrice * qty).toLocaleString()} so'm
+                      </span>
+                    )}
+                    <div className="text-2xl font-bold">{(price * qty).toLocaleString()} so'm</div>
+                  </div>
+                  {variant.discount_active && (
+                    <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+                      Chegirma {new Date(variant.discount_ends_at).toLocaleString("uz-UZ")}gacha amal qiladi
+                    </div>
+                  )}
                 </div>
               )}
               {added ? (
@@ -256,7 +287,7 @@ export default function ProductDetail() {
                       image: p.image_url || p.images?.[0]?.image_url,
                       variantId: variant.id,
                       variantName: variant.name,
-                      m3Price: parseFloat(variant.base_price),
+                      m3Price: variant.discount_active ? parseFloat(variant.effective_base_price) : parseFloat(variant.base_price),
                       width: parseFloat(dims.width),
                       height: parseFloat(dims.height),
                       depth: parseFloat(dims.depth),

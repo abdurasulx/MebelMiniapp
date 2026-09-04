@@ -24,17 +24,67 @@ class VariantSerializer(StorageStampMixin, serializers.ModelSerializer):
     texture = serializers.ImageField(write_only=True, required=False, allow_null=True)
     texture_url = serializers.SerializerMethodField()
     model3d = serializers.SerializerMethodField()
+    discount_active = serializers.BooleanField(read_only=True)
+    effective_base_price = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
         model = Variant
         fields = (
             "id", "name", "base_price", "width", "height", "depth",
             "color_hex", "texture", "texture_url", "model3d",
+            "cost_price", "discount_percent", "discount_ends_at",
+            "discount_active", "effective_base_price",
         )
         read_only_fields = ("id",)
 
     def get_texture_url(self, obj):
         return visible_file_url(obj, "texture", self.context.get("request"))
+
+    def validate(self, attrs):
+        discount_percent = attrs.get(
+            "discount_percent", getattr(self.instance, "discount_percent", 0)
+        )
+        discount_ends_at = attrs.get(
+            "discount_ends_at", getattr(self.instance, "discount_ends_at", None)
+        )
+        cost_price = attrs.get("cost_price", getattr(self.instance, "cost_price", None))
+        base_price = attrs.get("base_price", getattr(self.instance, "base_price", None))
+        if discount_percent:
+            if not (0 < discount_percent <= 100):
+                raise serializers.ValidationError("Chegirma foizi 0 dan 100 gacha bo'lishi kerak")
+            if not discount_ends_at:
+                raise serializers.ValidationError("Chegirma tugash sanasi/vaqti ko'rsatilishi kerak")
+            if cost_price is not None and base_price is not None:
+                from decimal import Decimal
+
+                effective = base_price * (Decimal("1") - discount_percent / Decimal("100"))
+                if effective < cost_price:
+                    raise serializers.ValidationError("Chegirma narxi tannarxdan pastga tushirilmasin")
+        return attrs
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # XAVFSIZLIK: tannarx — faqat kompaniya egasi/platforma admini
+        # ko'rishi kerak, mijozga bu moliyaviy tafsilot ko'rinmasligi kerak
+        # (qarang apps.orders.serializers'dagi bir xil naqsh).
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        is_owner = False
+        if user is not None and user.is_authenticated:
+            if user.role == "platform_admin":
+                is_owner = True
+            else:
+                from apps.companies.views import is_company_owner, user_company
+
+                company = user_company(user)
+                is_owner = (
+                    company is not None
+                    and company.id == instance.product.company_id
+                    and is_company_owner(user, company)
+                )
+        if not is_owner:
+            data.pop("cost_price", None)
+        return data
 
     def get_model3d(self, obj):
         # Ko'p materialli mahsulotlar uchun: variant o'zining alohida 3D
