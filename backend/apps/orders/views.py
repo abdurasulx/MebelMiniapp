@@ -118,8 +118,25 @@ class OrderViewSet(
             raise ValidationError(
                 f"'{order.get_status_display()}' holatidan '{new_status}' ga o'tib bo'lmaydi"
             )
+        # DESIGNING faqat CUSTOM_PROJECT uchun ma'noli (READY_PRODUCT hech
+        # qachon dizayn bosqichidan o'tmaydi — qarang Order.TRANSITIONS).
+        if new_status == Order.Status.DESIGNING and order.order_type != Order.OrderType.CUSTOM_PROJECT:
+            raise ValidationError("Faqat individual loyiha buyurtmalari loyihalashtirish bosqichiga o'tadi")
+        # CUSTOM_PROJECT ishlab chiqarishga faqat dizayn versiyasi
+        # tasdiqlangandan keyin o'tishi mumkin (docs §5.2 — mijoz emas,
+        # faqat admin/menejer tasdiqlaydi).
+        if new_status == Order.Status.IN_PRODUCTION and order.order_type == Order.OrderType.CUSTOM_PROJECT:
+            from apps.custom_orders.models import Design
+
+            design = Design.objects.filter(order=order).first()
+            if design is None or design.approved_version_id is None:
+                raise ValidationError("Ishlab chiqarish faqat dizayn versiyasi tasdiqlangach boshlanadi")
         order.status = new_status
         order.save(update_fields=["status", "updated_at"])
+        if new_status == Order.Status.IN_PRODUCTION and order.order_type == Order.OrderType.CUSTOM_PROJECT:
+            from apps.custom_orders.services import create_workflow_instances_from_design
+
+            create_workflow_instances_from_design(order, design)
         notify_order_status(order)
         return Response(OrderSerializer(order, context={"request": request}).data)
 

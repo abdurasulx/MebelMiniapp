@@ -14,6 +14,10 @@ export default function ProductDetail() {
   const [error, setError] = useState("");
   const [variantId, setVariantId] = useState("");
   const [dims, setDims] = useState({ width: "", height: "", depth: "" });
+  // "Maxsus o'lcham" — narx avtomatik hisoblanmaydi, firma buyurtma qabul
+  // qilingach qo'lda belgilaydi (docs "Buyurtma va ishlab chiqarish
+  // tizimi" §4.1 — usta yaratgan custom buyurtmalar bilan bir xil qoida).
+  const [isCustomSize, setIsCustomSize] = useState(false);
   const [qty, setQtyState] = useState(1);
   const [added, setAdded] = useState(false);
   const [show3d, setShow3d] = useState(false);
@@ -239,7 +243,17 @@ export default function ProductDetail() {
                   onChange={(e) => setQtyState(Math.max(1, parseInt(e.target.value) || 1))}
                 />
               </div>
-              {price !== null && (
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={isCustomSize} onChange={(e) => setIsCustomSize(e.target.checked)} />
+                Maxsus o'lcham (narx firma tomonidan keyinroq belgilanadi)
+              </label>
+              {isCustomSize ? (
+                <div className="rounded-xl p-4" style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}>
+                  <div className="text-xs" style={{ color: "var(--muted)" }}>
+                    Narx buyurtma qabul qilingach firma tomonidan belgilanadi.
+                  </div>
+                </div>
+              ) : price !== null && (
                 <div
                   className="rounded-xl p-4"
                   style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
@@ -277,7 +291,11 @@ export default function ProductDetail() {
               ) : (
                 <button
                   className="btn btn-brand inline-flex items-center justify-center gap-1.5"
-                  disabled={price === null}
+                  disabled={
+                    isCustomSize
+                      ? !(parseFloat(dims.width) > 0 && parseFloat(dims.height) > 0 && parseFloat(dims.depth) > 0)
+                      : price === null
+                  }
                   onClick={() => {
                     addToCart({
                       productId: p.id,
@@ -287,9 +305,10 @@ export default function ProductDetail() {
                       image: p.image_url || p.images?.[0]?.image_url,
                       variantId: variant.id,
                       variantName: variant.name,
-                      m3Price: variant.discount_active ? parseFloat(variant.effective_base_price) : parseFloat(variant.base_price),
-                      m3OriginalPrice: variant.discount_active ? parseFloat(variant.base_price) : null,
-                      discountPercent: variant.discount_active ? Number(variant.discount_percent) : null,
+                      isCustomSize,
+                      m3Price: isCustomSize ? 0 : (variant.discount_active ? parseFloat(variant.effective_base_price) : parseFloat(variant.base_price)),
+                      m3OriginalPrice: !isCustomSize && variant.discount_active ? parseFloat(variant.base_price) : null,
+                      discountPercent: !isCustomSize && variant.discount_active ? Number(variant.discount_percent) : null,
                       width: parseFloat(dims.width),
                       height: parseFloat(dims.height),
                       depth: parseFloat(dims.depth),

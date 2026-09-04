@@ -302,9 +302,13 @@ class PayslipRecomputeTests(TestCase):
         payslip.recompute()
 
         self.assertEqual(payslip.tasks_completed, 1)  # faqat qo'lda vazifa
-        self.assertEqual(payslip.bonus_amount, Decimal("5000"))
         self.assertEqual(payslip.workflow_earnings, Decimal("15000"))  # ikkalasining cost yig'indisi (0 + 15000)
-        self.assertEqual(payslip.total_amount, Decimal("1000000") + Decimal("5000") + Decimal("15000"))
+        # completed_tasks_amount = workflow_earnings + bonus_per_task*tasks_completed = 15000+5000 = 20000
+        self.assertEqual(payslip.completed_tasks_amount, Decimal("20000"))
+        # FIXED_BONUS: total = max(oylik, bajarilgan ishlar summasi) — oylik ustun bo'lgani uchun
+        # bonus_amount (ko'rsatiladigan "oshgan qism") 0, jami = oylik.
+        self.assertEqual(payslip.bonus_amount, Decimal("0"))
+        self.assertEqual(payslip.total_amount, Decimal("1000000"))
 
 
 class CapacityAndPredictionTests(APITestCase):

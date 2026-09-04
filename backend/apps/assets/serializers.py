@@ -150,17 +150,22 @@ class Model3DViewerSerializer(serializers.ModelSerializer):
         )
 
     def get_product_name(self, obj):
+        if obj.design_version_id:
+            return f"Individual loyiha — {obj.design_version.design.order_id}"
         return obj.owning_product.name_uz
 
     def get_company_name(self, obj):
-        return obj.owning_product.company.name
+        return obj.owning_company.name
 
     def get_variants(self, obj):
         # Har bir variant o'zining alohida 3D faylini olishi mumkin (masalan
         # ko'p materialli mahsulotlarda runtime tint yetarli bo'lmaganda —
         # qarang Model3D docstring). Shuning uchun viewer sahifasi yuqorida
         # variant tanlash imkonini berishi uchun har biriga tegishli glb/usdz
-        # havolasi (agar bo'lsa) shu yerda qaytariladi.
+        # havolasi (agar bo'lsa) shu yerda qaytariladi. Dizayn versiyasiga
+        # biriktirilgan modelning variantlari yo'q (katalog mahsuloti emas).
+        if obj.design_version_id:
+            return []
         request = self.context.get("request")
         result = []
         for v in obj.owning_product.variants.filter(is_deleted=False):

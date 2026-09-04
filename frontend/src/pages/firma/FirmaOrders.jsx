@@ -112,13 +112,16 @@ export default function FirmaOrders() {
                 <Phone size={12} /> {o.phone} · <MapPin size={12} /> {o.address} · {new Date(o.created_at).toLocaleString("uz-UZ")}
               </span>
             </div>
-            <StatusBadge status={o.status} />
+            <div className="flex items-center gap-2">
+              {o.order_type === "custom_project" && <span className="badge badge-brand">{o.order_type_display}</span>}
+              <StatusBadge status={o.status} />
+            </div>
           </div>
           <div className="text-sm">
             {o.items.map((it) => (
               <div key={it.id} className="flex justify-between py-0.5">
                 <span>
-                  {it.product_name} ({it.variant_name}) · {it.width}×{it.height}×{it.depth} m ×{it.quantity}
+                  {it.product_name} {it.variant_name && `(${it.variant_name})`} · {it.width}×{it.height}×{it.depth} m ×{it.quantity}
                 </span>
                 <span className="font-medium">{Number(it.subtotal).toLocaleString()} so'm</span>
               </div>

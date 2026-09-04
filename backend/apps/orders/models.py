@@ -4,27 +4,48 @@ from django.db import models
 from common.models import BaseModel
 
 
+class OrderType(models.TextChoices):
+    READY_PRODUCT = "ready_product", "Tayyor mahsulot"
+    CUSTOM_PROJECT = "custom_project", "Individual loyiha"
+
+
 class Order(BaseModel):
-    """Mijoz buyurtmasi — bitta kompaniyaga tegishli (docs/10, roadmap Phase 5)."""
+    """Mijoz buyurtmasi — bitta kompaniyaga tegishli (docs/10, roadmap Phase 5).
+
+    Ikki turi qat'iy ajratiladi (`order_type`): READY_PRODUCT — katalogdan
+    to'g'ridan-to'g'ri xarid (narx avtomatik), CUSTOM_PROJECT — usta joy
+    o'rganib yaratgan individual loyiha (qarang apps.custom_orders). Ikkalasi
+    ham shu bir modelga tayanadi, lekin yaratilish/status oqimi mustaqil —
+    READY_PRODUCT kodi CUSTOM_PROJECT qo'shilishi bilan o'zgarmadi.
+    """
 
     class Status(models.TextChoices):
         NEW = "new", "Kutilmoqda"
         ACCEPTED = "accepted", "Qabul qilindi"
+        # Faqat CUSTOM_PROJECT uchun — dizayner 3D loyiha tayyorlayotgan va
+        # tasdiqlanishini kutayotgan oraliq bosqich (qarang apps.custom_orders.Design).
+        DESIGNING = "designing", "Loyihalashtirilmoqda"
         IN_PRODUCTION = "in_production", "Ishlab chiqarilmoqda"
         READY = "ready", "Tayyor"
         DELIVERING = "delivering", "Yetkazilmoqda"
         COMPLETED = "completed", "Yakunlandi"
         CANCELLED = "cancelled", "Bekor qilindi"
 
-    # ruxsat etilgan status o'tishlari (kompaniya tomoni)
+    OrderType = OrderType
+
+    # ruxsat etilgan status o'tishlari (kompaniya tomoni). DESIGNING faqat
+    # CUSTOM_PROJECT uchun ma'noli — READY_PRODUCT buyurtmalar hech qachon
+    # shu holatga o'tmaydi (qarang OrderViewSet.set_status).
     TRANSITIONS = {
         Status.NEW: [Status.ACCEPTED, Status.CANCELLED],
-        Status.ACCEPTED: [Status.IN_PRODUCTION, Status.CANCELLED],
+        Status.ACCEPTED: [Status.DESIGNING, Status.IN_PRODUCTION, Status.CANCELLED],
+        Status.DESIGNING: [Status.IN_PRODUCTION, Status.CANCELLED],
         Status.IN_PRODUCTION: [Status.READY],
         Status.READY: [Status.DELIVERING, Status.COMPLETED],
         Status.DELIVERING: [Status.COMPLETED],
     }
 
+    order_type = models.CharField(max_length=20, choices=OrderType.choices, default=OrderType.READY_PRODUCT)
     company = models.ForeignKey(
         "companies.Company", on_delete=models.PROTECT, related_name="orders"
     )
@@ -66,17 +87,29 @@ class OrderItem(BaseModel):
     product = models.ForeignKey(
         "products.Product", on_delete=models.PROTECT, related_name="order_items"
     )
+    # CUSTOM_PROJECT'da variant tanlanmasligi mumkin (masalan mahsulot
+    # umuman katalog variantiga mos kelmaydigan individual buyum) — shuning
+    # uchun nullable, READY_PRODUCT uchun hamon amalda har doim to'ldiriladi.
     variant = models.ForeignKey(
-        "products.Variant", on_delete=models.PROTECT, related_name="order_items"
+        "products.Variant", on_delete=models.PROTECT, related_name="order_items",
+        null=True, blank=True,
     )
     product_name = models.CharField(max_length=255)
-    variant_name = models.CharField(max_length=255)
+    variant_name = models.CharField(max_length=255, blank=True)
     width = models.DecimalField(max_digits=6, decimal_places=2)
     height = models.DecimalField(max_digits=6, decimal_places=2)
     depth = models.DecimalField(max_digits=6, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)
-    unit_m3_price = models.DecimalField(max_digits=12, decimal_places=2)
-    subtotal = models.DecimalField(max_digits=14, decimal_places=2)
+    # `is_custom_size=True` bo'lsa narx avtomatik hisoblanmaydi —
+    # `unit_m3_price`/`subtotal` bo'sh/0 qoladi, admin keyin `cost_amount`ni
+    # qo'lda kiritadi (docs "Buyurtma va ishlab chiqarish tizimi" §4).
+    is_custom_size = models.BooleanField(default=False)
+    unit_m3_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    cost_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
 
     def __str__(self):
         return f"{self.product_name} ({self.variant_name}) x{self.quantity}"

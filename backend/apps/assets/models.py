@@ -42,6 +42,12 @@ class Model3D(BaseModel, StoredFileMixin):
     variant = models.OneToOneField(
         "products.Variant", on_delete=models.CASCADE, related_name="model3d", null=True, blank=True
     )
+    # CUSTOM_PROJECT dizayn versiyasiga biriktirilgan 3D fayl (qarang
+    # apps.custom_orders.DesignVersion) — product/variant'dan mustaqil,
+    # lekin bir xil share_token/AR-ko'rish mexanizmidan foydalanadi.
+    design_version = models.OneToOneField(
+        "custom_orders.DesignVersion", on_delete=models.CASCADE, related_name="model3d", null=True, blank=True
+    )
     # "glb_file" nomi tarixiy — lekin FBX/OBJ, hatto ZIP/RAR ham qabul
     # qilinadi (masalan marketplace'dan yuklab olingan arxivning o'zi):
     # server avtomatik ichidan model faylini topib GLB'ga aylantirib shu
@@ -94,8 +100,18 @@ class Model3D(BaseModel, StoredFileMixin):
     @property
     def owning_product(self):
         """Variant-darajasidagi model ham o'z mahsulotiga ega — kompaniya/ruxsat
-        tekshiruvlari doim shu orqali o'tadi (product yoki variant.product)."""
+        tekshiruvlari doim shu orqali o'tadi (product yoki variant.product).
+        DIQQAT: `design_version`ga biriktirilgan modelda Product mavjud emas —
+        bunday holatda ruxsat tekshiruvi uchun `owning_company`dan foydalaning."""
         return self.product or self.variant.product
+
+    @property
+    def owning_company(self):
+        """Har uchala biriktirish turi (product/variant/design_version) uchun
+        ham ishlaydigan, faqat kompaniyani qaytaradigan umumiy versiya."""
+        if self.design_version_id:
+            return self.design_version.design.order.company
+        return self.owning_product.company
 
     def can_view(self, user):
         """Viewer havolasiga kirish huquqi (docs — bazissoft.ru uslubidagi ulashish)."""
@@ -108,7 +124,7 @@ class Model3D(BaseModel, StoredFileMixin):
         from apps.companies.views import user_company
 
         company = user_company(user)
-        if company is not None and company.id == self.owning_product.company_id:
+        if company is not None and company.id == self.owning_company.id:
             return True
         if self.visibility == self.Visibility.RESTRICTED:
             return user.email.lower() in [e.lower() for e in self.allowed_emails]

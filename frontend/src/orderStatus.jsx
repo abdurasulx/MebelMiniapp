@@ -1,9 +1,11 @@
-import { Clock, CheckCircle2, Hammer, Package, Truck, PartyPopper, X } from "lucide-react";
+import { Clock, CheckCircle2, PenTool, Hammer, Package, Truck, PartyPopper, X } from "lucide-react";
 
 // Buyurtma statuslari (backend Order.Status bilan bir xil)
 export const ORDER_STATUS = {
   new: { label: "Kutilmoqda", icon: Clock, color: "#3498db" },
   accepted: { label: "Qabul qilindi", icon: CheckCircle2, color: "#27ae60" },
+  // Faqat CUSTOM_PROJECT buyurtmalar uchun (qarang Order.order_type).
+  designing: { label: "Loyihalashtirilmoqda", icon: PenTool, color: "#9b59b6" },
   in_production: { label: "Ishlab chiqarilmoqda", icon: Hammer, color: "#e67e22" },
   ready: { label: "Tayyor", icon: Package, color: "#8e44ad" },
   delivering: { label: "Yetkazilmoqda", icon: Truck, color: "#16a085" },
@@ -11,10 +13,13 @@ export const ORDER_STATUS = {
   cancelled: { label: "Bekor qilindi", icon: X, color: "#e74c3c" },
 };
 
-// kompaniya tomonidagi keyingi mumkin qadamlar (backend TRANSITIONS bilan bir xil)
+// kompaniya tomonidagi keyingi mumkin qadamlar (backend TRANSITIONS bilan bir xil).
+// `designing` faqat CUSTOM_PROJECT uchun ma'noli — chaqiruvchi (FirmaOrderDetail)
+// buni `order.order_type`ga qarab filtrlaydi, backend ham qat'iy tekshiradi.
 export const NEXT_STATUS = {
   new: ["accepted", "cancelled"],
-  accepted: ["in_production", "cancelled"],
+  accepted: ["designing", "in_production", "cancelled"],
+  designing: ["in_production", "cancelled"],
   in_production: ["ready"],
   ready: ["delivering", "completed"],
   delivering: ["completed"],

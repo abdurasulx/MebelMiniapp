@@ -105,9 +105,13 @@ export default function MyOrders() {
               {o.items.map((it) => (
                 <div key={it.id} className="flex justify-between py-1">
                   <span>
-                    {it.product_name} ({it.variant_name}) · {it.width}×{it.height}×{it.depth} m ×{it.quantity}
+                    {it.product_name} {it.variant_name && `(${it.variant_name})`} · {it.width}×{it.height}×{it.depth} m ×{it.quantity}
                   </span>
-                  <span className="font-medium">{Number(it.subtotal).toLocaleString()} so'm</span>
+                  {it.is_custom_size && it.cost_amount == null ? (
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>Narx belgilanmagan</span>
+                  ) : (
+                    <span className="font-medium">{Number(it.subtotal).toLocaleString()} so'm</span>
+                  )}
                 </div>
               ))}
             </div>

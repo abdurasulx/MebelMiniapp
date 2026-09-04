@@ -60,6 +60,7 @@ export default function Cart() {
             height: i.height,
             depth: i.depth,
             quantity: i.qty,
+            is_custom_size: !!i.isCustomSize,
           })),
         },
       });
@@ -139,6 +140,7 @@ export default function Cart() {
                       -{i.discountPercent}%
                     </span>
                   )}
+                  {i.isCustomSize && <span className="badge badge-off">Narx keyinroq</span>}
                 </div>
                 <div className="text-xs" style={{ color: "var(--muted)" }}>
                   {i.variantName} · {i.width}×{i.height}×{i.depth} m · {i.companyName}
@@ -157,7 +159,7 @@ export default function Cart() {
                     {Math.round(i.m3OriginalPrice * i.width * i.height * i.depth * i.qty).toLocaleString()} so'm
                   </div>
                 )}
-                <div className="font-bold">{itemSubtotal(i).toLocaleString()} so'm</div>
+                <div className="font-bold">{i.isCustomSize ? "—" : `${itemSubtotal(i).toLocaleString()} so'm`}</div>
               </div>
               <button className="btn-danger !px-3 !py-1.5 text-xs" onClick={() => removeFromCart(idx)}>
                 <X size={14} />

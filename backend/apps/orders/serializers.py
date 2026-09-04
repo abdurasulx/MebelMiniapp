@@ -15,6 +15,10 @@ class OrderItemInputSerializer(serializers.Serializer):
     height = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=Decimal("0.1"))
     depth = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=Decimal("0.1"))
     quantity = serializers.IntegerField(min_value=1, default=1)
+    # Mijoz ham (usta bilan bir xil qoidaga bo'ysunib) "narx keyinroq
+    # belgilansin" deb belgilashi mumkin — bunday bandning narxi avtomatik
+    # hisoblanmaydi, admin keyin `cost_amount` kiritadi (docs §4.1).
+    is_custom_size = serializers.BooleanField(default=False)
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -22,13 +26,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = (
             "id", "product", "variant", "product_name", "variant_name",
-            "width", "height", "depth", "quantity", "unit_m3_price", "subtotal",
+            "width", "height", "depth", "quantity", "is_custom_size",
+            "unit_m3_price", "cost_amount", "subtotal",
         )
 
 
 class OrderSerializer(serializers.ModelSerializer):
     items = serializers.SerializerMethodField()
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+    order_type_display = serializers.CharField(source="get_order_type_display", read_only=True)
     company_name = serializers.CharField(source="company.name", read_only=True)
     customer_email = serializers.EmailField(source="customer.email", read_only=True)
     customer_name = serializers.CharField(source="customer.first_name", read_only=True)
@@ -48,6 +54,7 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = (
             "id", "company", "company_name", "customer", "customer_email", "customer_name",
+            "order_type", "order_type_display",
             "status", "status_display", "phone", "address", "latitude", "longitude", "note",
             "total_price", "items", "workflow_steps", "production_cost", "progress_percent",
             "sold_by", "sold_by_name",
@@ -167,12 +174,16 @@ class OrderCreateSerializer(serializers.Serializer):
         total = Decimal("0")
         for item in validated_data["items"]:
             v = variants[str(item["variant"])]
-            volume = item["width"] * item["height"] * item["depth"]
-            # Chegirma faol bo'lsa haqiqiy (chegirmali) narx bo'yicha hisoblanadi
-            # va shu tarzda MUHRLANADI — keyinchalik chegirma tugasa/o'zgarsa
-            # ham bu buyurtma narxi o'zgarmay qoladi (qarang Variant.effective_base_price).
-            unit_price = v.effective_base_price
-            subtotal = (unit_price * volume * item["quantity"]).quantize(Decimal("0.01"))
+            is_custom = item.get("is_custom_size", False)
+            unit_price = None
+            subtotal = Decimal("0")
+            if not is_custom:
+                volume = item["width"] * item["height"] * item["depth"]
+                # Chegirma faol bo'lsa haqiqiy (chegirmali) narx bo'yicha hisoblanadi
+                # va shu tarzda MUHRLANADI — keyinchalik chegirma tugasa/o'zgarsa
+                # ham bu buyurtma narxi o'zgarmay qoladi (qarang Variant.effective_base_price).
+                unit_price = v.effective_base_price
+                subtotal = (unit_price * volume * item["quantity"]).quantize(Decimal("0.01"))
             OrderItem.objects.create(
                 order=order,
                 product=v.product,
@@ -183,8 +194,10 @@ class OrderCreateSerializer(serializers.Serializer):
                 height=item["height"],
                 depth=item["depth"],
                 quantity=item["quantity"],
+                is_custom_size=is_custom,
                 unit_m3_price=unit_price,
                 subtotal=subtotal,
+                created_by=user,
             )
             total += subtotal
         order.total_price = total

@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { NEXT_STATUS, ORDER_STATUS, StatusBadge } from "../../orderStatus";
 import WorkflowPanel from "../../components/WorkflowPanel";
+import DesignPanel from "../../components/DesignPanel";
 
 /// Buyurtma tafsilotlari — ishlab chiqarish bosqichlari (WorkflowPanel)
 /// avval FirmaOrders ro'yxatida joyida ("Ishlab chiqarish" tugmasi bilan)
@@ -49,6 +50,19 @@ export default function FirmaOrderDetail() {
     }
   };
 
+  const [costDraft, setCostDraft] = useState({});
+  const saveCost = async (itemId) => {
+    try {
+      await api(`/order-item-cost/${itemId}/set-cost/`, {
+        method: "POST",
+        body: { cost_amount: costDraft[itemId] },
+      });
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   if (error) return <div className="error">{error}</div>;
   if (!order) return <p className="text-sm" style={{ color: "var(--muted)" }}>Yuklanmoqda…</p>;
 
@@ -67,15 +81,38 @@ export default function FirmaOrderDetail() {
               {new Date(order.created_at).toLocaleString("uz-UZ")}
             </span>
           </div>
-          <StatusBadge status={order.status} />
+          <div className="flex items-center gap-2">
+            {order.order_type === "custom_project" && (
+              <span className="badge badge-brand">{order.order_type_display}</span>
+            )}
+            <StatusBadge status={order.status} />
+          </div>
         </div>
         <div className="text-sm">
           {order.items.map((it) => (
-            <div key={it.id} className="flex justify-between py-0.5">
+            <div key={it.id} className="flex items-center justify-between gap-2 py-0.5">
               <span>
-                {it.product_name} ({it.variant_name}) · {it.width}×{it.height}×{it.depth} m ×{it.quantity}
+                {it.product_name} {it.variant_name && `(${it.variant_name})`} · {it.width}×{it.height}×{it.depth} m ×{it.quantity}
+                {it.is_custom_size && (
+                  <span className="badge badge-off ml-1.5 !text-[10px]">Maxsus o'lcham</span>
+                )}
               </span>
-              <span className="font-medium">{Number(it.subtotal).toLocaleString()} so'm</span>
+              {it.is_custom_size && it.cost_amount == null ? (
+                user?.role === "company_owner" ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      className="input !w-28 !py-1 text-xs" type="number" min="0" placeholder="Tannarx"
+                      value={costDraft[it.id] ?? ""}
+                      onChange={(e) => setCostDraft((d) => ({ ...d, [it.id]: e.target.value }))}
+                    />
+                    <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => saveCost(it.id)}>Saqlash</button>
+                  </div>
+                ) : (
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>Narx belgilanmagan</span>
+                )
+              ) : (
+                <span className="font-medium">{Number(it.subtotal).toLocaleString()} so'm</span>
+              )}
             </div>
           ))}
         </div>
@@ -105,7 +142,9 @@ export default function FirmaOrderDetail() {
             {/* Buyurtma holatini o'zgartirish (qabul/bekor) — menejerlik
                 qarori, faqat firma egasi uchun (backend ham shunday
                 cheklaydi, qarang OrderViewSet.set_status). */}
-            {user?.role === "company_owner" && (NEXT_STATUS[order.status] || []).map((s) => {
+            {user?.role === "company_owner" && (NEXT_STATUS[order.status] || [])
+              .filter((s) => s !== "designing" || order.order_type === "custom_project")
+              .map((s) => {
               const Icon = ORDER_STATUS[s].icon;
               return s === "cancelled" ? (
                 <button key={s} className="btn-danger inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" onClick={() => setStatus(s)}>
@@ -120,6 +159,8 @@ export default function FirmaOrderDetail() {
           </div>
         </div>
       </div>
+
+      {order.order_type === "custom_project" && <DesignPanel orderId={order.id} />}
 
       {order.workflow_steps?.length > 0 && (
         <WorkflowPanel order={order} editable onChanged={load} />
