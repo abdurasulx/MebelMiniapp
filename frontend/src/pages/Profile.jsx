@@ -13,6 +13,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
 // sabab: to'liq-sahifa navigatsiya Authorization header'ini olib
 // ketolmaydi — qarang backend GoogleLinkStartView docstring).
 function GoogleLinkRow({ hasGoogle }) {
+  const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,11 +43,11 @@ function GoogleLinkRow({ hasGoogle }) {
         </div>
         {hasGoogle ? (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--success)" }}>
-            <CheckCircle2 size={14} /> Bog'langan
+            <CheckCircle2 size={14} /> {t("profile_linked")}
           </span>
         ) : (
           <button className="btn" onClick={startLink} disabled={busy}>
-            {busy ? "Yo'naltirilmoqda…" : "Bog'lash"}
+            {busy ? t("profile_link_redirecting") : t("profile_link_action")}
           </button>
         )}
       </div>
@@ -59,6 +60,7 @@ function GoogleLinkRow({ hasGoogle }) {
 // (Login.jsx'dagi kirish oqimi bilan bir xil naqsh, faqat authenticated
 // "link" endpointlariga so'rov yuboradi — login emas, bog'lash).
 function TelegramLinkRow({ hasTelegram, onLinked }) {
+  const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [botUsername, setBotUsername] = useState(null);
@@ -76,7 +78,7 @@ function TelegramLinkRow({ hasTelegram, onLinked }) {
     setBusy(true);
     const tgWindow = window.open("about:blank", "_blank");
     if (!tgWindow) {
-      setError("Brauzer popup oynani bloklab qo'ydi. Popup blokerni o'chirib, qayta urining.");
+      setError(t("profile_popup_blocked"));
       setBusy(false);
       return;
     }
@@ -109,7 +111,7 @@ function TelegramLinkRow({ hasTelegram, onLinked }) {
           clearInterval(pollRef.current);
           pollRef.current = null;
           setBusy(false);
-          setError("Kutish vaqti tugadi. Qayta urining.");
+          setError(t("profile_link_timeout"));
         }
       }, 5 * 60 * 1000);
     } catch (err) {
@@ -134,11 +136,11 @@ function TelegramLinkRow({ hasTelegram, onLinked }) {
         </div>
         {hasTelegram ? (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: "var(--success)" }}>
-            <CheckCircle2 size={14} /> Bog'langan
+            <CheckCircle2 size={14} /> {t("profile_linked")}
           </span>
         ) : (
           <button className="btn" onClick={startLink} disabled={busy || !botUsername}>
-            {busy ? "Kutilmoqda…" : "Bog'lash"}
+            {busy ? t("profile_link_waiting") : t("profile_link_action")}
           </button>
         )}
       </div>
@@ -162,7 +164,7 @@ export default function Profile() {
     const linked = params.get("linked");
     const err = params.get("link_error");
     if (linked === "google") {
-      setNotice("Google hisobi muvaffaqiyatli bog'landi");
+      setNotice(t("profile_google_linked_notice"));
       refreshUser();
     } else if (err) {
       setNoticeError(err);
@@ -200,7 +202,7 @@ export default function Profile() {
             border: `3px solid ${user.phone_verified ? "var(--success)" : "#f59e0b"}`,
             cursor: user.phone_verified ? "default" : "pointer",
           }}
-          title={user.phone_verified ? "Tasdiqlangan" : "Tasdiqlash uchun bosing"}
+          title={user.phone_verified ? t("profile_verified") : t("profile_verify_prompt")}
         >
           {(user.first_name || user.email || "?").charAt(0).toUpperCase()}
         </button>
@@ -233,7 +235,7 @@ export default function Profile() {
       </div>
 
       <div className="card flex flex-col gap-4 p-5">
-        <h2 className="text-base font-semibold">Bog'langan hisoblar</h2>
+        <h2 className="text-base font-semibold">{t("profile_linked_accounts")}</h2>
         <GoogleLinkRow hasGoogle={user.has_google} />
         <TelegramLinkRow hasTelegram={user.has_telegram} onLinked={refreshUser} />
       </div>
