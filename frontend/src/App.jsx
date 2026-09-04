@@ -214,17 +214,6 @@ function MarketLayout({ children }) {
           <NavLink to="/" end className={({ isActive }) => `top-link ${isActive ? "active" : ""}`}>
             Katalog
           </NavLink>
-          <NavLink to="/cart" className={({ isActive }) => `top-link relative flex items-center ${isActive ? "active" : ""}`}>
-            <ShoppingBasket size={18} />
-            {count > 0 && (
-              <span
-                className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
-                style={{ background: "var(--danger)", color: "#fff" }}
-              >
-                {count}
-              </span>
-            )}
-          </NavLink>
           {user && (
             <>
               <NavLink to="/liked" className={({ isActive }) => `top-link flex items-center gap-1.5 ${isActive ? "active" : ""}`}>
@@ -239,9 +228,31 @@ function MarketLayout({ children }) {
               <NavLink to="/profile" className={({ isActive }) => `top-link flex items-center gap-1.5 ${isActive ? "active" : ""}`}>
                 <UserCircle size={16} /> Profil
               </NavLink>
-              <NotificationBell surface />
             </>
           )}
+          {/* Savat va xabarnomalar — bir xil uslub (ikonka + qizil son
+              belgisi), yonma-yon guruhlangan, matnli menyu havolalaridan
+              ajratib turish uchun. */}
+          <div className="flex items-center gap-0.5">
+            <NavLink
+              to="/cart"
+              className={({ isActive }) =>
+                `relative flex items-center rounded-lg p-2 transition hover:bg-black/10 ${isActive ? "active" : ""}`
+              }
+              aria-label="Savat"
+            >
+              <ShoppingBasket size={18} />
+              {count > 0 && (
+                <span
+                  className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
+                  style={{ background: "var(--danger)", color: "#fff" }}
+                >
+                  {count > 99 ? "99+" : count}
+                </span>
+              )}
+            </NavLink>
+            {user && <NotificationBell surface />}
+          </div>
           {user ? (
             <button onClick={logout} className="rounded-lg px-3 py-1.5 transition hover:bg-black/10">
               Chiqish
