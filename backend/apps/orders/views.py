@@ -310,3 +310,60 @@ class FinanceSummaryView(APIView):
             ]
 
         return Response(data)
+
+
+class DashboardMetricsView(APIView):
+    """Bosh sahifa (Dashboard) uchun bugungi/oylik moliyaviy ko'rsatkichlar —
+    faqat mavjud ma'lumotlardan (ManufacturedUnit'ning haqiqiy dona-tannarxi,
+    xuddi FinanceSummaryView'dagi kabi) hisoblanadi, qo'lda kiritiladigan
+    xarajat/nasiya kuzatuvi hali yo'q (kelajakda alohida qo'shilishi mumkin).
+    Faqat firma egasi ko'radi."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        from apps.inventory.models import ManufacturedUnit
+
+        company = user_company(request.user)
+        if company is None or not is_company_owner(request.user, company):
+            raise PermissionDenied("Faqat firma egasi bu ma'lumotlarni ko'radi")
+
+        now = timezone.localtime()
+        today = now.date()
+        month_start = today.replace(day=1)
+
+        units = ManufacturedUnit.objects.filter(is_deleted=False, product__company=company)
+        sold = units.filter(status=ManufacturedUnit.Status.SOLD)
+
+        sold_today = sold.filter(sold_at__date=today)
+        today_agg = sold_today.aggregate(revenue=Sum("sale_price"), count=Count("id"))
+
+        sold_month = sold.filter(sold_at__date__gte=month_start)
+        month_agg = sold_month.aggregate(
+            revenue=Sum("sale_price"),
+            material_cost=Sum("material_cost"),
+            labor_cost=Sum("labor_cost"),
+        )
+        month_revenue = month_agg["revenue"] or 0
+        month_material_cost = month_agg["material_cost"] or 0
+        month_labor_cost = month_agg["labor_cost"] or 0
+        month_net_profit = month_revenue - month_material_cost - month_labor_cost
+        month_margin_percent = round(month_net_profit / month_revenue * 100, 1) if month_revenue else 0
+
+        # Faqat tayyor (ishlab chiqarilgan, hali sotilmagan) mahsulotlar
+        # qiymati — xom ashyo zaxirasi bu yerga kirmaydi (alohida ko'rsatkich
+        # bo'lishi mumkin, hozircha "Mahsulotlar" nomiga mos toraytirilgan).
+        in_stock_value = units.filter(status=ManufacturedUnit.Status.IN_STOCK).aggregate(
+            material=Sum("material_cost"), labor=Sum("labor_cost")
+        )
+        inventory_value = (in_stock_value["material"] or 0) + (in_stock_value["labor"] or 0)
+
+        return Response({
+            "today_sales_count": today_agg["count"] or 0,
+            "today_revenue": today_agg["revenue"] or 0,
+            "month_revenue": month_revenue,
+            "month_material_cost": month_material_cost,
+            "month_net_profit": month_net_profit,
+            "month_margin_percent": month_margin_percent,
+            "inventory_value": inventory_value,
+        })

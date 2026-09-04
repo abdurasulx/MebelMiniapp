@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sofa, Palette, HardHat, Package, Target, Factory, ArrowRight, AlertTriangle, PackageX, Hammer } from "lucide-react";
+import {
+  Sofa, Palette, HardHat, Package, Target, Factory, ArrowRight, AlertTriangle, PackageX, Hammer,
+  ShoppingCart, Banknote, TrendingUp, Boxes, Percent, Warehouse,
+} from "lucide-react";
 import { useAuth } from "../../auth";
 import { api } from "../../api";
 import { ORDER_STATUS } from "../../orderStatus";
@@ -86,6 +89,7 @@ export default function FirmaDashboard() {
   const [orders, setOrders] = useState([]);
   const [leads, setLeads] = useState([]);
   const [lowStock, setLowStock] = useState([]);
+  const [metrics, setMetrics] = useState(null);
   const [error, setError] = useState("");
 
   const load = () =>
@@ -96,8 +100,9 @@ export default function FirmaDashboard() {
       api("/orders/"),
       api("/leads/"),
       api("/materials/low-stock/").catch(() => []),
+      api("/dashboard/metrics/").catch(() => null),
     ])
-      .then(([m, ps, es, os, ls, low]) => {
+      .then(([m, ps, es, os, ls, low, dm]) => {
         setMe(m);
         const mine = (ps.results || []).filter((p) => m.company && p.company === m.company.id);
         setProducts(mine);
@@ -105,6 +110,7 @@ export default function FirmaDashboard() {
         setOrders(os.results || []);
         setLeads(ls.results || []);
         setLowStock(low || []);
+        setMetrics(dm);
       })
       .catch((e) => setError(e.message));
 
@@ -156,6 +162,55 @@ export default function FirmaDashboard() {
           hint={`${leads.filter((l) => l.status === "new").length} yangi`}
         />
       </div>
+
+      {/* Moliyaviy ko'rsatkichlar — mavjud ManufacturedUnit (dona-tannarx)
+          ma'lumotidan hisoblanadi (qarang backend DashboardMetricsView),
+          qo'lda kiritiladigan xarajat/nasiya kuzatuvi hali yo'q. */}
+      {metrics && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <StatCard
+            tone={3}
+            icon={ShoppingCart}
+            label="Bugungi sotuvlar"
+            value={metrics.today_sales_count}
+            hint="Bugun sotilgan donalar"
+          />
+          <StatCard
+            tone={2}
+            icon={Banknote}
+            label="Bugungi daromad"
+            value={`${Number(metrics.today_revenue).toLocaleString()} so'm`}
+          />
+          <StatCard
+            tone={2}
+            icon={TrendingUp}
+            label="Oylik sof foyda"
+            value={`${Number(metrics.month_net_profit).toLocaleString()} so'm`}
+            hint="Narx − tannarx (shu oy)"
+          />
+          <StatCard
+            tone={1}
+            icon={Boxes}
+            label="Oylik xomashyo xarajati"
+            value={`${Number(metrics.month_material_cost).toLocaleString()} so'm`}
+            hint="COGS (shu oy)"
+          />
+          <StatCard
+            tone={2}
+            icon={Percent}
+            label="Oylik marja"
+            value={`${metrics.month_margin_percent}%`}
+            hint="Sof foyda / tushum"
+          />
+          <StatCard
+            tone={0}
+            icon={Warehouse}
+            label="Ombordagi mahsulotlar qiymati"
+            value={`${Number(metrics.inventory_value).toLocaleString()} so'm`}
+            hint="Hozirgi zaxira tannarxi"
+          />
+        </div>
+      )}
 
       {/* Ilovadan kelgan yangi buyurtmalar — darhol e'tibor talab qiladi.
           Faqat son ko'rsatiladi (ro'yxat emas) — tafsilotlar uchun
