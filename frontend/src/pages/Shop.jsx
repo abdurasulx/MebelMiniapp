@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Factory, Sofa, MapPin, Star, AtSign, Send, Link as LinkIcon, Globe } from "lucide-react";
+import { api } from "../api";
+import { useAuth } from "../auth";
+import { useLocale } from "../locale";
+import CompanyBadge from "../components/CompanyBadge";
 
 const SOCIAL_LINKS = [
   { key: "instagram_url", icon: AtSign, label: "Instagram" },
   { key: "telegram_url", icon: Send, label: "Telegram" },
   { key: "facebook_url", icon: LinkIcon, label: "Facebook" },
-  { key: "website_url", icon: Globe, label: "Veb-sayt" },
+  { key: "website_url", icon: Globe, labelKey: "shop_social_website" },
 ];
-import { api } from "../api";
-import { useAuth } from "../auth";
-import CompanyBadge from "../components/CompanyBadge";
 
 function StarRow({ count }) {
   return (
@@ -25,6 +26,7 @@ function StarRow({ count }) {
 export default function Shop() {
   const { slug } = useParams();
   const { user } = useAuth();
+  const { t } = useLocale();
   const [company, setCompany] = useState(null);
   const [products, setProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -52,7 +54,7 @@ export default function Shop() {
     setBusy(true);
     try {
       await api("/reviews/", { method: "POST", body: { company: company.id, rating, comment } });
-      setReviewMsg("Rahmat! Bahoyingiz saqlandi.");
+      setReviewMsg(t("shop_review_thanks"));
       setComment("");
       const [c, r] = await Promise.all([
         api(`/companies/${slug}/`),
@@ -76,7 +78,7 @@ export default function Shop() {
   if (!company)
     return (
       <div className="mx-auto max-w-6xl px-4 py-8" style={{ color: "var(--muted)" }}>
-        Yuklanmoqda…
+        {t("product_loading")}
       </div>
     );
 
@@ -117,20 +119,20 @@ export default function Shop() {
                   rel="noopener noreferrer"
                   className="ml-1 underline"
                 >
-                  Xaritada ko'rish
+                  {t("shop_view_on_map")}
                 </a>
               )}
             </p>
           )}
           {SOCIAL_LINKS.some(({ key }) => company[key]) && (
             <div className="mt-2 flex items-center gap-2">
-              {SOCIAL_LINKS.filter(({ key }) => company[key]).map(({ key, icon: Icon, label }) => (
+              {SOCIAL_LINKS.filter(({ key }) => company[key]).map(({ key, icon: Icon, label, labelKey }) => (
                 <a
                   key={key}
                   href={company[key]}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title={label}
+                  title={label || t(labelKey)}
                   className="flex h-8 w-8 items-center justify-center rounded-full transition hover:opacity-80"
                   style={{ background: "color-mix(in srgb, var(--brand-surface-text) 15%, transparent)" }}
                 >
@@ -142,9 +144,9 @@ export default function Shop() {
         </div>
       </div>
 
-      <h2 className="mb-4 text-lg font-semibold">Mahsulotlar</h2>
+      <h2 className="mb-4 text-lg font-semibold">{t("shop_products")}</h2>
       {products.length === 0 ? (
-        <p className="mb-8 text-sm" style={{ color: "var(--muted)" }}>Hozircha mahsulotlar yo'q.</p>
+        <p className="mb-8 text-sm" style={{ color: "var(--muted)" }}>{t("shop_no_products")}</p>
       ) : (
         <div className="mb-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((p) => (
@@ -173,15 +175,15 @@ export default function Shop() {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         <div>
-          <h2 className="mb-4 text-lg font-semibold">Mijoz baholari ({reviews.length})</h2>
+          <h2 className="mb-4 text-lg font-semibold">{t("shop_reviews_prefix")}{reviews.length}{t("shop_reviews_suffix")}</h2>
           {reviews.length === 0 ? (
-            <p className="text-sm" style={{ color: "var(--muted)" }}>Hali baho yo'q.</p>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>{t("shop_no_reviews")}</p>
           ) : (
             <div className="flex flex-col gap-3">
               {reviews.map((r) => (
                 <div key={r.id} className="card p-4">
                   <div className="mb-1 flex items-center justify-between">
-                    <span className="text-sm font-medium">{r.customer_name || "Mijoz"}</span>
+                    <span className="text-sm font-medium">{r.customer_name || t("shop_anonymous_customer")}</span>
                     <StarRow count={r.rating} />
                   </div>
                   {r.comment && <p className="text-sm" style={{ color: "var(--muted)" }}>{r.comment}</p>}
@@ -193,23 +195,23 @@ export default function Shop() {
 
         {user && company.can_review && (
           <div className="card h-fit p-6">
-            <h2 className="mb-3 text-lg font-semibold">Baho qoldirish</h2>
+            <h2 className="mb-3 text-lg font-semibold">{t("shop_leave_review")}</h2>
             <form onSubmit={submitReview} className="flex flex-col gap-3">
               <div>
-                <label className="label">Baho</label>
+                <label className="label">{t("shop_rating_label")}</label>
                 <select className="input" value={rating} onChange={(e) => setRating(Number(e.target.value))}>
                   {[5, 4, 3, 2, 1].map((n) => (
-                    <option key={n} value={n}>{n} yulduz</option>
+                    <option key={n} value={n}>{n}{t("shop_star_suffix")}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="label">Izoh (ixtiyoriy)</label>
+                <label className="label">{t("shop_comment_label")}</label>
                 <textarea className="input" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} />
               </div>
               {reviewMsg && <div className="text-sm" style={{ color: "var(--secondary)" }}>{reviewMsg}</div>}
               <button className="btn btn-brand" disabled={busy} type="submit">
-                {busy ? "Yuborilmoqda…" : "Baho qoldirish"}
+                {busy ? t("shop_review_submitting") : t("shop_leave_review")}
               </button>
             </form>
           </div>
@@ -217,7 +219,7 @@ export default function Shop() {
         {user && !company.can_review && (
           <div className="card h-fit p-6">
             <p className="text-xs" style={{ color: "var(--muted)" }}>
-              Faqat shu firmadan yakunlangan buyurtmangiz bo'lsa baho qoldira olasiz.
+              {t("shop_review_locked")}
             </p>
           </div>
         )}
