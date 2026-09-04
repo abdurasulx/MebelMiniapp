@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sofa, Palette, HardHat, Package, Target, Factory, ArrowRight, AlertTriangle, CheckCircle2, PackageX, Hammer } from "lucide-react";
+import { Sofa, Palette, HardHat, Package, Target, Factory, ArrowRight, AlertTriangle, PackageX, Hammer } from "lucide-react";
 import { useAuth } from "../../auth";
 import { api } from "../../api";
-import { ORDER_STATUS, StatusBadge } from "../../orderStatus";
+import { ORDER_STATUS } from "../../orderStatus";
 
 /// Status bo'yicha rangli sonlar — masalan "5 Kutilmoqda · 3 Qabul qilindi".
 function OrderStatusCounts({ orders }) {
@@ -87,7 +87,6 @@ export default function FirmaDashboard() {
   const [leads, setLeads] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [error, setError] = useState("");
-  const [busyOrderId, setBusyOrderId] = useState(null);
 
   const load = () =>
     Promise.all([
@@ -115,18 +114,6 @@ export default function FirmaDashboard() {
   }, [user?.role]);
 
   if (user?.role === "employee") return <EmployeeDashboard />;
-
-  const acceptOrder = async (order) => {
-    setBusyOrderId(order.id);
-    try {
-      await api(`/orders/${order.id}/set_status/`, { method: "POST", body: { status: "accepted" } });
-      load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusyOrderId(null);
-    }
-  };
 
   if (error) return <div className="error">{error}</div>;
   if (!me) return <p style={{ color: "var(--muted)" }}>Yuklanmoqda…</p>;
@@ -170,42 +157,18 @@ export default function FirmaDashboard() {
         />
       </div>
 
-      {/* Ilovadan kelgan yangi buyurtmalar — darhol e'tibor talab qiladi */}
-      <div className="card p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="inline-flex items-center gap-2 text-base font-semibold">
-            <Package size={17} /> Yangi buyurtmalar (ilovadan)
-            {newOrders.length > 0 && <span className="badge" style={{ background: "#3498db22", color: "#3498db" }}>{newOrders.length}</span>}
-          </h2>
-          <Link to="/orders" className="inline-flex items-center gap-0.5 text-sm" style={{ color: "var(--secondary)" }}>
-            Hammasi <ArrowRight size={14} />
-          </Link>
-        </div>
-        {newOrders.length === 0 ? (
-          <p className="text-sm" style={{ color: "var(--muted)" }}>Hozircha kutilayotgan buyurtma yo'q.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {newOrders.slice(0, 5).map((o) => (
-              <div key={o.id} className="flex flex-wrap items-center gap-3 rounded-xl p-3" style={{ border: "1px solid var(--border)" }}>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium">{o.customer_email} · #{o.id.slice(0, 8)}</div>
-                  <div className="text-xs" style={{ color: "var(--muted)" }}>
-                    {o.items?.map((i) => `${i.product_name} ×${i.quantity}`).join(", ")} · {Number(o.total_price).toLocaleString()} so'm
-                  </div>
-                </div>
-                <StatusBadge status={o.status} />
-                <button
-                  className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
-                  disabled={busyOrderId === o.id}
-                  onClick={() => acceptOrder(o)}
-                >
-                  <CheckCircle2 size={12} /> Qabul qilish
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Ilovadan kelgan yangi buyurtmalar — darhol e'tibor talab qiladi.
+          Faqat son ko'rsatiladi (ro'yxat emas) — tafsilotlar uchun
+          "Hammasi" havolasi /orders'ga o'tkazadi. */}
+      <Link to="/orders" className="card flex items-center justify-between p-4 transition hover:bg-black/5">
+        <h2 className="inline-flex items-center gap-2 text-base font-semibold">
+          <Package size={17} /> Yangi buyurtmalar (ilovadan)
+          {newOrders.length > 0 && <span className="badge" style={{ background: "#3498db22", color: "#3498db" }}>{newOrders.length}</span>}
+        </h2>
+        <span className="inline-flex items-center gap-0.5 text-sm" style={{ color: "var(--secondary)" }}>
+          Hammasi <ArrowRight size={14} />
+        </span>
+      </Link>
 
       {/* Kam qolgan xom ashyo — ta'minot ogohlantirishi */}
       {lowStock.length > 0 && (
