@@ -882,6 +882,72 @@ class MaterialRemnantItem {
       );
 }
 
+/// Usta mijoz uyiga borib joy o'lchashi — CUSTOM_PROJECT buyurtmalarning
+/// birinchi bosqichi (qarang backend apps.custom_orders.SiteSurvey).
+class SiteSurveyMedia {
+  final String id;
+  final String? fileUrl;
+  final String mediaType;
+  final String caption;
+
+  SiteSurveyMedia({required this.id, this.fileUrl, required this.mediaType, required this.caption});
+
+  factory SiteSurveyMedia.fromJson(Map<String, dynamic> j) => SiteSurveyMedia(
+        id: j['id'],
+        fileUrl: j['file_url'],
+        mediaType: j['media_type'] ?? 'photo',
+        caption: j['caption'] ?? '',
+      );
+}
+
+class SiteSurvey {
+  final String id;
+  final String company;
+  final String companySlug;
+  final String? customerName;
+  final String assignedMasterName;
+  final String address;
+  final double? latitude;
+  final double? longitude;
+  final String notes;
+  final String status;
+  final String statusDisplay;
+  final String? order;
+  final List<SiteSurveyMedia> media;
+
+  SiteSurvey({
+    required this.id,
+    required this.company,
+    required this.companySlug,
+    this.customerName,
+    required this.assignedMasterName,
+    required this.address,
+    this.latitude,
+    this.longitude,
+    required this.notes,
+    required this.status,
+    required this.statusDisplay,
+    this.order,
+    required this.media,
+  });
+
+  factory SiteSurvey.fromJson(Map<String, dynamic> j) => SiteSurvey(
+        id: j['id'],
+        company: j['company'] ?? '',
+        companySlug: j['company_slug'] ?? '',
+        customerName: j['customer_name'],
+        assignedMasterName: j['assigned_master_name'] ?? '',
+        address: j['address'] ?? '',
+        latitude: j['latitude'] != null ? double.tryParse(j['latitude'].toString()) : null,
+        longitude: j['longitude'] != null ? double.tryParse(j['longitude'].toString()) : null,
+        notes: j['notes'] ?? '',
+        status: j['status'] ?? '',
+        statusDisplay: j['status_display'] ?? '',
+        order: j['order'],
+        media: ((j['media'] as List?) ?? []).map((m) => SiteSurveyMedia.fromJson(m)).toList(),
+      );
+}
+
 /// "1500000.00" -> "1 500 000"
 String formatSom(String raw) {
   final value = double.tryParse(raw);

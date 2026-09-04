@@ -6,6 +6,7 @@ import '../../models.dart';
 import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
 import 'attendance_screen.dart';
+import 'site_surveys_screen.dart';
 import 'warehouses_screen.dart';
 
 /// Usta ish rejimi: faqat o'z firmasining mahsulotlari (va ularning 3D
@@ -69,6 +70,13 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
             tooltip: 'Davomat',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const AttendanceScreen()),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.location_on_outlined),
+            tooltip: 'Joy o\'rganish',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const SiteSurveysScreen()),
             ),
           ),
           IconButton(
