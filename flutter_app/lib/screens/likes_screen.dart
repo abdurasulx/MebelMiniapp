@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../api_client.dart';
 import '../auth_store.dart';
 import '../likes_store.dart';
 import '../locale_store.dart';
-import '../models.dart';
 import '../theme.dart';
 import '../widgets/product_card.dart';
 
 /// "Sevimlilar" — marketplace'lardagi kabi, serverda saqlangan sevimli
 /// mahsulotlar ro'yxati (iOS'dagi `LikesView` bilan bir xil).
+///
+/// Bu ekran endi o'zining alohida ro'yxatini saqlamaydi — to'g'ridan-to'g'ri
+/// `LikesStore.likedProducts`dan render qiladi. Boshqa ekranda (Bosh sahifa,
+/// mahsulot sahifasi) LIKE/UNLIKE bosilganda `LikesStore.toggle()` shu
+/// ro'yxatni darhol yangilaydi — Sevimlilar tabiga kirilganda serverdan
+/// qayta so'ralmaydi (faqat birinchi marta, qarang `loadIfNeeded`), shuning
+/// uchun hech qanday o'zgarish bo'lmasa tab qayta ochilganda "Loading..."
+/// ko'rinmaydi.
 class LikesScreen extends StatefulWidget {
-  // `RootScreen` bu tabni `IndexedStack` ichida saqlaydi (boshqa tablarga
-  // o'tganda ham holati/scroll o'rni yo'qolmasin deb) — lekin shu sabab bu
-  // widget FAQAT bir marta (ilova ochilganda) quriladi, keyin faqat
-  // ko'rsatilib/yashirilib turadi. Shuning uchun boshqa ekranda (Katalog,
-  // Bosh sahifa) yoqtirilgan/yoqtirilmagan mahsulot shu tab qayta faol
-  // bo'lganda (`visible` `false`dan `true`ga o'tganda, qarang
-  // didUpdateWidget) qayta yuklanmasa, ro'yxat abadiy eski holatda
-  // qolib ketardi (aynan shu bag kuzatilgan edi).
   final bool visible;
   const LikesScreen({super.key, this.visible = true});
   @override
@@ -26,53 +24,29 @@ class LikesScreen extends StatefulWidget {
 }
 
 class _LikesScreenState extends State<LikesScreen> {
-  List<Like> _items = [];
-  bool _loading = true;
-  String? _error;
+  bool _loading = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (context.read<AuthStore>().isAuthenticated) _load();
+    if (context.read<AuthStore>().isAuthenticated) _loadIfNeeded();
   }
 
-  @override
-  void didUpdateWidget(covariant LikesScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!oldWidget.visible &&
-        widget.visible &&
-        context.read<AuthStore>().isAuthenticated) {
-      _load();
-    }
+  Future<void> _loadIfNeeded() async {
+    setState(() => _loading = true);
+    await context.read<LikesStore>().loadIfNeeded();
+    if (mounted) setState(() => _loading = false);
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final page = await ApiClient.instance.get(
-        '/likes/',
-        (j) => Paginated<Like>.fromJson(j, Like.fromJson),
-        auth: true,
-      );
-      setState(() => _items = page.results);
-      if (mounted)
-        context.read<LikesStore>().sync(
-          page.results.map((l) => l.productDetail).toList(),
-        );
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      setState(() => _loading = false);
-    }
+  Future<void> _reload() async {
+    await context.read<LikesStore>().reload();
   }
 
   @override
   Widget build(BuildContext context) {
     final isAuthenticated = context.watch<AuthStore>().isAuthenticated;
     final loc = context.watch<LocaleStore>();
+    final products = context.watch<LikesStore>().likedProducts;
     return Scaffold(
       appBar: AppBar(title: Text(loc.t('likes_title'))),
       body: !isAuthenticated
@@ -82,22 +56,18 @@ class _LikesScreenState extends State<LikesScreen> {
               message:
                   'Yoqqan mahsulotlaringizni saqlash uchun Profil bo\'limidan tizimga kiring.',
             )
-          : _loading
+          : _loading && products.isEmpty
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.deep),
             )
-          : _error != null
-          ? Center(
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
-            )
-          : _items.isEmpty
+          : products.isEmpty
           ? _emptyState(
               icon: Icons.favorite_border_rounded,
               title: 'Hali sevimli mahsulot yo\'q',
               message: 'Katalogdan yoqqan mahsulotni yurakcha bilan belgilang.',
             )
           : RefreshIndicator(
-              onRefresh: _load,
+              onRefresh: _reload,
               child: GridView.builder(
                 padding: const EdgeInsets.all(16),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -106,14 +76,8 @@ class _LikesScreenState extends State<LikesScreen> {
                   crossAxisSpacing: 14,
                   childAspectRatio: 0.62,
                 ),
-                itemCount: _items.length,
-                itemBuilder: (context, i) {
-                  final like = _items[i];
-                  return ProductCard(
-                    product: like.productDetail,
-                    onUnliked: () => setState(() => _items.removeAt(i)),
-                  );
-                },
+                itemCount: products.length,
+                itemBuilder: (context, i) => ProductCard(product: products[i]),
               ),
             ),
     );

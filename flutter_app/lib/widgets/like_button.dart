@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../auth_store.dart';
 import '../likes_store.dart';
+import '../models.dart';
 import '../screens/auth_screen.dart';
 
 /// Yurakcha tugmasi — bosilganda serverga saqlanadi (iOS'dagi `LikeButton`
@@ -10,8 +11,16 @@ import '../screens/auth_screen.dart';
 /// ko'rinar edi, shu sabab foydalanuvchi uni umuman topa olmagan edi).
 class LikeButton extends StatelessWidget {
   final String productId;
+  // Berilsa, LIKE qilinganda `LikesStore.likedProducts`ga darhol qo'shiladi
+  // (server so'rovisiz Sevimlilar ekranida ko'rinishi uchun).
+  final Product? product;
   final void Function(bool liked)? onToggled;
-  const LikeButton({super.key, required this.productId, this.onToggled});
+  const LikeButton({
+    super.key,
+    required this.productId,
+    this.product,
+    this.onToggled,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +35,7 @@ class LikeButton extends StatelessWidget {
           ).push(MaterialPageRoute(builder: (_) => const AuthScreen()));
           return;
         }
-        await context.read<LikesStore>().toggle(productId);
+        await context.read<LikesStore>().toggle(productId, product: product);
         onToggled?.call(context.read<LikesStore>().isLiked(productId));
       },
       child: Container(

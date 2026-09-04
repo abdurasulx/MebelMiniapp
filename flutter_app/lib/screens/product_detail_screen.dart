@@ -349,7 +349,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           right: 8,
           child: Row(
             children: [
-              LikeButton(productId: p.id),
+              LikeButton(productId: p.id, product: p),
               const SizedBox(width: 8),
               _circleButton(
                 icon: Icons.ios_share_rounded,

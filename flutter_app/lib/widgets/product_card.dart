@@ -8,8 +8,7 @@ import 'like_button.dart';
 /// (iOS'dagi `ShopProductCard` bilan bir xil dizayn).
 class ProductCard extends StatelessWidget {
   final Product product;
-  final VoidCallback? onUnliked;
-  const ProductCard({super.key, required this.product, this.onUnliked});
+  const ProductCard({super.key, required this.product});
 
   @override
   Widget build(BuildContext context) {
@@ -96,12 +95,7 @@ class ProductCard extends StatelessWidget {
                             ),
                           ),
                         const Spacer(),
-                        LikeButton(
-                          productId: product.id,
-                          onToggled: (liked) {
-                            if (!liked) onUnliked?.call();
-                          },
-                        ),
+                        LikeButton(productId: product.id, product: product),
                       ],
                     ),
                   ),
