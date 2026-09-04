@@ -167,8 +167,9 @@ export default function FirmaDashboard() {
           ma'lumotidan hisoblanadi (qarang backend DashboardMetricsView),
           qo'lda kiritiladigan xarajat/nasiya kuzatuvi hali yo'q. */}
       {metrics && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
           <StatCard
+            compact
             tone={3}
             icon={ShoppingCart}
             label="Bugungi sotuvlar"
@@ -176,12 +177,14 @@ export default function FirmaDashboard() {
             hint="Bugun sotilgan donalar"
           />
           <StatCard
+            compact
             tone={2}
             icon={Banknote}
             label="Bugungi daromad"
             value={`${Number(metrics.today_revenue).toLocaleString()} so'm`}
           />
           <StatCard
+            compact
             tone={2}
             icon={TrendingUp}
             label="Oylik sof foyda"
@@ -189,6 +192,7 @@ export default function FirmaDashboard() {
             hint="Narx − tannarx (shu oy)"
           />
           <StatCard
+            compact
             tone={1}
             icon={Boxes}
             label="Oylik xomashyo xarajati"
@@ -196,6 +200,7 @@ export default function FirmaDashboard() {
             hint="COGS (shu oy)"
           />
           <StatCard
+            compact
             tone={2}
             icon={Percent}
             label="Oylik marja"
@@ -203,6 +208,7 @@ export default function FirmaDashboard() {
             hint="Sof foyda / tushum"
           />
           <StatCard
+            compact
             tone={0}
             icon={Warehouse}
             label="Ombordagi mahsulotlar qiymati"
