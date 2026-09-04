@@ -62,6 +62,12 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     // ishlagan soatiga bog'liq emas (backend ham mustaqil tekshiradi,
     // qarang apps/attendance/views.py AttendanceRecordViewSet._own_employee).
     final isHourly = user?.payType == 'hourly';
+    // "Joy o'rganish" (site survey) faqat usta uchun mantiqiy — backend
+    // SiteSurvey.assigned_master orqali faqat shu ustaga tayinlangan
+    // joylarni ko'rsatadi (qarang apps/custom_orders/views.py
+    // SiteSurveyViewSet.get_queryset), boshqa kasblarga (sotuvchi,
+    // menejer va h.k.) hech qachon survey tayinlanmaydi.
+    final isMaster = user?.positions.contains('usta') ?? false;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Usta paneli'),
@@ -79,13 +85,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                 MaterialPageRoute(builder: (_) => const AttendanceScreen()),
               ),
             ),
-          IconButton(
-            icon: const Icon(Icons.location_on_outlined),
-            tooltip: 'Joy o\'rganish',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SiteSurveysScreen()),
+          if (isMaster)
+            IconButton(
+              icon: const Icon(Icons.location_on_outlined),
+              tooltip: 'Joy o\'rganish',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SiteSurveysScreen()),
+              ),
             ),
-          ),
           IconButton(
             icon: const Icon(Icons.warehouse_outlined),
             tooltip: 'Omborlar',

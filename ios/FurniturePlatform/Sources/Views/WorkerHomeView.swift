@@ -30,9 +30,15 @@ struct WorkerHomeView: View {
                         }
                     }
                 }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: SiteSurveysView()) {
-                        Image(systemName: "location.fill")
+                // "Joy o'rganish" (site survey) faqat usta uchun mantiqiy —
+                // backend SiteSurvey.assigned_master orqali faqat shu ustaga
+                // tayinlangan joylarni ko'rsatadi (boshqa kasblarga hech
+                // qachon survey tayinlanmaydi).
+                if auth.user?.positions?.contains("usta") == true {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        NavigationLink(destination: SiteSurveysView()) {
+                            Image(systemName: "location.fill")
+                        }
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
