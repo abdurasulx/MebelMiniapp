@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth";
+import { useLocale } from "./locale";
 import PortalLayout from "./layouts/PortalLayout";
 import { BRAND_NAME, PORTAL, portalURLFor } from "./portal";
 import { getActivePosition, setActivePosition } from "./positions";
@@ -193,6 +194,7 @@ function Soon({ label }) {
 function MarketLayout({ children }) {
   const { user, logout } = useAuth();
   const { dark, toggle } = useTheme();
+  const { t } = useLocale();
   const [count, setCount] = useState(cartCount(getCart()));
 
   useEffect(() => {
@@ -212,21 +214,21 @@ function MarketLayout({ children }) {
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <NavLink to="/" end className={({ isActive }) => `top-link ${isActive ? "active" : ""}`}>
-            Katalog
+            {t("nav_catalog")}
           </NavLink>
           {user && (
             <>
               <NavLink to="/liked" className={({ isActive }) => `top-link flex items-center gap-1.5 ${isActive ? "active" : ""}`}>
-                <Heart size={16} /> Sevimlilar
+                <Heart size={16} /> {t("nav_likes")}
               </NavLink>
               <NavLink to="/projects" className={({ isActive }) => `top-link flex items-center gap-1.5 ${isActive ? "active" : ""}`}>
-                <FolderKanban size={16} /> Loyihalarim
+                <FolderKanban size={16} /> {t("nav_projects")}
               </NavLink>
               <NavLink to="/orders" className={({ isActive }) => `top-link ${isActive ? "active" : ""}`}>
-                Buyurtmalarim
+                {t("nav_orders")}
               </NavLink>
               <NavLink to="/profile" className={({ isActive }) => `top-link flex items-center gap-1.5 ${isActive ? "active" : ""}`}>
-                <UserCircle size={16} /> Profil
+                <UserCircle size={16} /> {t("nav_profile")}
               </NavLink>
             </>
           )}
@@ -255,7 +257,7 @@ function MarketLayout({ children }) {
           </div>
           {user ? (
             <button onClick={logout} className="rounded-lg px-3 py-1.5 transition hover:bg-black/10">
-              Chiqish
+              {t("common_logout")}
             </button>
           ) : (
             <Link
@@ -263,7 +265,7 @@ function MarketLayout({ children }) {
               className="ml-1 rounded-lg px-3 py-1.5 font-medium transition"
               style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
             >
-              Kirish
+              {t("common_login")}
             </Link>
           )}
           <ThemeSwitch dark={dark} onToggle={toggle} surface />

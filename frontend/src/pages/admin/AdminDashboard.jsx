@@ -23,11 +23,11 @@ export default function AdminDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard tone={0} icon={Users} label="Foydalanuvchilar" value={stats.users} hint={`${stats.customers} mijoz`} />
-        <StatCard tone={1} icon={Factory} label="Kompaniyalar" value={stats.companies} hint={`${stats.active_companies} faol`} />
-        <StatCard tone={2} icon={Sofa} label="Mahsulotlar" value={stats.products} hint={`${stats.published_products} sotuvda`} />
-        <StatCard tone={3} icon={Package} label="Buyurtmalar" value={stats.orders} hint={`${stats.new_orders} kutilmoqda`} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+        <StatCard compact tone={0} icon={Users} label="Foydalanuvchilar" value={stats.users} hint={`${stats.customers} mijoz`} />
+        <StatCard compact tone={1} icon={Factory} label="Kompaniyalar" value={stats.companies} hint={`${stats.active_companies} faol`} />
+        <StatCard compact tone={2} icon={Sofa} label="Mahsulotlar" value={stats.products} hint={`${stats.published_products} sotuvda`} />
+        <StatCard compact tone={3} icon={Package} label="Buyurtmalar" value={stats.orders} hint={`${stats.new_orders} kutilmoqda`} />
       </div>
 
       <div className="card p-5">

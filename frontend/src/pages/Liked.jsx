@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, Sofa } from "lucide-react";
 import { api } from "../api";
+import { useLocale } from "../locale";
 import PriceTag from "../components/PriceTag";
 
 export default function Liked() {
+  const { t } = useLocale();
   const [likes, setLikes] = useState([]);
   const [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -31,7 +33,7 @@ export default function Liked() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold">
-        <Heart size={22} fill="currentColor" style={{ color: "var(--danger)" }} /> Sevimlilar
+        <Heart size={22} fill="currentColor" style={{ color: "var(--danger)" }} /> {t("likes_title")}
       </h1>
       {error && <div className="error mb-4">{error}</div>}
       {loaded && likes.length === 0 && (

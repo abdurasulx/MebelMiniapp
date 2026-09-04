@@ -30,8 +30,9 @@ export default function AdminFinance() {
           : "Kompaniyangizning moliyaviy holati — yakunlangan buyurtmalar, ishlab chiqarish tannarxi va ish haqi asosida."}
       </p>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
         <StatCard
+          compact
           tone={0}
           icon={TrendingUp}
           label="Daromad (yakunlangan)"
@@ -39,6 +40,7 @@ export default function AdminFinance() {
           hint={`${data.completed_orders_count}/${data.orders_count} buyurtma`}
         />
         <StatCard
+          compact
           tone={1}
           icon={Wallet}
           label="Ishlab chiqarish foydasi"
@@ -46,6 +48,7 @@ export default function AdminFinance() {
           hint={`Tannarx: ${som(data.material_cost_total + data.labor_cost_total)}`}
         />
         <StatCard
+          compact
           tone={2}
           icon={HandCoins}
           label="Ish haqi fondi"
@@ -53,6 +56,7 @@ export default function AdminFinance() {
           hint={data.payroll_unpaid > 0 ? `${som(data.payroll_unpaid)} to'lanmagan` : "Hammasi to'langan"}
         />
         <StatCard
+          compact
           tone={data.net_profit >= 0 ? 2 : 3}
           icon={PiggyBank}
           label="Sof foyda"

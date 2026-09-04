@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../likes_store.dart';
+import '../locale_store.dart';
 import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
@@ -138,6 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _pickViloyat() async {
     final location = context.read<LocationStore>();
+    final loc = context.read<LocaleStore>();
     final choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -146,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
           shrinkWrap: true,
           children: [
             ListTile(
-              title: const Text('Barchasi'),
+              title: Text(loc.t('home_all')),
               trailing: location.viloyat == null && location.lat == null
                   ? const Icon(Icons.check, color: AppColors.deep)
                   : null,
@@ -154,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.my_location_rounded),
-              title: const Text('GPS orqali aniqlash'),
+              title: Text(loc.t('home_gps_detect')),
               onTap: () => Navigator.pop(ctx, '__gps__'),
             ),
             for (final v in viloyatlar)
@@ -181,6 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _pickAndSearchByImage() async {
+    final loc = context.read<LocaleStore>();
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
@@ -190,12 +193,12 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_camera_rounded),
-              title: const Text('Kamera'),
+              title: Text(loc.t('home_camera')),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Galereya'),
+              title: Text(loc.t('home_gallery')),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
           ],
@@ -252,6 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final location = context.watch<LocationStore>();
+    final loc = context.watch<LocaleStore>();
 
     return Scaffold(
       body: SafeArea(
@@ -260,8 +264,8 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListView(
             padding: const EdgeInsets.only(bottom: 24, top: 8),
             children: [
-              _searchBar(),
-              _filterChips(location),
+              _searchBar(loc),
+              _filterChips(location, loc),
               if (_error != null && !OfflineView.isNetworkError(_error))
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -279,16 +283,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               else ...[
                 if (!_isFiltering && _categories.isNotEmpty) ...[
-                  _sectionHeader('Kolleksiyalar', 'Har xona uchun'),
+                  _sectionHeader(loc.t('home_collections'), loc.t('home_collections_subtitle')),
                   _collectionsRow(),
                   const SizedBox(height: 24),
                 ],
                 if (!_isFiltering && _products.isNotEmpty) ...[
-                  _sectionHeader('Ommabop mahsulotlar', 'Eng ko\'p tanlangan'),
+                  _sectionHeader(loc.t('home_featured'), loc.t('home_featured_subtitle')),
                   _featuredRow(),
                   const SizedBox(height: 24),
                 ],
-                _productsSection(),
+                _productsSection(loc),
               ],
             ],
           ),
@@ -297,7 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _searchBar() {
+  Widget _searchBar(LocaleStore loc) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Row(
@@ -313,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 controller: _searchCtrl,
                 decoration: InputDecoration(
                   border: InputBorder.none,
-                  hintText: 'Mahsulot yoki firma qidirish…',
+                  hintText: loc.t('catalog_search_hint'),
                   prefixIcon: const Icon(Icons.search, color: Color(0xFF8A7357)),
                   suffixIcon: _query.isNotEmpty
                       ? IconButton(
@@ -345,7 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _filterChips(LocationStore location) {
+  Widget _filterChips(LocationStore location, LocaleStore loc) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: SizedBox(
@@ -372,7 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: _topOnly ? AppColors.primary : AppColors.deep,
               ),
               label: Text(
-                'Top tovarlar',
+                loc.t('home_top_products'),
                 style: TextStyle(color: _topOnly ? AppColors.primary : AppColors.deep),
               ),
               selected: _topOnly,
@@ -384,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _productsSection() {
+  Widget _productsSection(LocaleStore loc) {
     final items = _imageResults ?? _filtered;
 
     if (_imageSearching) {
@@ -400,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(_imageError!, style: const TextStyle(color: Colors.red)),
-            TextButton(onPressed: _clearImageSearch, child: const Text('Yopish')),
+            TextButton(onPressed: _clearImageSearch, child: Text(loc.t('common_close'))),
           ],
         ),
       );
@@ -419,13 +423,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 IconButton(
                   icon: const Icon(Icons.arrow_back_rounded, color: AppColors.deep),
                   onPressed: _backToHome,
-                  tooltip: 'Bosh sahifaga',
+                  tooltip: loc.t('home_back_tooltip'),
                 ),
                 Expanded(
                   child: Text(
                     isImageSearch
-                        ? '${items.length} ta o\'xshash mahsulot topildi'
-                        : '${items.length} ta natija',
+                        ? '${items.length}${loc.t('home_similar_suffix')}'
+                        : '${items.length}${loc.t('home_results_suffix')}',
                     style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
                   ),
                 ),
@@ -433,11 +437,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           )
         else
-          _sectionHeader('Barcha mahsulotlar', '${items.length} ta mahsulot'),
+          _sectionHeader(loc.t('home_all_products'), '${items.length}${loc.t('home_products_suffix')}'),
         if (items.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('Hech narsa topilmadi.', style: TextStyle(color: Color(0xFF8A7357))),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(loc.t('home_nothing_found'), style: const TextStyle(color: Color(0xFF8A7357))),
           )
         else
           Padding(

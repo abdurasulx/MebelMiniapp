@@ -3,11 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { ShoppingBasket, Sofa, X, Package } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import { useLocale } from "../locale";
 import { cartTotal, clearCart, getCart, itemSubtotal, removeFromCart, setQty } from "../cart";
 import PhoneVerifyModal from "../components/PhoneVerifyModal";
 
 export default function Cart() {
   const { user } = useAuth();
+  const { t } = useLocale();
   const nav = useNavigate();
   const [items, setItems] = useState(getCart());
   const [error, setError] = useState("");
@@ -107,17 +109,17 @@ export default function Cart() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <ShoppingBasket className="mx-auto mb-2" size={40} style={{ color: "var(--muted)" }} />
-        <h1 className="mb-2 text-xl font-bold">Savat bo'sh</h1>
+        <h1 className="mb-2 text-xl font-bold">{t("cart_empty_title")}</h1>
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
-          Katalogdan mahsulot tanlang.
+          {t("cart_empty_subtitle")}
         </p>
-        <Link to="/" className="btn btn-brand">Katalogga o'tish</Link>
+        <Link to="/" className="btn btn-brand">{t("nav_catalog")}</Link>
       </div>
     );
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold">Savat</h1>
+      <h1 className="mb-6 text-2xl font-bold">{t("cart_title")}</h1>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-3 lg:col-span-2">
           {items.map((i, idx) => (
@@ -169,14 +171,14 @@ export default function Cart() {
         </div>
 
         <form className="card flex h-fit flex-col gap-4 p-6" onSubmit={checkout}>
-          <h2 className="text-base font-semibold">Buyurtma berish</h2>
+          <h2 className="text-base font-semibold">{t("cart_submit")}</h2>
           <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: "var(--border)" }}>
-            <span className="text-sm" style={{ color: "var(--muted)" }}>Jami</span>
+            <span className="text-sm" style={{ color: "var(--muted)" }}>{t("cart_total")}</span>
             <span className="text-xl font-bold">{cartTotal(items).toLocaleString()} so'm</span>
           </div>
           {error && <div className="error">{error}</div>}
           <button className="btn btn-brand inline-flex items-center justify-center gap-1.5" type="submit" disabled={busy}>
-            {busy ? "Yuborilmoqda…" : user ? <><Package size={15} /> Buyurtma berish</> : "Kirish va buyurtma berish"}
+            {busy ? t("cart_submitting") : user ? <><Package size={15} /> {t("cart_submit")}</> : t("common_login")}
           </button>
         </form>
       </div>

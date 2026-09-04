@@ -52,9 +52,8 @@ class _LikesScreenState extends State<LikesScreen> {
       body: !isAuthenticated
           ? _emptyState(
               icon: Icons.favorite_border_rounded,
-              title: 'Sevimlilar uchun kiring',
-              message:
-                  'Yoqqan mahsulotlaringizni saqlash uchun Profil bo\'limidan tizimga kiring.',
+              title: loc.t('likes_login_title'),
+              message: loc.t('likes_login_message'),
             )
           : _loading && products.isEmpty
           ? const Center(
@@ -63,8 +62,8 @@ class _LikesScreenState extends State<LikesScreen> {
           : products.isEmpty
           ? _emptyState(
               icon: Icons.favorite_border_rounded,
-              title: 'Hali sevimli mahsulot yo\'q',
-              message: 'Katalogdan yoqqan mahsulotni yurakcha bilan belgilang.',
+              title: loc.t('likes_empty_title'),
+              message: loc.t('likes_empty_message'),
             )
           : RefreshIndicator(
               onRefresh: _reload,

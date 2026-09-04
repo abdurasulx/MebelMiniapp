@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { useAuth } from "../auth";
+import { useLocale } from "../locale";
+import { SUPPORTED_LOCALES } from "../l10n/strings";
 import { api } from "../api";
 import PhoneVerifyModal from "../components/PhoneVerifyModal";
 
@@ -147,6 +149,7 @@ function TelegramLinkRow({ hasTelegram, onLinked }) {
 
 export default function Profile() {
   const { user, refreshUser } = useAuth();
+  const { code, setLocale, t } = useLocale();
   const [notice, setNotice] = useState("");
   const [noticeError, setNoticeError] = useState("");
   const [showPhoneVerify, setShowPhoneVerify] = useState(false);
@@ -177,7 +180,7 @@ export default function Profile() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold">Profil</h1>
+      <h1 className="mb-6 text-2xl font-bold">{t("profile_title")}</h1>
 
       {notice && <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">{notice}</div>}
       {noticeError && <div className="error mb-4">{noticeError}</div>}
@@ -206,6 +209,26 @@ export default function Profile() {
           <div className="truncate text-xs" style={{ color: "var(--muted)" }}>
             {user.phone || user.email}
           </div>
+        </div>
+      </div>
+
+      <div className="card mb-4 flex flex-col gap-3 p-5">
+        <h2 className="text-base font-semibold">{t("profile_language")}</h2>
+        <div className="flex flex-wrap gap-2">
+          {SUPPORTED_LOCALES.map((l) => (
+            <button
+              key={l.code}
+              onClick={() => setLocale(l.code)}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition"
+              style={
+                code === l.code
+                  ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
+                  : { border: "1px solid var(--border)", color: "var(--text)" }
+              }
+            >
+              <span>{l.flag}</span> {l.nativeName}
+            </button>
+          ))}
         </div>
       </div>
 

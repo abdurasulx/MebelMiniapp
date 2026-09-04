@@ -59,8 +59,9 @@ function EmployeeDashboard() {
           {user?.company?.name}
         </p>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <StatCard
+          compact
           tone={3}
           icon={Package}
           label="Faol buyurtmalarim"
@@ -142,11 +143,12 @@ export default function FirmaDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard tone={0} icon={Sofa} label="Mahsulotlar" value={products.length} hint={`${published} sotuvda`} />
-        <StatCard tone={1} icon={Palette} label="Variantlar" value={variants} />
-        <StatCard tone={2} icon={HardHat} label="Xodimlar" value={employees.filter((e) => e.is_active).length} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        <StatCard compact tone={0} icon={Sofa} label="Mahsulotlar" value={products.length} hint={`${published} sotuvda`} />
+        <StatCard compact tone={1} icon={Palette} label="Variantlar" value={variants} />
+        <StatCard compact tone={2} icon={HardHat} label="Xodimlar" value={employees.filter((e) => e.is_active).length} />
         <StatCard
+          compact
           tone={3}
           icon={Package}
           label="Buyurtmalar"
@@ -155,6 +157,7 @@ export default function FirmaDashboard() {
           hint={<OrderStatusCounts orders={orders} />}
         />
         <StatCard
+          compact
           tone={0}
           icon={Target}
           label="Leadlar"

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Box, Camera, Heart, Search, Sofa, ArrowRight, X } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import { useLocale } from "../locale";
 import PriceTag from "../components/PriceTag";
 import { PORTAL, portalForUser, portalURLFor } from "../portal";
 
@@ -26,6 +27,7 @@ function attributeSummary(p) {
 
 export default function Catalog() {
   const { user } = useAuth();
+  const { t } = useLocale();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [cat, setCat] = useState("");
@@ -194,7 +196,7 @@ export default function Catalog() {
             type="text"
             value={search}
             onChange={(e) => { setSearch(e.target.value); if (e.target.value) clearImageSearch(); }}
-            placeholder="Mahsulot yoki firma qidirish…"
+            placeholder={t("catalog_search_hint")}
             className="w-full rounded-xl py-2.5 pl-9 pr-9 text-sm"
             style={{ border: "1px solid var(--border)", background: "var(--card)" }}
           />
