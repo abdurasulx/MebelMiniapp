@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../api_client.dart';
 import '../auth_store.dart';
+import '../locale_store.dart';
 import '../models.dart';
 import 'product_detail_screen.dart';
 
@@ -80,7 +81,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
         },
         auth: true,
       );
-      setState(() => _submitMessage = 'Rahmat! Bahoyingiz saqlandi.');
+      setState(() => _submitMessage = context.read<LocaleStore>().t('shop_review_thanks'));
       _commentController.clear();
       await _load();
     } catch (e) {
@@ -93,9 +94,10 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final isAuthenticated = context.watch<AuthStore>().isAuthenticated;
+    final loc = context.watch<LocaleStore>();
     final company = _company;
     return Scaffold(
-      appBar: AppBar(title: Text(company?.name ?? 'Do\'kon')),
+      appBar: AppBar(title: Text(company?.name ?? loc.t('shop_title_fallback'))),
       body: company == null
           ? Center(
               child: _error != null
@@ -107,15 +109,15 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
               children: [
                 _Header(company: company),
                 const SizedBox(height: 20),
-                const Text(
-                  'Mahsulotlar',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Text(
+                  loc.t('shop_products'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const SizedBox(height: 8),
                 if (_products.isEmpty)
-                  const Text(
-                    'Hozircha mahsulotlar yo\'q',
-                    style: TextStyle(color: Colors.black54),
+                  Text(
+                    loc.t('shop_no_products'),
+                    style: const TextStyle(color: Colors.black54),
                   )
                 else
                   GridView.builder(
@@ -173,7 +175,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                   ),
                 const SizedBox(height: 24),
                 Text(
-                  'Mijoz baholari (${_reviews.length})',
+                  '${loc.t('shop_reviews_prefix')}${_reviews.length}${loc.t('shop_reviews_suffix')}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -181,9 +183,9 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                 ),
                 const SizedBox(height: 8),
                 if (_reviews.isEmpty)
-                  const Text(
-                    'Hali baho yo\'q',
-                    style: TextStyle(color: Colors.black54),
+                  Text(
+                    loc.t('shop_no_reviews'),
+                    style: const TextStyle(color: Colors.black54),
                   )
                 else
                   ..._reviews.map(
@@ -199,7 +201,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                                 Text(
                                   r.customerName?.isNotEmpty == true
                                       ? r.customerName!
-                                      : 'Mijoz',
+                                      : loc.t('shop_anonymous_customer'),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -219,12 +221,12 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                   ),
                 if (isAuthenticated && company.canReview) ...[
                   const SizedBox(height: 24),
-                  _reviewForm(),
+                  _reviewForm(loc),
                 ] else if (isAuthenticated) ...[
                   const SizedBox(height: 16),
-                  const Text(
-                    'Faqat shu firmadan yakunlangan buyurtmangiz bo\'lsa baho qoldira olasiz.',
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  Text(
+                    loc.t('shop_review_locked'),
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                 ],
               ],
@@ -232,16 +234,16 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
     );
   }
 
-  Widget _reviewForm() {
+  Widget _reviewForm(LocaleStore loc) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Baho qoldirish',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              loc.t('shop_leave_review'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             DropdownButton<int>(
@@ -259,9 +261,9 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
             const SizedBox(height: 10),
             TextField(
               controller: _commentController,
-              decoration: const InputDecoration(
-                labelText: 'Izoh (ixtiyoriy)',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: loc.t('shop_comment_label'),
+                border: const OutlineInputBorder(),
               ),
               maxLines: 3,
             ),
@@ -277,7 +279,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
               onPressed: _submitBusy ? null : _submitReview,
               child: _submitBusy
                   ? const CircularProgressIndicator()
-                  : const Text('Baho qoldirish'),
+                  : Text(loc.t('shop_leave_review')),
             ),
           ],
         ),
@@ -293,6 +295,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tier = company.tier;
+    final loc = context.watch<LocaleStore>();
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -394,9 +397,9 @@ class _Header extends StatelessWidget {
                   const SizedBox(width: 6),
                   GestureDetector(
                     onTap: () => launchUrl(Uri.parse(company.mapUrl!), mode: LaunchMode.externalApplication),
-                    child: const Text(
-                      'Xaritada ko\'rish',
-                      style: TextStyle(fontSize: 12, color: Colors.blue, decoration: TextDecoration.underline),
+                    child: Text(
+                      loc.t('shop_view_on_map'),
+                      style: const TextStyle(fontSize: 12, color: Colors.blue, decoration: TextDecoration.underline),
                     ),
                   ),
                 ],
