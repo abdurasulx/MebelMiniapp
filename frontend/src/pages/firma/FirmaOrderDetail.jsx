@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Phone, MapPin, MessageSquare, X } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, MessageSquare, X, PackageCheck } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { NEXT_STATUS, ORDER_STATUS, StatusBadge } from "../../orderStatus";
@@ -47,6 +47,26 @@ export default function FirmaOrderDetail() {
       load();
     } catch (e) {
       setError(e.message);
+    }
+  };
+
+  const [confirmingStock, setConfirmingStock] = useState(false);
+  // Market buyurtmasi berilishi ombor qoldig'iga tegmaydi — faqat shu
+  // tugma bosilganda (backend OrderViewSet.confirm_sold_from_stock)
+  // omborda yetarli tayyor dona bo'lsa chiqim yaratiladi va buyurtma
+  // "Tayyor" holatiga o'tadi; yetarli bo'lmasa xatolik ko'rsatiladi —
+  // bunday holda firma "Ishlab chiqarishga yuborish" (accepted →
+  // in_production) yo'lidan davom etadi (mavjud tugma, o'zgarishsiz).
+  const confirmSoldFromStock = async () => {
+    setConfirmingStock(true);
+    setError("");
+    try {
+      await api(`/orders/${id}/confirm_sold_from_stock/`, { method: "POST" });
+      load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setConfirmingStock(false);
     }
   };
 
@@ -139,6 +159,17 @@ export default function FirmaOrderDetail() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
           <span className="text-lg font-bold">{Number(order.total_price).toLocaleString()} so'm</span>
           <div className="flex flex-wrap gap-2">
+            {user?.role === "company_owner" &&
+              order.order_type === "ready_product" &&
+              ["new", "accepted"].includes(order.status) && (
+                <button
+                  className="btn btn-brand inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
+                  onClick={confirmSoldFromStock}
+                  disabled={confirmingStock}
+                >
+                  <PackageCheck size={13} /> {confirmingStock ? "Tekshirilmoqda…" : "Sotildi (ombordan)"}
+                </button>
+              )}
             {/* Buyurtma holatini o'zgartirish (qabul/bekor) — menejerlik
                 qarori, faqat firma egasi uchun (backend ham shunday
                 cheklaydi, qarang OrderViewSet.set_status). */}

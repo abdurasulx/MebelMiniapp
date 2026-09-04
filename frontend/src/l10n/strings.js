@@ -150,6 +150,8 @@ const STRINGS = {
     composer_no_3d: "3D yo'q",
     viewer_access_denied_title: "Kirish mumkin emas",
     viewer_login_link: "Tizimga kirish",
+    product_stock_available_suffix: " dona omborda mavjud",
+    product_stock_unavailable: "Omborda yo'q — buyurtma ishlab chiqarishga yuboriladi",
   },
   en: {
     nav_home: "Home",
@@ -284,6 +286,8 @@ const STRINGS = {
     composer_no_3d: "No 3D",
     viewer_access_denied_title: "Access denied",
     viewer_login_link: "Sign in",
+    product_stock_available_suffix: " in stock",
+    product_stock_unavailable: "Out of stock — order will be sent to production",
   },
   ru: {
     nav_home: "Главная",
@@ -418,6 +422,8 @@ const STRINGS = {
     composer_no_3d: "Нет 3D",
     viewer_access_denied_title: "Доступ запрещён",
     viewer_login_link: "Войти",
+    product_stock_available_suffix: " шт. в наличии",
+    product_stock_unavailable: "Нет в наличии — заказ будет отправлен в производство",
   },
   tg: {
     nav_home: "Саҳифаи асосӣ",
@@ -552,6 +558,8 @@ const STRINGS = {
     composer_no_3d: "3D нест",
     viewer_access_denied_title: "Дастрасӣ имконнопазир аст",
     viewer_login_link: "Ворид шудан",
+    product_stock_available_suffix: " дона дар анбор мавҷуд",
+    product_stock_unavailable: "Дар анбор нест — фармоиш ба истеҳсолот фиристода мешавад",
   },
   tr: {
     nav_home: "Ana sayfa",
@@ -686,6 +694,8 @@ const STRINGS = {
     composer_no_3d: "3D yok",
     viewer_access_denied_title: "Erişim mümkün değil",
     viewer_login_link: "Giriş yap",
+    product_stock_available_suffix: " adet stokta mevcut",
+    product_stock_unavailable: "Stokta yok — sipariş üretime gönderilecek",
   },
   ky: {
     nav_home: "Башкы бет",
@@ -820,6 +830,8 @@ const STRINGS = {
     composer_no_3d: "3D жок",
     viewer_access_denied_title: "Кирүү мүмкүн эмес",
     viewer_login_link: "Кирүү",
+    product_stock_available_suffix: " даана коомдо бар",
+    product_stock_unavailable: "Коомдо жок — буйрутма өндүрүшкө жиберилет",
   },
   kk: {
     nav_home: "Басты бет",
@@ -954,6 +966,8 @@ const STRINGS = {
     composer_no_3d: "3D жоқ",
     viewer_access_denied_title: "Кіру мүмкін емес",
     viewer_login_link: "Кіру",
+    product_stock_available_suffix: " дана қоймада бар",
+    product_stock_unavailable: "Қоймада жоқ — тапсырыс өндіріске жіберіледі",
   },
   de: {
     nav_home: "Start",
@@ -1088,6 +1102,8 @@ const STRINGS = {
     composer_no_3d: "Kein 3D",
     viewer_access_denied_title: "Zugriff nicht möglich",
     viewer_login_link: "Anmelden",
+    product_stock_available_suffix: " Stück auf Lager",
+    product_stock_unavailable: "Nicht vorrätig — Bestellung wird zur Produktion weitergeleitet",
   },
   az: {
     nav_home: "Ana səhifə",
@@ -1222,6 +1238,8 @@ const STRINGS = {
     composer_no_3d: "3D yoxdur",
     viewer_access_denied_title: "Giriş mümkün deyil",
     viewer_login_link: "Daxil ol",
+    product_stock_available_suffix: " ədəd anbarda mövcuddur",
+    product_stock_unavailable: "Anbarda yoxdur — sifariş istehsalata göndəriləcək",
   },
 };
 

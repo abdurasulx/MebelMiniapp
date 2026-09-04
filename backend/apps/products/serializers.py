@@ -26,6 +26,7 @@ class VariantSerializer(StorageStampMixin, serializers.ModelSerializer):
     model3d = serializers.SerializerMethodField()
     discount_active = serializers.BooleanField(read_only=True)
     effective_base_price = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    available_quantity = serializers.SerializerMethodField()
 
     class Meta:
         model = Variant
@@ -33,12 +34,24 @@ class VariantSerializer(StorageStampMixin, serializers.ModelSerializer):
             "id", "name", "base_price", "width", "height", "depth",
             "color_hex", "texture", "texture_url", "model3d",
             "cost_price", "discount_percent", "discount_ends_at",
-            "discount_active", "effective_base_price",
+            "discount_active", "effective_base_price", "available_quantity",
         )
         read_only_fields = ("id",)
 
     def get_texture_url(self, obj):
         return visible_file_url(obj, "texture", self.context.get("request"))
+
+    def get_available_quantity(self, obj):
+        # Omborda tayyor turgan dona soni — buyurtma berish bunga bog'liq
+        # emas (buyurtma faqat talab), shunchaki mijozga ko'rsatish uchun
+        # (qarang "Market buyurtmasi va ombor prinsipi" §1). Bu yerda
+        # import qilinishi apps.inventory'ning apps.products'ga bog'liq
+        # bo'lib qolmasligi uchun funksiya ichida.
+        from apps.inventory.models import ManufacturedUnit
+
+        return ManufacturedUnit.objects.filter(
+            variant=obj, status=ManufacturedUnit.Status.IN_STOCK, is_deleted=False
+        ).count()
 
     def validate(self, attrs):
         discount_percent = attrs.get(

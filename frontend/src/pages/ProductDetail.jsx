@@ -219,6 +219,13 @@ export default function ProductDetail() {
                     ))}
                   </select>
                 </div>
+                {variant && (
+                  <p className="mt-1.5 text-xs" style={{ color: variant.available_quantity > 0 ? "var(--success)" : "var(--muted)" }}>
+                    {variant.available_quantity > 0
+                      ? `${variant.available_quantity}${t("product_stock_available_suffix")}`
+                      : t("product_stock_unavailable")}
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-3 gap-3">
                 {[["width", t("product_dim_width")], ["height", t("product_dim_height")], ["depth", t("product_dim_depth")]].map(([k, label]) => (

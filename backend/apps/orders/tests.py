@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient, APITestCase
 
 from apps.companies.models import Company
+from apps.inventory.models import ManufacturedUnit, ProductMovement, ProductStock, Warehouse
 from apps.products.models import Category, Product, Variant
 
 from .models import Order
@@ -107,6 +108,105 @@ class OrderFlowTests(APITestCase):
         self.client.force_authenticate(stranger)
         resp = self.client.post(f"/api/v1/orders/{order.id}/set_status/", {"status": "cancelled"}, format="json")
         self.assertEqual(resp.status_code, 404)
+
+
+class StockOrderFulfillmentTests(APITestCase):
+    """"Market buyurtmasi berilishi ≠ ombordan chiqim" tamoyili — buyurtma
+    yaratilishi hech qanday holatda ombor qoldig'iga tegmaydi, chiqim
+    faqat firma `confirm_sold_from_stock` orqali aniq tasdiqlaganda
+    yaratiladi (docs "Market buyurtmasi va ombor prinsipi")."""
+
+    def setUp(self):
+        self.owner, self.company, self.product, self.variant, self.customer = make_company_with_product()
+        self.client = APIClient()
+        self.warehouse = Warehouse.objects.create(
+            company=self.company, name="Asosiy", kind=Warehouse.Kind.FINISHED_GOODS, address="Toshkent"
+        )
+
+    def _make_units(self, n):
+        for _ in range(n):
+            ManufacturedUnit.objects.create(
+                product=self.product, variant=self.variant, warehouse=self.warehouse,
+                material_cost=Decimal("10000"), labor_cost=Decimal("5000"),
+            )
+        ProductStock.objects.update_or_create(
+            warehouse=self.warehouse, product=self.product, variant=self.variant,
+            defaults={"quantity": Decimal(n)},
+        )
+
+    def _create_order(self, quantity=1):
+        self.client.force_authenticate(self.customer)
+        resp = self.client.post(
+            "/api/v1/orders/",
+            {
+                "phone": "+998900000000",
+                "address": "Toshkent",
+                "items": [
+                    {"variant": str(self.variant.id), "width": "1", "height": "1", "depth": "1", "quantity": quantity}
+                ],
+            },
+            format="json",
+        )
+        return Order.objects.get(pk=resp.data["id"])
+
+    def test_order_creation_never_touches_stock(self):
+        self._make_units(5)
+        self._create_order(quantity=1)
+        self.assertEqual(
+            ManufacturedUnit.objects.filter(status=ManufacturedUnit.Status.IN_STOCK).count(), 5
+        )
+        self.assertEqual(ProductMovement.objects.count(), 0)
+
+    def test_confirm_sold_from_stock_deducts_and_links_units(self):
+        self._make_units(5)
+        order = self._create_order(quantity=2)
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(f"/api/v1/orders/{order.id}/confirm_sold_from_stock/", format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.READY)
+        self.assertEqual(
+            ManufacturedUnit.objects.filter(status=ManufacturedUnit.Status.SOLD, order=order).count(), 2
+        )
+        self.assertEqual(
+            ManufacturedUnit.objects.filter(status=ManufacturedUnit.Status.IN_STOCK).count(), 3
+        )
+        movement = ProductMovement.objects.get()
+        self.assertEqual(movement.source_order_id, order.id)
+        self.assertEqual(movement.quantity, 2)
+        self.assertEqual(movement.movement_type, ProductMovement.Type.OUT)
+        stock = ProductStock.objects.get(warehouse=self.warehouse, product=self.product, variant=self.variant)
+        self.assertEqual(stock.quantity, Decimal("3"))
+
+    def test_confirm_sold_rejected_when_insufficient_stock(self):
+        self._make_units(1)
+        order = self._create_order(quantity=3)
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(f"/api/v1/orders/{order.id}/confirm_sold_from_stock/", format="json")
+        self.assertEqual(resp.status_code, 400)
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.NEW)
+        self.assertEqual(
+            ManufacturedUnit.objects.filter(status=ManufacturedUnit.Status.IN_STOCK).count(), 1
+        )
+        self.assertEqual(ProductMovement.objects.count(), 0)
+
+    def test_customer_cannot_confirm_sold(self):
+        self._make_units(5)
+        order = self._create_order(quantity=1)
+        self.client.force_authenticate(self.customer)
+        resp = self.client.post(f"/api/v1/orders/{order.id}/confirm_sold_from_stock/", format="json")
+        self.assertEqual(resp.status_code, 403)
+
+    def test_stock_availability_endpoint_reports_per_item(self):
+        self._make_units(1)
+        order = self._create_order(quantity=3)
+        self.client.force_authenticate(self.owner)
+        resp = self.client.get(f"/api/v1/orders/{order.id}/stock_availability/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data[0]["available"], 1)
+        self.assertEqual(resp.data[0]["requested"], 3)
+        self.assertFalse(resp.data[0]["sufficient"])
 
 
 class FinanceSummaryTests(APITestCase):

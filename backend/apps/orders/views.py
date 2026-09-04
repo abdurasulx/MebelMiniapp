@@ -140,6 +140,54 @@ class OrderViewSet(
         notify_order_status(order)
         return Response(OrderSerializer(order, context={"request": request}).data)
 
+    @action(detail=True, methods=["get"])
+    def stock_availability(self, request, pk=None):
+        """Buyurtma bandlari uchun omborda yetarli tayyor dona bor-yo'qligi —
+        firma paneli "Sotildi (ombordan)" tugmasini ko'rsatish/yashirish
+        yoki oldindan ko'rsatish uchun (docs "Market buyurtmasi va ombor
+        prinsipi" §0-4)."""
+        from apps.inventory.services import check_order_stock_availability
+
+        order = self.get_object()
+        return Response(check_order_stock_availability(order))
+
+    @action(detail=True, methods=["post"])
+    def confirm_sold_from_stock(self, request, pk=None):
+        """Firma "Sotildi/berildi" deb tasdiqlaydi — FAQAT shu paytda ombor
+        real kamayadi (ManufacturedUnit + ProductStock + ProductMovement,
+        qarang apps/inventory/services.fulfill_order_from_stock). Buyurtma
+        berilishining o'zi hech qachon ombor qoldig'iga tegmaydi — bu
+        tamoyil "Market buyurtmasi va ombor prinsipi" hujjatining asosiy
+        qoidasi (§0): buyurtma = talab, chiqim = faqat tasdiqlangan sotuv.
+
+        Omborda yetarli bo'lmasa xatolik qaytadi — bunday holda firma
+        buyurtmani odatdagi `set_status(in_production)` orqali ishlab
+        chiqarishga yuborishi kerak (mavjud yo'l, o'zgarishsiz)."""
+        from apps.inventory.services import fulfill_order_from_stock
+
+        order = self.get_object()
+        user = request.user
+        company = user_company(user)
+        is_company_side = (
+            company is not None
+            and company.id == order.company_id
+            and is_company_owner(user, company)
+        )
+        if not (is_company_side or user.role == "platform_admin"):
+            raise PermissionDenied("Faqat firma egasi buyurtmani ombordan sotilgan deb tasdiqlay oladi")
+        if order.order_type != Order.OrderType.READY_PRODUCT:
+            raise ValidationError("Bu amal faqat tayyor mahsulot buyurtmalari uchun")
+        if order.status not in (Order.Status.NEW, Order.Status.ACCEPTED):
+            raise ValidationError(
+                f"'{order.get_status_display()}' holatidagi buyurtmani ombordan sotilgan deb bo'lmaydi"
+            )
+
+        fulfill_order_from_stock(order, user)
+        order.status = Order.Status.READY
+        order.save(update_fields=["status", "updated_at"])
+        notify_order_status(order)
+        return Response(OrderSerializer(order, context={"request": request}).data)
+
     @action(detail=True, methods=["post"])
     def set_sold_by(self, request, pk=None):
         """Komissiyali xodim (sotuvchi/menejer) uchun — shu buyurtmani kim

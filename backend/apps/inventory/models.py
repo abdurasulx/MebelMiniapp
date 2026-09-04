@@ -318,6 +318,14 @@ class ProductMovement(BaseModel):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
     )
+    # Market buyurtmasi asosidagi chiqimlarda qaysi buyurtma sabab bo'lganini
+    # audit qilish uchun (qarang apps/inventory/services.py
+    # fulfill_order_from_stock — "market buyurtma berilishi ≠ ombordan
+    # chiqim": chiqim faqat firma "sotildi" deb tasdiqlagan paytda, shu FK
+    # bilan izlanadigan tarzda yaratiladi).
+    source_order = models.ForeignKey(
+        "orders.Order", on_delete=models.SET_NULL, null=True, blank=True, related_name="stock_movements"
+    )
 
     class Meta:
         ordering = ("-created_at",)
