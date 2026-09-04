@@ -7,6 +7,7 @@ struct CompanyShopView: View {
     let companySlug: String
 
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var locale: LocaleStore
     @State private var company: Company?
     @State private var products: [Product] = []
     @State private var reviews: [Review] = []
@@ -27,7 +28,7 @@ struct CompanyShopView: View {
                         if company.canReview == true {
                             reviewForm(company)
                         } else {
-                            Text("Faqat shu firmadan yakunlangan buyurtmangiz bo'lsa baho qoldira olasiz.")
+                            Text(locale.t("shop_review_locked"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal)
@@ -41,7 +42,7 @@ struct CompanyShopView: View {
                 ProgressView().padding(.top, 60)
             }
         }
-        .navigationTitle(company?.name ?? "Do'kon")
+        .navigationTitle(company?.name ?? locale.t("shop_title_fallback"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
     }
@@ -77,7 +78,7 @@ struct CompanyShopView: View {
                         Image(systemName: "mappin.and.ellipse").font(.caption).foregroundStyle(.secondary)
                     }
                     if let mapURL = company.mapURL {
-                        Link("Xaritada ko'rish", destination: mapURL)
+                        Link(locale.t("shop_view_on_map"), destination: mapURL)
                             .font(.caption).underline()
                     }
                 }
@@ -93,9 +94,9 @@ struct CompanyShopView: View {
 
     private var productsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Mahsulotlar").font(.headline).padding(.horizontal)
+            Text(locale.t("shop_products")).font(.headline).padding(.horizontal)
             if products.isEmpty {
-                Text("Hozircha mahsulotlar yo'q").font(.caption).foregroundStyle(.secondary).padding(.horizontal)
+                Text(locale.t("shop_no_products")).font(.caption).foregroundStyle(.secondary).padding(.horizontal)
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
                     ForEach(products) { product in
@@ -125,15 +126,15 @@ struct CompanyShopView: View {
 
     private var reviewsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Mijoz baholari (\(reviews.count))").font(.headline).padding(.horizontal)
+            Text("\(locale.t("shop_reviews_prefix"))\(reviews.count)\(locale.t("shop_reviews_suffix"))").font(.headline).padding(.horizontal)
             if reviews.isEmpty {
-                Text("Hali baho yo'q").font(.caption).foregroundStyle(.secondary).padding(.horizontal)
+                Text(locale.t("shop_no_reviews")).font(.caption).foregroundStyle(.secondary).padding(.horizontal)
             } else {
                 VStack(spacing: 8) {
                     ForEach(reviews) { r in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text(r.customerName?.isEmpty == false ? r.customerName! : "Mijoz").font(.subheadline).bold()
+                                Text(r.customerName?.isEmpty == false ? r.customerName! : locale.t("shop_anonymous_customer")).font(.subheadline).bold()
                                 Spacer()
                                 Text(String(repeating: "⭐", count: r.rating)).font(.caption)
                             }
@@ -154,14 +155,14 @@ struct CompanyShopView: View {
 
     private func reviewForm(_ company: Company) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Baho qoldirish").font(.headline)
-            Picker("Baho", selection: $rating) {
+            Text(locale.t("shop_leave_review")).font(.headline)
+            Picker(locale.t("shop_leave_review"), selection: $rating) {
                 ForEach([5, 4, 3, 2, 1], id: \.self) { n in
                     Text("\(String(repeating: "⭐", count: n)) (\(n))").tag(n)
                 }
             }
             .pickerStyle(.menu)
-            TextField("Izoh (ixtiyoriy)", text: $comment, axis: .vertical)
+            TextField(locale.t("shop_comment_label"), text: $comment, axis: .vertical)
                 .lineLimit(3, reservesSpace: true)
                 .textFieldStyle(.roundedBorder)
             if let submitMessage {
@@ -170,7 +171,7 @@ struct CompanyShopView: View {
             Button {
                 Task { await submitReview(company) }
             } label: {
-                if submitBusy { ProgressView() } else { Text("Baho qoldirish").bold() }
+                if submitBusy { ProgressView() } else { Text(locale.t("shop_leave_review")).bold() }
             }
             .frame(maxWidth: .infinity)
             .padding()
@@ -178,7 +179,7 @@ struct CompanyShopView: View {
             .foregroundStyle(Color.brandPrimary)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .disabled(submitBusy)
-            Text("Faqat shu firmadan yakunlangan buyurtmangiz bo'lsa baho qoldira olasiz.")
+            Text(locale.t("shop_review_locked"))
                 .font(.caption2).foregroundStyle(.secondary)
         }
         .padding()
@@ -210,7 +211,7 @@ struct CompanyShopView: View {
             let _: Review = try await APIClient.shared.post(
                 "/reviews/", body: Body(company: company.id, rating: rating, comment: comment)
             )
-            submitMessage = "Rahmat! Bahoyingiz saqlandi."
+            submitMessage = locale.t("shop_review_thanks")
             comment = ""
             await load()
         } catch {
