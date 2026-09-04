@@ -246,6 +246,10 @@ class Employee(BaseModel):
     # ortiqcha ish hisoblashda solishtirish uchun (qarang apps/attendance).
     shift_start = models.TimeField(null=True, blank=True)
     shift_end = models.TimeField(null=True, blank=True)
+    lunch_start = models.TimeField(null=True, blank=True)
+    lunch_end = models.TimeField(null=True, blank=True)
+    # Ish kunlari — Python `date.weekday()` bilan bir xil: Dushanba=0 ... Yakshanba=6.
+    work_days = models.JSONField(default=list, blank=True)
 
     class Meta:
         unique_together = ("company", "user")
@@ -314,6 +318,11 @@ class EmployeeInvitation(BaseModel):
     bonus_per_task = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     commission_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    shift_start = models.TimeField(null=True, blank=True)
+    shift_end = models.TimeField(null=True, blank=True)
+    lunch_start = models.TimeField(null=True, blank=True)
+    lunch_end = models.TimeField(null=True, blank=True)
+    work_days = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     responded_at = models.DateTimeField(null=True, blank=True)
 

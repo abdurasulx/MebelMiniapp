@@ -18,6 +18,21 @@ const PAY_TYPES = {
   piecework: "Ishbay",
 };
 
+const WEEK_DAYS = [
+  { value: 0, label: "Dush" },
+  { value: 1, label: "Sesh" },
+  { value: 2, label: "Chor" },
+  { value: 3, label: "Pay" },
+  { value: 4, label: "Jum" },
+  { value: 5, label: "Shan" },
+  { value: 6, label: "Yak" },
+];
+
+function toggleWorkDay(workDays, day) {
+  const list = workDays || [];
+  return list.includes(day) ? list.filter((d) => d !== day) : [...list, day].sort();
+}
+
 /// Bir lavozim uchun eng mos standart: avval firmaning o'ziniki, bo'lmasa
 /// platforma standarti (qarang backend PositionPayStandard).
 function pickStandard(standards, position) {
@@ -49,13 +64,6 @@ function PayTypeFields({ payType, values, onChange, standard }) {
             value={values.base_salary} onChange={(e) => onChange({ base_salary: e.target.value })} />
         </div>
       )}
-      {payType === "fixed_bonus" && (
-        <div>
-          <label className="label">Har vazifa uchun bonus (so'm)</label>
-          <input className="input" type="number" min="0" placeholder="0"
-            value={values.bonus_per_task} onChange={(e) => onChange({ bonus_per_task: e.target.value })} />
-        </div>
-      )}
       {payType === "commission" && (
         <div>
           <label className="label">Komissiya (% sotuvdan)</label>
@@ -64,11 +72,52 @@ function PayTypeFields({ payType, values, onChange, standard }) {
         </div>
       )}
       {payType === "hourly" && (
-        <div>
-          <label className="label">Soatbay narx (so'm)</label>
-          <input className="input" type="number" min="0" placeholder="0"
-            value={values.hourly_rate} onChange={(e) => onChange({ hourly_rate: e.target.value })} />
-        </div>
+        <>
+          <div>
+            <label className="label">Soatbay narx (so'm)</label>
+            <input className="input" type="number" min="0" placeholder="0"
+              value={values.hourly_rate} onChange={(e) => onChange({ hourly_rate: e.target.value })} />
+          </div>
+          <div />
+          <div>
+            <label className="label">Ish boshlanishi</label>
+            <input className="input" type="time"
+              value={values.shift_start || ""} onChange={(e) => onChange({ shift_start: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Ish tugashi</label>
+            <input className="input" type="time"
+              value={values.shift_end || ""} onChange={(e) => onChange({ shift_end: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Tushlik boshlanishi</label>
+            <input className="input" type="time"
+              value={values.lunch_start || ""} onChange={(e) => onChange({ lunch_start: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Tushlik tugashi</label>
+            <input className="input" type="time"
+              value={values.lunch_end || ""} onChange={(e) => onChange({ lunch_end: e.target.value })} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Ish kunlari</label>
+            <div className="flex flex-wrap gap-1.5">
+              {WEEK_DAYS.map((d) => {
+                const active = (values.work_days || []).includes(d.value);
+                return (
+                  <button
+                    key={d.value}
+                    type="button"
+                    className={active ? "badge badge-brand" : "badge badge-off"}
+                    onClick={() => onChange({ work_days: toggleWorkDay(values.work_days, d.value) })}
+                  >
+                    {d.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -92,6 +141,7 @@ export default function Employees() {
   const [form, setForm] = useState({
     worker_id: "", positions: [], pay_type: "fixed_bonus",
     base_salary: "", bonus_per_task: "", commission_percent: "", hourly_rate: "",
+    shift_start: "", shift_end: "", lunch_start: "", lunch_end: "", work_days: [],
   });
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
@@ -165,11 +215,16 @@ export default function Employees() {
           bonus_per_task: form.bonus_per_task || 0,
           commission_percent: form.commission_percent || 0,
           hourly_rate: form.hourly_rate || 0,
+          shift_start: form.shift_start || null,
+          shift_end: form.shift_end || null,
+          lunch_start: form.lunch_start || null,
+          lunch_end: form.lunch_end || null,
         },
       });
       setForm({
         worker_id: "", positions: [], pay_type: "fixed_bonus",
         base_salary: "", bonus_per_task: "", commission_percent: "", hourly_rate: "",
+        shift_start: "", shift_end: "", lunch_start: "", lunch_end: "", work_days: [],
       });
       setMsg("Taklif yuborildi — xodim o'z ilovasida qabul qilishi kerak");
       setTimeout(() => setMsg(""), 4000);
@@ -361,11 +416,6 @@ export default function Employees() {
                   {(emp.pay_type === "fixed" || emp.pay_type === "fixed_bonus") && (
                     <span>{Number(emp.base_salary || 0).toLocaleString()} so'm/oy</span>
                   )}
-                  {emp.pay_type === "fixed_bonus" && (
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      +{Number(emp.bonus_per_task || 0).toLocaleString()} so'm/vazifa
-                    </span>
-                  )}
                   {emp.pay_type === "commission" && (
                     <span>{Number(emp.commission_percent || 0)}% sotuvdan</span>
                   )}
@@ -411,6 +461,11 @@ function SalaryEditModal({ employee, onClose, onSaved }) {
     bonus_per_task: employee.bonus_per_task || 0,
     commission_percent: employee.commission_percent || 0,
     hourly_rate: employee.hourly_rate || 0,
+    shift_start: employee.shift_start || "",
+    shift_end: employee.shift_end || "",
+    lunch_start: employee.lunch_start || "",
+    lunch_end: employee.lunch_end || "",
+    work_days: employee.work_days || [],
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -420,7 +475,16 @@ function SalaryEditModal({ employee, onClose, onSaved }) {
     setBusy(true);
     setError("");
     try {
-      await api(`/employees/${employee.id}/`, { method: "PATCH", body: values });
+      await api(`/employees/${employee.id}/`, {
+        method: "PATCH",
+        body: {
+          ...values,
+          shift_start: values.shift_start || null,
+          shift_end: values.shift_end || null,
+          lunch_start: values.lunch_start || null,
+          lunch_end: values.lunch_end || null,
+        },
+      });
       onSaved();
     } catch (err) {
       setError(err.message);

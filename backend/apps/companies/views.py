@@ -179,6 +179,11 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
             existing.bonus_per_task = invitation.bonus_per_task
             existing.commission_percent = invitation.commission_percent
             existing.hourly_rate = invitation.hourly_rate
+            existing.shift_start = invitation.shift_start
+            existing.shift_end = invitation.shift_end
+            existing.lunch_start = invitation.lunch_start
+            existing.lunch_end = invitation.lunch_end
+            existing.work_days = invitation.work_days
             existing.left_at = None
             existing.save()
         else:
@@ -191,6 +196,11 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
                 bonus_per_task=invitation.bonus_per_task,
                 commission_percent=invitation.commission_percent,
                 hourly_rate=invitation.hourly_rate,
+                shift_start=invitation.shift_start,
+                shift_end=invitation.shift_end,
+                lunch_start=invitation.lunch_start,
+                lunch_end=invitation.lunch_end,
+                work_days=invitation.work_days,
             )
         if invitation.invited_user.role == "customer":
             invitation.invited_user.role = "employee"

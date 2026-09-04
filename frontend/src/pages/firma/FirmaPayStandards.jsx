@@ -154,13 +154,6 @@ export default function FirmaPayStandards() {
                   <input className="input" type="number" value={d.max_salary}
                     onChange={(e) => updateDraft(pos, "max_salary", e.target.value)} />
                 </div>
-                {d.pay_type === "fixed_bonus" && (
-                  <div>
-                    <label className="label">Vazifa bonusi</label>
-                    <input className="input" type="number" value={d.default_bonus_per_task}
-                      onChange={(e) => updateDraft(pos, "default_bonus_per_task", e.target.value)} />
-                  </div>
-                )}
                 {d.pay_type === "commission" && (
                   <div>
                     <label className="label">Komissiya %</label>

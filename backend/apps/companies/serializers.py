@@ -109,7 +109,8 @@ class EmployeeSerializer(serializers.ModelSerializer):
         fields = (
             "id", "user_id", "user_email", "user_name", "user_worker_id",
             "positions", "is_active", "pay_type", "pay_type_display",
-            "base_salary", "bonus_per_task", "commission_percent", "hourly_rate", "created_at",
+            "base_salary", "bonus_per_task", "commission_percent", "hourly_rate",
+            "shift_start", "shift_end", "lunch_start", "lunch_end", "work_days", "created_at",
         )
         read_only_fields = ("id", "created_at")
 
@@ -194,7 +195,9 @@ class EmployeeInvitationSerializer(serializers.ModelSerializer):
             "id", "company", "company_name", "company_contract", "worker_id",
             "invited_user_name", "invited_worker_id",
             "positions", "pay_type", "base_salary", "bonus_per_task",
-            "commission_percent", "hourly_rate", "status", "status_display",
+            "commission_percent", "hourly_rate",
+            "shift_start", "shift_end", "lunch_start", "lunch_end", "work_days",
+            "status", "status_display",
             "responded_at", "created_at",
         )
         read_only_fields = (

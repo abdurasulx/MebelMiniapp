@@ -186,6 +186,24 @@ def worked_hours(employee, start, end):
         if rec.action == AttendanceAction.CHECK_OUT and pending_check_in is not None:
             delta = rec.server_timestamp - pending_check_in.server_timestamp
             hours = Decimal(delta.total_seconds()) / Decimal(3600)
+            lunch_minutes = 0
+            # Tushlik oralig'i smena ichida bo'lsa, ishlangan soatdan
+            # ayiriladi — tushlikka chiqilgan-chiqilmaganidan qat'iy nazar
+            # (ish grafigida belgilangan tanaffus sifatida).
+            if employee.lunch_start and employee.lunch_end:
+                lunch_start = timezone.datetime.combine(
+                    pending_check_in.server_timestamp.date(), employee.lunch_start,
+                    tzinfo=pending_check_in.server_timestamp.tzinfo,
+                )
+                lunch_end = timezone.datetime.combine(
+                    pending_check_in.server_timestamp.date(), employee.lunch_end,
+                    tzinfo=pending_check_in.server_timestamp.tzinfo,
+                )
+                overlap_start = max(pending_check_in.server_timestamp, lunch_start)
+                overlap_end = min(rec.server_timestamp, lunch_end)
+                if overlap_end > overlap_start:
+                    lunch_minutes = int((overlap_end - overlap_start).total_seconds() / 60)
+                    hours -= Decimal(lunch_minutes) / Decimal(60)
             if hours > 0:
                 total_hours += hours
                 day_entry = {
@@ -193,6 +211,7 @@ def worked_hours(employee, start, end):
                     "check_in": pending_check_in.server_timestamp,
                     "check_out": rec.server_timestamp,
                     "hours": hours,
+                    "lunch_minutes": lunch_minutes,
                     "late_minutes": 0,
                     "early_leave_minutes": 0,
                     "overtime_minutes": 0,
