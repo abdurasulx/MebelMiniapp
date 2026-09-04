@@ -4,6 +4,7 @@ import {
   List, Move3d, RotateCw, Ruler, Trash2, Camera, Link2, Lock, Unlock, Plus, X,
 } from "lucide-react";
 import { api } from "../api";
+import { useLocale } from "../locale";
 import RoomScene from "../components/RoomScene";
 
 /**
@@ -13,6 +14,7 @@ import RoomScene from "../components/RoomScene";
  * bloklanadi).
  */
 export default function ProjectComposer() {
+  const { t } = useLocale();
   const { id } = useParams();
   const [project, setProject] = useState(null);
   const [error, setError] = useState("");
@@ -40,7 +42,7 @@ export default function ProjectComposer() {
     );
   }
   if (!project) {
-    return <div className="p-8 text-center" style={{ color: "var(--muted)" }}>Yuklanmoqda…</div>;
+    return <div className="p-8 text-center" style={{ color: "var(--muted)" }}>{t("projects_loading")}</div>;
   }
 
   if (!project.is_paid) {
@@ -113,20 +115,20 @@ export default function ProjectComposer() {
         style={{ background: "var(--card)", borderColor: "var(--border)" }}
       >
         <div className="flex items-center gap-2">
-          <button className="btn-ghost !p-2" onClick={() => setShowList((v) => !v)} title="Elementlar ro'yxati">
+          <button className="btn-ghost !p-2" onClick={() => setShowList((v) => !v)} title={t("composer_items_list_tooltip")}>
             <List size={18} />
           </button>
           <span className="font-bold">{project.name}</span>
         </div>
         <div className="flex items-center gap-1">
-          <ToolButton active={transformMode === "translate"} onClick={() => handlePickTransform("translate")} icon={Move3d} title="Ko'chirish" />
-          <ToolButton active={transformMode === "rotate"} onClick={() => handlePickTransform("rotate")} icon={RotateCw} title="Aylantirish" />
-          <ToolButton active={measureMode} onClick={handleMeasureToggle} icon={Ruler} title="O'lchash" />
-          <ToolButton onClick={deleteSelected} icon={Trash2} title="O'chirish" disabled={!selectedId || busy} danger />
+          <ToolButton active={transformMode === "translate"} onClick={() => handlePickTransform("translate")} icon={Move3d} title={t("composer_move_tooltip")} />
+          <ToolButton active={transformMode === "rotate"} onClick={() => handlePickTransform("rotate")} icon={RotateCw} title={t("composer_rotate_tooltip")} />
+          <ToolButton active={measureMode} onClick={handleMeasureToggle} icon={Ruler} title={t("composer_measure_tooltip")} />
+          <ToolButton onClick={deleteSelected} icon={Trash2} title={t("composer_delete_tooltip")} disabled={!selectedId || busy} danger />
           <div className="mx-1 h-6 w-px" style={{ background: "var(--border)" }} />
-          <ToolButton onClick={takeScreenshot} icon={Camera} title="Skrinshot" />
-          <ToolButton onClick={togglePublic} icon={project.is_public ? Unlock : Lock} title={project.is_public ? "Ochiq havola" : "Yopiq havola"} />
-          <ToolButton onClick={copyShareLink} icon={Link2} title="Havolani nusxalash" />
+          <ToolButton onClick={takeScreenshot} icon={Camera} title={t("composer_screenshot_tooltip")} />
+          <ToolButton onClick={togglePublic} icon={project.is_public ? Unlock : Lock} title={project.is_public ? t("composer_link_open_tooltip") : t("composer_link_closed_tooltip")} />
+          <ToolButton onClick={copyShareLink} icon={Link2} title={t("composer_copy_link_tooltip")} />
         </div>
       </div>
 
@@ -152,7 +154,7 @@ export default function ProjectComposer() {
             style={{ background: "color-mix(in srgb, var(--card) 95%, transparent)" }}
           >
             {project.items.length === 0 && (
-              <p className="p-2 text-xs" style={{ color: "var(--muted)" }}>Hali element yo'q</p>
+              <p className="p-2 text-xs" style={{ color: "var(--muted)" }}>{t("composer_no_items")}</p>
             )}
             {project.items.map((it) => (
               <button
@@ -163,7 +165,7 @@ export default function ProjectComposer() {
                   background: selectedId === it.id ? "color-mix(in srgb, var(--primary) 25%, transparent)" : "transparent",
                 }}
               >
-                {it.product_name || "Element"}
+                {it.product_name || t("composer_element_fallback")}
               </button>
             ))}
           </div>
@@ -172,7 +174,7 @@ export default function ProjectComposer() {
         <button
           onClick={() => setShowAddPanel(true)}
           className="btn btn-brand absolute bottom-5 right-5 !rounded-full !p-3 shadow-lg"
-          title="Element qo'shish"
+          title={t("composer_add_item_tooltip")}
         >
           <Plus size={20} />
         </button>
@@ -210,6 +212,7 @@ function ToolButton({ icon: Icon, active, onClick, title, disabled, danger }) {
 }
 
 function PayGate({ project, onPaid }) {
+  const { t } = useLocale();
   const [busy, setBusy] = useState(false);
   const pay = async () => {
     setBusy(true);
@@ -223,18 +226,19 @@ function PayGate({ project, onPaid }) {
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center gap-4 px-4 text-center">
       <Lock size={40} style={{ color: "var(--muted)" }} />
-      <h1 className="text-lg font-bold">"{project.name}" loyihasini joylashtirish</h1>
+      <h1 className="text-lg font-bold">{t("composer_paygate_title_prefix")}{project.name}{t("composer_paygate_title_suffix")}</h1>
       <p className="text-sm" style={{ color: "var(--muted)" }}>
-        Xonangizni 3D'da joylashtirib ko'rish uchun avval to'lovni amalga oshiring.
+        {t("composer_paygate_subtitle")}
       </p>
       <button className="btn btn-brand" onClick={pay} disabled={busy}>
-        {busy ? "Yuborilmoqda…" : "To'lovni amalga oshirish"}
+        {busy ? t("composer_paygate_submitting") : t("composer_paygate_pay")}
       </button>
     </div>
   );
 }
 
 function AddItemPanel({ projectId, onClose, onAdded }) {
+  const { t } = useLocale();
   const [tab, setTab] = useState("products");
   const [products, setProducts] = useState([]);
   const [details, setDetails] = useState([]);
@@ -287,7 +291,7 @@ function AddItemPanel({ projectId, onClose, onAdded }) {
       style={{ background: "var(--card)", borderColor: "var(--border)" }}
     >
       <div className="flex items-center justify-between border-b p-3" style={{ borderColor: "var(--border)" }}>
-        <span className="font-bold">Element qo'shish</span>
+        <span className="font-bold">{t("composer_add_panel_title")}</span>
         <button onClick={onClose} className="btn-ghost !p-1.5"><X size={16} /></button>
       </div>
       <div className="flex gap-1 p-2">
@@ -299,7 +303,7 @@ function AddItemPanel({ projectId, onClose, onAdded }) {
           }}
           onClick={() => setTab("products")}
         >
-          Mahsulotlar
+          {t("composer_tab_products")}
         </button>
         <button
           className="flex-1 rounded-lg py-1.5 text-sm font-semibold"
@@ -309,11 +313,11 @@ function AddItemPanel({ projectId, onClose, onAdded }) {
           }}
           onClick={() => setTab("details")}
         >
-          Detal elementlar
+          {t("composer_tab_details")}
         </button>
       </div>
       <div className="px-2">
-        <input className="input" placeholder="Qidirish…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="input" placeholder={t("composer_search_placeholder")} value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
       <div className="flex-1 overflow-y-auto p-2">
         {tab === "products"
@@ -325,7 +329,7 @@ function AddItemPanel({ projectId, onClose, onAdded }) {
                 className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-2 text-left text-sm hover:bg-black/5 disabled:opacity-40"
               >
                 <span className="truncate">{p.name_uz}</span>
-                {!p.model3d?.glb_url && <span className="text-[10px]" style={{ color: "var(--muted)" }}>3D yo'q</span>}
+                {!p.model3d?.glb_url && <span className="text-[10px]" style={{ color: "var(--muted)" }}>{t("composer_no_3d")}</span>}
               </button>
             ))
           : filteredDetails.map((d) => (
