@@ -3,12 +3,17 @@
 //   admin.domen.uz           -> admin   (platforma admini)
 //   firma.domen.uz           -> firma   (kompaniya egasi + xodimlar)
 //
-// Dev'da sinash uchun: ?portal=admin yoki ?portal=firma (faqat DEV buildda ishlaydi).
+// Dev'da sinash uchun: ?portal=admin yoki ?portal=firma (faqat DEV buildda,
+// FAQAT haqiqiy portal-subdomen yo'q bo'lganda, ya'ni localhost/127.0.0.1'da
+// ishlaydi). Haqiqiy subdomen (masalan firma.lvh.me) mavjud bo'lsa, u har
+// doim ustuvor — aks holda `firma.lvh.me?portal=admin` kabi eski/xato havola
+// firma egasini chalkashtiruvchi "faqat administratorlar uchun" login
+// sahifasiga majburlab olib borar edi.
 const sub = window.location.hostname.split(".")[0];
 
 let portal = sub === "admin" ? "admin" : sub === "firma" ? "firma" : "market";
 
-if (import.meta.env.DEV) {
+if (import.meta.env.DEV && sub !== "admin" && sub !== "firma") {
   const forced = new URLSearchParams(window.location.search).get("portal");
   if (["market", "admin", "firma"].includes(forced)) portal = forced;
 }
