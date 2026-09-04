@@ -26,6 +26,11 @@ struct WorkerHomeView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: SiteSurveysView()) {
+                        Image(systemName: "location.fill")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: WarehousesView()) {
                         Image(systemName: "shippingbox")
                     }

@@ -485,3 +485,28 @@ struct APIErrorPayload: Decodable {
         detail = parts.isEmpty ? nil : parts.joined(separator: "; ")
     }
 }
+
+/// Usta mijoz uyiga borib joy o'lchashi — CUSTOM_PROJECT buyurtmalarning
+/// birinchi bosqichi (qarang backend apps.custom_orders.SiteSurvey).
+struct SiteSurveyMedia: Codable, Identifiable {
+    let id: String
+    let fileUrl: String?
+    let mediaType: String
+    let caption: String
+}
+
+struct SiteSurvey: Codable, Identifiable {
+    let id: String
+    let company: String
+    let companySlug: String
+    let customerName: String?
+    let assignedMasterName: String
+    let address: String
+    let latitude: Double?
+    let longitude: Double?
+    let notes: String
+    let status: String
+    let statusDisplay: String
+    let order: String?
+    let media: [SiteSurveyMedia]
+}
