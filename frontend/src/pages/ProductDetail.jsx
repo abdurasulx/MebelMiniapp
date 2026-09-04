@@ -6,10 +6,12 @@ import { addToCart } from "../cart";
 import ModelViewer from "../components/ModelViewer";
 import CompanyBadge from "../components/CompanyBadge";
 import { useAuth } from "../auth";
+import { useLocale } from "../locale";
 
 export default function ProductDetail() {
   const { id } = useParams();
   const { user } = useAuth();
+  const { t } = useLocale();
   const [p, setP] = useState(null);
   const [error, setError] = useState("");
   const [variantId, setVariantId] = useState("");
@@ -79,7 +81,7 @@ export default function ProductDetail() {
   const toggleLike = async () => {
     setLikeError("");
     if (!user) {
-      setLikeError("Sevimlilarga qo'shish uchun tizimga kiring");
+      setLikeError(t("product_like_login_required"));
       return;
     }
     setLikeBusy(true);
@@ -102,7 +104,7 @@ export default function ProductDetail() {
   if (!p)
     return (
       <div className="mx-auto max-w-6xl px-4 py-8" style={{ color: "var(--muted)" }}>
-        Yuklanmoqda…
+        {t("product_loading")}
       </div>
     );
 
@@ -115,7 +117,7 @@ export default function ProductDetail() {
           disabled={likeBusy}
           className="shrink-0 rounded-full p-2 text-xl transition"
           style={{ border: "1px solid var(--border)", background: "var(--card)" }}
-          title={liked ? "Sevimlilardan olib tashlash" : "Sevimlilarga qo'shish"}
+          title={liked ? t("product_like_remove") : t("product_like_add")}
         >
           <Heart size={18} fill={liked ? "currentColor" : "none"} style={{ color: liked ? "var(--danger)" : "var(--muted)" }} />
         </button>
@@ -137,7 +139,7 @@ export default function ProductDetail() {
             <CompanyBadge tier={companyTier} size="sm" />
           </div>
           <span className="inline-flex items-center gap-0.5 text-xs" style={{ color: "var(--secondary)" }}>
-            Do'kon sahifasini ko'rish <ArrowRight size={12} />
+            {t("product_view_shop")} <ArrowRight size={12} />
           </span>
         </div>
       </Link>
@@ -171,13 +173,13 @@ export default function ProductDetail() {
                 className={show3d ? "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn btn-brand inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
                 onClick={() => setShow3d(false)}
               >
-                <Image size={13} /> Rasm
+                <Image size={13} /> {t("product_photo_tab")}
               </button>
               <button
                 className={show3d ? "btn btn-brand inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
                 onClick={() => setShow3d(true)}
               >
-                <Box size={13} /> {variant.name} — 3D / AR ko'rish
+                <Box size={13} /> {variant.name}{t("product_view_3d_ar_suffix")}
               </button>
             </div>
           )}
@@ -197,7 +199,7 @@ export default function ProductDetail() {
           {p.variants.length > 0 ? (
             <>
               <div>
-                <label className="label">Variant (material/rang)</label>
+                <label className="label">{t("product_variant_field_label")}</label>
                 <div className="flex items-center gap-2">
                   {variant?.color_hex && (
                     <span
@@ -219,7 +221,7 @@ export default function ProductDetail() {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                {[["width", "Eni (m)"], ["height", "Bo'yi (m)"], ["depth", "Chuquri (m)"]].map(([k, label]) => (
+                {[["width", t("product_dim_width")], ["height", t("product_dim_height")], ["depth", t("product_dim_depth")]].map(([k, label]) => (
                   <div key={k}>
                     <label className="label">{label}</label>
                     <input
@@ -234,7 +236,7 @@ export default function ProductDetail() {
                 ))}
               </div>
               <div>
-                <label className="label">Soni</label>
+                <label className="label">{t("product_qty_label")}</label>
                 <input
                   className="input !w-24"
                   type="number"
@@ -245,12 +247,12 @@ export default function ProductDetail() {
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={isCustomSize} onChange={(e) => setIsCustomSize(e.target.checked)} />
-                Maxsus o'lcham (narx firma tomonidan keyinroq belgilanadi)
+                {t("product_custom_size_label")}
               </label>
               {isCustomSize ? (
                 <div className="rounded-xl p-4" style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}>
                   <div className="text-xs" style={{ color: "var(--muted)" }}>
-                    Narx buyurtma qabul qilingach firma tomonidan belgilanadi.
+                    {t("product_custom_size_note")}
                   </div>
                 </div>
               ) : price !== null && (
@@ -259,7 +261,7 @@ export default function ProductDetail() {
                   style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
                 >
                   <div className="flex items-center gap-2">
-                    <div className="text-xs" style={{ color: "var(--muted)" }}>Taxminiy narx</div>
+                    <div className="text-xs" style={{ color: "var(--muted)" }}>{t("product_approx_price")}</div>
                     {variant.discount_active && (
                       <span className="badge" style={{ background: "var(--danger)", color: "#fff" }}>
                         -{Number(variant.discount_percent)}%
@@ -276,7 +278,7 @@ export default function ProductDetail() {
                   </div>
                   {variant.discount_active && (
                     <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-                      Chegirma {new Date(variant.discount_ends_at).toLocaleString("uz-UZ")}gacha amal qiladi
+                      {t("product_discount_prefix")}{new Date(variant.discount_ends_at).toLocaleString("uz-UZ")}{t("product_discount_suffix")}
                     </div>
                   )}
                 </div>
@@ -284,9 +286,9 @@ export default function ProductDetail() {
               {added ? (
                 <div className="flex gap-2">
                   <Link to="/cart" className="btn btn-brand inline-flex flex-1 items-center justify-center gap-1.5">
-                    <ShoppingBasket size={15} /> Savatga o'tish
+                    <ShoppingBasket size={15} /> {t("product_go_to_cart")}
                   </Link>
-                  <button className="btn-ghost" onClick={() => setAdded(false)}>Yana qo'shish</button>
+                  <button className="btn-ghost" onClick={() => setAdded(false)}>{t("product_add_more")}</button>
                 </div>
               ) : (
                 <button
@@ -317,16 +319,16 @@ export default function ProductDetail() {
                     setAdded(true);
                   }}
                 >
-                  <ShoppingBasket size={15} /> Savatga qo'shish
+                  <ShoppingBasket size={15} /> {t("product_add_to_cart")}
                 </button>
               )}
               {error && <div className="error">{error}</div>}
               <p className="text-xs" style={{ color: "var(--muted)" }}>
-                Narx o'lchamga (hajmga) qarab hisoblanadi.
+                {t("product_volume_hint")}
               </p>
             </>
           ) : (
-            <p className="text-sm" style={{ color: "var(--muted)" }}>Variantlar hali qo'shilmagan.</p>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>{t("product_no_variants")}</p>
           )}
         </div>
       </div>
