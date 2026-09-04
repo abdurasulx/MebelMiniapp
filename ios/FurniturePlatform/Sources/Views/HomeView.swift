@@ -7,6 +7,20 @@ enum SortOption: String, CaseIterable, Identifiable {
     case priceHigh = "Qimmat avval"
     case nameAZ = "Nomi (A-Z)"
     var id: String { rawValue }
+
+    /// Ekranda ko'rsatiladigan matn — `rawValue` (identifikator sifatida
+    /// ishlatiladi) o'zbekchada qotib qoladi, faqat shu funksiya orqali
+    /// tarjima qilinadi.
+    @MainActor
+    func label(_ locale: LocaleStore) -> String {
+        switch self {
+        case .popular: return locale.t("home_sort_popular")
+        case .top: return locale.t("home_top_products")
+        case .priceLow: return locale.t("home_sort_price_low")
+        case .priceHigh: return locale.t("home_sort_price_high")
+        case .nameAZ: return locale.t("home_sort_name_az")
+        }
+    }
 }
 
 /// Bosh sahifa — endi alohida "Katalog" tabi yo'q, bu ekranning o'zi
@@ -24,6 +38,7 @@ enum SortOption: String, CaseIterable, Identifiable {
 struct HomeView: View {
     @EnvironmentObject private var likes: LikesStore
     @EnvironmentObject private var location: LocationStore
+    @EnvironmentObject private var locale: LocaleStore
     @State private var products: [Product] = []
     @State private var categories: [Category] = []
     @State private var isLoading = true
@@ -98,7 +113,7 @@ struct HomeView: View {
                         if let imageSearchError {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(imageSearchError).foregroundStyle(.red)
-                                Button("Yopish") { self.imageSearchError = nil }
+                                Button(locale.t("common_close")) { self.imageSearchError = nil }
                             }
                             .padding(.horizontal)
                         }
@@ -108,14 +123,14 @@ struct HomeView: View {
                         } else {
                             if !isFiltering {
                                 if !categories.isEmpty {
-                                    sectionHeader("Kolleksiyalar", subtitle: "Har xona uchun")
+                                    sectionHeader(locale.t("home_collections"), subtitle: locale.t("home_collections_subtitle"))
                                     collectionsRow
                                 }
                                 if !products.isEmpty {
-                                    sectionHeader("Ommabop mahsulotlar", subtitle: "Eng ko'p tanlangan")
+                                    sectionHeader(locale.t("home_featured"), subtitle: locale.t("home_featured_subtitle"))
                                     featuredRow
                                 }
-                                sectionHeader("Barcha mahsulotlar", subtitle: "\(filtered.count) ta mahsulot")
+                                sectionHeader(locale.t("home_all_products"), subtitle: "\(filtered.count)\(locale.t("home_products_suffix"))")
                             }
                             productsGrid
                         }
@@ -134,9 +149,9 @@ struct HomeView: View {
                 .onChange(of: sort) { _, _ in Task { await load() } }
                 .onChange(of: location.viloyat) { _, _ in Task { await load() } }
                 .sheet(isPresented: $showFilters) { filterSheet }
-                .confirmationDialog("Viloyat", isPresented: $showViloyatPicker, titleVisibility: .visible) {
-                    Button("Barchasi") { location.setViloyat(nil) }
-                    Button("📍 GPS orqali aniqlash") { location.detectFromGps() }
+                .confirmationDialog(locale.t("home_viloyat_title"), isPresented: $showViloyatPicker, titleVisibility: .visible) {
+                    Button(locale.t("home_viloyat_all")) { location.setViloyat(nil) }
+                    Button("📍 \(locale.t("home_gps_detect"))") { location.detectFromGps() }
                     ForEach(viloyatlar) { v in
                         Button(v.label) { location.setViloyat(v.code) }
                     }
@@ -151,7 +166,7 @@ struct HomeView: View {
         HStack(spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Mahsulot yoki firma qidirish…", text: $query)
+                TextField(locale.t("catalog_search_hint"), text: $query)
                     .textInputAutocapitalization(.never)
                     .onChange(of: query) { _, newValue in
                         if !newValue.isEmpty { imageResults = nil }
@@ -218,15 +233,15 @@ struct HomeView: View {
                     sort = option
                 } label: {
                     if sort == option {
-                        Label(option.rawValue, systemImage: "checkmark")
+                        Label(option.label(locale), systemImage: "checkmark")
                     } else {
-                        Text(option.rawValue)
+                        Text(option.label(locale))
                     }
                 }
             }
         } label: {
             HStack(spacing: 4) {
-                Text(sort.rawValue).font(.caption).bold()
+                Text(sort.label(locale)).font(.caption).bold()
                 Image(systemName: "chevron.down").font(.caption2)
             }
             .foregroundStyle(Color.brandSecondary)
@@ -236,15 +251,15 @@ struct HomeView: View {
     private var filterSheet: some View {
         NavigationStack {
             Form {
-                Section("Qo'shimcha filtrlar") {
-                    Toggle("Faqat 🧊 AR / 3D mavjud", isOn: $onlyWithAR)
+                Section(locale.t("home_filters_extra")) {
+                    Toggle("🧊 \(locale.t("home_filter_ar_only"))", isOn: $onlyWithAR)
                 }
             }
-            .navigationTitle("Filtrlar")
+            .navigationTitle(locale.t("home_filters_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Tayyor") { showFilters = false }
+                    Button(locale.t("common_done")) { showFilters = false }
                 }
             }
         }
@@ -353,10 +368,11 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "arrow.left").foregroundStyle(Color.brandDeep)
                 }
+                .accessibilityLabel(locale.t("home_back_tooltip"))
                 Text(
                     imageResults != nil
-                        ? "\(filtered.count) ta o'xshash mahsulot"
-                        : "\(filtered.count) ta natija"
+                        ? "\(filtered.count)\(locale.t("home_similar_suffix"))"
+                        : "\(filtered.count)\(locale.t("home_results_suffix"))"
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -374,7 +390,7 @@ struct HomeView: View {
         if filtered.isEmpty {
             VStack(spacing: 8) {
                 Image(systemName: "tray").font(.largeTitle).foregroundStyle(.secondary)
-                Text("Mahsulot topilmadi").foregroundStyle(.secondary)
+                Text(locale.t("home_nothing_found")).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 60)

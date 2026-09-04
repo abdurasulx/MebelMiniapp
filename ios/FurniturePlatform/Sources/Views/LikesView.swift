@@ -13,6 +13,7 @@ import SwiftUI
 struct LikesView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var likes: LikesStore
+    @EnvironmentObject private var locale: LocaleStore
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -22,16 +23,16 @@ struct LikesView: View {
                 if !auth.isAuthenticated {
                     ContentUnavailableCompat(
                         icon: "heart",
-                        title: "Sevimlilar uchun kiring",
-                        message: "Yoqqan mahsulotlaringizni saqlash uchun Profil bo'limidan tizimga kiring."
+                        title: locale.t("likes_login_title"),
+                        message: locale.t("likes_login_message")
                     )
                 } else if isLoading && likes.likedProducts.isEmpty {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if likes.likedProducts.isEmpty {
                     ContentUnavailableCompat(
                         icon: "heart",
-                        title: "Hali sevimli mahsulot yo'q",
-                        message: "Katalogdan yoqqan mahsulotni yurakcha bilan belgilang."
+                        title: locale.t("likes_empty_title"),
+                        message: locale.t("likes_empty_message")
                     )
                 } else {
                     ScrollView {
@@ -63,7 +64,7 @@ struct LikesView: View {
                     }
                 }
             }
-            .navigationTitle("Sevimlilar")
+            .navigationTitle(locale.t("likes_title"))
             .task {
                 isLoading = true
                 await likes.loadIfNeeded()

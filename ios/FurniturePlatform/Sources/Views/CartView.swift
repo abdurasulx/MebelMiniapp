@@ -8,6 +8,7 @@ struct CartView: View {
     @EnvironmentObject private var cart: CartStore
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var location: LocationStore
+    @EnvironmentObject private var locale: LocaleStore
 
     @State private var busy = false
     @State private var errorMessage: String?
@@ -25,29 +26,29 @@ struct CartView: View {
                     content
                 }
             }
-            .navigationTitle("Savat")
+            .navigationTitle(locale.t("cart_title"))
         }
     }
 
     private var empty: some View {
         VStack(spacing: 8) {
             Image(systemName: "cart").font(.largeTitle).foregroundStyle(.secondary)
-            Text("Savat bo'sh").font(.headline)
-            Text("Katalogdan mahsulot tanlang").font(.caption).foregroundStyle(.secondary)
+            Text(locale.t("cart_empty_title")).font(.headline)
+            Text(locale.t("cart_empty_subtitle")).font(.caption).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var content: some View {
         Form {
-            Section("Mahsulotlar") {
+            Section(locale.t("cart_products_section")) {
                 ForEach(cart.items) { item in
                     cartRow(item)
                 }
             }
             Section {
                 HStack {
-                    Text("Jami")
+                    Text(locale.t("cart_total"))
                     Spacer()
                     Text("\(String(format: "%.0f", cart.total).formattedSom) so'm").bold()
                 }
@@ -57,7 +58,7 @@ struct CartView: View {
             }
             Section {
                 Button(action: checkout) {
-                    if busy { ProgressView() } else { Text("Buyurtma berish").bold() }
+                    if busy { ProgressView() } else { Text(locale.t("cart_submit")).bold() }
                 }
                 .disabled(busy)
                 .frame(maxWidth: .infinity)
@@ -65,10 +66,10 @@ struct CartView: View {
                 .foregroundStyle(Color.brandPrimary)
             }
         }
-        .alert("Buyurtma qabul qilindi", isPresented: $didSucceed) {
+        .alert(locale.t("cart_order_success_title"), isPresented: $didSucceed) {
             Button("OK") {}
         } message: {
-            Text("Kompaniya(lar) siz bilan tez orada bog'lanadi.")
+            Text(locale.t("cart_order_success_message"))
         }
         .sheet(isPresented: $showPhoneVerify) {
             PhoneVerifySheet(initialPhone: auth.user?.phone ?? "", onVerified: checkout)
@@ -114,7 +115,7 @@ struct CartView: View {
 
     private func checkout() {
         guard auth.isAuthenticated else {
-            errorMessage = "Buyurtma berish uchun Profil bo'limidan tizimga kiring"
+            errorMessage = locale.t("checkout_login_required")
             return
         }
         // Telefon/manzil endi so'ralmaydi — tasdiqlangan profildan (backend

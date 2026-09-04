@@ -6,6 +6,7 @@ struct ProductDetailView: View {
 
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var cart: CartStore
+    @EnvironmentObject private var locale: LocaleStore
     @State private var product: Product?
     @State private var addedToCart = false
     @State private var selectedVariant: Variant?
@@ -61,7 +62,7 @@ struct ProductDetailView: View {
                         HStack(spacing: 8) {
                             LikeButton(productId: product.id, compact: false, product: product)
                             ShareLink(
-                                item: "\(product.nameUz) — \(product.companyName)\nFurniture Platform ilovasida ko'ring."
+                                item: "\(product.nameUz) — \(product.companyName)\(locale.t("product_share_suffix"))"
                             ) {
                                 Image(systemName: "square.and.arrow.up")
                                     .padding(8)
@@ -107,7 +108,7 @@ struct ProductDetailView: View {
                     if !product.variants.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             // 1) Avval variant (rang/material) tanlanadi
-                            Text("Variant (material/rang)").font(.caption).foregroundStyle(.secondary)
+                            Text(locale.t("product_variant_field_label")).font(.caption).foregroundStyle(.secondary)
                             Picker("Variant", selection: $selectedVariant) {
                                 ForEach(product.variants) { v in
                                     Text(v.name)
@@ -125,7 +126,7 @@ struct ProductDetailView: View {
                                 Button {
                                     showAR = true
                                 } label: {
-                                    Label("AR'da sinash", systemImage: "arkit")
+                                    Label(locale.t("product_try_ar"), systemImage: "arkit")
                                         .frame(maxWidth: .infinity)
                                         .padding()
                                         .background(Color.brandDeep)
@@ -135,22 +136,22 @@ struct ProductDetailView: View {
                                 .accessibilityIdentifier("arButton-\(selectedVariant?.id ?? "")")
                                 .id("\(usdz)-\(selectedVariant?.id ?? "")") // variant almashsa tugma qayta yaratiladi
                             } else if activeModel3d?.glbUrl != nil {
-                                Text("🧊 3D model mavjud (AR uchun iOS'da USDZ kerak)")
+                                Text("🧊 \(locale.t("product_3d_ios_note"))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
 
                             HStack(spacing: 12) {
-                                dimField("Eni (m)", $width)
-                                dimField("Bo'yi (m)", $height)
-                                dimField("Chuquri (m)", $depth)
+                                dimField(locale.t("product_dim_width"), $width)
+                                dimField(locale.t("product_dim_height"), $height)
+                                dimField(locale.t("product_dim_depth"), $depth)
                             }
 
-                            Stepper("Soni: \(quantity)", value: $quantity, in: 1...50)
+                            Stepper("\(locale.t("product_qty_label")): \(quantity)", value: $quantity, in: 1...50)
 
                             if let price {
                                 VStack(alignment: .leading) {
-                                    Text("Taxminiy narx").font(.caption).foregroundStyle(.secondary)
+                                    Text(locale.t("product_approx_price")).font(.caption).foregroundStyle(.secondary)
                                     Text("\(String(format: "%.0f", price).formattedSom) so'm").font(.title3).bold()
                                 }
                                 .padding()
@@ -165,9 +166,9 @@ struct ProductDetailView: View {
 
                             Button {
                                 if auth.isAuthenticated { showOrderSheet = true }
-                                else { errorMessage = "Buyurtma berish uchun Profil bo'limidan tizimga kiring" }
+                                else { errorMessage = locale.t("checkout_login_required") }
                             } label: {
-                                Text("📦 Buyurtma berish")
+                                Text("📦 \(locale.t("cart_submit"))")
                                     .frame(maxWidth: .infinity)
                                     .padding()
                                     .background(price == nil ? Color.gray.opacity(0.4) : Color.brandSecondary)
@@ -181,7 +182,7 @@ struct ProductDetailView: View {
                                 cart.addProduct(product, variant: variant)
                                 addedToCart = true
                             } label: {
-                                Label("Savatga qo'shish", systemImage: "cart.badge.plus")
+                                Label(locale.t("product_add_to_cart"), systemImage: "cart.badge.plus")
                                     .frame(maxWidth: .infinity)
                                     .padding()
                                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandDeep, lineWidth: 1.5))
@@ -199,7 +200,7 @@ struct ProductDetailView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
-        .alert("Savatga qo'shildi", isPresented: $addedToCart) {
+        .alert(locale.t("product_added_alert_title"), isPresented: $addedToCart) {
             Button("OK") {}
         }
         .onChange(of: selectedVariant?.id) { _, _ in
