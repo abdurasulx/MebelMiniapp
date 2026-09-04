@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FolderKanban, Lock, Plus, Unlock } from "lucide-react";
 import { api } from "../api";
+import { useLocale } from "../locale";
 
 /** Mijozning "xonamni bezash" loyihalari ro'yxati — yangi loyiha shu yerdan yaratiladi. */
 export default function MyProjects() {
+  const { t } = useLocale();
   const [projects, setProjects] = useState(null);
   const [error, setError] = useState("");
   const [name, setName] = useState("");
@@ -33,31 +35,31 @@ export default function MyProjects() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-1 text-2xl font-bold">Loyihalarim</h1>
+      <h1 className="mb-1 text-2xl font-bold">{t("projects_title")}</h1>
       <p className="mb-6 text-sm" style={{ color: "var(--muted)" }}>
-        Xonangizni istalgan do'kondagi mahsulotlar bilan to'ldirib, 3D'da joylashtirib ko'ring.
+        {t("projects_subtitle")}
       </p>
 
       <form onSubmit={createProject} className="card mb-6 flex gap-2 p-4">
         <input
           className="input flex-1"
-          placeholder="Loyiha nomi (masalan: Oshxonam)"
+          placeholder={t("projects_name_placeholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <button className="btn btn-brand inline-flex items-center gap-1.5" disabled={busy}>
-          <Plus size={16} /> Yaratish
+          <Plus size={16} /> {t("projects_create")}
         </button>
       </form>
 
       {error && <div className="error mb-4">{error}</div>}
 
       {!projects ? (
-        <p style={{ color: "var(--muted)" }}>Yuklanmoqda…</p>
+        <p style={{ color: "var(--muted)" }}>{t("projects_loading")}</p>
       ) : projects.length === 0 ? (
         <div className="card p-8 text-center">
           <FolderKanban className="mx-auto mb-2" size={32} style={{ color: "var(--muted)" }} />
-          <p style={{ color: "var(--muted)" }}>Hali loyiha yo'q — yuqoridan birinchisini yarating.</p>
+          <p style={{ color: "var(--muted)" }}>{t("projects_empty")}</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -70,7 +72,7 @@ export default function MyProjects() {
               <div>
                 <div className="font-semibold">{p.name}</div>
                 <div className="text-xs" style={{ color: "var(--muted)" }}>
-                  {p.items?.length || 0} ta element
+                  {p.items?.length || 0}{t("projects_items_suffix")}
                 </div>
               </div>
               <span
@@ -83,7 +85,7 @@ export default function MyProjects() {
                 }}
               >
                 {p.is_paid ? <Unlock size={13} /> : <Lock size={13} />}
-                {p.is_paid ? "To'langan" : "To'lanmagan"}
+                {p.is_paid ? t("projects_paid") : t("projects_unpaid")}
               </span>
             </Link>
           ))}
