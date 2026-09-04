@@ -366,7 +366,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.place_rounded, size: 16, color: AppColors.deep),
-              label: Text(location.viloyatLabelText(loc)),
+              label: Text(
+                location.viloyatLabelText(loc),
+                style: const TextStyle(color: AppColors.deep, fontWeight: FontWeight.w600, fontSize: 12.5),
+              ),
               onPressed: _pickViloyat,
             ),
             const SizedBox(width: 8),

@@ -85,7 +85,15 @@ ThemeData buildAppTheme() {
     chipTheme: base.chipTheme.copyWith(
       backgroundColor: Colors.white,
       selectedColor: AppColors.deep,
-      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
+      // `color` aniq berilmasa, ba'zi Android qurilmalarida chip yorlig'i
+      // deyarli oq/ko'rinmas rangda render bo'lib qolishi mumkin edi
+      // (masalan bosh sahifadagi viloyat/GPS chip'i) — shu uchun aniq
+      // jigarrang rang belgilanadi.
+      labelStyle: const TextStyle(
+        color: AppColors.deep,
+        fontWeight: FontWeight.w600,
+        fontSize: 12.5,
+      ),
       secondaryLabelStyle: const TextStyle(
         color: AppColors.primary,
         fontWeight: FontWeight.w600,
