@@ -222,12 +222,13 @@ class _ProfileBodyState extends State<_ProfileBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Bog'langan hisoblar", style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(loc.t('profile_linked_accounts'), style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   _LinkedAccountRow(
                     iconAsset: 'assets/icons/google_logo.png',
                     label: 'Google',
                     linked: user.hasGoogle,
+                    loc: loc,
                     onLink: () async {
                       final ok = await auth.linkGoogle();
                       if (!ok && auth.errorMessage != null && context.mounted) {
@@ -241,6 +242,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
                     iconAsset: 'assets/icons/telegram_logo.png',
                     label: 'Telegram',
                     linked: user.hasTelegram,
+                    loc: loc,
                     onLink: () async {
                       final ok = await auth.linkTelegram();
                       if (!ok && auth.errorMessage != null && context.mounted) {
@@ -402,15 +404,15 @@ class _ProfileBodyState extends State<_ProfileBody> {
           ),
           const SizedBox(height: 20),
 
-          const Text(
-            'So\'nggi buyurtmalar',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          Text(
+            loc.t('orders_recent_title'),
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           if (_orders.isEmpty)
-            const Text(
-              'Hali buyurtma yo\'q',
-              style: TextStyle(color: Color(0xFF8A7357)),
+            Text(
+              loc.t('orders_empty'),
+              style: const TextStyle(color: Color(0xFF8A7357)),
             )
           else ...[
             // Ro'yxat cheklanadi: firma egasi uchun barcha buyurtmalar ko'p
@@ -468,7 +470,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  'va yana ${_orders.length - 5} ta buyurtma',
+                  '${loc.t('orders_more_prefix')}${_orders.length - 5}${loc.t('orders_more_suffix')}',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF8A7357),
@@ -489,11 +491,13 @@ class _LinkedAccountRow extends StatefulWidget {
   final String iconAsset;
   final String label;
   final bool linked;
+  final LocaleStore loc;
   final Future<void> Function() onLink;
   const _LinkedAccountRow({
     required this.iconAsset,
     required this.label,
     required this.linked,
+    required this.loc,
     required this.onLink,
   });
 
@@ -512,12 +516,12 @@ class _LinkedAccountRowState extends State<_LinkedAccountRow> {
         const SizedBox(width: 8),
         Expanded(child: Text(widget.label)),
         if (widget.linked)
-          const Row(
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 16),
-              SizedBox(width: 4),
-              Text("Bog'langan", style: TextStyle(color: Colors.green, fontSize: 12)),
+              const Icon(Icons.check_circle, color: Colors.green, size: 16),
+              const SizedBox(width: 4),
+              Text(widget.loc.t('profile_linked'), style: const TextStyle(color: Colors.green, fontSize: 12)),
             ],
           )
         else
@@ -535,7 +539,7 @@ class _LinkedAccountRowState extends State<_LinkedAccountRow> {
                     height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text("Bog'lash"),
+                : Text(widget.loc.t('profile_link_action')),
           ),
       ],
     );

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../locale_store.dart';
 import '../models.dart';
 
 /// Mijoz tomonidagi buyurtma tafsiloti — ishlab chiqarish bosqichlarini
@@ -26,6 +28,7 @@ class OrderDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     final steps = order.workflowSteps;
     return Scaffold(
       appBar: AppBar(title: Text(order.companyName)),
@@ -64,7 +67,7 @@ class OrderDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Ishlab chiqarish: ${order.progressPercent}%',
+                      '${loc.t('order_detail_production_prefix')}${order.progressPercent}%',
                       style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
                     ),
                   ],
@@ -74,12 +77,12 @@ class OrderDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           if (steps.isNotEmpty) ...[
-            const Text(
-              'Ishlab chiqarish jarayoni',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            Text(
+              loc.t('order_detail_process_title'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 10),
-            ...steps.map((step) => _StepTile(step: step, color: _statusColor(step.status))),
+            ...steps.map((step) => _StepTile(step: step, color: _statusColor(step.status), loc: loc)),
           ],
         ],
       ),
@@ -90,7 +93,8 @@ class OrderDetailScreen extends StatelessWidget {
 class _StepTile extends StatelessWidget {
   final WorkflowStepInstance step;
   final Color color;
-  const _StepTile({required this.step, required this.color});
+  final LocaleStore loc;
+  const _StepTile({required this.step, required this.color, required this.loc});
 
   @override
   Widget build(BuildContext context) {
@@ -135,14 +139,14 @@ class _StepTile extends StatelessWidget {
             if (step.employeeName != null && step.employeeName!.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                'Ijrochi: ${step.employeeName}',
+                '${loc.t('order_detail_executor_prefix')}${step.employeeName}',
                 style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
               ),
             ],
             if (step.updates.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                '${step.updates.length} ta yangilanish',
+                '${step.updates.length}${loc.t('order_detail_updates_suffix')}',
                 style: const TextStyle(fontSize: 11, color: Color(0xFF8A7357)),
               ),
               const SizedBox(height: 8),
