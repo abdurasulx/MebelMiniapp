@@ -20,9 +20,14 @@ struct WorkerHomeView: View {
             }
             .navigationTitle("Usta paneli")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: AttendanceView()) {
-                        Image(systemName: "clock.fill")
+                // Davomat (check-in/check-out) faqat soatbay (payType ==
+                // "hourly") xodimlar uchun mantiqiy — backend ham mustaqil
+                // tekshiradi (AttendanceRecordViewSet._own_employee).
+                if auth.user?.payType == "hourly" {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        NavigationLink(destination: AttendanceView()) {
+                            Image(systemName: "clock.fill")
+                        }
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {

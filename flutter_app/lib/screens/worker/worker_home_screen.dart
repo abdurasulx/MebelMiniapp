@@ -55,7 +55,13 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final company = context.watch<AuthStore>().user?.company;
+    final user = context.watch<AuthStore>().user;
+    final company = user?.company;
+    // Davomat (check-in/check-out) faqat soatbay (pay_type == 'hourly')
+    // xodimlar uchun mantiqiy — oylik/komissiya/ishbay xodimning ish haqi
+    // ishlagan soatiga bog'liq emas (backend ham mustaqil tekshiradi,
+    // qarang apps/attendance/views.py AttendanceRecordViewSet._own_employee).
+    final isHourly = user?.payType == 'hourly';
     return Scaffold(
       appBar: AppBar(
         title: const Text('Usta paneli'),
@@ -65,13 +71,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         // o'tishga majbur bo'lardi.
         actions: [
           const NotificationBellButton(),
-          IconButton(
-            icon: const Icon(Icons.access_time_filled_outlined),
-            tooltip: 'Davomat',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const AttendanceScreen()),
+          if (isHourly)
+            IconButton(
+              icon: const Icon(Icons.access_time_filled_outlined),
+              tooltip: 'Davomat',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AttendanceScreen()),
+              ),
             ),
-          ),
           IconButton(
             icon: const Icon(Icons.location_on_outlined),
             tooltip: 'Joy o\'rganish',

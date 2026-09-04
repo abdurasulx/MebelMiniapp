@@ -43,6 +43,8 @@ class UserSerializer(serializers.ModelSerializer):
     positions = serializers.SerializerMethodField()
     has_google = serializers.SerializerMethodField()
     has_telegram = serializers.SerializerMethodField()
+    pay_type = serializers.SerializerMethodField()
+    pay_type_display = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -50,10 +52,12 @@ class UserSerializer(serializers.ModelSerializer):
             "id", "email", "first_name", "last_name", "phone", "date_of_birth", "role",
             "worker_id", "company", "positions", "is_active", "date_joined",
             "registration_completed", "phone_verified", "has_google", "has_telegram",
+            "pay_type", "pay_type_display",
         )
         read_only_fields = (
             "id", "email", "role", "worker_id", "company", "positions", "is_active", "date_joined",
             "registration_completed", "phone_verified", "has_google", "has_telegram",
+            "pay_type", "pay_type_display",
         )
 
     def get_has_google(self, obj):
@@ -74,6 +78,20 @@ class UserSerializer(serializers.ModelSerializer):
         """Xodimning kasblari (multi-role) — kirishda rol tanlash uchun."""
         emp = obj.employments.filter(is_active=True, is_deleted=False).first()
         return emp.positions if emp else []
+
+    def _active_employment(self, obj):
+        return obj.employments.filter(is_active=True, is_deleted=False).first()
+
+    def get_pay_type(self, obj):
+        """To'lov turi (fixed/fixed_bonus/commission/hourly/piecework) —
+        mobil ilovalarda Davomat (soatbay ishchilar uchun) tugmasini
+        ko'rsatish/yashirish uchun ishlatiladi."""
+        emp = self._active_employment(obj)
+        return emp.pay_type if emp else None
+
+    def get_pay_type_display(self, obj):
+        emp = self._active_employment(obj)
+        return emp.get_pay_type_display() if emp else None
 
 
 class GoogleLoginSerializer(serializers.Serializer):

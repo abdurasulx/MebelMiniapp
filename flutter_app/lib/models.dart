@@ -33,6 +33,10 @@ class AppUser {
   final bool phoneVerified;
   final bool hasGoogle;
   final bool hasTelegram;
+  // Faol ish o'rnining to'lov turi (fixed/fixed_bonus/commission/hourly/
+  // piecework) — Davomat (check-in/check-out) faqat "hourly" (soatbay)
+  // xodimlar uchun ko'rsatiladi (qarang worker_home_screen.dart).
+  final String? payType;
 
   AppUser({
     required this.id,
@@ -48,6 +52,7 @@ class AppUser {
     this.phoneVerified = true,
     this.hasGoogle = false,
     this.hasTelegram = false,
+    this.payType,
   });
 
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
@@ -65,6 +70,7 @@ class AppUser {
     phoneVerified: j['phone_verified'] ?? true,
     hasGoogle: j['has_google'] ?? false,
     hasTelegram: j['has_telegram'] ?? false,
+    payType: j['pay_type'],
   );
 }
 

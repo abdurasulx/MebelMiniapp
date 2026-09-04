@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from apps.companies.models import Employee
+from apps.companies.models import Employee, PayType
 from apps.companies.views import is_company_owner, user_company
 
 from .models import AttendanceAction, AttendanceEditLog, AttendanceRecord, Workplace
@@ -81,6 +81,15 @@ class AttendanceRecordViewSet(viewsets.ReadOnlyModelViewSet):
         ).first()
         if employee is None:
             raise PermissionDenied("Siz shu firmaning faol xodimi emassiz")
+        # Davomat (check-in/check-out) faqat soatbay (HOURLY) xodimlar uchun
+        # mantiqiy — oylik/komissiya/ishbay xodimlarning ish haqi ishlagan
+        # soatiga bog'liq emas. Mobil ilovalar tugmani shu asosda
+        # yashiradi, lekin backend ham mustaqil tekshiradi (faqat UI'ga
+        # ishonib qolmaslik uchun).
+        if employee.pay_type != PayType.HOURLY:
+            raise PermissionDenied(
+                "Davomat faqat soatbay xodimlar uchun mavjud"
+            )
         return employee
 
     def _check(self, request, action_type):
