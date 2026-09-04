@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../api_client.dart';
 import '../cart_store.dart';
+import '../locale_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/like_button.dart';
@@ -90,10 +91,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     final p = _product;
     if (p == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Mahsulot')),
+        appBar: AppBar(title: Text(loc.t('product_title'))),
         body: Center(
           child: _error != null
               ? Text(_error!, style: const TextStyle(color: Colors.red))
@@ -106,7 +108,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            _gallery(p),
+            _gallery(p, loc),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -128,9 +130,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   ],
                   const SizedBox(height: 20),
                   if (p.variants.isNotEmpty) ...[
-                    const Text(
-                      'VARIANT (MATERIAL/RANG)',
-                      style: TextStyle(
+                    Text(
+                      loc.t('product_variant_label'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 11.5,
                         letterSpacing: 0.6,
@@ -160,25 +162,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                       }).toList(),
                     ),
                     const SizedBox(height: 18),
-                    if (_selectedVariant != null) _priceCard(),
+                    if (_selectedVariant != null) _priceCard(loc),
                     if (_selectedVariant != null) ...[
                       const SizedBox(height: 12),
-                      _addToCartButton(p),
+                      _addToCartButton(p, loc),
                     ],
                   ],
                   const SizedBox(height: 28),
-                  _sectionTabs(),
+                  _sectionTabs(loc),
                   const SizedBox(height: 14),
                   AnimatedBuilder(
                     animation: _tabController,
                     builder: (context, _) => _tabController.index == 0
-                        ? _descriptionTab(p)
-                        : _characteristicsTab(p),
+                        ? _descriptionTab(p, loc)
+                        : _characteristicsTab(p, loc),
                   ),
                 ],
               ),
             ),
-            if (_recommended.isNotEmpty) _recommendedSection(),
+            if (_recommended.isNotEmpty) _recommendedSection(loc),
             const SizedBox(height: 24),
           ],
         ),
@@ -190,7 +192,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   /// odatiy naqsh. `TabBarView` o'rniga oddiy shart bilan almashtirilishi
   /// sababi: ekran butun sahifa `ListView` ichida (cheksiz balandlik),
   /// `TabBarView` esa chegaralangan balandlik talab qiladi.
-  Widget _sectionTabs() {
+  Widget _sectionTabs(LocaleStore loc) {
     return SizedBox(
       width: double.infinity,
       child: TabBar(
@@ -200,16 +202,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         indicatorColor: AppColors.deep,
         dividerColor: AppColors.cardBorder,
         labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-        tabs: const [Tab(text: 'Tavsif'), Tab(text: 'Xususiyatlar')],
+        tabs: [
+          Tab(text: loc.t('product_tab_description')),
+          Tab(text: loc.t('product_tab_characteristics')),
+        ],
       ),
     );
   }
 
-  Widget _descriptionTab(Product p) {
+  Widget _descriptionTab(Product p, LocaleStore loc) {
     if (p.description?.isNotEmpty != true) {
-      return const Text(
-        'Bu mahsulot uchun tavsif kiritilmagan.',
-        style: TextStyle(fontSize: 13, color: Color(0xFF8A7357)),
+      return Text(
+        loc.t('product_no_description'),
+        style: const TextStyle(fontSize: 13, color: Color(0xFF8A7357)),
       );
     }
     return Text(
@@ -218,23 +223,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _characteristicsTab(Product p) {
+  Widget _characteristicsTab(Product p, LocaleStore loc) {
     final v = _selectedVariant;
     final rows = <(String, String)>[
-      if (p.categoryName != null) ('Kategoriya', p.categoryName!),
-      ('Firma', p.companyName),
-      if (v != null) ('Material/rang', v.name),
+      if (p.categoryName != null) (loc.t('product_char_category'), p.categoryName!),
+      (loc.t('product_char_company'), p.companyName),
+      if (v != null) (loc.t('product_char_material'), v.name),
       if (v != null)
         (
-          'O\'lcham (E×B×Ch)',
+          loc.t('product_char_size'),
           '${(v.widthValue * 100).round()}×${(v.heightValue * 100).round()}×${(v.depthValue * 100).round()} sm',
         ),
-      if (p.colorTag?.isNotEmpty == true) ('Rang', p.colorTag!),
+      if (p.colorTag?.isNotEmpty == true) (loc.t('product_char_color'), p.colorTag!),
     ];
     if (rows.isEmpty) {
-      return const Text(
-        'Xususiyatlar hali kiritilmagan.',
-        style: TextStyle(fontSize: 13, color: Color(0xFF8A7357)),
+      return Text(
+        loc.t('product_no_characteristics'),
+        style: const TextStyle(fontSize: 13, color: Color(0xFF8A7357)),
       );
     }
     return Column(
@@ -268,15 +273,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
   /// "Sizga yoqishi mumkin" — o'sha kategoriyadagi boshqa mahsulotlar
   /// gorizontal ro'yxatda (qarang `_loadRecommended`).
-  Widget _recommendedSection() {
+  Widget _recommendedSection(LocaleStore loc) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Sizga yoqishi mumkin',
-            style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
+          Text(
+            loc.t('product_recommended'),
+            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -296,7 +301,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _gallery(Product p) {
+  Widget _gallery(Product p, LocaleStore loc) {
     final urls = p.galleryUrls;
     // Marketplace ilovalaridagi (Uzum va h.k.) kabi — avval qattiq 320px,
     // keyin kvadrat (1:1) edi, ikkalasi ham tor-uzun ekranda (masalan S20
@@ -353,7 +358,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               const SizedBox(width: 8),
               _circleButton(
                 icon: Icons.ios_share_rounded,
-                onTap: () => _share(p),
+                onTap: () => _share(p, loc),
               ),
             ],
           ),
@@ -383,7 +388,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             ),
           ),
         if (_activeModel3d?.glbUrl != null)
-          Positioned(bottom: 12, right: 12, child: _view3dButton(p)),
+          Positioned(bottom: 12, right: 12, child: _view3dButton(p, loc)),
       ],
     );
   }
@@ -403,7 +408,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _view3dButton(Product p) {
+  Widget _view3dButton(Product p, LocaleStore loc) {
     return GestureDetector(
       onTap: () => _open3d(p),
       child: Container(
@@ -419,14 +424,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.view_in_ar_rounded, size: 16, color: AppColors.primary),
-            SizedBox(width: 6),
+            const Icon(Icons.view_in_ar_rounded, size: 16, color: AppColors.primary),
+            const SizedBox(width: 6),
             Text(
-              '3D ko\'rish',
-              style: TextStyle(
+              loc.t('product_view_3d'),
+              style: const TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w700,
                 fontSize: 12.5,
@@ -493,10 +498,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  void _share(Product p) {
+  void _share(Product p, LocaleStore loc) {
     SharePlus.instance.share(
       ShareParams(
-        text: '${p.nameUz} — ${p.companyName}\nFurniture Platform ilovasida ko\'ring.',
+        text: '${p.nameUz} — ${p.companyName}${loc.t('product_share_suffix')}',
       ),
     );
   }
@@ -572,23 +577,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _addToCartButton(Product p) {
+  Widget _addToCartButton(Product p, LocaleStore loc) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: () {
           context.read<CartStore>().addProduct(p, _selectedVariant!);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${p.nameUz} savatga qo\'shildi')),
+            SnackBar(content: Text('${p.nameUz}${loc.t('product_added_to_cart_suffix')}')),
           );
         },
         icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
-        label: const Text('Savatga qo\'shish'),
+        label: Text(loc.t('product_add_to_cart')),
       ),
     );
   }
 
-  Widget _priceCard() {
+  Widget _priceCard(LocaleStore loc) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -605,9 +610,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'NARX (1 M³)',
-            style: TextStyle(
+          Text(
+            loc.t('product_price_label'),
+            style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.6,
