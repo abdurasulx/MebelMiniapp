@@ -132,7 +132,14 @@ export default function Cart() {
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <div className="font-semibold">{i.productName}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold">{i.productName}</span>
+                  {i.discountPercent > 0 && (
+                    <span className="badge" style={{ background: "var(--danger)", color: "#fff" }}>
+                      -{i.discountPercent}%
+                    </span>
+                  )}
+                </div>
                 <div className="text-xs" style={{ color: "var(--muted)" }}>
                   {i.variantName} · {i.width}×{i.height}×{i.depth} m · {i.companyName}
                 </div>
@@ -144,8 +151,13 @@ export default function Cart() {
                 value={i.qty}
                 onChange={(e) => setQty(idx, parseInt(e.target.value) || 1)}
               />
-              <div className="w-32 text-right font-bold">
-                {itemSubtotal(i).toLocaleString()} so'm
+              <div className="w-32 text-right">
+                {i.m3OriginalPrice > 0 && (
+                  <div className="text-xs line-through" style={{ color: "var(--muted)" }}>
+                    {Math.round(i.m3OriginalPrice * i.width * i.height * i.depth * i.qty).toLocaleString()} so'm
+                  </div>
+                )}
+                <div className="font-bold">{itemSubtotal(i).toLocaleString()} so'm</div>
               </div>
               <button className="btn-danger !px-3 !py-1.5 text-xs" onClick={() => removeFromCart(idx)}>
                 <X size={14} />

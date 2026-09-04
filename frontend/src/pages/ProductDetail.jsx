@@ -288,6 +288,8 @@ export default function ProductDetail() {
                       variantId: variant.id,
                       variantName: variant.name,
                       m3Price: variant.discount_active ? parseFloat(variant.effective_base_price) : parseFloat(variant.base_price),
+                      m3OriginalPrice: variant.discount_active ? parseFloat(variant.base_price) : null,
+                      discountPercent: variant.discount_active ? Number(variant.discount_percent) : null,
                       width: parseFloat(dims.width),
                       height: parseFloat(dims.height),
                       depth: parseFloat(dims.depth),
