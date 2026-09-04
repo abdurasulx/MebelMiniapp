@@ -48,20 +48,20 @@ class _RootScreenState extends State<RootScreen> {
           ];
 
     final items = isWorker
-        ? const [
+        ? [
             BottomNavigationBarItem(
-              icon: Icon(Icons.handyman),
-              label: 'Usta paneli',
+              icon: const Icon(Icons.handyman),
+              label: loc.t('worker_panel_tab'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.assignment),
-              label: 'Buyurtmalar',
+              icon: const Icon(Icons.assignment),
+              label: loc.t('worker_orders_tab'),
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.payments_outlined),
-              label: 'Ish haqim',
+              icon: const Icon(Icons.payments_outlined),
+              label: loc.t('worker_payslip_tab'),
             ),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+            BottomNavigationBarItem(icon: const Icon(Icons.person), label: loc.t('nav_profile')),
           ]
         : [
             BottomNavigationBarItem(

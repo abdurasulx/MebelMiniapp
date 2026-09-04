@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'locale_store.dart';
 
 /// O'zbekiston viloyatlari — backend `Viloyat` enum bilan bir xil kodlar
 /// (`backend/apps/companies/models.py`). GPS koordinatasidan eng yaqin
@@ -35,12 +36,12 @@ const List<ViloyatInfo> viloyatlar = [
   ViloyatInfo('surxondaryo', "Surxondaryo", 37.9401, 67.5714),
 ];
 
-String viloyatLabel(String? code) {
-  if (code == null) return "Barchasi";
+String viloyatLabel(String? code, LocaleStore loc) {
+  if (code == null) return loc.t('home_all');
   return viloyatlar
       .firstWhere(
         (v) => v.code == code,
-        orElse: () => const ViloyatInfo('', "Noma'lum", 0, 0),
+        orElse: () => ViloyatInfo('', loc.t('viloyat_unknown'), 0, 0),
       )
       .label;
 }

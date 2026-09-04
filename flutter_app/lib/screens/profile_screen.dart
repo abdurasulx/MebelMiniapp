@@ -281,20 +281,20 @@ class _ProfileBodyState extends State<_ProfileBody> {
           // to'g'ri o'sha rolga o'tadi. Bir nechta kasbi bo'lsa "Xodim
           // sifatida kirish" — bosilganda qaysi rolda ishlashini so'raydi.
           if (user.positions.isNotEmpty) ...[
-            const Text(
-              'Ko\'rinish rejimi',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              loc.t('profile_view_mode'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             SegmentedButton<AppMode>(
               segments: [
-                const ButtonSegment(value: AppMode.customer, label: Text('Xaridor')),
+                ButtonSegment(value: AppMode.customer, label: Text(loc.t('profile_customer_mode'))),
                 ButtonSegment(
                   value: AppMode.worker,
                   label: Text(
                     user.positions.length == 1
-                        ? '${positionInfo(user.positions.first).label} bilan kirish'
-                        : 'Xodim sifatida kirish',
+                        ? '${positionInfo(user.positions.first, loc).label}${loc.t('profile_worker_mode_with_label')}'
+                        : loc.t('profile_worker_mode_generic'),
                   ),
                 ),
               ],
@@ -318,7 +318,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  'Hozir: ${positionInfo(auth.activePosition!).label}',
+                  '${loc.t('profile_current_mode_prefix')}${positionInfo(auth.activePosition!, loc).label}',
                   style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
                 ),
               ),
@@ -328,9 +328,9 @@ class _ProfileBodyState extends State<_ProfileBody> {
           if (_loading) const Center(child: CircularProgressIndicator()),
 
           if (pendingInvitations.isNotEmpty) ...[
-            const Text(
-              'Ish takliflari',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              loc.t('profile_job_offers'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             ...pendingInvitations.map(
@@ -345,7 +345,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        inv.positions.join(', '),
+                        inv.positions.map((p) => positionInfo(p, loc).label).join(', '),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 8),
@@ -355,14 +355,14 @@ class _ProfileBodyState extends State<_ProfileBody> {
                             onPressed: _busyInvitationId == inv.id
                                 ? null
                                 : () => _respond(inv, true),
-                            child: const Text('Qabul qilish'),
+                            child: Text(loc.t('profile_offer_accept')),
                           ),
                           const SizedBox(width: 8),
                           OutlinedButton(
                             onPressed: _busyInvitationId == inv.id
                                 ? null
                                 : () => _respond(inv, false),
-                            child: const Text('Rad etish'),
+                            child: Text(loc.t('profile_offer_decline')),
                           ),
                         ],
                       ),
@@ -375,9 +375,9 @@ class _ProfileBodyState extends State<_ProfileBody> {
           ],
 
           if (_career.isNotEmpty) ...[
-            const Text(
-              'Ish tarixi (karyera)',
-              style: TextStyle(fontWeight: FontWeight.bold),
+            Text(
+              loc.t('profile_career_history'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             ..._career.map(
@@ -385,11 +385,11 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 dense: true,
                 leading: Icon(c.isActive ? Icons.work : Icons.work_outline),
                 title: Text(c.companyName),
-                subtitle: Text(c.positions.join(', ')),
+                subtitle: Text(c.positions.map((p) => positionInfo(p, loc).label).join(', ')),
                 trailing: c.isActive
-                    ? const Text(
-                        'hozir',
-                        style: TextStyle(color: Colors.green, fontSize: 12),
+                    ? Text(
+                        loc.t('profile_career_active_now'),
+                        style: const TextStyle(color: Colors.green, fontSize: 12),
                       )
                     : null,
               ),
@@ -554,6 +554,7 @@ class _RolePickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -561,9 +562,9 @@ class _RolePickerSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Bugun qaysi rolda ishlaysiz?',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            Text(
+              loc.t('profile_role_picker_title'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const SizedBox(height: 12),
             for (final p in positions)
@@ -571,10 +572,10 @@ class _RolePickerSheet extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
                   backgroundColor: const Color(0xFFECC299),
-                  child: Icon(positionInfo(p).icon, color: const Color(0xFF4C2C24), size: 20),
+                  child: Icon(positionInfo(p, loc).icon, color: const Color(0xFF4C2C24), size: 20),
                 ),
-                title: Text(positionInfo(p).label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(positionInfo(p).desc),
+                title: Text(positionInfo(p, loc).label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(positionInfo(p, loc).desc),
                 onTap: () => Navigator.pop(context, p),
               ),
           ],

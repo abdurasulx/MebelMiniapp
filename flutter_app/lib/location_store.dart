@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'locale_store.dart';
 import 'viloyat.dart';
 
 enum LocationStatus { idle, loading, granted, denied, unavailable }
@@ -26,7 +27,7 @@ class LocationStore extends ChangeNotifier {
   double? get lat => _lat;
   double? get lng => _lng;
   LocationStatus get status => _status;
-  String get viloyatLabelText => viloyatLabel(_viloyat);
+  String viloyatLabelText(LocaleStore loc) => viloyatLabel(_viloyat, loc);
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
