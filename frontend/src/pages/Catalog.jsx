@@ -7,8 +7,6 @@ import { useLocale } from "../locale";
 import PriceTag from "../components/PriceTag";
 import { PORTAL, portalForUser, portalURLFor } from "../portal";
 
-const PORTAL_LABEL = { admin: "platforma boshqaruvi", firma: "firma kabineti" };
-
 // Kartochkada nomdan keyin ko'rsatiladigan qisqa xususiyat qatori — masalan
 // "kulrang · 60×90×60 sm" (rang avtomatik aniqlangan, o'lcham birinchi
 // variantdan, metrdan santimetrga o'tkazilib).
@@ -95,7 +93,7 @@ export default function Catalog() {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
-      setError("Sevimlilarga qo'shish uchun tizimga kiring");
+      setError(t("catalog_like_login_required"));
       return;
     }
     try {
@@ -146,16 +144,15 @@ export default function Catalog() {
           style={{ background: "color-mix(in srgb, var(--secondary) 15%, var(--card))", border: "1px solid var(--border)" }}
         >
           <span>
-            Siz <strong>{PORTAL_LABEL[targetPortal]}</strong> hisobi bilan kirgansiz — bu yerda mijoz sifatida
-            xarid qilishingiz mumkin.
+            {t("catalog_portal_notice_prefix")}<strong>{t(`portal_label_${targetPortal}`)}</strong>{t("catalog_portal_notice_suffix")}
           </span>
           {targetPortalURL ? (
             <a href={targetPortalURL} className="btn btn-brand inline-flex items-center gap-1 !px-4 !py-1.5 text-xs whitespace-nowrap">
-              {PORTAL_LABEL[targetPortal]}ga o'tish <ArrowRight size={13} />
+              {t(`portal_label_${targetPortal}`)}{t("catalog_go_to_portal_suffix")} <ArrowRight size={13} />
             </a>
           ) : (
             <span className="text-xs" style={{ color: "var(--muted)" }}>
-              (subdomen orqali kirganda avtomatik o'tkaziladi)
+              {t("catalog_subdomain_note")}
             </span>
           )}
         </div>
@@ -170,11 +167,10 @@ export default function Catalog() {
         }}
       >
         <h1 className="mb-2 text-2xl font-bold sm:text-3xl">
-          Orzuingizdagi mebel — o'lchamingizga mos
+          {t("catalog_hero_title")}
         </h1>
         <p className="max-w-xl text-sm opacity-80">
-          O'zbekistonning eng yaxshi mebel ustalari bir joyda. O'lchamni kiriting,
-          narxni darhol bilib oling, buyurtma bering.
+          {t("catalog_hero_subtitle")}
         </p>
       </div>
 
@@ -185,7 +181,7 @@ export default function Catalog() {
             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
             style={{ border: "1px solid var(--border)", background: "var(--card)" }}
             onClick={backToHome}
-            title="Bosh sahifaga qaytish"
+            title={t("catalog_back_home_tooltip")}
           >
             <ArrowLeft size={16} />
           </button>
@@ -215,7 +211,7 @@ export default function Catalog() {
           style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
           onClick={pickImage}
           disabled={imageSearching}
-          title="Rasm bilan qidirish"
+          title={t("catalog_image_search_tooltip")}
         >
           <Camera size={16} />
         </button>
@@ -236,7 +232,7 @@ export default function Catalog() {
             className={cat === "" ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
             onClick={() => setCat("")}
           >
-            Barchasi
+            {t("catalog_filter_all")}
           </button>
           {categories.map((c) => (
             <button
@@ -258,21 +254,21 @@ export default function Catalog() {
           <img src={imagePreview} alt="" className="h-12 w-12 rounded-lg object-cover" />
           <span style={{ color: "var(--muted)" }}>
             {imageSearching
-              ? "Shu rasmga o'xshash mahsulotlar qidirilmoqda…"
-              : `Shu rasmga o'xshash ${imageResults?.length ?? 0} ta mahsulot topildi`}
+              ? t("catalog_image_searching")
+              : `${t("catalog_image_results_prefix")}${imageResults?.length ?? 0}${t("catalog_image_results_suffix")}`}
           </span>
         </div>
       )}
       {imageError && <div className="error mb-4">{imageError}</div>}
-      {searching && <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>Qidirilmoqda…</p>}
+      {searching && <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>{t("catalog_searching")}</p>}
       {searchResults !== null && !searching && (
-        <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>{searchResults.length} ta natija</p>
+        <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>{searchResults.length}{t("catalog_results_suffix")}</p>
       )}
 
       {error && <div className="error mb-4">{error}</div>}
       {shown.length === 0 && (
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          {imageResults ? "O'xshash mahsulot topilmadi." : "Hozircha mahsulotlar yo'q."}
+          {imageResults ? t("catalog_no_similar") : t("catalog_no_products")}
         </p>
       )}
 
@@ -288,7 +284,7 @@ export default function Catalog() {
                 <span
                   className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold shadow"
                   style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
-                  title="3D / AR mavjud"
+                  title={t("catalog_ar_badge_title")}
                 >
                   <Box size={12} /> 3D
                 </span>
@@ -298,7 +294,7 @@ export default function Catalog() {
                   onClick={(e) => toggleLike(e, p)}
                   className="flex h-7 w-7 items-center justify-center rounded-full shadow"
                   style={{ background: "var(--card)" }}
-                  title={p.is_liked ? "Sevimlilardan olib tashlash" : "Sevimlilarga qo'shish"}
+                  title={p.is_liked ? t("catalog_like_remove") : t("catalog_like_add")}
                 >
                   <Heart size={14} fill={p.is_liked ? "currentColor" : "none"} style={{ color: p.is_liked ? "var(--danger)" : "var(--muted)" }} />
                 </button>

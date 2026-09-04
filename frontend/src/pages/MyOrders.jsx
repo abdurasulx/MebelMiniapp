@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Workflow } from "lucide-react";
 import { api } from "../api";
+import { useLocale } from "../locale";
 import { FLOW, ORDER_STATUS, StatusBadge } from "../orderStatus";
 import WorkflowPanel from "../components/WorkflowPanel";
 
 export default function MyOrders() {
+  const { t } = useLocale();
   const [orders, setOrders] = useState([]);
   const [error, setError] = useState("");
   const [openWorkflow, setOpenWorkflow] = useState(null);
@@ -31,7 +33,7 @@ export default function MyOrders() {
   }, [highlightId, orders]);
 
   const cancel = async (o) => {
-    if (!confirm("Buyurtma bekor qilinsinmi?")) return;
+    if (!confirm(t("orders_cancel_confirm"))) return;
     try {
       await api(`/orders/${o.id}/set_status/`, { method: "POST", body: { status: "cancelled" } });
       load();
@@ -42,10 +44,10 @@ export default function MyOrders() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold">Buyurtmalarim</h1>
+      <h1 className="mb-6 text-2xl font-bold">{t("orders_title")}</h1>
       {error && <div className="error mb-4">{error}</div>}
       {orders.length === 0 && (
-        <p className="text-sm" style={{ color: "var(--muted)" }}>Hali buyurtma yo'q.</p>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>{t("orders_empty")}</p>
       )}
       <div className="flex flex-col gap-4">
         {orders.map((o) => (
@@ -108,7 +110,7 @@ export default function MyOrders() {
                     {it.product_name} {it.variant_name && `(${it.variant_name})`} · {it.width}×{it.height}×{it.depth} m ×{it.quantity}
                   </span>
                   {it.is_custom_size && it.cost_amount == null ? (
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>Narx belgilanmagan</span>
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>{t("orders_price_unset")}</span>
                   ) : (
                     <span className="font-medium">{Number(it.subtotal).toLocaleString()} so'm</span>
                   )}
@@ -116,7 +118,7 @@ export default function MyOrders() {
               ))}
             </div>
             <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: "var(--border)" }}>
-              <span className="text-sm" style={{ color: "var(--muted)" }}>Jami</span>
+              <span className="text-sm" style={{ color: "var(--muted)" }}>{t("orders_total")}</span>
               <span className="text-lg font-bold">{Number(o.total_price).toLocaleString()} so'm</span>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -125,12 +127,12 @@ export default function MyOrders() {
                   className={openWorkflow === o.id ? "btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
                   onClick={() => setOpenWorkflow(openWorkflow === o.id ? null : o.id)}
                 >
-                  <Workflow size={13} /> Ishlab chiqarish jarayoni ({o.progress_percent ?? 0}%)
+                  <Workflow size={13} /> {t("orders_workflow_progress")} ({o.progress_percent ?? 0}%)
                 </button>
               )}
               {o.status === "new" && (
                 <button className="btn-danger self-start !px-3 !py-1.5 text-xs" onClick={() => cancel(o)}>
-                  Bekor qilish
+                  {t("orders_cancel")}
                 </button>
               )}
             </div>
