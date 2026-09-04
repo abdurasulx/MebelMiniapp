@@ -3,7 +3,30 @@ import { Link } from "react-router-dom";
 import { Sofa, Palette, HardHat, Package, Target, Factory, ArrowRight, AlertTriangle, CheckCircle2, PackageX, Hammer } from "lucide-react";
 import { useAuth } from "../../auth";
 import { api } from "../../api";
-import { StatusBadge } from "../../orderStatus";
+import { ORDER_STATUS, StatusBadge } from "../../orderStatus";
+
+/// Status bo'yicha rangli sonlar — masalan "5 Kutilmoqda · 3 Qabul qilindi".
+function OrderStatusCounts({ orders }) {
+  const counts = {};
+  orders.forEach((o) => {
+    counts[o.status] = (counts[o.status] || 0) + 1;
+  });
+  const entries = Object.entries(counts).filter(([, n]) => n > 0);
+  if (entries.length === 0) return null;
+  return (
+    <>
+      {entries.map(([status, n]) => {
+        const s = ORDER_STATUS[status] || { label: status, color: "var(--muted)" };
+        return (
+          <span key={status} className="inline-flex items-center gap-1 text-[11px]" style={{ color: s.color }}>
+            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: s.color }} />
+            {n} {s.label}
+          </span>
+        );
+      })}
+    </>
+  );
+}
 import StatCard from "../../components/StatCard";
 
 // Xodim (usta) uchun — kompaniyaning butun katalogi/xodimlari/leadlari
@@ -34,7 +57,14 @@ function EmployeeDashboard() {
         </p>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard tone={3} icon={Package} label="Faol buyurtmalarim" value={orders.length} />
+        <StatCard
+          tone={3}
+          icon={Package}
+          label="Faol buyurtmalarim"
+          value={orders.length}
+          to="/orders"
+          hint={<OrderStatusCounts orders={orders} />}
+        />
       </div>
       <div className="flex flex-wrap gap-3">
         <Link to="/orders" className="btn inline-flex items-center gap-1.5">
@@ -128,7 +158,8 @@ export default function FirmaDashboard() {
           icon={Package}
           label="Buyurtmalar"
           value={orders.length}
-          hint={`${newOrders.length} kutilmoqda`}
+          to="/orders"
+          hint={<OrderStatusCounts orders={orders} />}
         />
         <StatCard
           tone={0}
