@@ -143,25 +143,26 @@ class _HomeScreenState extends State<HomeScreen> {
     final choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
+      backgroundColor: Colors.white,
       builder: (ctx) => SafeArea(
         child: ListView(
           shrinkWrap: true,
           children: [
             ListTile(
-              title: Text(loc.t('home_all')),
+              title: Text(loc.t('home_all'), style: const TextStyle(color: AppColors.deep)),
               trailing: location.viloyat == null && location.lat == null
                   ? const Icon(Icons.check, color: AppColors.deep)
                   : null,
               onTap: () => Navigator.pop(ctx, '__all__'),
             ),
             ListTile(
-              leading: const Icon(Icons.my_location_rounded),
-              title: Text(loc.t('home_gps_detect')),
+              leading: const Icon(Icons.my_location_rounded, color: AppColors.deep),
+              title: Text(loc.t('home_gps_detect'), style: const TextStyle(color: AppColors.deep)),
               onTap: () => Navigator.pop(ctx, '__gps__'),
             ),
             for (final v in viloyatlar)
               ListTile(
-                title: Text(v.label),
+                title: Text(v.label, style: const TextStyle(color: AppColors.deep)),
                 trailing: location.viloyat == v.code
                     ? const Icon(Icons.check, color: AppColors.deep)
                     : null,

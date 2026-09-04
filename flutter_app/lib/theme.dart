@@ -95,6 +95,23 @@ ThemeData buildAppTheme() {
       shape: const StadiumBorder(),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     ),
+    // Android'da ba'zi qurilmalarda `showModalBottomSheet` uchun aniq
+    // `backgroundColor` berilmasa, standart sirt/matn ranglari mos
+    // kelmay, varaq deyarli oq va matn ko'rinmas bo'lib qolishi mumkin
+    // (masalan bosh sahifadagi GPS/viloyat tanlash varag'i) — shu uchun
+    // fon va matn/ikonka ranglari bu yerda aniq belgilanadi, har bir
+    // `showModalBottomSheet` chaqiruvida alohida qayta yozishning hojati
+    // yo'q.
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: Colors.white,
+      modalBackgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      modalBarrierColor: Color(0x66000000),
+    ),
+    listTileTheme: const ListTileThemeData(
+      textColor: AppColors.deep,
+      iconColor: AppColors.deep,
+    ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: Colors.white,
       selectedItemColor: AppColors.deep,
