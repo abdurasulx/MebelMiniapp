@@ -33,13 +33,21 @@ class Payslip(BaseModel):
     # yakunlangan buyurtmalar summasi va undan hisoblangan komissiya.
     commission_sales = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     commission_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    # Soatbay xodim uchun — firma "Hisoblash"dan oldin qo'lda kiritadi (avtomatik
-    # vaqt hisoblagich hozircha yo'q), keyingi recompute() bu qiymatni saqlab qoladi.
-    manual_hours = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    # Soatbay xodim uchun — endi qo'lda kiritilmaydi, `apps.attendance`dagi
+    # tasdiqlangan check-in/check-out yozuvlaridan avtomatik hisoblanadi
+    # (qarang recompute() va apps.attendance.services.worked_hours).
+    worked_hours = models.DecimalField(max_digits=6, decimal_places=2, default=0)
     hourly_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     # Mahsulot workflow bosqichlarini yakunlagani uchun avtomatik hisoblangan haq
     # (docs: Payroll — "Every completed workflow step automatically generates earnings").
     workflow_earnings = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # "Bajarilgan topshiriqlar summasi" (docs "Xodimlar ish haqi va davomat
+    # tizimi" §1) — workflow_earnings (retsept bosqichlari, cost orqali) +
+    # bonus_amount (qo'lda yaratilgan vazifalar, flat bonus orqali)
+    # yig'indisi. FIXED_BONUS/PIECEWORK formulalarida ishlatiladi, FIXED
+    # rejimida esa faqat samaradorlik hisobotida ko'rsatish uchun saqlanadi
+    # (to'lovga qo'shilmaydi).
+    completed_tasks_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     # KPI maqsadiga erishilgan bo'lsa (qarang PositionPayStandard), shu
     # multiplikator asosidagi qo'shimcha bonus.
     kpi_met = models.BooleanField(default=False)
@@ -98,16 +106,24 @@ class Payslip(BaseModel):
 
     def recompute(self):
         """Berilgan oy uchun xodimning `pay_type`iga mos summani va KPI
-        bonusini qayta hisoblaydi. To'rtta to'lov turi qo'llab-quvvatlanadi:
-        faqat oylik, oylik+vazifa bonusi, komissiya (% sotuvdan) va soatbay
-        (`manual_hours` — bu maydon shu funksiya tomonidan o'zgartirilmaydi,
-        firma tomonidan alohida kiritiladi/PATCH qilinadi)."""
+        bonusini qayta hisoblaydi ("Xodimlar ish haqi va davomat tizimi"
+        spetsifikatsiyasi §14 — har bir rejim MUSTAQIL, qat'iy formula):
+
+            FAQAT OYLIK:          total = base_salary
+            OYLIK + VAZIFA BONUSI: total = max(base_salary, completed_tasks_amount)
+            ISHBAY:                total = completed_tasks_amount
+            SOATBAY:               total = worked_hours × hourly_rate (attendance'dan)
+
+        KOMISSIYA yangi spetsifikatsiyada tilga olinmagan — eski xatti-
+        harakati (workflow_earnings ham qo'shilgan holda) o'zgarishsiz
+        qoldirilgan, mavjud komissiyali xodimlar buzilmasin deb."""
         start = self.period.replace(day=1)
         if start.month == 12:
             end = start.replace(year=start.year + 1, month=1)
         else:
             end = start.replace(month=start.month + 1)
 
+        from apps.attendance.services import worked_hours as compute_worked_hours
         from apps.orders.models import Order
         from apps.workflow.models import StepStatus, WorkflowStepInstance
 
@@ -128,12 +144,9 @@ class Payslip(BaseModel):
         # bir xil bosqich uchun ikki marta haq to'lagan bo'lardi.
         self.tasks_completed = completed.filter(template_step__isnull=True).count()
         self.workflow_earnings = completed.aggregate(total=Sum("cost"))["total"] or 0
-
-        self.base_salary = employee.base_salary if self.pay_type in (PayType.FIXED, PayType.FIXED_BONUS) else 0
         self.bonus_per_task = employee.bonus_per_task
-        self.bonus_amount = (
-            self.bonus_per_task * self.tasks_completed if self.pay_type == PayType.FIXED_BONUS else 0
-        )
+        self.bonus_amount = self.bonus_per_task * self.tasks_completed
+        self.completed_tasks_amount = self.workflow_earnings + self.bonus_amount
 
         if self.pay_type == PayType.COMMISSION:
             sold = Order.objects.filter(
@@ -149,17 +162,33 @@ class Payslip(BaseModel):
             self.commission_sales = 0
             self.commission_amount = 0
 
-        self.hourly_amount = (
-            employee.hourly_rate * self.manual_hours if self.pay_type == PayType.HOURLY else 0
-        )
+        if self.pay_type == PayType.HOURLY:
+            hours, _breakdown = compute_worked_hours(employee, start, end)
+            self.worked_hours = hours
+            self.hourly_amount = employee.hourly_rate * self.worked_hours
+        else:
+            self.worked_hours = 0
+            self.hourly_amount = 0
 
-        pay_component = self.base_salary + self.bonus_amount + self.commission_amount + self.hourly_amount
+        if self.pay_type == PayType.FIXED:
+            self.base_salary = employee.base_salary
+            self.total_amount = self.base_salary
+        elif self.pay_type == PayType.FIXED_BONUS:
+            self.base_salary = employee.base_salary
+            self.bonus_amount = max(Decimal("0"), self.completed_tasks_amount - self.base_salary)
+            self.total_amount = max(self.base_salary, self.completed_tasks_amount)
+        elif self.pay_type == PayType.PIECEWORK:
+            self.base_salary = 0
+            self.total_amount = self.completed_tasks_amount
+        elif self.pay_type == PayType.COMMISSION:
+            self.base_salary = 0
+            self.total_amount = self.commission_amount + self.workflow_earnings
+        else:  # HOURLY
+            self.base_salary = 0
+            self.total_amount = self.hourly_amount
 
-        self.kpi_met, self.kpi_bonus_amount = self._compute_kpi_bonus(
-            start, end, completed, pay_component + self.workflow_earnings
-        )
-
-        self.total_amount = pay_component + self.workflow_earnings + self.kpi_bonus_amount
+        self.kpi_met, self.kpi_bonus_amount = self._compute_kpi_bonus(start, end, completed, self.total_amount)
+        self.total_amount += self.kpi_bonus_amount
 
     def _compute_kpi_bonus(self, start, end, completed_qs, base_for_bonus):
         """Xodimning (kompaniya standarti bo'lmasa — platforma standarti)

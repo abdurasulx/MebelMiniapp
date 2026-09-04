@@ -5,6 +5,7 @@ import '../../auth_store.dart';
 import '../../models.dart';
 import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
+import 'attendance_screen.dart';
 import 'warehouses_screen.dart';
 
 /// Usta ish rejimi: faqat o'z firmasining mahsulotlari (va ularning 3D
@@ -63,6 +64,13 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         // o'tishga majbur bo'lardi.
         actions: [
           const NotificationBellButton(),
+          IconButton(
+            icon: const Icon(Icons.access_time_filled_outlined),
+            tooltip: 'Davomat',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AttendanceScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.warehouse_outlined),
             tooltip: 'Omborlar',

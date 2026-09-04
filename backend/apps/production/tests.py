@@ -63,22 +63,83 @@ class PayTypeRecomputeTests(TestCase):
         self.assertEqual(payslip.commission_amount, Decimal("100000"))
         self.assertEqual(payslip.total_amount, Decimal("100000"))
 
-    def test_hourly_uses_manual_hours_and_survives_recompute(self):
+    def test_hourly_computed_from_attendance_records(self):
+        from apps.attendance.models import AttendanceAction, AttendanceRecord, AttendanceStatus, Workplace
+
         _, company = make_owner_and_company(email="owner4@pay.uz", slug="pay-shop-4")
         employee = make_employee(
             company, position="haydovchi", email="driver@pay.uz",
             pay_type=PayType.HOURLY, hourly_rate=Decimal("20000"),
         )
-        now = timezone.now()
-        payslip = Payslip.objects.create(
-            company=company, employee=employee, period=date(now.year, now.month, 1), manual_hours=Decimal("8")
+        workplace = Workplace.objects.create(
+            company=company, name="Filial", latitude=Decimal("41.311081"), longitude=Decimal("69.240562"),
         )
+        now = timezone.now()
+        check_in = AttendanceRecord.objects.create(
+            employee=employee, workplace=workplace, action=AttendanceAction.CHECK_IN,
+            latitude=workplace.latitude, longitude=workplace.longitude, status=AttendanceStatus.APPROVED,
+        )
+        check_in.server_timestamp = now
+        check_in.save(update_fields=["server_timestamp"])
+        check_out = AttendanceRecord.objects.create(
+            employee=employee, workplace=workplace, action=AttendanceAction.CHECK_OUT,
+            latitude=workplace.latitude, longitude=workplace.longitude, status=AttendanceStatus.APPROVED,
+        )
+        check_out.server_timestamp = now + timedelta(hours=8)
+        check_out.save(update_fields=["server_timestamp"])
+
+        payslip = Payslip.objects.create(company=company, employee=employee, period=date(now.year, now.month, 1))
         payslip.recompute()
+        self.assertEqual(payslip.worked_hours, Decimal("8"))
         self.assertEqual(payslip.hourly_amount, Decimal("160000"))
         self.assertEqual(payslip.total_amount, Decimal("160000"))
-        # Qayta hisoblash manual_hours'ni o'zgartirmasligi kerak (faqat firma o'zi o'zgartiradi)
+
+    def test_fixed_bonus_pays_higher_of_salary_or_tasks(self):
+        from apps.workflow.models import StepStatus, WorkflowStepInstance
+
+        _, company = make_owner_and_company(email="owner5@pay.uz", slug="pay-shop-5")
+        employee = make_employee(
+            company, position="usta", email="usta5@pay.uz",
+            pay_type=PayType.FIXED_BONUS, base_salary=Decimal("5000000"),
+        )
+        now = timezone.now()
+        # Misol 1: bajarilgan ishlar oylikdan kam — oylik to'lanadi.
+        WorkflowStepInstance.objects.create(
+            company=company, name="Kam ish", employee=employee,
+            status=StepStatus.COMPLETED, completed_at=now, cost=Decimal("3500000"),
+        )
+        payslip = Payslip.objects.create(company=company, employee=employee, period=date(now.year, now.month, 1))
         payslip.recompute()
-        self.assertEqual(payslip.manual_hours, Decimal("8"))
+        self.assertEqual(payslip.total_amount, Decimal("5000000"))
+
+        # Misol 2: bajarilgan ishlar oylikdan oshadi — oshgan summa to'lanadi.
+        WorkflowStepInstance.objects.create(
+            company=company, name="Ko'p ish", employee=employee,
+            status=StepStatus.COMPLETED, completed_at=now, cost=Decimal("3500000"),
+        )
+        payslip.recompute()
+        self.assertEqual(payslip.completed_tasks_amount, Decimal("7000000"))
+        self.assertEqual(payslip.bonus_amount, Decimal("2000000"))
+        self.assertEqual(payslip.total_amount, Decimal("7000000"))
+
+    def test_piecework_pays_only_completed_task_value(self):
+        from apps.workflow.models import StepStatus, WorkflowStepInstance
+
+        _, company = make_owner_and_company(email="owner6@pay.uz", slug="pay-shop-6")
+        employee = make_employee(
+            company, position="usta", email="usta6@pay.uz", pay_type=PayType.PIECEWORK,
+            base_salary=Decimal("9999999"),  # ISHBAY'da e'tiborga olinmasligi kerak
+        )
+        now = timezone.now()
+        for cost in (Decimal("500000"), Decimal("1200000"), Decimal("900000")):
+            WorkflowStepInstance.objects.create(
+                company=company, name="Vazifa", employee=employee,
+                status=StepStatus.COMPLETED, completed_at=now, cost=cost,
+            )
+        payslip = Payslip.objects.create(company=company, employee=employee, period=date(now.year, now.month, 1))
+        payslip.recompute()
+        self.assertEqual(payslip.base_salary, 0)
+        self.assertEqual(payslip.total_amount, Decimal("2600000"))
 
 
 class KpiBonusTests(TestCase):

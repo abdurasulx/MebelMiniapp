@@ -8,6 +8,7 @@ const PAY_TYPES = {
   fixed_bonus: "Oylik + vazifa bonusi",
   commission: "Komissiya (% sotuvdan)",
   hourly: "Soatbay",
+  piecework: "Ishbay",
 };
 
 const EMPTY = {

@@ -21,6 +21,11 @@ struct WorkerHomeView: View {
             .navigationTitle("Usta paneli")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: AttendanceView()) {
+                        Image(systemName: "clock.fill")
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
                     NavigationLink(destination: WarehousesView()) {
                         Image(systemName: "shippingbox")
                     }

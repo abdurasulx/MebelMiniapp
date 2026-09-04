@@ -381,9 +381,10 @@ struct Payslip: Codable, Identifiable {
     let bonusAmount: String
     let commissionSales: String
     let commissionAmount: String
-    let manualHours: String
+    let workedHours: String
     let hourlyAmount: String
     let workflowEarnings: String
+    let completedTasksAmount: String
     let kpiMet: Bool
     let kpiBonusAmount: String
     let totalAmount: String

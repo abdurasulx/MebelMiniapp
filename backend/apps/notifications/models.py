@@ -12,6 +12,7 @@ class NotificationType(models.TextChoices):
     MATERIAL_SUGGESTION = "material_suggestion", "Material tavsiyasi"
     TASK_POOL_OPEN = "task_pool_open", "Yangi erkin topshiriq"
     TASK_APPLICATION_REJECTED = "task_application_rejected", "Zayavka rad etildi"
+    ATTENDANCE_REJECTED = "attendance_rejected", "Davomat rad etildi"
 
 
 class NotificationQuerySet(models.QuerySet):

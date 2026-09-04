@@ -540,7 +540,8 @@ class Payslip {
   final String bonusAmount;
   final String commissionSales;
   final String commissionAmount;
-  final String manualHours;
+  final String workedHours;
+  final String completedTasksAmount;
   final String hourlyAmount;
   final String workflowEarnings;
   final bool kpiMet;
@@ -563,7 +564,8 @@ class Payslip {
     required this.bonusAmount,
     required this.commissionSales,
     required this.commissionAmount,
-    required this.manualHours,
+    required this.workedHours,
+    required this.completedTasksAmount,
     required this.hourlyAmount,
     required this.workflowEarnings,
     required this.kpiMet,
@@ -585,7 +587,8 @@ class Payslip {
         bonusAmount: j['bonus_amount']?.toString() ?? '0',
         commissionSales: j['commission_sales']?.toString() ?? '0',
         commissionAmount: j['commission_amount']?.toString() ?? '0',
-        manualHours: j['manual_hours']?.toString() ?? '0',
+        workedHours: j['worked_hours']?.toString() ?? '0',
+        completedTasksAmount: j['completed_tasks_amount']?.toString() ?? '0',
         hourlyAmount: j['hourly_amount']?.toString() ?? '0',
         workflowEarnings: j['workflow_earnings']?.toString() ?? '0',
         kpiMet: j['kpi_met'] ?? false,

@@ -29,8 +29,9 @@ class PayslipSerializer(serializers.ModelSerializer):
         fields = (
             "id", "employee", "employee_name", "employee_email", "positions",
             "period", "pay_type", "pay_type_display", "base_salary", "tasks_completed", "bonus_per_task",
-            "bonus_amount", "commission_sales", "commission_amount", "manual_hours", "hourly_amount",
-            "workflow_earnings", "kpi_met", "kpi_bonus_amount", "total_amount", "is_paid", "paid_at",
+            "bonus_amount", "commission_sales", "commission_amount", "worked_hours", "hourly_amount",
+            "workflow_earnings", "completed_tasks_amount", "kpi_met", "kpi_bonus_amount", "total_amount",
+            "is_paid", "paid_at",
             "paid_total", "outstanding_amount",
             "created_at",
         )

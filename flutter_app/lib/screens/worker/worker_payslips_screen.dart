@@ -20,21 +20,23 @@ String _periodLabel(String period) {
 /// (FirmaPayroll.jsx) bilan bir xil.
 String _payBreakdown(Payslip p) {
   final baseSalary = double.tryParse(p.baseSalary) ?? 0;
-  final bonusPerTask = double.tryParse(p.bonusPerTask) ?? 0;
   final commissionSales = double.tryParse(p.commissionSales) ?? 0;
   final commissionAmount = double.tryParse(p.commissionAmount) ?? 0;
-  final manualHours = double.tryParse(p.manualHours) ?? 0;
+  final workedHours = double.tryParse(p.workedHours) ?? 0;
   final hourlyAmount = double.tryParse(p.hourlyAmount) ?? 0;
+  final completedTasksAmount = double.tryParse(p.completedTasksAmount) ?? 0;
   switch (p.payType) {
     case 'fixed':
       return "${formatSom(baseSalary.toStringAsFixed(0))} so'm/oy";
     case 'fixed_bonus':
-      return "${formatSom(baseSalary.toStringAsFixed(0))} so'm + ${p.tasksCompleted} ta × ${formatSom(bonusPerTask.toStringAsFixed(0))}";
+      return "MAX(${formatSom(baseSalary.toStringAsFixed(0))} oylik, ${formatSom(completedTasksAmount.toStringAsFixed(0))} bajarilgan ish)";
     case 'commission':
       return "${formatSom(commissionSales.toStringAsFixed(0))} so'mdan ${formatSom(commissionAmount.toStringAsFixed(0))} so'm";
     case 'hourly':
-      final perHour = manualHours > 0 ? hourlyAmount / manualHours : 0;
-      return "${formatSom(manualHours.toStringAsFixed(0))} soat × ${formatSom(perHour.toStringAsFixed(0))}";
+      final perHour = workedHours > 0 ? hourlyAmount / workedHours : 0;
+      return "${formatSom(workedHours.toStringAsFixed(0))} soat × ${formatSom(perHour.toStringAsFixed(0))}";
+    case 'piecework':
+      return "${formatSom(completedTasksAmount.toStringAsFixed(0))} so'm (bajarilgan ishlar)";
     default:
       return '—';
   }
@@ -154,7 +156,7 @@ class _PayslipTileState extends State<_PayslipTile> {
     final extras = StringBuffer('${p.payTypeDisplay} · ${_payBreakdown(p)}');
     final workflowEarnings = double.tryParse(p.workflowEarnings) ?? 0;
     final kpiBonus = double.tryParse(p.kpiBonusAmount) ?? 0;
-    if (workflowEarnings > 0) {
+    if (p.payType == 'commission' && workflowEarnings > 0) {
       extras.write(' + ${formatSom(workflowEarnings.toStringAsFixed(0))} workflow');
     }
     if (kpiBonus > 0) {

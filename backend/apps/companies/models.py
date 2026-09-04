@@ -203,6 +203,7 @@ class PayType(models.TextChoices):
     FIXED_BONUS = "fixed_bonus", "Oylik + vazifa bonusi"
     COMMISSION = "commission", "Komissiya (% sotuvdan)"
     HOURLY = "hourly", "Soatbay"
+    PIECEWORK = "piecework", "Ishbay"
 
 
 class Employee(BaseModel):
@@ -241,6 +242,10 @@ class Employee(BaseModel):
     bonus_per_task = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     commission_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     hourly_rate = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # Soatbay xodim uchun belgilangan ish grafigi — kechikish/erta ketish/
+    # ortiqcha ish hisoblashda solishtirish uchun (qarang apps/attendance).
+    shift_start = models.TimeField(null=True, blank=True)
+    shift_end = models.TimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ("company", "user")

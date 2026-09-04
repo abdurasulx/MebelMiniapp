@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.ar_collections.views import ARCollectionItemViewSet, ARCollectionViewSet
+from apps.attendance.views import AttendanceRecordViewSet, WorkplaceViewSet
 from apps.assets.views import Model3DViewerView, Model3DViewSet
 from apps.companies.views import (
     CompanyViewSet,
@@ -106,6 +107,8 @@ router.register("warehouses", WarehouseViewSet, basename="warehouse")
 router.register("materials", MaterialViewSet, basename="material")
 router.register("suppliers", SupplierViewSet, basename="supplier")
 router.register("purchase-orders", PurchaseOrderViewSet, basename="purchase-order")
+router.register("attendance/workplaces", WorkplaceViewSet, basename="workplace")
+router.register("attendance/records", AttendanceRecordViewSet, basename="attendance-record")
 
 variant_list = VariantViewSet.as_view({"get": "list", "post": "create"})
 variant_detail = VariantViewSet.as_view(

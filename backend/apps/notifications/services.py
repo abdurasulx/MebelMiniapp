@@ -91,6 +91,23 @@ def notify_application_rejected(application):
     push_unread_count(application.employee.user_id)
 
 
+def notify_attendance_rejected(employee, reason):
+    """Davomat (ishga kelish/ketish) rad etilganda yoki shubhali deb
+    belgilanganda xodimga yuboriladi (qarang apps.attendance.services)."""
+    if not employee.user_id:
+        return
+    title = "Davomat tasdiqlanmadi"
+    body = reason
+    Notification.objects.create(
+        recipient_id=employee.user_id,
+        notif_type=NotificationType.ATTENDANCE_REJECTED,
+        title=title,
+        body=body,
+    )
+    send_push(employee.user, title, body, data={"type": "attendance_rejected"})
+    push_unread_count(employee.user_id)
+
+
 def notify_material_suggestion(user, material, remnant_width, remnant_length, cut_width, cut_length):
     """Ishlab chiqarishda VARAQ material kerakli bo'lakka mavjud qoldiqdan
     moslashtirilganda yuboriladi — kimga qaysi o'lchamdagi qoldiqdan

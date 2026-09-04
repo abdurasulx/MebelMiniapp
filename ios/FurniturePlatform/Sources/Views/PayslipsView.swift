@@ -18,14 +18,16 @@ private func payBreakdown(_ p: Payslip) -> String {
     case "fixed":
         return "\(p.baseSalary.formattedSom) so'm/oy"
     case "fixed_bonus":
-        return "\(p.baseSalary.formattedSom) so'm + \(p.tasksCompleted) ta × \(p.bonusPerTask.formattedSom)"
+        return "MAX(\(p.baseSalary.formattedSom) oylik, \(p.completedTasksAmount.formattedSom) bajarilgan ish)"
     case "commission":
         return "\(p.commissionSales.formattedSom) so'mdan \(p.commissionAmount.formattedSom) so'm"
     case "hourly":
-        let hours = Double(p.manualHours) ?? 0
+        let hours = Double(p.workedHours) ?? 0
         let amount = Double(p.hourlyAmount) ?? 0
         let perHour = hours > 0 ? amount / hours : 0
-        return "\(p.manualHours.formattedSom) soat × \(String(format: "%.0f", perHour).formattedSom)"
+        return "\(p.workedHours.formattedSom) soat × \(String(format: "%.0f", perHour).formattedSom)"
+    case "piecework":
+        return "\(p.completedTasksAmount.formattedSom) so'm (bajarilgan ishlar)"
     default:
         return "—"
     }
@@ -90,7 +92,7 @@ private struct PayslipRow: View {
 
     private var extras: String {
         var text = "\(payslip.payTypeDisplay) · \(payBreakdown(payslip))"
-        if let workflow = Double(payslip.workflowEarnings), workflow > 0 {
+        if payslip.payType == "commission", let workflow = Double(payslip.workflowEarnings), workflow > 0 {
             text += " + \(payslip.workflowEarnings.formattedSom) workflow"
         }
         if let kpi = Double(payslip.kpiBonusAmount), kpi > 0 {

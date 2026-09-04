@@ -29,11 +29,13 @@ function payBreakdown(p) {
     case "fixed":
       return `${Number(p.base_salary).toLocaleString()} so'm/oy`;
     case "fixed_bonus":
-      return `${Number(p.base_salary).toLocaleString()} so'm + ${p.tasks_completed} ta × ${Number(p.bonus_per_task).toLocaleString()}`;
+      return `MAX(${Number(p.base_salary).toLocaleString()} oylik, ${Number(p.completed_tasks_amount).toLocaleString()} bajarilgan ish)`;
     case "commission":
       return `${Number(p.commission_sales).toLocaleString()} so'mdan ${Number(p.commission_amount).toLocaleString()} so'm`;
     case "hourly":
-      return `${Number(p.manual_hours).toLocaleString()} soat × ${Number(p.hourly_amount / (p.manual_hours || 1)).toLocaleString()}`;
+      return `${Number(p.worked_hours).toLocaleString()} soat × ${Number(p.hourly_amount / (p.worked_hours || 1)).toLocaleString()}`;
+    case "piecework":
+      return `${Number(p.completed_tasks_amount).toLocaleString()} so'm (bajarilgan ishlar)`;
     default:
       return "—";
   }
@@ -52,7 +54,6 @@ function ManagerPayroll() {
   const [loaded, setLoaded] = useState(false);
   const [nextPage, setNextPage] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hoursDraft, setHoursDraft] = useState({});
   const [expandedId, setExpandedId] = useState(null);
 
   const load = () => {
@@ -107,12 +108,9 @@ function ManagerPayroll() {
     }
   };
 
-  const saveHours = async (p) => {
+  const recalculate = async (p) => {
     try {
-      await api(`/payslips/${p.id}/set_hours/`, {
-        method: "POST",
-        body: { manual_hours: hoursDraft[p.id] ?? p.manual_hours },
-      });
+      await api(`/payslips/${p.id}/recalculate/`, { method: "POST" });
       load();
     } catch (e) {
       setError(e.message);
@@ -207,15 +205,10 @@ function ManagerPayroll() {
                   <td className="text-xs">
                     {payBreakdown(p)}
                     {p.pay_type === "hourly" && !p.is_paid && (
-                      <div className="mt-1 flex items-center gap-1">
-                        <input
-                          className="input !w-20 !py-1 text-xs"
-                          type="number" min="0" step="0.5"
-                          placeholder={p.manual_hours}
-                          value={hoursDraft[p.id] ?? ""}
-                          onChange={(e) => setHoursDraft((d) => ({ ...d, [p.id]: e.target.value }))}
-                        />
-                        <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => saveHours(p)}>Soat kiritish</button>
+                      <div className="mt-1">
+                        <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => recalculate(p)}>
+                          Davomatdan qayta hisoblash
+                        </button>
                       </div>
                     )}
                   </td>
@@ -272,10 +265,13 @@ function ManagerPayroll() {
       </div>
 
       <p className="text-xs" style={{ color: "var(--muted)" }}>
-        Jami = to'lov turiga mos asosiy summa (oylik/bonus/komissiya/soatbay) + workflow bosqichlari +
-        KPI bonusi (agar lavozim standartidagi maqsad bajarilgan bo'lsa). To'lov turi/stavkalarini{" "}
-        <strong>Xodimlar</strong>, KPI maqsadlarini esa <strong>Sozlamalar</strong> yoki platforma admin
-        panelida sozlang. To'langan oylar qayta hisoblanganda o'zgarmaydi.
+        Har bir to'lov turi mustaqil formula bilan hisoblanadi: Faqat oylik — belgilangan oylik;
+        Oylik + vazifa bonusi — oylik yoki bajarilgan ishlar qiymatidan kattasi; Ishbay — faqat
+        bajarilgan ishlar qiymati; Soatbay — davomat (ishga kelish/ketish) yozuvlaridan avtomatik
+        hisoblangan soat × stavka. Ustiga KPI bonusi qo'shiladi (agar lavozim standartidagi maqsad
+        bajarilgan bo'lsa). To'lov turi/stavkalarini <strong>Xodimlar</strong>, KPI maqsadlarini esa{" "}
+        <strong>Sozlamalar</strong> yoki platforma admin panelida sozlang. To'langan oylar qayta
+        hisoblanganda o'zgarmaydi.
       </p>
     </div>
   );
@@ -432,7 +428,8 @@ function MyPayslips() {
               <div className="font-semibold">{periodLabel(p.period.slice(0, 7))}</div>
               <div className="text-xs" style={{ color: "var(--muted)" }}>
                 {p.pay_type_display} · {payBreakdown(p)}
-                {Number(p.workflow_earnings) > 0 && ` + ${Number(p.workflow_earnings).toLocaleString()} workflow`}
+                {p.pay_type === "commission" && Number(p.workflow_earnings) > 0 &&
+                  ` + ${Number(p.workflow_earnings).toLocaleString()} workflow`}
                 {Number(p.kpi_bonus_amount) > 0 && ` + ${Number(p.kpi_bonus_amount).toLocaleString()} KPI bonus`}
               </div>
             </div>

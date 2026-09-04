@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.cart",
     "apps.notifications",
     "apps.ar_collections",
+    "apps.attendance",
 ]
 
 MIDDLEWARE = [
