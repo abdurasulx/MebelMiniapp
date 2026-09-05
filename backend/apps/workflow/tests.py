@@ -113,13 +113,29 @@ class ManualTaskTests(APITestCase):
         self.client.force_authenticate(self.owner)
         resp = self.client.post(
             "/api/v1/workflow-instances/",
-            {"name": "Yetkazish", "stage": "delivery", "employee": str(self.employee.id)},
+            {
+                "name": "Yetkazish", "stage": "delivery", "employee": str(self.employee.id),
+                "requires_approval": False,
+            },
             format="json",
         )
         self.assertEqual(resp.status_code, 201, resp.data)
         self.assertTrue(resp.data["is_manual"])
         self.assertEqual(resp.data["suggested_position"], "haydovchi")
         self.assertEqual(resp.data["status"], "pending")
+
+    def test_manual_task_without_requires_approval_is_rejected(self):
+        """Erkin topshiriq uchun `requires_approval` majburiy tanlanishi
+        kerak (docs "Buyurtmalar va topshiriqlar tizimi" §3.2) — jim
+        qoldirilsa xato qaytishi kerak."""
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(
+            "/api/v1/workflow-instances/",
+            {"name": "Devor notekisligini moslashtirish", "employee": str(self.employee.id)},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("requires_approval", resp.data)
 
     def test_employee_cannot_create_manual_task(self):
         self.client.force_authenticate(self.worker_user)
@@ -537,6 +553,35 @@ class MaterialConsumptionAndPayrollTests(APITestCase):
 
         payslip = Payslip.objects.get(company=self.company, employee=self.employee, period=self.period)
         self.assertEqual(payslip.base_salary, Decimal("1000000"))
+
+    def test_requires_approval_defers_payroll_credit(self):
+        """"Erkin" topshiriq `requires_approval=True` bo'lsa, usta
+        "Bajardim" bosgani bilan ish haqi hisobiga qo'shilmasligi kerak —
+        faqat firma egasi/menejer `approve()` chaqirgandan keyin (docs
+        "Buyurtmalar va topshiriqlar tizimi" §4.1)."""
+        from apps.production.models import Payslip
+
+        instance = WorkflowStepInstance.objects.create(
+            company=self.company, name="Devor moslashtirish", employee=self.employee,
+            cost=Decimal("50000"), requires_approval=True,
+        )
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/complete/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data["status"], "completed")
+        self.assertTrue(resp.data["awaiting_approval"])
+
+        payslip, _ = Payslip.objects.get_or_create(
+            company=self.company, employee=self.employee, period=self.period
+        )
+        payslip.recompute()
+        self.assertEqual(payslip.workflow_earnings, Decimal("0"))
+
+        resp = self.client.post(f"/api/v1/workflow-instances/{instance.id}/approve/", {}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+        payslip.refresh_from_db()
+        self.assertEqual(payslip.workflow_earnings, Decimal("50000"))
 
     def test_owner_approve_credits_payslip(self):
         from apps.production.models import Payslip

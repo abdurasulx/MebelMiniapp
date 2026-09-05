@@ -168,6 +168,13 @@ class WorkflowStep(BaseModel):
     depends_on = models.ManyToManyField(
         "self", symmetrical=False, blank=True, related_name="required_by"
     )
+    # Erkin (qo'lda yaratiladigan) topshiriqlar uchun yaratilish paytida
+    # MAJBURIY tanlanadi (qarang WorkflowStepInstanceViewSet.perform_create):
+    # True — usta "Bajardim" bosgach ish haqi kreditlanmaydi, faqat
+    # firma egasi/menejer `approve()` orqali tasdiqlagach kreditlanadi.
+    # False (standart topshiriqlar uchun odatiy) — hozirgi xatti-harakat
+    # o'zgarishsiz: `complete()`da darhol kreditlanadi.
+    requires_approval = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("order_index", "created_at")
@@ -218,11 +225,22 @@ class WorkflowStepInstance(BaseModel):
     template_step = models.ForeignKey(
         WorkflowStep, on_delete=models.SET_NULL, null=True, blank=True, related_name="instances"
     )
+    # Buyurtmadagi qaysi mahsulotga tegishli — avtomatik bosqichlar uchun
+    # `template_step.product`dan muhrlanadi, erkin topshiriqlar uchun
+    # yaratishda admin/operator tomonidan ixtiyoriy tanlanadi (docs
+    # "Buyurtmalar va topshiriqlar tizimi" §3/§5 — "Bog'liq mahsulot").
+    product = models.ForeignKey(
+        "products.Product", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     order_index = models.PositiveIntegerField(default=0)
     # quyidagi maydonlar shablon o'zgarganda ham buyurtma tarixi buzilmasligi
     # uchun yaratilish paytida muhrlanadi (OrderItem snapshot patterni bilan bir xil)
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True)
+    # Rejalashtirilgan boshlanish sanasi — tugash sanasi sifatida mavjud
+    # `deadline` maydoni ishlatiladi (docs §5, §9-10: Date Range Input
+    # boshlanish/tugash sanasini shu ikki maydon orqali tanlaydi).
+    planned_start_date = models.DateField(null=True, blank=True)
     stage = models.CharField(max_length=20, choices=Stage.choices, blank=True)
     role = models.CharField(max_length=20, blank=True)
     employee = models.ForeignKey(
@@ -267,6 +285,10 @@ class WorkflowStepInstance(BaseModel):
     depends_on = models.ManyToManyField(
         "self", symmetrical=False, blank=True, related_name="required_by"
     )
+    # Shablondan (`template_step.requires_approval`) yoki erkin topshiriq
+    # yaratilganda majburiy tanlangan qiymatdan muhrlanadi — qarang
+    # WorkflowStep.requires_approval izohi.
+    requires_approval = models.BooleanField(default=False)
     status = models.CharField(max_length=15, choices=StepStatus.choices, default=StepStatus.PENDING)
     deadline = models.DateField(null=True, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)

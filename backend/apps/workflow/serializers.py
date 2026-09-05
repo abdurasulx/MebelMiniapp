@@ -7,6 +7,7 @@ from .models import (
     ApplicationStatus,
     ProgressUpdate,
     StepApplication,
+    StepStatus,
     WorkflowStep,
     WorkflowStepInstance,
     WorkType,
@@ -63,7 +64,7 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
             "raw_material", "raw_material_name", "raw_material_unit",
             "cut_piece_length", "cut_piece_width", "cut_piece_count", "cut_note", "cutting_instruction",
             "required_materials", "photo_requirement", "photo_requirement_display",
-            "comment_requirement", "comment_requirement_display",
+            "comment_requirement", "comment_requirement_display", "requires_approval",
             "depends_on", "created_at",
         )
         read_only_fields = ("id", "product", "created_at")
@@ -116,6 +117,16 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
     order_status = serializers.CharField(source="order.status", read_only=True, default=None)
     open_applications_count = serializers.SerializerMethodField()
     my_application_status = serializers.SerializerMethodField()
+    product_name = serializers.CharField(source="product.name_uz", read_only=True, default=None)
+    awaiting_approval = serializers.SerializerMethodField()
+
+    def get_awaiting_approval(self, obj):
+        # `status` allaqachon COMPLETED ("Bajarildi") deb ko'rsatilsa ham,
+        # `requires_approval=True` bosqichlarda bu hali yakuniy emas — ish
+        # haqi ham kreditlanmagan (qarang views.py::complete). Frontend/
+        # mobil shu bayroqqa qarab "Admin tasdig'ini kutmoqda" deb
+        # ko'rsatishi kerak (docs §4.1).
+        return obj.status == StepStatus.COMPLETED and obj.requires_approval
 
     def get_open_applications_count(self, obj):
         # Faqat xodimi hali yo'q ("erkin") bosqich uchun ma'noli — firma
@@ -163,7 +174,8 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
         model = WorkflowStepInstance
         fields = (
             "id", "company", "order", "order_display", "order_status", "template_step", "order_index",
-            "is_manual", "name", "description", "stage", "stage_display", "suggested_position",
+            "is_manual", "name", "description", "product", "product_name",
+            "stage", "stage_display", "suggested_position",
             "role", "role_display",
             "employee", "employee_name", "estimated_hours",
             "work_type", "work_type_name", "work_type_unit_display", "quantity", "cost",
@@ -172,7 +184,8 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
             "required_materials",
             "photo_requirement", "photo_requirement_display",
             "comment_requirement", "comment_requirement_display", "depends_on",
-            "status", "status_display", "is_available", "deadline",
+            "requires_approval", "awaiting_approval",
+            "status", "status_display", "is_available", "planned_start_date", "deadline",
             "started_at", "completed_at", "completed_by_name", "approved_at", "approved_by_name",
             "cancelled_at", "cancelled_by_name", "updates", "created_at",
             "open_applications_count", "my_application_status",

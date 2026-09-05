@@ -194,13 +194,21 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Qo'lda vazifa yaratish — faqat firma egasi (retsept bosqichlari
         buyurtma yaratilganda `services.create_workflow_instances` orqali
-        avtomatik hosil bo'ladi, bu yerdan emas)."""
+        avtomatik hosil bo'ladi, bu yerdan emas). Bu endpoint orqali
+        yaratilgan HAR BIR vazifa "erkin" hisoblanadi — shuning uchun
+        admin/operator `requires_approval`ni ANIQ tanlashi shart (docs
+        "Buyurtmalar va topshiriqlar tizimi" §3.2) — jim qoldirilsa
+        (model default'iga sukut bilan tayanish) xato qaytadi."""
         company = self._own_company()
         if not is_company_owner(self.request.user, company):
             raise PermissionDenied("Faqat firma egasi vazifa yarata oladi")
         order = serializer.validated_data.get("order")
         if order is not None and order.company_id != company.id:
             raise ValidationError("Bu buyurtma sizning kompaniyangizga tegishli emas")
+        if "requires_approval" not in self.request.data:
+            raise ValidationError(
+                {"requires_approval": "Erkin topshiriq uchun tasdiqlash shartmi-yo'qmi aniq tanlanishi kerak"}
+            )
         instance = serializer.save(company=company)
         if instance.employee_id:
             notify_task_assigned(instance)
@@ -398,10 +406,14 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
     def complete(self, request, pk=None):
         """Bosqichni yakunlaydi — talab qilingan bo'lsa rasm shart, keyingi
         bog'liq bosqich(lar) avtomatik ochiladi. Ish haqi (agar xodim
-        biriktirilgan bo'lsa) DARHOL kreditlanadi — firma egasi/menejer
-        tasdiqlashini (`approve()`) kutmaydi (avval faqat approve
+        biriktirilgan bo'lsa) odatda DARHOL kreditlanadi — firma egasi/
+        menejer tasdiqlashini (`approve()`) kutmaydi (avval faqat approve
         kreditlagan, endi "kutilmoqda" summasi usta "Bajardim" bosishi
-        bilanoq yangilanadi)."""
+        bilanoq yangilanadi). ISTISNO: `requires_approval=True` bo'lgan
+        (odatda erkin) topshiriqlarda — bu yerda hali kreditlanmaydi,
+        status "Bajarildi" bo'lib ko'rinsa ham (frontend `awaiting_approval`
+        bayrog'i orqali "Admin tasdig'ini kutmoqda" deb ko'rsatishi kerak) —
+        faqat `approve()` chaqirilganda kreditlanadi (docs §4.1)."""
         instance = self.get_object()
         self._check_company_access(instance)
         if instance.status in (StepStatus.COMPLETED, StepStatus.APPROVED):
@@ -426,7 +438,7 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
             instance.completed_by = request.user
             instance.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
             consume_material_on_completion(instance, request.user)
-            if instance.employee_id:
+            if instance.employee_id and not instance.requires_approval:
                 credit_payroll(instance)
 
         activated, newly_open = instance.activate_dependents()

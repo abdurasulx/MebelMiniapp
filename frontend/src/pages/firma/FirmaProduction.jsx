@@ -6,6 +6,7 @@ import { POSITIONS } from "../../positions";
 import { TASK_FLOW, TASK_STAGE, TASK_STATUS } from "../../taskStage";
 import { StatusBadge } from "../../orderStatus";
 import LoadMoreButton from "../../components/LoadMoreButton";
+import DateRangeInput from "../../components/DateRangeInput";
 
 const TABS = [
   { key: "pipeline", label: "Ishlab chiqarish pipeline", icon: Workflow },
@@ -218,7 +219,7 @@ function WorkflowPipeline({ isManager }) {
                     color: TASK_STATUS[step.status]?.color || "#8a8f98",
                   }}
                 >
-                  {step.status_display}
+                  {step.awaiting_approval ? "Admin tasdig'ini kutmoqda" : step.status_display}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{step.name}</div>
@@ -484,6 +485,7 @@ function ManagerView() {
   const [tasks, setTasks] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState("");
@@ -491,12 +493,13 @@ function ManagerView() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = () =>
-    Promise.all([api("/workflow-instances/"), api("/employees/"), api("/orders/")])
-      .then(([t, e, o]) => {
+    Promise.all([api("/workflow-instances/"), api("/employees/"), api("/orders/"), api("/products/")])
+      .then(([t, e, o, p]) => {
         setTasks((t.results || []).filter((x) => x.is_manual));
         setNextPage(t.next || null);
         setEmployees((e.results || []).filter((x) => x.is_active));
         setOrders(o.results || []);
+        setProducts(p.results || []);
       })
       .catch((err) => setError(err.message));
 
@@ -574,6 +577,7 @@ function ManagerView() {
         <TaskForm
           employees={employees}
           orders={orders}
+          products={products}
           onClose={() => setShowForm(false)}
           onDone={() => { setShowForm(false); load(); }}
         />
@@ -582,9 +586,10 @@ function ManagerView() {
   );
 }
 
-function TaskForm({ employees, orders, onClose, onDone }) {
+function TaskForm({ employees, orders, products, onClose, onDone }) {
   const [form, setForm] = useState({
-    name: "", description: "", stage: "assembly", employee: "", order: "", deadline: "",
+    name: "", description: "", stage: "assembly", employee: "", order: "", product: "",
+    planned_start_date: "", deadline: "", requires_approval: "",
   });
   const [error, setError] = useState("");
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -597,10 +602,16 @@ function TaskForm({ employees, orders, onClose, onDone }) {
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    if (form.requires_approval === "") {
+      setError("Tasdiqlash shart yoki shart emasligini tanlang");
+      return;
+    }
     try {
-      const body = { ...form };
+      const body = { ...form, requires_approval: form.requires_approval === "true" };
       if (!body.employee) delete body.employee;
       if (!body.order) delete body.order;
+      if (!body.product) delete body.product;
+      if (!body.planned_start_date) delete body.planned_start_date;
       if (!body.deadline) delete body.deadline;
       await api("/workflow-instances/", { method: "POST", body });
       onDone();
@@ -661,9 +672,46 @@ function TaskForm({ employees, orders, onClose, onDone }) {
             </select>
           </div>
           <div>
-            <label className="label">Muddat</label>
-            <input className="input" type="date" value={form.deadline} onChange={set("deadline")} />
+            <label className="label">Bog'liq mahsulot (ixtiyoriy)</label>
+            <select className="input" value={form.product} onChange={set("product")}>
+              <option value="">—</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>{p.name_uz}</option>
+              ))}
+            </select>
           </div>
+        </div>
+        <div>
+          <label className="label">Boshlanish — tugash sanasi</label>
+          <DateRangeInput
+            start={form.planned_start_date}
+            stop={form.deadline}
+            onChange={({ start, stop }) =>
+              setForm((f) => ({ ...f, planned_start_date: start, deadline: stop }))
+            }
+          />
+        </div>
+        <div>
+          <label className="label">Tasdiqlash shartmi? *</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className={form.requires_approval === "true" ? "btn !px-3 !py-1.5 text-xs" : "btn-ghost !px-3 !py-1.5 text-xs"}
+              onClick={() => setForm((f) => ({ ...f, requires_approval: "true" }))}
+            >
+              Tasdiqlash shart
+            </button>
+            <button
+              type="button"
+              className={form.requires_approval === "false" ? "btn !px-3 !py-1.5 text-xs" : "btn-ghost !px-3 !py-1.5 text-xs"}
+              onClick={() => setForm((f) => ({ ...f, requires_approval: "false" }))}
+            >
+              Tasdiqlash shart emas
+            </button>
+          </div>
+          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+            Shart bo'lsa — usta "Bajardim" bosgach, siz tasdiqlamaguncha ish haqi hisobiga qo'shilmaydi.
+          </p>
         </div>
         <div>
           <label className="label">Izoh</label>
@@ -795,7 +843,7 @@ function TaskCard({ task, manager, onChanged }) {
             className="rounded-full px-2 py-0.5 text-[10px] font-medium"
             style={{ background: `color-mix(in srgb, ${TASK_STATUS[task.status].color} 16%, transparent)`, color: TASK_STATUS[task.status].color }}
           >
-            {TASK_STATUS[task.status].label}
+            {task.awaiting_approval ? "Admin tasdig'ini kutmoqda" : TASK_STATUS[task.status].label}
           </span>
           {isOverdue && (
             <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: "color-mix(in srgb, var(--danger) 15%, transparent)", color: "var(--danger)" }}>

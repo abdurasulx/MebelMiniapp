@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from apps.companies.models import PayType
 from common.models import BaseModel
@@ -130,12 +130,21 @@ class Payslip(BaseModel):
         employee = self.employee
         self.pay_type = employee.pay_type
 
+        # `requires_approval=True` bosqichlar COMPLETED holatda bo'lsa ham
+        # (usta "Bajardim" bosgan) hisobga OLINMAYDI — faqat firma egasi/
+        # menejer `approve()` orqali tasdiqlab APPROVED holatiga
+        # o'tkazgandan keyin (docs "Buyurtmalar va topshiriqlar tizimi"
+        # §4.1: "Admin tasdiqlamaguncha ... ish haqi hisob-kitobiga
+        # qo'shilmaydi"). `requires_approval=False` bosqichlar esa avvalgidek
+        # COMPLETED bo'lishi bilanoq hisoblanadi.
         completed = WorkflowStepInstance.objects.filter(
             is_deleted=False,
             employee_id=self.employee_id,
-            status__in=(StepStatus.COMPLETED, StepStatus.APPROVED),
             completed_at__gte=start,
             completed_at__lt=end,
+        ).filter(
+            Q(status=StepStatus.APPROVED)
+            | Q(status=StepStatus.COMPLETED, requires_approval=False)
         )
 
         # Qo'lda yaratilgan (retseptga bog'liq bo'lmagan, template_step=None)
