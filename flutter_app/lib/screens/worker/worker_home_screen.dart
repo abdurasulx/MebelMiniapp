@@ -6,7 +6,7 @@ import '../../models.dart';
 import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
 import 'attendance_screen.dart';
-import 'site_surveys_screen.dart';
+import 'create_custom_order_screen.dart';
 import 'warehouses_screen.dart';
 
 /// Usta ish rejimi: faqat o'z firmasining mahsulotlari (va ularning 3D
@@ -62,11 +62,10 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     // ishlagan soatiga bog'liq emas (backend ham mustaqil tekshiradi,
     // qarang apps/attendance/views.py AttendanceRecordViewSet._own_employee).
     final isHourly = user?.payType == 'hourly';
-    // "Joy o'rganish" (site survey) faqat usta uchun mantiqiy — backend
-    // SiteSurvey.assigned_master orqali faqat shu ustaga tayinlangan
-    // joylarni ko'rsatadi (qarang apps/custom_orders/views.py
-    // SiteSurveyViewSet.get_queryset), boshqa kasblarga (sotuvchi,
-    // menejer va h.k.) hech qachon survey tayinlanmaydi.
+    // Individual loyiha (CUSTOM_PROJECT) buyurtmasini to'g'ridan-to'g'ri
+    // yaratish faqat usta uchun mantiqiy — endi alohida "joy o'rganish"
+    // tayinlash bosqichi yo'q, usta mijoz uyida turib o'zi buyurtma ochadi
+    // (qarang backend apps/custom_orders/views.py CustomOrderCreateView).
     final isMaster = user?.positions.contains('usta') ?? false;
     return Scaffold(
       appBar: AppBar(
@@ -87,10 +86,10 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
             ),
           if (isMaster)
             IconButton(
-              icon: const Icon(Icons.location_on_outlined),
-              tooltip: 'Joy o\'rganish',
+              icon: const Icon(Icons.add_business_rounded),
+              tooltip: 'Individual loyiha',
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SiteSurveysScreen()),
+                MaterialPageRoute(builder: (_) => const CreateCustomOrderScreen()),
               ),
             ),
           IconButton(
