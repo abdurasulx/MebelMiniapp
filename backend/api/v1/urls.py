@@ -19,7 +19,6 @@ from apps.companies.views import (
     ReviewViewSet,
     TariffPlanViewSet,
 )
-from apps.crm.views import LeadViewSet
 from apps.inventory.views import (
     BillOfMaterialViewSet,
     ManufacturedUnitViewSet,
@@ -98,7 +97,6 @@ router.register("orders", OrderViewSet, basename="order")
 router.register("categories", CategoryViewSet, basename="category")
 router.register("products", ProductViewSet, basename="product")
 router.register("models3d", Model3DViewSet, basename="model3d")
-router.register("leads", LeadViewSet, basename="lead")
 router.register("payslips", PayslipViewSet, basename="payslip")
 router.register("likes", LikeViewSet, basename="like")
 router.register("notifications", NotificationViewSet, basename="notification")

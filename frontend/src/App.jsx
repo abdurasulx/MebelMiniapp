@@ -20,7 +20,6 @@ import CompleteRegistration from "./pages/CompleteRegistration";
 import Liked from "./pages/Liked";
 import Employees from "./pages/Employees";
 import FirmaDashboard from "./pages/firma/FirmaDashboard";
-import FirmaLeads from "./pages/firma/FirmaLeads";
 import FirmaOrders from "./pages/firma/FirmaOrders";
 import FirmaOrderDetail from "./pages/firma/FirmaOrderDetail";
 import FirmaPayroll from "./pages/firma/FirmaPayroll";
@@ -54,7 +53,6 @@ import {
   Package,
   Wallet,
   Sofa,
-  Target,
   Hammer,
   HardHat,
   Settings,
@@ -83,7 +81,6 @@ const ADMIN_MENU = [
 const FIRMA_MENU = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true, group: "Asosiy" },
   { to: "/products", icon: Sofa, label: "Mahsulotlar", group: "Katalog" },
-  { to: "/leads", icon: Target, label: "Leadlar (CRM)", group: "Savdo" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
   { to: "/site-surveys", icon: MapPinned, label: "Joy o'rganish", group: "Ishlab chiqarish" },
   { to: "/production", icon: Hammer, label: "Ishlab chiqarish", group: "Ishlab chiqarish" },
@@ -328,7 +325,6 @@ export default function App() {
           <Route path="/" element={<FirmaDashboard />} />
           <Route path="/products" element={<FirmaProducts />} />
           <Route path="/products/:id" element={<FirmaProductDetail />} />
-          <Route path="/leads" element={<FirmaLeads />} />
           <Route path="/employees" element={<OwnerOnly><Employees /></OwnerOnly>} />
           <Route path="/orders" element={<FirmaOrders />} />
           <Route path="/orders/:id" element={<FirmaOrderDetail />} />

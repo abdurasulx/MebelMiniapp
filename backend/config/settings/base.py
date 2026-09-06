@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     "apps.products",
     "apps.orders",
     "apps.assets",
-    "apps.crm",
     "apps.production",
     "apps.likes",
     "apps.workflow",

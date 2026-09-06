@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Sofa, Palette, HardHat, Package, Target, Factory, ArrowRight, AlertTriangle, PackageX, Hammer,
+  Sofa, Palette, HardHat, Package, Factory, ArrowRight, AlertTriangle, PackageX, Hammer,
   ShoppingCart, Banknote, TrendingUp, Boxes, Percent, Warehouse,
 } from "lucide-react";
 import { useAuth } from "../../auth";
@@ -88,7 +88,6 @@ export default function FirmaDashboard() {
   const [products, setProducts] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [leads, setLeads] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [error, setError] = useState("");
@@ -99,17 +98,15 @@ export default function FirmaDashboard() {
       api("/products/"),
       api("/employees/"),
       api("/orders/"),
-      api("/leads/"),
       api("/materials/low-stock/").catch(() => []),
       api("/dashboard/metrics/").catch(() => null),
     ])
-      .then(([m, ps, es, os, ls, low, dm]) => {
+      .then(([m, ps, es, os, low, dm]) => {
         setMe(m);
         const mine = (ps.results || []).filter((p) => m.company && p.company === m.company.id);
         setProducts(mine);
         setEmployees(es.results || []);
         setOrders(os.results || []);
-        setLeads(ls.results || []);
         setLowStock(low || []);
         setMetrics(dm);
       })
@@ -143,7 +140,7 @@ export default function FirmaDashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
         <StatCard compact tone={0} icon={Sofa} label="Mahsulotlar" value={products.length} hint={`${published} sotuvda`} />
         <StatCard compact tone={1} icon={Palette} label="Variantlar" value={variants} />
         <StatCard compact tone={2} icon={HardHat} label="Xodimlar" value={employees.filter((e) => e.is_active).length} />
@@ -155,14 +152,6 @@ export default function FirmaDashboard() {
           value={orders.length}
           to="/orders"
           hint={<OrderStatusCounts orders={orders} />}
-        />
-        <StatCard
-          compact
-          tone={0}
-          icon={Target}
-          label="Leadlar"
-          value={leads.length}
-          hint={`${leads.filter((l) => l.status === "new").length} yangi`}
         />
       </div>
 
