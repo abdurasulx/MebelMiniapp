@@ -33,14 +33,7 @@ function toggleWorkDay(workDays, day) {
   return list.includes(day) ? list.filter((d) => d !== day) : [...list, day].sort();
 }
 
-/// Bir lavozim uchun eng mos standart: avval firmaning o'ziniki, bo'lmasa
-/// platforma standarti (qarang backend PositionPayStandard).
-function pickStandard(standards, position) {
-  const forPosition = standards.filter((s) => s.position === position);
-  return forPosition.find((s) => !s.is_platform_default) || forPosition.find((s) => s.is_platform_default) || null;
-}
-
-function PayTypeFields({ payType, values, onChange, standard }) {
+function PayTypeFields({ payType, values, onChange }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:max-w-md">
       <div className="sm:col-span-2">
@@ -50,12 +43,6 @@ function PayTypeFields({ payType, values, onChange, standard }) {
             <option key={k} value={k}>{label}</option>
           ))}
         </select>
-        {standard && Number(standard.max_salary) > 0 && (
-          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-            Tavsiya etilgan oylik: {Number(standard.min_salary).toLocaleString()}–
-            {Number(standard.max_salary).toLocaleString()} so'm
-          </p>
-        )}
       </div>
       {(payType === "fixed" || payType === "fixed_bonus") && (
         <div>
@@ -136,7 +123,6 @@ function initials(name) {
 export default function Employees() {
   const [list, setList] = useState([]);
   const [invitations, setInvitations] = useState([]);
-  const [standards, setStandards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
     worker_id: "", positions: [], pay_type: "fixed_bonus",
@@ -150,12 +136,11 @@ export default function Employees() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = () =>
-    Promise.all([api("/employees/"), api("/employee-invitations/"), api("/pay-standards/")])
-      .then(([emp, inv, pay]) => {
+    Promise.all([api("/employees/"), api("/employee-invitations/")])
+      .then(([emp, inv]) => {
         setList(emp.results || []);
         setNextPage(emp.next || null);
         setInvitations(inv.results || []);
-        setStandards(pay.results || []);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -180,22 +165,7 @@ export default function Employees() {
 
   const togglePosition = (p) =>
     setForm((f) => {
-      const adding = !f.positions.includes(p);
-      const positions = adding ? [...f.positions, p] : f.positions.filter((x) => x !== p);
-      // Birinchi kasb tanlanganda standart to'lov turini/summasini boshlang'ich
-      // taklif sifatida to'ldiramiz — foydalanuvchi keyin o'zi o'zgartirishi mumkin.
-      if (adding && f.positions.length === 0) {
-        const standard = pickStandard(standards, p);
-        if (standard) {
-          return {
-            ...f, positions,
-            pay_type: standard.pay_type,
-            bonus_per_task: standard.default_bonus_per_task || "",
-            commission_percent: standard.default_commission_percent || "",
-            hourly_rate: standard.default_hourly_rate || "",
-          };
-        }
-      }
+      const positions = f.positions.includes(p) ? f.positions.filter((x) => x !== p) : [...f.positions, p];
       return { ...f, positions };
     });
 
@@ -308,7 +278,6 @@ export default function Employees() {
           payType={form.pay_type}
           values={form}
           onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
-          standard={form.positions[0] ? pickStandard(standards, form.positions[0]) : null}
         />
         <button className="btn self-start" type="submit">Taklif yuborish</button>
       </form>

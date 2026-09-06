@@ -1,16 +1,14 @@
-from django.db.models import Q
 from django.utils import timezone
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
-from .models import Company, Employee, EmployeeInvitation, PositionPayStandard, Review, TariffPlan
+from .models import Company, Employee, EmployeeInvitation, Review, TariffPlan
 from .serializers import (
     CompanySerializer,
     EmployeeInvitationSerializer,
     EmployeeSerializer,
-    PositionPayStandardSerializer,
     ReviewSerializer,
     TariffPlanSerializer,
 )
@@ -234,52 +232,6 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         instance.is_deleted = True
         instance.save(update_fields=["is_deleted"])
 
-
-class PositionPayStandardViewSet(viewsets.ModelViewSet):
-    """Lavozim bo'yicha standart to'lov/KPI sozlamalari. Ikkita daraja:
-    platforma admini `company=null` (global) yozuvlarni, firma egasi esa
-    faqat o'z kompaniyasiga tegishli (`company=<uuid>`) yozuvlarni yarata
-    va tahrirlay oladi — biri ikkinchisining maydoniga tega olmaydi."""
-
-    serializer_class = PositionPayStandardSerializer
-    permission_classes = (permissions.IsAuthenticated,)
-    http_method_names = ("get", "post", "patch", "delete", "head", "options")
-
-    def get_queryset(self):
-        user = self.request.user
-        qs = PositionPayStandard.objects.filter(is_deleted=False)
-        if user.role == "platform_admin":
-            return qs
-        company = user_company(user)
-        if company:
-            return qs.filter(Q(company__isnull=True) | Q(company=company))
-        return qs.filter(company__isnull=True)
-
-    def _check_scope(self, company):
-        user = self.request.user
-        if company is None:
-            if user.role != "platform_admin":
-                raise PermissionDenied("Faqat platforma admini global standart belgilay oladi")
-        elif not is_company_owner(user, company):
-            raise PermissionDenied("Faqat shu firma egasi o'z standartini belgilay oladi")
-
-    def perform_create(self, serializer):
-        company = serializer.validated_data.get("company")
-        self._check_scope(company)
-        if PositionPayStandard.objects.filter(
-            is_deleted=False, company=company, position=serializer.validated_data["position"]
-        ).exists():
-            raise ValidationError("Bu lavozim uchun standart allaqachon mavjud — tahrirlang")
-        serializer.save()
-
-    def perform_update(self, serializer):
-        self._check_scope(serializer.instance.company)
-        serializer.save()
-
-    def perform_destroy(self, instance):
-        self._check_scope(instance.company)
-        instance.is_deleted = True
-        instance.save(update_fields=["is_deleted"])
 
 
 class TariffPlanViewSet(viewsets.ModelViewSet):

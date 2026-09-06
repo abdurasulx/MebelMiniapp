@@ -15,7 +15,6 @@ from apps.companies.views import (
     CompanyViewSet,
     EmployeeInvitationViewSet,
     EmployeeViewSet,
-    PositionPayStandardViewSet,
     ReviewViewSet,
     TariffPlanViewSet,
 )
@@ -91,7 +90,6 @@ router = DefaultRouter()
 router.register("companies", CompanyViewSet, basename="company")
 router.register("employees", EmployeeViewSet, basename="employee")
 router.register("employee-invitations", EmployeeInvitationViewSet, basename="employee-invitation")
-router.register("pay-standards", PositionPayStandardViewSet, basename="pay-standard")
 router.register("tariff-plans", TariffPlanViewSet, basename="tariff-plan")
 router.register("orders", OrderViewSet, basename="order")
 router.register("categories", CategoryViewSet, basename="category")

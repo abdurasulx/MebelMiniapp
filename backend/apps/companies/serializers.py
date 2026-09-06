@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
 
-from .models import Company, Employee, EmployeeInvitation, PositionPayStandard, Review, TariffPlan
+from .models import Company, Employee, EmployeeInvitation, Review, TariffPlan
 
 User = get_user_model()
 
@@ -111,30 +111,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
             "positions", "is_active", "pay_type", "pay_type_display",
             "base_salary", "bonus_per_task", "commission_percent", "hourly_rate",
             "shift_start", "shift_end", "lunch_start", "lunch_end", "work_days", "created_at",
-        )
-        read_only_fields = ("id", "created_at")
-
-
-class PositionPayStandardSerializer(serializers.ModelSerializer):
-    """`company=None` — platforma admini sozlaydigan global standart;
-    `company=<id>` — firma o'ziga moslashtirgan override (qarang
-    PositionPayStandardViewSet: kim qaysi turini yarata olishini u
-    cheklaydi)."""
-
-    position_display = serializers.CharField(source="get_position_display", read_only=True)
-    pay_type_display = serializers.CharField(source="get_pay_type_display", read_only=True)
-    is_platform_default = serializers.SerializerMethodField()
-
-    def get_is_platform_default(self, obj):
-        return obj.company_id is None
-
-    class Meta:
-        model = PositionPayStandard
-        fields = (
-            "id", "company", "position", "position_display", "pay_type", "pay_type_display",
-            "min_salary", "max_salary", "default_bonus_per_task", "default_commission_percent",
-            "default_hourly_rate", "kpi_target_tasks_per_month", "kpi_target_on_time_percent",
-            "kpi_bonus_multiplier", "is_platform_default", "created_at",
         )
         read_only_fields = ("id", "created_at")
 

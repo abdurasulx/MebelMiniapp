@@ -23,7 +23,6 @@ import FirmaDashboard from "./pages/firma/FirmaDashboard";
 import FirmaOrders from "./pages/firma/FirmaOrders";
 import FirmaOrderDetail from "./pages/firma/FirmaOrderDetail";
 import FirmaPayroll from "./pages/firma/FirmaPayroll";
-import FirmaPayStandards from "./pages/firma/FirmaPayStandards";
 import FirmaProduction from "./pages/firma/FirmaProduction";
 import FirmaProductDetail from "./pages/firma/FirmaProductDetail";
 import FirmaProducts from "./pages/firma/FirmaProducts";
@@ -88,7 +87,6 @@ const FIRMA_MENU = [
   { to: "/suppliers", icon: Truck, label: "Ta'minot", group: "Ishlab chiqarish" },
   { to: "/employees", icon: HardHat, label: "Xodimlar", group: "Xodimlar" },
   { to: "/payroll", icon: Wallet, label: "Ish haqi", group: "Xodimlar" },
-  { to: "/pay-standards", icon: HardHat, label: "Ish haqi standartlari", group: "Xodimlar" },
   { to: "/finance", icon: TrendingUp, label: "Moliya", group: "Savdo" },
   { to: "/settings", icon: Settings, label: "Sozlamalar", group: "Tizim" },
 ];
@@ -334,7 +332,6 @@ export default function App() {
           <Route path="/warehouses/:id" element={<OwnerOnly><FirmaWarehouseDetail /></OwnerOnly>} />
           <Route path="/suppliers" element={<OwnerOnly><FirmaSuppliers /></OwnerOnly>} />
           <Route path="/payroll" element={<OwnerOnly><FirmaPayroll /></OwnerOnly>} />
-          <Route path="/pay-standards" element={<OwnerOnly><FirmaPayStandards /></OwnerOnly>} />
           <Route path="/finance" element={<OwnerOnly><AdminFinance /></OwnerOnly>} />
           <Route path="/settings" element={<OwnerOnly><FirmaSettings /></OwnerOnly>} />
         </Route>

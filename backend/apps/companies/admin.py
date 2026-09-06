@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Company, Employee, PositionPayStandard, Review, TariffPlan
+from .models import Company, Employee, Review, TariffPlan
 
 
 @admin.register(Company)
@@ -20,12 +20,6 @@ class TariffPlanAdmin(admin.ModelAdmin):
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
     list_display = ("user", "company", "positions", "is_active")
-
-
-@admin.register(PositionPayStandard)
-class PositionPayStandardAdmin(admin.ModelAdmin):
-    list_display = ("position", "company", "pay_type", "min_salary", "max_salary", "kpi_bonus_multiplier")
-    list_filter = ("position", "pay_type")
 
 
 @admin.register(Review)

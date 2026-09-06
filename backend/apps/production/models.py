@@ -48,8 +48,9 @@ class Payslip(BaseModel):
     # rejimida esa faqat samaradorlik hisobotida ko'rsatish uchun saqlanadi
     # (to'lovga qo'shilmaydi).
     completed_tasks_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    # KPI maqsadiga erishilgan bo'lsa (qarang PositionPayStandard), shu
-    # multiplikator asosidagi qo'shimcha bonus.
+    # Ish haqi standartlari (PositionPayStandard) olib tashlangan — bu
+    # maydonlar orqaga moslik uchun qoladi, lekin endi doim False/0
+    # (qarang Payslip.recompute()).
     kpi_met = models.BooleanField(default=False)
     kpi_bonus_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -196,51 +197,13 @@ class Payslip(BaseModel):
             self.base_salary = 0
             self.total_amount = self.hourly_amount
 
-        self.kpi_met, self.kpi_bonus_amount = self._compute_kpi_bonus(start, end, completed, self.total_amount)
-        self.total_amount += self.kpi_bonus_amount
-
-    def _compute_kpi_bonus(self, start, end, completed_qs, base_for_bonus):
-        """Xodimning (kompaniya standarti bo'lmasa — platforma standarti)
-        birinchi lavozimiga mos `PositionPayStandard`dan KPI maqsadini oladi.
-        Ikkala maqsad ham (agar berilgan bo'lsa) bajarilgan bo'lsagina bonus
-        qo'llanadi; hech qaysi maqsad berilmagan bo'lsa, multiplikator
-        qo'llanmaydi (faqat kuzatuv uchun standart mavjud bo'lishi mumkin)."""
-        from apps.companies.models import PositionPayStandard
-
-        employee = self.employee
-        if not employee.positions:
-            return False, 0
-        position = employee.positions[0]
-        standard = (
-            PositionPayStandard.objects.filter(company_id=employee.company_id, position=position).first()
-            or PositionPayStandard.objects.filter(company__isnull=True, position=position).first()
-        )
-        if standard is None:
-            return False, 0
-
-        targets_set = False
-        met = True
-        if standard.kpi_target_tasks_per_month is not None:
-            targets_set = True
-            if self.tasks_completed < standard.kpi_target_tasks_per_month:
-                met = False
-        if standard.kpi_target_on_time_percent is not None:
-            targets_set = True
-            with_deadline = completed_qs.exclude(deadline__isnull=True)
-            total = with_deadline.count()
-            if total == 0:
-                on_time_percent = 100
-            else:
-                on_time = sum(1 for step in with_deadline if step.completed_at.date() <= step.deadline)
-                on_time_percent = (on_time / total) * 100
-            if on_time_percent < standard.kpi_target_on_time_percent:
-                met = False
-
-        if not targets_set or not met or standard.kpi_bonus_multiplier <= 1:
-            return (targets_set and met), 0
-
-        bonus = base_for_bonus * (standard.kpi_bonus_multiplier - 1)
-        return True, bonus
+        # KPI/ish haqi standarti asosidagi avtomatik bonus endi hisoblanmaydi
+        # ("Buyurtmalar va topshiriqlar tizimi" docs §8: "Topshiriqlarga
+        # alohida ish haqi standarti biriktirilmasin... avtomatik ravishda
+        # ish haqi standarti hisoblanmaydi") — maydonlar orqaga moslik uchun
+        # saqlanadi (mobil/veb payslip ekranlari hali o'qiydi), lekin
+        # doimo bo'sh qoladi.
+        self.kpi_met, self.kpi_bonus_amount = False, 0
 
 
 class PayslipPayment(BaseModel):
