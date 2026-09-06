@@ -61,7 +61,7 @@ function MaterialWarehousePanel({ warehouseId }) {
   const [showNewMaterial, setShowNewMaterial] = useState(false);
   const [move, setMove] = useState({ material: "", movement_type: "in", quantity: "", note: "" });
   const [newMaterial, setNewMaterial] = useState({
-    name: "", unit: "dona", unit_cost: "", dimension_type: "none", stock_unit_length: "",
+    name: "", unit: "dona", unit_cost: "", dimension_type: "none", stock_unit_length: "", min_stock: "",
   });
   const [remnants, setRemnants] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -103,9 +103,10 @@ function MaterialWarehousePanel({ warehouseId }) {
         body: {
           ...newMaterial,
           stock_unit_length: newMaterial.dimension_type === "linear" ? (newMaterial.stock_unit_length || null) : null,
+          min_stock: newMaterial.min_stock || 0,
         },
       });
-      setNewMaterial({ name: "", unit: "dona", unit_cost: "", dimension_type: "none", stock_unit_length: "" });
+      setNewMaterial({ name: "", unit: "dona", unit_cost: "", dimension_type: "none", stock_unit_length: "", min_stock: "" });
       setShowNewMaterial(false);
       setMove((m) => ({ ...m, material: created.id }));
       load();
@@ -304,6 +305,12 @@ function MaterialWarehousePanel({ warehouseId }) {
                     onChange={(e) => setNewMaterial({ ...newMaterial, unit_cost: e.target.value })} />
                 </div>
                 <div>
+                  <label className="label">Minimal qoldiq (ogohlantirish uchun)</label>
+                  <input className="input" type="number" step="0.001" min="0" placeholder="0 — ogohlantirish o'chiq"
+                    value={newMaterial.min_stock}
+                    onChange={(e) => setNewMaterial({ ...newMaterial, min_stock: e.target.value })} />
+                </div>
+                <div>
                   <label className="label">Turi</label>
                   <select className="input" value={newMaterial.dimension_type}
                     onChange={(e) => setNewMaterial({ ...newMaterial, dimension_type: e.target.value })}>
@@ -468,6 +475,7 @@ function MaterialEditForm({ material, onClose, onSaved }) {
     unit_cost: material.unit_cost,
     dimension_type: material.dimension_type || "none",
     stock_unit_length: material.stock_unit_length || "",
+    min_stock: material.min_stock || "",
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -509,6 +517,12 @@ function MaterialEditForm({ material, onClose, onSaved }) {
         <label className="label">Birlik narxi (so'm)</label>
         <input className="input" type="number" min="0" value={form.unit_cost}
           onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} />
+      </div>
+      <div>
+        <label className="label">Minimal qoldiq (ogohlantirish)</label>
+        <input className="input" type="number" step="0.001" min="0" placeholder="0 — o'chiq"
+          value={form.min_stock}
+          onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
       </div>
       <div>
         <label className="label">Turi</label>

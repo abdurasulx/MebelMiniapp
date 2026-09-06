@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Warehouse as WarehouseIcon, Boxes, Package, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Warehouse as WarehouseIcon, Boxes, Package, ChevronRight, Pencil, Trash2, AlertTriangle, PackageX, Plus } from "lucide-react";
 import { api } from "../../api";
 
 const KIND_ICON = { raw_material: Boxes, finished_goods: Package };
 
 export default function FirmaWarehouses() {
   const [list, setList] = useState([]);
+  const [lowStock, setLowStock] = useState([]);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", kind: "raw_material", address: "" });
@@ -14,13 +15,18 @@ export default function FirmaWarehouses() {
   const [editing, setEditing] = useState(null);
 
   const load = () =>
-    api("/warehouses/")
-      .then((d) => setList(d.results || []))
+    Promise.all([api("/warehouses/"), api("/materials/low-stock/").catch(() => [])])
+      .then(([w, low]) => {
+        setList(w.results || []);
+        setLowStock(low || []);
+      })
       .catch((e) => setError(e.message));
 
   useEffect(() => {
     load();
   }, []);
+
+  const rawWarehouses = list.filter((w) => w.kind === "raw_material");
 
   const submit = async (e) => {
     e.preventDefault();
@@ -58,6 +64,19 @@ export default function FirmaWarehouses() {
         Xom ashyo va tayyor mahsulot uchun alohida-alohida ombor yarating — bitta firmada bir nechta
         ombor bo'lishi mumkin (masalan har filial uchun alohida).
       </p>
+
+      {lowStock.length > 0 && (
+        <div className="card p-5" style={{ borderColor: "var(--warning)" }}>
+          <h2 className="mb-4 inline-flex items-center gap-2 text-base font-semibold" style={{ color: "var(--warning)" }}>
+            <AlertTriangle size={17} /> Kam qolgan xom ashyo ({lowStock.length})
+          </h2>
+          <div className="flex flex-col gap-2">
+            {lowStock.map((m) => (
+              <LowStockRow key={m.id} material={m} warehouses={rawWarehouses} onRestocked={load} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <form className="card flex flex-col gap-4 p-5" onSubmit={submit}>
@@ -149,6 +168,93 @@ export default function FirmaWarehouses() {
             );
           })}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Kam qolgan material qatori — "+ Kirim" bosilsa shu yerning o'zida
+ * qaysi (xom ashyo) omborga va qancha miqdorda kirim qilinishini so'raydi,
+ * navigatsiyasiz to'g'ridan-to'g'ri /warehouses/<id>/material-movements/
+ * ga yuboradi (backend MaterialMovementViewSet allaqachon mavjud). */
+function LowStockRow({ material, warehouses, onRestocked }) {
+  const [open, setOpen] = useState(false);
+  const [warehouseId, setWarehouseId] = useState(warehouses[0]?.id || "");
+  const [quantity, setQuantity] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!warehouseId || !quantity) return;
+    setError("");
+    setBusy(true);
+    try {
+      await api(`/warehouses/${warehouseId}/material-movements/`, {
+        method: "POST",
+        body: { material: material.id, movement_type: "in", quantity, note: "Kam qolgan ta'minotni to'ldirish" },
+      });
+      setQuantity("");
+      setOpen(false);
+      onRestocked();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl p-3" style={{ border: "1px solid var(--border)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex items-center gap-2 text-sm font-medium">
+          <PackageX size={15} style={{ color: "var(--warning)" }} /> {material.name}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs" style={{ color: "var(--muted)" }}>
+            {material.current_stock} / {material.min_stock} {material.unit_display}
+            {material.default_supplier_name && ` · ${material.default_supplier_name}`}
+          </span>
+          <button
+            className="btn-ghost inline-flex items-center gap-1 !px-2 !py-1 text-xs"
+            onClick={() => setOpen((v) => !v)}
+          >
+            <Plus size={12} /> Kirim
+          </button>
+        </div>
+      </div>
+      {open && (
+        <form className="mt-3 flex flex-wrap items-end gap-2" onSubmit={submit}>
+          {warehouses.length > 1 && (
+            <div>
+              <label className="label">Ombor</label>
+              <select className="input !py-1.5 text-xs" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>{w.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="label">Miqdor ({material.unit_display})</label>
+            <input
+              className="input !w-28 !py-1.5 text-xs"
+              type="number" step="0.001" min="0.001"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              required
+              autoFocus
+            />
+          </div>
+          <button className="btn !px-3 !py-1.5 text-xs" type="submit" disabled={busy || warehouses.length === 0}>
+            {busy ? "Saqlanmoqda…" : "Qo'shish"}
+          </button>
+          <button className="btn-ghost !px-3 !py-1.5 text-xs" type="button" onClick={() => setOpen(false)}>Bekor</button>
+          {warehouses.length === 0 && (
+            <span className="text-xs" style={{ color: "var(--danger)" }}>Avval xom ashyo ombori yarating</span>
+          )}
+          {error && <div className="error w-full">{error}</div>}
+        </form>
       )}
     </div>
   );
