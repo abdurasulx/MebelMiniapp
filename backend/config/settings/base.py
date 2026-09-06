@@ -203,13 +203,28 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # WebSocket (Django Channels) — bildirishnoma qo'ng'irog'i sanog'ini real
 # vaqtda yangilash uchun (avval 30s'da bir marta so'rab turilardi, qarang
-# apps/notifications/consumers.py). `InMemoryChannelLayer` yetarli —
-# backend HALI BIR JARAYON (`manage.py runserver`) sifatida serve
-# qilinadi (qarang deploy/nginx/qrbite.uz.conf docstringi), Redis kabi
-# tashqi channel layer faqat KO'P worker-jarayon bo'lganda kerak bo'ladi.
+# apps/notifications/consumers.py). `InMemoryChannelLayer` bitta jarayon
+# ichida yetarli (hozirgi holat — qarang deploy/nginx/qrbite.uz.conf
+# docstringi), lekin KO'P worker-jarayon/server bilan serve qilinganda
+# ishlamaydi (har bir worker faqat o'zining lokal ulanishlarini biladi,
+# boshqa workerda ulangan foydalanuvchiga bildirishnoma yetib bormaydi).
+# Shuning uchun `REDIS_URL` env o'zgaruvchisi orqali sozlanadi — bo'lsa
+# Redis-backed channel layer'ga o'tadi (production, ko'p worker), bo'lmasa
+# hozirgi xatti-harakat (InMemoryChannelLayer) o'zgarishsiz qoladi. Faqat
+# `.env`da `REDIS_URL=redis://<host>:6379/0` qo'shish kifoya — kod
+# o'zgarmaydi.
 ASGI_APPLICATION = "config.asgi.application"
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-    },
-}
+REDIS_URL = env("REDIS_URL", default="")
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [REDIS_URL]},
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
