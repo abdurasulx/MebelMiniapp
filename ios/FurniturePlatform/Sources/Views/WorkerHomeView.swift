@@ -30,14 +30,14 @@ struct WorkerHomeView: View {
                         }
                     }
                 }
-                // "Joy o'rganish" (site survey) faqat usta uchun mantiqiy —
-                // backend SiteSurvey.assigned_master orqali faqat shu ustaga
-                // tayinlangan joylarni ko'rsatadi (boshqa kasblarga hech
-                // qachon survey tayinlanmaydi).
+                // Individual loyiha (CUSTOM_PROJECT) — usta mijoz uyida turib
+                // to'g'ridan-to'g'ri buyurtma yaratadi, alohida "joy
+                // o'rganish" tayinlash bosqichi endi yo'q (qarang backend
+                // apps.custom_orders.services.create_custom_order_on_site).
                 if auth.user?.positions?.contains("usta") == true {
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        NavigationLink(destination: SiteSurveysView()) {
-                            Image(systemName: "location.fill")
+                        NavigationLink(destination: CreateCustomOrderView()) {
+                            Image(systemName: "note.text.badge.plus")
                         }
                     }
                 }

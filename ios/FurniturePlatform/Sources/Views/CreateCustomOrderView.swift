@@ -27,17 +27,34 @@ private struct CreateOrderItemBody: Encodable {
 private struct CreateOrderBody: Encodable {
     let items: [CreateOrderItemBody]
     let customerWorkerId: String
+    let latitude: Double?
+    let longitude: Double?
+    let accuracy: Double?
+    let isMock: Bool
+    let deviceTimestamp: String?
+    let platform: String
 
     enum CodingKeys: String, CodingKey {
         case items
         case customerWorkerId = "customer_worker_id"
+        case latitude, longitude, accuracy
+        case isMock = "is_mock"
+        case deviceTimestamp = "device_timestamp"
+        case platform
     }
 }
 
-/// Usta site-survey asosida CUSTOM_PROJECT buyurtmasini yaratadi.
+/// Usta mijoz uyida turib to'g'ridan-to'g'ri individual (CUSTOM_PROJECT)
+/// buyurtma yaratadi — alohida "joy o'rganish" bosqichi endi yo'q (qarang
+/// backend apps.custom_orders.services.create_custom_order_on_site).
+/// Qurilmadan joylashuv olinadi va soxta (mock) GPS aniqlansa ham buyurtma
+/// baribir yaratiladi, lekin backend firma egasiga xabar beradi (Davomat
+/// check-in bilan bir xil `is_mock` naqshi, qarang AttendanceView.swift).
 struct CreateCustomOrderView: View {
-    let survey: SiteSurvey
+    @EnvironmentObject private var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
+
+    private let locationManager = AttendanceLocationManager()
 
     @State private var products: [Product] = []
     @State private var items: [OrderItemDraft] = [OrderItemDraft()]
@@ -50,8 +67,7 @@ struct CreateCustomOrderView: View {
             Section {
                 TextField("Mijoz qidiruvchi ID", text: $customerWorkerId)
                     .keyboardType(.numberPad)
-                Text("Mijoz shu ID orqali o'z ilovasida buyurtmani kuzatib borishi mumkin bo'ladi."
-                     + (survey.customerName.map { " (hozir: \($0))" } ?? ""))
+                Text("Mijoz shu ID orqali o'z ilovasida buyurtmani kuzatib borishi mumkin bo'ladi.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             ForEach($items) { $item in
@@ -90,14 +106,15 @@ struct CreateCustomOrderView: View {
             }
             .disabled(isBusy)
         }
-        .navigationTitle("Buyurtma yaratish")
+        .navigationTitle("Individual loyiha")
         .task { await loadProducts() }
     }
 
     private func loadProducts() async {
+        guard let companySlug = auth.user?.company?.slug else { return }
         do {
             let page: Paginated<Product> = try await APIClient.shared.get(
-                "/products/?company=\(survey.companySlug)", auth: true
+                "/products/?company=\(companySlug)", auth: true
             )
             products = page.results
         } catch {
@@ -109,6 +126,20 @@ struct CreateCustomOrderView: View {
         isBusy = true
         errorMessage = nil
         defer { isBusy = false }
+
+        var latitude: Double?
+        var longitude: Double?
+        var accuracy: Double?
+        var isMock = false
+        var deviceTimestamp: String?
+        if let location = try? await locationManager.currentLocation() {
+            latitude = location.coordinate.latitude
+            longitude = location.coordinate.longitude
+            accuracy = location.horizontalAccuracy >= 0 ? location.horizontalAccuracy : nil
+            isMock = location.isSimulated
+            deviceTimestamp = ISO8601DateFormatter().string(from: location.timestamp)
+        }
+
         let body = CreateOrderBody(
             items: items.compactMap { item in
                 guard let productId = item.productId else { return nil }
@@ -121,12 +152,18 @@ struct CreateCustomOrderView: View {
                     isCustomSize: item.isCustomSize
                 )
             },
-            customerWorkerId: customerWorkerId
+            customerWorkerId: customerWorkerId,
+            latitude: latitude,
+            longitude: longitude,
+            accuracy: accuracy,
+            isMock: isMock,
+            deviceTimestamp: deviceTimestamp,
+            platform: "ios"
         )
         do {
             struct OrderResponse: Decodable { let id: String }
             let _: OrderResponse = try await APIClient.shared.post(
-                "/site-surveys/\(survey.id)/create-order/", body: body, auth: true
+                "/custom-orders/create/", body: body, auth: true
             )
             dismiss()
         } catch {

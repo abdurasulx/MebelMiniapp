@@ -1,9 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Kamera orqali video yozib olish — `CameraImagePicker`ning video versiyasi
-/// (joy o'rganishda usta xona videosini yuklashi uchun, qarang
-/// SiteSurveyDetailView).
+/// Kamera orqali video yozib olish — `CameraImagePicker`ning video versiyasi.
 struct CameraVideoPicker: UIViewControllerRepresentable {
     var onPicked: (URL) -> Void
 
