@@ -1,107 +1,45 @@
 from django.db.models import Max
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.companies.models import Employee
 from apps.companies.views import is_company_owner, user_company, user_has_position
 from apps.orders.models import OrderItem
 from apps.products.models import Product, Variant
 
-from .models import Design, DesignVersion, SiteSurvey, SiteSurveyMedia
+from .models import Design, DesignVersion
 from .serializers import (
-    CreateCustomOrderSerializer,
+    CreateCustomOrderOnSiteSerializer,
     DesignSerializer,
     DesignVersionSerializer,
-    SiteSurveyMediaSerializer,
-    SiteSurveySerializer,
 )
-from .services import approve_design_version, create_custom_order, set_item_cost
+from .services import approve_design_version, create_custom_order_on_site, set_item_cost
 
 
-class SiteSurveyViewSet(viewsets.ModelViewSet):
-    """Admin ustani mijoz uyiga tayinlaydi; usta o'z tayinlangan
-    joylarini ko'radi, tashrif ma'lumotlarini kiritadi, buyurtma yaratadi."""
+class CustomOrderCreateView(APIView):
+    """Usta mijoz uyida turib to'g'ridan-to'g'ri individual (CUSTOM_PROJECT)
+    buyurtma yaratadi — alohida "joy o'rganish" tayinlash bosqichi endi
+    yo'q (qarang services.create_custom_order_on_site). Faqat usta yoki
+    firma egasi chaqira oladi."""
 
-    serializer_class = SiteSurveySerializer
     permission_classes = (permissions.IsAuthenticated,)
-    http_method_names = ("get", "post", "patch", "head", "options")
 
-    def get_queryset(self):
-        user = self.request.user
-        company = user_company(user)
+    def post(self, request):
+        company = user_company(request.user)
         if company is None:
-            return SiteSurvey.objects.none()
-        qs = SiteSurvey.objects.filter(company=company, is_deleted=False).select_related(
-            "assigned_master__user", "customer"
-        ).prefetch_related("media")
-        if is_company_owner(user, company):
-            return qs
-        return qs.filter(assigned_master__user=user)
+            raise PermissionDenied("Siz hech qanday firmaga tegishli emassiz")
+        if not (is_company_owner(request.user, company) or user_has_position(request.user, company, "usta")):
+            raise PermissionDenied("Faqat usta yoki firma egasi individual loyiha buyurtmasini yarata oladi")
 
-    def _own_company(self):
-        company = user_company(self.request.user)
-        if company is None or not is_company_owner(self.request.user, company):
-            raise PermissionDenied("Faqat kompaniya egasi joy o'rganishga tayinlaydi")
-        return company
-
-    def perform_create(self, serializer):
-        company = self._own_company()
-        master_id = self.request.data.get("assigned_master")
-        master = Employee.objects.filter(id=master_id, company=company, is_deleted=False).first()
-        if master is None:
-            raise ValidationError("Usta topilmadi")
-        serializer.save(company=company, assigned_master=master, assigned_by=self.request.user)
-
-    def perform_update(self, serializer):
-        # Usta o'zining tayinlangan surveyini tahrirlashi mumkin (izoh/o'lcham/
-        # geolokatsiya), ega esa hammasini — `get_queryset` bu ikkalasini
-        # allaqachon cheklaydi.
-        serializer.save()
-
-    def _own_survey_or_owner(self, survey):
-        user = self.request.user
-        company = user_company(user)
-        if company is None or company.id != survey.company_id:
-            raise PermissionDenied("Bu joy o'rganish sizga tegishli emas")
-        if is_company_owner(user, company):
-            return
-        if survey.assigned_master.user_id != user.id:
-            raise PermissionDenied("Bu joy o'rganish sizga tayinlanmagan")
-
-    @action(detail=True, methods=["post"])
-    def media(self, request, pk=None):
-        survey = self.get_object()
-        self._own_survey_or_owner(survey)
-        serializer = SiteSurveyMediaSerializer(data=request.data, context={"request": request})
+        serializer = CreateCustomOrderOnSiteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        media = SiteSurveyMedia.objects.create(survey=survey, **serializer.validated_data)
-        return Response(SiteSurveyMediaSerializer(media, context={"request": request}).data, status=201)
+        data = serializer.validated_data
 
-    @action(detail=True, methods=["post"], url_path="create-order")
-    def create_order(self, request, pk=None):
-        survey = self.get_object()
-        self._own_survey_or_owner(survey)
-        if survey.order_id is not None:
-            raise ValidationError("Bu joy o'rganish uchun buyurtma allaqachon yaratilgan")
-
-        serializer = CreateCustomOrderSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        # Mijoz — avval survey.customer (admin tayinlaganda kiritgan bo'lsa),
-        # bo'lmasa yoki usta boshqasini bergan bo'lsa shu yerdan olinadi.
-        # Ikkalasi ham bo'lmasa buyurtma yaratib bo'lmaydi (Order.customer
-        # majburiy) — mijoz ilovada kuzata olishi uchun aniq bog'lanish shart.
-        customer = getattr(serializer, "_customer", None) or survey.customer
-        if customer is None:
-            raise ValidationError(
-                "Mijozning qidiruvchi ID'sini kiriting — buyurtmani kuzatib borishi uchun"
-            )
-
-        company = survey.company
         resolved_items = []
-        for raw in serializer.validated_data["items"]:
+        for raw in data["items"]:
             product = Product.objects.filter(id=raw["product"], company=company, is_deleted=False).first()
             if product is None:
                 raise ValidationError("Mahsulot topilmadi")
@@ -112,8 +50,15 @@ class SiteSurveyViewSet(viewsets.ModelViewSet):
                     raise ValidationError("Variant topilmadi")
             resolved_items.append({**raw, "product": product, "variant": variant})
 
-        order = create_custom_order(
-            survey=survey, items=resolved_items, created_by=request.user, customer=customer
+        order = create_custom_order_on_site(
+            company=company,
+            customer=serializer._customer,
+            items=resolved_items,
+            created_by=request.user,
+            address=data.get("address", ""),
+            latitude=data.get("latitude"),
+            longitude=data.get("longitude"),
+            is_mock=data.get("is_mock", False),
         )
         from apps.orders.serializers import OrderSerializer
 
@@ -123,7 +68,7 @@ class SiteSurveyViewSet(viewsets.ModelViewSet):
 class DesignViewSet(viewsets.ReadOnlyModelViewSet):
     """CUSTOM_PROJECT buyurtmaning dizayn holati — versiyalar, tasdiqlangan
     versiya. Yaratish yo'q (buyurtma yaratilganda avtomatik hosil bo'ladi,
-    qarang services.create_custom_order)."""
+    qarang services.create_custom_order_on_site)."""
 
     serializer_class = DesignSerializer
     permission_classes = (permissions.IsAuthenticated,)

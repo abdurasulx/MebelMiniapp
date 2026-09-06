@@ -108,6 +108,26 @@ def notify_attendance_rejected(employee, reason):
     push_unread_count(employee.user_id)
 
 
+def notify_custom_order_location_suspicious(order):
+    """Usta mijoz uyida turib individual (CUSTOM_PROJECT) buyurtma
+    yaratganda qurilma GPS'i soxta (mock-location) deb aniqlansa — firma
+    egasiga yuboriladi. Buyurtmaning o'zi baribir yaratiladi (savdoni
+    bloklamaslik uchun), admin har birini qo'lda tekshirishi shart emas —
+    faqat shubhali holatda xabar oladi (qarang
+    apps.custom_orders.services.create_custom_order_on_site)."""
+    owner = order.company.owner
+    title = "Buyurtma joylashuvi shubhali"
+    body = f"{order.company.name}: individual buyurtma #{str(order.id)[:8]} — {order.location_flag_reason}"
+    Notification.objects.create(
+        recipient_id=owner.id,
+        notif_type=NotificationType.CUSTOM_ORDER_LOCATION_SUSPICIOUS,
+        title=title,
+        body=body,
+    )
+    send_push(owner, title, body, data={"type": "custom_order_location_suspicious", "order_id": str(order.id)})
+    push_unread_count(owner.id)
+
+
 def notify_material_suggestion(user, material, remnant_width, remnant_length, cut_width, cut_length):
     """Ishlab chiqarishda VARAQ material kerakli bo'lakka mavjud qoldiqdan
     moslashtirilganda yuboriladi — kimga qaysi o'lchamdagi qoldiqdan

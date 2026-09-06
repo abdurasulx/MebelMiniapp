@@ -3,64 +3,11 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from common.serializers import StorageStampMixin, visible_file_url
+from common.serializers import visible_file_url
 
-from .models import Design, DesignVersion, SiteSurvey, SiteSurveyMedia
+from .models import Design, DesignVersion
 
 User = get_user_model()
-
-
-class SiteSurveyMediaSerializer(StorageStampMixin, serializers.ModelSerializer):
-    file_fields = ("file",)
-    file = serializers.FileField(write_only=True)
-    file_url = serializers.SerializerMethodField()
-
-    class Meta:
-        model = SiteSurveyMedia
-        fields = ("id", "survey", "file", "file_url", "media_type", "caption", "created_at")
-        read_only_fields = ("id", "survey", "created_at")
-
-    def get_file_url(self, obj):
-        return visible_file_url(obj, "file", self.context.get("request"))
-
-
-class SiteSurveySerializer(serializers.ModelSerializer):
-    # Xodimlar taklif qilishdagi bir xil naqsh (qarang EmployeeInvitationSerializer):
-    # mijoz doimiy qidiruvchi ID (worker_id) orqali topiladi, UUID emas.
-    # Ixtiyoriy — admin tayinlash paytida mijozni bilmasligi mumkin (masalan
-    # murojaat/lead orqali), usta keyinroq (buyurtma yaratayotganda) ham
-    # kiritishi mumkin (qarang CreateCustomOrderSerializer).
-    customer_worker_id = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    assigned_master_name = serializers.CharField(source="assigned_master.user.first_name", read_only=True)
-    customer_name = serializers.CharField(source="customer.first_name", read_only=True, default=None)
-    customer_worker_id_display = serializers.CharField(source="customer.worker_id", read_only=True, default=None)
-    company_slug = serializers.CharField(source="company.slug", read_only=True)
-    status_display = serializers.CharField(source="get_status_display", read_only=True)
-    media = SiteSurveyMediaSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = SiteSurvey
-        fields = (
-            "id", "company", "company_slug", "customer_worker_id", "customer_name", "customer_worker_id_display",
-            "assigned_master", "assigned_master_name",
-            "address", "latitude", "longitude", "notes", "status", "status_display",
-            "order", "media", "created_at",
-        )
-        read_only_fields = ("id", "company", "status", "order", "created_at")
-
-    def validate_customer_worker_id(self, value):
-        if not value:
-            self._customer = None
-            return value
-        try:
-            self._customer = User.objects.get(worker_id=value)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("Bu qidiruvchi ID bo'yicha foydalanuvchi topilmadi")
-        return value
-
-    def create(self, validated_data):
-        validated_data.pop("customer_worker_id", None)
-        return SiteSurvey.objects.create(customer=getattr(self, "_customer", None), **validated_data)
 
 
 class DesignVersionSerializer(serializers.ModelSerializer):
@@ -112,13 +59,26 @@ class CustomOrderItemInputSerializer(serializers.Serializer):
     is_custom_size = serializers.BooleanField(default=False)
 
 
-class CreateCustomOrderSerializer(serializers.Serializer):
+class CreateCustomOrderOnSiteSerializer(serializers.Serializer):
+    """Usta mijoz uyida turib to'g'ridan-to'g'ri individual (CUSTOM_PROJECT)
+    buyurtma yaratganda yuboriladi — alohida "joy o'rganish" bosqichi
+    endi yo'q (qarang services.create_custom_order_on_site). Joylashuv
+    qurilmadan olinadi va soxta (mock) GPS aniqlansa buyurtma baribir
+    yaratiladi, lekin firma egasiga xabar boradi (attendance check-in
+    bilan bir xil `is_mock` naqshi, qarang apps.attendance.services)."""
+
     items = CustomOrderItemInputSerializer(many=True)
-    # Usta mijoz bilan uchrashganda uning ilova ID'sini shu yerda kiritishi
-    # mumkin — mijoz o'z ilovasida buyurtmani kuzatib borishi uchun
-    # (survey.customer hali bo'lmasa majburiy, bo'lsa ixtiyoriy — berilsa
-    # o'rniga qo'yiladi).
-    customer_worker_id = serializers.CharField(required=False, allow_blank=True)
+    # Mijoz doimiy qidiruvchi ID (worker_id) orqali topiladi — mijoz shu
+    # orqali o'z ilovasida buyurtmani kuzatib borishi mumkin bo'ladi.
+    # Endi survey.customer degan zaxira yo'q, shuning uchun majburiy.
+    customer_worker_id = serializers.CharField()
+    address = serializers.CharField(required=False, allow_blank=True, default="")
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
+    accuracy = serializers.FloatField(required=False, allow_null=True, default=None)
+    is_mock = serializers.BooleanField(required=False, default=False)
+    device_timestamp = serializers.DateTimeField(required=False, allow_null=True, default=None)
+    platform = serializers.CharField(required=False, default="android")
 
     def validate_items(self, items):
         if not items:
@@ -126,8 +86,6 @@ class CreateCustomOrderSerializer(serializers.Serializer):
         return items
 
     def validate_customer_worker_id(self, value):
-        if not value:
-            return value
         try:
             self._customer = User.objects.get(worker_id=value)
         except User.DoesNotExist:

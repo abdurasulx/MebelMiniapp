@@ -13,6 +13,7 @@ class NotificationType(models.TextChoices):
     TASK_POOL_OPEN = "task_pool_open", "Yangi erkin topshiriq"
     TASK_APPLICATION_REJECTED = "task_application_rejected", "Zayavka rad etildi"
     ATTENDANCE_REJECTED = "attendance_rejected", "Davomat rad etildi"
+    CUSTOM_ORDER_LOCATION_SUSPICIOUS = "custom_order_location_flag", "Buyurtma joylashuvi shubhali"
 
 
 class NotificationQuerySet(models.QuerySet):

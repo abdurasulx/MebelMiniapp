@@ -72,6 +72,13 @@ class Order(BaseModel):
     sold_by = models.ForeignKey(
         "companies.Employee", on_delete=models.SET_NULL, null=True, blank=True, related_name="sold_orders"
     )
+    # CUSTOM_PROJECT buyurtmalar usta mijoz uyida turib to'g'ridan-to'g'ri
+    # yaratganda (qarang apps.custom_orders.services.create_custom_order_on_site)
+    # qurilma geolokatsiyasi soxta (mock) deb aniqlansa shu yerda belgilanadi —
+    # buyurtma baribir yaratiladi (savdoni bloklamaslik uchun), lekin firma
+    # egasiga xabar boradi va shu bayroq orqali keyinroq ko'rib chiqilishi mumkin.
+    location_flagged = models.BooleanField(default=False)
+    location_flag_reason = models.CharField(max_length=255, blank=True)
 
     class Meta:
         ordering = ("-created_at",)

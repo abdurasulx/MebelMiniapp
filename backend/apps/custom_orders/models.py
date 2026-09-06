@@ -1,73 +1,14 @@
 from django.conf import settings
 from django.db import models
 
-from common.models import BaseModel, StoredFileMixin
-
-
-class SiteSurveyStatus(models.TextChoices):
-    ASSIGNED = "assigned", "Tayinlangan"
-    VISITED = "visited", "Tashrif qilindi"
-    ORDER_CREATED = "order_created", "Buyurtma yaratildi"
-    CANCELLED = "cancelled", "Bekor qilindi"
-
-
-class SiteSurvey(BaseModel):
-    """Admin ustani mijoz uyiga joy o'rganishga tayinlaydi — usta tashrif
-    buyurib rasm/video/o'lcham/izoh kiritadi, so'ng shu asosda individual
-    buyurtma (CUSTOM_PROJECT) yaratadi (docs "Buyurtma va ishlab chiqarish
-    tizimi" §3-4). Bitta survey ko'pi bilan bitta buyurtmaga olib keladi."""
-
-    company = models.ForeignKey(
-        "companies.Company", on_delete=models.CASCADE, related_name="site_surveys"
-    )
-    customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="site_surveys"
-    )
-    assigned_master = models.ForeignKey(
-        "companies.Employee", on_delete=models.PROTECT, related_name="assigned_surveys"
-    )
-    assigned_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
-    )
-    address = models.CharField(max_length=500, blank=True)
-    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    notes = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=SiteSurveyStatus.choices, default=SiteSurveyStatus.ASSIGNED)
-    order = models.OneToOneField(
-        "orders.Order", on_delete=models.SET_NULL, null=True, blank=True, related_name="site_survey"
-    )
-
-    class Meta:
-        ordering = ("-created_at",)
-
-    def __str__(self):
-        return f"Survey {str(self.id)[:8]} — {self.assigned_master}"
-
-
-class SiteSurveyMediaType(models.TextChoices):
-    PHOTO = "photo", "Rasm"
-    VIDEO = "video", "Video"
-
-
-class SiteSurveyMedia(BaseModel, StoredFileMixin):
-    survey = models.ForeignKey(SiteSurvey, on_delete=models.CASCADE, related_name="media")
-    file = models.FileField(upload_to="site_surveys/")
-    media_type = models.CharField(max_length=10, choices=SiteSurveyMediaType.choices)
-    caption = models.CharField(max_length=255, blank=True)
-
-    class Meta:
-        ordering = ("created_at",)
-
-    def __str__(self):
-        return f"{self.get_media_type_display()} — {self.survey_id}"
+from common.models import BaseModel
 
 
 class Design(BaseModel):
     """Har bir CUSTOM_PROJECT buyurtmasi uchun MAJBURIY dizayn yozuvi —
     buyurtma yaratilishi bilan bo'sh holda avtomatik yaratiladi (qarang
-    apps.custom_orders.services.create_custom_order), chunki dizayner
-    bosqichi hech qachon o'tkazib yuborilmasligi kerak (docs §5)."""
+    apps.custom_orders.services.create_custom_order_on_site), chunki
+    dizayner bosqichi hech qachon o'tkazib yuborilmasligi kerak (docs §5)."""
 
     order = models.OneToOneField("orders.Order", on_delete=models.CASCADE, related_name="custom_design")
     approved_version = models.ForeignKey(
@@ -114,7 +55,10 @@ class DesignVersion(BaseModel):
 
 
 class AuditEntityType(models.TextChoices):
-    SITE_SURVEY = "site_survey", "Joy o'rganish"
+    # "site_survey" qiymati eski (o'chirilgan) Joy o'rganish yozuvlari
+    # tarixi uchun saqlanadi — yangi yozuvlar endi to'g'ridan-to'g'ri
+    # ORDER_STATUS ("individual buyurtma joyida yaratildi") sifatida
+    # qayd qilinadi (qarang services.create_custom_order_on_site).
     DESIGN = "design", "Dizayn"
     ORDER_ITEM_COST = "order_item_cost", "Buyurtma bandi tannarxi"
     ORDER_STATUS = "order_status", "Buyurtma holati"

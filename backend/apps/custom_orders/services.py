@@ -8,11 +8,15 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
-from apps.notifications.services import notify_pool_open, notify_task_assigned
+from apps.notifications.services import (
+    notify_custom_order_location_suspicious,
+    notify_pool_open,
+    notify_task_assigned,
+)
 from apps.orders.models import Order, OrderItem
 from apps.workflow.models import STAGE_POSITION, StepStatus, WorkflowStepInstance
 
-from .models import AuditEntityType, AuditLogEntry, Design, SiteSurveyStatus
+from .models import AuditEntityType, AuditLogEntry, Design
 
 
 def _log(entity_type, entity_id, action, changed_by, old_value=None, new_value=None, reason=""):
@@ -23,29 +27,32 @@ def _log(entity_type, entity_id, action, changed_by, old_value=None, new_value=N
 
 
 @transaction.atomic
-def create_custom_order(*, survey, items, created_by, customer=None):
-    """Usta site-survey asosida CUSTOM_PROJECT buyurtmasini yaratadi.
-    `items` — har biri {product, variant (ixtiyoriy), width, height, depth,
-    quantity, is_custom_size} lug'ati. Bo'sh `Design` yozuvi ham AVTOMATIK
-    yaratiladi — dizayner bosqichi hech qachon o'tkazib yuborilmaydi (docs §5).
+def create_custom_order_on_site(
+    *, company, customer, items, created_by, address="", latitude=None, longitude=None,
+    is_mock=False,
+):
+    """Usta mijoz uyida turib to'g'ridan-to'g'ri CUSTOM_PROJECT buyurtma
+    yaratadi — oldindan alohida "joy o'rganish" (site survey) bosqichi
+    endi yo'q. `items` — har biri {product, variant (ixtiyoriy), width,
+    height, depth, quantity, is_custom_size} lug'ati. Bo'sh `Design`
+    yozuvi ham AVTOMATIK yaratiladi — dizayner bosqichi hech qachon
+    o'tkazib yuborilmaydi (docs §5).
 
-    `customer` — usta buyurtma yaratayotganda mijozning ilova ID'sini
-    (worker_id) kiritgan bo'lsa shu yerga uzatiladi (survey.customer'dan
-    ustun turadi) — mijoz shu orqali o'z ilovasida buyurtmani kuzatib
-    borishi mumkin bo'ladi. Berilmasa `survey.customer` ishlatiladi."""
-    resolved_customer = customer or survey.customer
-    if survey.customer_id != getattr(resolved_customer, "id", None):
-        survey.customer = resolved_customer
-        survey.save(update_fields=["customer"])
-
+    `is_mock` — qurilma GPS'i soxta (mock-location) deb aniqlangan bo'lsa
+    `True` (qarang apps.attendance.services'dagi bir xil naqsh). Bunday
+    holda ham buyurtma savdoni bloklamaslik uchun BARIBIR yaratiladi —
+    faqat `Order.location_flagged` belgilanadi va firma egasiga xabar
+    yuboriladi, admin har birini qo'lda tekshirishi shart emas."""
     order = Order.objects.create(
-        company=survey.company,
-        customer=resolved_customer,
+        company=company,
+        customer=customer,
         order_type=Order.OrderType.CUSTOM_PROJECT,
         status=Order.Status.NEW,
-        latitude=survey.latitude,
-        longitude=survey.longitude,
-        address=survey.address,
+        latitude=latitude,
+        longitude=longitude,
+        address=address,
+        location_flagged=is_mock,
+        location_flag_reason="Mock location aniqlangan" if is_mock else "",
     )
     total = Decimal("0")
     for item in items:
@@ -78,11 +85,12 @@ def create_custom_order(*, survey, items, created_by, customer=None):
 
     Design.objects.create(order=order)
 
-    survey.status = SiteSurveyStatus.ORDER_CREATED
-    survey.order = order
-    survey.save(update_fields=["status", "order"])
-
-    _log(AuditEntityType.SITE_SURVEY, survey.id, "order_created", created_by, new_value={"order_id": str(order.id)})
+    _log(
+        AuditEntityType.ORDER_STATUS, order.id, "custom_order_created_on_site", created_by,
+        new_value={"location_flagged": is_mock},
+    )
+    if is_mock:
+        notify_custom_order_location_suspicious(order)
     return order
 
 
