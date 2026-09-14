@@ -15,11 +15,6 @@ export default function ProductDetail() {
   const [p, setP] = useState(null);
   const [error, setError] = useState("");
   const [variantId, setVariantId] = useState("");
-  const [dims, setDims] = useState({ width: "", height: "", depth: "" });
-  // "Maxsus o'lcham" — narx avtomatik hisoblanmaydi, firma buyurtma qabul
-  // qilingach qo'lda belgilaydi (docs "Buyurtma va ishlab chiqarish
-  // tizimi" §4.1 — usta yaratgan custom buyurtmalar bilan bir xil qoida).
-  const [isCustomSize, setIsCustomSize] = useState(false);
   const [qty, setQtyState] = useState(1);
   const [added, setAdded] = useState(false);
   const [show3d, setShow3d] = useState(false);
@@ -33,14 +28,7 @@ export default function ProductDetail() {
       .then((d) => {
         setP(d);
         setLiked(!!d.is_liked);
-        if (d.variants[0]) {
-          setVariantId(d.variants[0].id);
-          setDims({
-            width: d.variants[0].width,
-            height: d.variants[0].height,
-            depth: d.variants[0].depth,
-          });
-        }
+        if (d.variants[0]) setVariantId(d.variants[0].id);
         if (d.company_slug) {
           api(`/companies/${d.company_slug}/`)
             .then((c) => setCompanyTier(c.tier))
@@ -62,21 +50,21 @@ export default function ProductDetail() {
     if (!activeModel3d?.glb_url) setShow3d(false);
   }, [variantId]);
 
+  // O'lcham endi mijoz tomonidan kiritilmaydi — variantning o'zida
+  // saqlangan standart o'lcham (odatda 1x1x1) ishlatiladi, narx shu bilan
+  // qat'iy (variant narxi) bo'lib qoladi, mijoz uchun "hajmga qarab
+  // hisoblash" tushunchasi umuman ko'rinmaydi.
   const price = useMemo(() => {
     if (!variant) return null;
-    const w = parseFloat(dims.width), h = parseFloat(dims.height), d = parseFloat(dims.depth);
-    if (!(w > 0 && h > 0 && d > 0)) return null;
     const unit = variant.discount_active ? parseFloat(variant.effective_base_price) : parseFloat(variant.base_price);
-    return Math.round(unit * w * h * d);
-  }, [variant, dims]);
+    return Math.round(unit * variant.width * variant.height * variant.depth);
+  }, [variant]);
 
   // Chegirmasiz narx — faqat chegirma faol bo'lganda chizib ko'rsatish uchun.
   const originalPrice = useMemo(() => {
     if (!variant || !variant.discount_active) return null;
-    const w = parseFloat(dims.width), h = parseFloat(dims.height), d = parseFloat(dims.depth);
-    if (!(w > 0 && h > 0 && d > 0)) return null;
-    return Math.round(parseFloat(variant.base_price) * w * h * d);
-  }, [variant, dims]);
+    return Math.round(parseFloat(variant.base_price) * variant.width * variant.height * variant.depth);
+  }, [variant]);
 
   const toggleLike = async () => {
     setLikeError("");
@@ -227,21 +215,6 @@ export default function ProductDetail() {
                   </p>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                {[["width", t("product_dim_width")], ["height", t("product_dim_height")], ["depth", t("product_dim_depth")]].map(([k, label]) => (
-                  <div key={k}>
-                    <label className="label">{label}</label>
-                    <input
-                      className="input"
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      value={dims[k]}
-                      onChange={(e) => setDims({ ...dims, [k]: e.target.value })}
-                    />
-                  </div>
-                ))}
-              </div>
               <div>
                 <label className="label">{t("product_qty_label")}</label>
                 <input
@@ -252,17 +225,7 @@ export default function ProductDetail() {
                   onChange={(e) => setQtyState(Math.max(1, parseInt(e.target.value) || 1))}
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={isCustomSize} onChange={(e) => setIsCustomSize(e.target.checked)} />
-                {t("product_custom_size_label")}
-              </label>
-              {isCustomSize ? (
-                <div className="rounded-xl p-4" style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}>
-                  <div className="text-xs" style={{ color: "var(--muted)" }}>
-                    {t("product_custom_size_note")}
-                  </div>
-                </div>
-              ) : price !== null && (
+              {price !== null && (
                 <div
                   className="rounded-xl p-4"
                   style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
@@ -300,11 +263,7 @@ export default function ProductDetail() {
               ) : (
                 <button
                   className="btn btn-brand inline-flex items-center justify-center gap-1.5"
-                  disabled={
-                    isCustomSize
-                      ? !(parseFloat(dims.width) > 0 && parseFloat(dims.height) > 0 && parseFloat(dims.depth) > 0)
-                      : price === null
-                  }
+                  disabled={price === null}
                   onClick={() => {
                     addToCart({
                       productId: p.id,
@@ -314,13 +273,13 @@ export default function ProductDetail() {
                       image: p.image_url || p.images?.[0]?.image_url,
                       variantId: variant.id,
                       variantName: variant.name,
-                      isCustomSize,
-                      m3Price: isCustomSize ? 0 : (variant.discount_active ? parseFloat(variant.effective_base_price) : parseFloat(variant.base_price)),
-                      m3OriginalPrice: !isCustomSize && variant.discount_active ? parseFloat(variant.base_price) : null,
-                      discountPercent: !isCustomSize && variant.discount_active ? Number(variant.discount_percent) : null,
-                      width: parseFloat(dims.width),
-                      height: parseFloat(dims.height),
-                      depth: parseFloat(dims.depth),
+                      isCustomSize: false,
+                      m3Price: variant.discount_active ? parseFloat(variant.effective_base_price) : parseFloat(variant.base_price),
+                      m3OriginalPrice: variant.discount_active ? parseFloat(variant.base_price) : null,
+                      discountPercent: variant.discount_active ? Number(variant.discount_percent) : null,
+                      width: variant.width,
+                      height: variant.height,
+                      depth: variant.depth,
                       qty,
                     });
                     setAdded(true);
@@ -330,9 +289,6 @@ export default function ProductDetail() {
                 </button>
               )}
               {error && <div className="error">{error}</div>}
-              <p className="text-xs" style={{ color: "var(--muted)" }}>
-                {t("product_volume_hint")}
-              </p>
             </>
           ) : (
             <p className="text-sm" style={{ color: "var(--muted)" }}>{t("product_no_variants")}</p>
