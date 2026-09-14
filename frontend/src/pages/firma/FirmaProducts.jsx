@@ -145,36 +145,42 @@ function ProductForm({ categories, onDone }) {
     );
 
   return (
-    <form className="card flex flex-col gap-4 p-5" onSubmit={submit}>
-      <h2 className="text-base font-semibold">Yangi mahsulot</h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label className="label">Nomi (uz) *</label>
-          <input className="input" value={form.name_uz} onChange={set("name_uz")} required />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setOpen(false)}>
+      <form
+        className="card flex w-full max-w-lg flex-col gap-4 p-6"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+      >
+        <h2 className="text-base font-semibold">Yangi mahsulot</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label">Nomi (uz) *</label>
+            <input className="input" value={form.name_uz} onChange={set("name_uz")} required />
+          </div>
+          <div>
+            <label className="label">Kategoriya *</label>
+            <select className="input" value={form.category} onChange={set("category")} required>
+              <option value="">Tanlang…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name_uz}</option>
+              ))}
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Tavsif</label>
+            <textarea className="input" rows={2} value={form.description} onChange={set("description")} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Asosiy rasm</label>
+            <input type="file" accept="image/*" className="input" onChange={(e) => setImage(e.target.files[0])} />
+          </div>
         </div>
-        <div>
-          <label className="label">Kategoriya *</label>
-          <select className="input" value={form.category} onChange={set("category")} required>
-            <option value="">Tanlang…</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name_uz}</option>
-            ))}
-          </select>
+        {error && <div className="error">{error}</div>}
+        <div className="flex gap-2">
+          <button className="btn" type="submit">Saqlash</button>
+          <button className="btn-ghost" type="button" onClick={() => setOpen(false)}>Bekor</button>
         </div>
-        <div className="sm:col-span-2">
-          <label className="label">Tavsif</label>
-          <textarea className="input" rows={2} value={form.description} onChange={set("description")} />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="label">Asosiy rasm</label>
-          <input type="file" accept="image/*" className="input" onChange={(e) => setImage(e.target.files[0])} />
-        </div>
-      </div>
-      {error && <div className="error">{error}</div>}
-      <div className="flex gap-2">
-        <button className="btn" type="submit">Saqlash</button>
-        <button className="btn-ghost" type="button" onClick={() => setOpen(false)}>Bekor</button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }
