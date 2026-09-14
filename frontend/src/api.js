@@ -13,7 +13,7 @@ export function setTokens(tokens) {
   else localStorage.removeItem("tokens");
 }
 
-async function refreshAccess() {
+export async function refreshAccess() {
   const tokens = getTokens();
   if (!tokens?.refresh) return null;
   const res = await fetch(`${BASE}/auth/token/refresh/`, {

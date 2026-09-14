@@ -36,10 +36,14 @@ class NotificationSocket {
     _connect();
   }
 
-  void _connect() {
+  Future<void> _connect() async {
     if (_stopped) return;
-    final token = ApiClient.instance.accessToken;
-    if (token == null) return;
+    // Uzoq vaqt fonda turgan ilova qayta ulanganda, hech qanday boshqa
+    // so'rov bo'lmagani uchun token allaqachon muddati tugagan bo'lishi
+    // mumkin edi — shu bilan cheksiz eskirgan token yuborib, hech qachon
+    // muvaffaqiyatli ulanolmasdi. Endi kerak bo'lsa avval yangilanadi.
+    final token = await ApiClient.instance.ensureFreshAccessToken();
+    if (_stopped || token == null) return;
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(_wsUrl(token)));

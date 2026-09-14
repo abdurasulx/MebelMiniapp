@@ -71,7 +71,40 @@ class ApiClient {
   // orqali o'qiydi — qayta ulanishda har doim ENG YANGI qiymatni olish
   // uchun (token yangilanib qolgan bo'lishi mumkin).
   String? get accessToken => _accessToken;
+
+  /// `_accessToken`ning `exp` da'vosini (payload'dan, imzoni tekshirmasdan)
+  /// o'qib, muddati tugagan/tugashiga yaqin (10s qoldi) bo'lsa `true`
+  /// qaytaradi. Buzuq/formatsiz token ham "tugagan" deb hisoblanadi.
+  bool get _accessTokenExpiring {
+    final token = _accessToken;
+    if (token == null) return true;
+    try {
+      final parts = token.split('.');
+      final normalized = base64Url.normalize(parts[1]);
+      final payload = jsonDecode(utf8.decode(base64Url.decode(normalized)));
+      final exp = payload['exp'] as int?;
+      if (exp == null) return true;
+      return DateTime.fromMillisecondsSinceEpoch(exp * 1000)
+          .isBefore(DateTime.now().add(const Duration(seconds: 10)));
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// WebSocket kabi ulanishlar bundan foydalanadi — oddiy `.accessToken`dan
+  /// farqli, agar joriy token muddati tugagan/tugashiga yaqin bo'lsa, avval
+  /// yangilaydi. Aks holda (masalan uzoq vaqt fonda turgan ilova qayta
+  /// ulanganda) doim bir xil eskirgan token bilan cheksiz urinib, hech
+  /// qachon muvaffaqiyatli ulana olmas edi.
+  Future<String?> ensureFreshAccessToken() async {
+    if (_accessTokenExpiring) {
+      await _refreshAccessToken();
+    }
+    return _accessToken;
+  }
+
   void Function(TokenPair)? onTokensRotated;
+
   /// Refresh tokeni haqiqatan ham yaroqsiz deb topilganda (tarmoq xatosi
   /// emas) chaqiriladi — `AuthStore` shuni `logout()`ga ulaydi, aks holda
   /// `isAuthenticated` eskirgan holda "kirgan" bo'lib qolar, lekin har
@@ -120,27 +153,31 @@ class ApiClient {
     String path,
     T Function(dynamic json) fromJson, {
     bool auth = false,
-  }) => _send('GET', path, null, fromJson, auth: auth);
+  }) =>
+      _send('GET', path, null, fromJson, auth: auth);
 
   Future<T> post<T>(
     String path,
     T Function(dynamic json) fromJson, {
     Map<String, dynamic>? body,
     bool auth = true,
-  }) => _send('POST', path, body, fromJson, auth: auth);
+  }) =>
+      _send('POST', path, body, fromJson, auth: auth);
 
   Future<T> patch<T>(
     String path,
     T Function(dynamic json) fromJson, {
     Map<String, dynamic>? body,
     bool auth = true,
-  }) => _send('PATCH', path, body, fromJson, auth: auth);
+  }) =>
+      _send('PATCH', path, body, fromJson, auth: auth);
 
   Future<T> delete<T>(
     String path,
     T Function(dynamic json) fromJson, {
     bool auth = true,
-  }) => _send('DELETE', path, null, fromJson, auth: auth);
+  }) =>
+      _send('DELETE', path, null, fromJson, auth: auth);
 
   /// `multipart/form-data` — rasm yuklash kerak bo'lgan amallar uchun
   /// (workflow progress/complete, variant tekstura va h.k.).
@@ -179,7 +216,8 @@ class ApiClient {
       }
     }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw ApiException(_extractError(resp.body, resp.statusCode), statusCode: resp.statusCode);
+      throw ApiException(_extractError(resp.body, resp.statusCode),
+          statusCode: resp.statusCode);
     }
     return fromJson(jsonDecode(resp.body));
   }
@@ -192,8 +230,13 @@ class ApiClient {
   /// sabab bilan (mahalliy `lastUpdated` server bilan sinxronlanmay qolsa)
   /// ilova HAR OCHILGANDA qayta login talab qilib qolar edi.
   static const _deviceSignatureCodes = {
-    'MISSING_DEVICE_HEADERS', 'INVALID_DEVICE_HEADERS', 'UPDATE_REQUIRED',
-    'TIMESNAP_INVALID', 'NONCE_REUSED', 'DEVICE_REVOKED', 'SIGNATURE_INVALID',
+    'MISSING_DEVICE_HEADERS',
+    'INVALID_DEVICE_HEADERS',
+    'UPDATE_REQUIRED',
+    'TIMESNAP_INVALID',
+    'NONCE_REUSED',
+    'DEVICE_REVOKED',
+    'SIGNATURE_INVALID',
   };
 
   bool _isDeviceSignatureRejection(String body) {
@@ -235,9 +278,13 @@ class ApiClient {
         case 'GET':
           return http.get(uri, headers: headers).timeout(timeout);
         case 'POST':
-          return http.post(uri, headers: headers, body: encoded).timeout(timeout);
+          return http
+              .post(uri, headers: headers, body: encoded)
+              .timeout(timeout);
         case 'PATCH':
-          return http.patch(uri, headers: headers, body: encoded).timeout(timeout);
+          return http
+              .patch(uri, headers: headers, body: encoded)
+              .timeout(timeout);
         case 'DELETE':
           return http.delete(uri, headers: headers).timeout(timeout);
         default:
@@ -258,15 +305,20 @@ class ApiClient {
         await DeviceSignature.instance.markUnregistered();
         if (deviceId != null) {
           unawaited(
-            ApiClient.instance
-                .post('/notifications/unregister_device/', (j) => j, body: {'device_id': deviceId})
-                .catchError((_) => null),
+            ApiClient.instance.post(
+                '/notifications/unregister_device/', (j) => j,
+                body: {'device_id': deviceId}).catchError((_) => null),
           );
         }
         if (!isSignatureRetry) {
           return _send(
-            method, path, body, fromJson,
-            auth: auth, isRetry: isRetry, isSignatureRetry: true,
+            method,
+            path,
+            body,
+            fromJson,
+            auth: auth,
+            isRetry: isRetry,
+            isSignatureRetry: true,
           );
         }
       } else {
@@ -297,7 +349,8 @@ class ApiClient {
     }
 
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw ApiException(_extractError(resp.body, resp.statusCode), statusCode: resp.statusCode);
+      throw ApiException(_extractError(resp.body, resp.statusCode),
+          statusCode: resp.statusCode);
     }
     if (resp.body.isEmpty) return fromJson(null);
     return fromJson(jsonDecode(resp.body));
