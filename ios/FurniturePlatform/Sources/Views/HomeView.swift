@@ -476,7 +476,7 @@ struct FeaturedProductCard: View {
                 Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
             }
             if let first = product.variants.first {
-                Text("\(first.basePrice.formattedSom) so'm/m³")
+                Text("\(first.basePrice.formattedSom) so'm dan")
                     .font(.caption).bold().lineLimit(1)
                     .foregroundStyle(Color.brandSecondary)
             }
@@ -510,7 +510,7 @@ struct FeaturedGridCard: View {
             Text(product.companyName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 .multilineTextAlignment(.center)
             if let first = product.variants.first {
-                Text("\(first.basePrice.formattedSom) so'm/m³ dan")
+                Text("\(first.basePrice.formattedSom) so'm dan")
                     .font(.caption).bold().lineLimit(1)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.brandSecondary)
