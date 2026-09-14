@@ -89,7 +89,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
-    "default": env.db("DATABASE_URL", default="postgres:///furniture_platform"),
+    "default": env.db("DATABASE_URL", default="mysql://root@localhost/furniture_platform"),
 }
 
 AUTH_USER_MODEL = "users.User"
