@@ -521,7 +521,7 @@ class _OrderStepsScreen extends StatelessWidget {
   }
 }
 
-class _StepTile extends StatelessWidget {
+class _StepTile extends StatefulWidget {
   final WorkflowStepInstance step;
   // Boshqa ustaning bosqichi bo'lsa `false` — harakat tugmalari
   // (Boshlash/Yangilash/Yakunlash) yashiriladi, faqat holat ko'rsatiladi.
@@ -534,6 +534,40 @@ class _StepTile extends StatelessWidget {
     required this.onProgress,
     required this.onStart,
   });
+
+  @override
+  State<_StepTile> createState() => _StepTileState();
+}
+
+class _StepTileState extends State<_StepTile> {
+  // Tarmoq sekin bo'lganda so'rov hali ketayotganini bildiruvchi belgi
+  // yo'q edi — foydalanuvchi natija ko'rinmagani uchun boshqa tugmani
+  // (yoki xuddi shu tugmani qayta) bosib, ikkita ziddiyatli so'rov
+  // yuborib yuborishi mumkin edi (masalan "Yakunlash" o'rniga oxiri
+  // "Yangilash" ham ketib qolishi). Endi so'rov davomida ikkala tugma
+  // o'chiriladi va aylanuvchi belgi ko'rsatiladi.
+  bool _busy = false;
+
+  WorkflowStepInstance get step => widget.step;
+  bool get isMine => widget.isMine;
+
+  Future<void> _handleStart() async {
+    setState(() => _busy = true);
+    try {
+      await widget.onStart(step);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _handleProgress({required bool complete}) async {
+    setState(() => _busy = true);
+    try {
+      await widget.onProgress(step, complete: complete);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   IconData get _icon {
     switch (step.status) {
@@ -625,8 +659,14 @@ class _StepTile extends StatelessWidget {
           ),
           trailing: canStart
               ? OutlinedButton(
-                  onPressed: () => onStart(step),
-                  child: const Text('Boshlash'),
+                  onPressed: _busy ? null : _handleStart,
+                  child: _busy
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Boshlash'),
                 )
               : null,
         ),
@@ -641,16 +681,28 @@ class _StepTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => onProgress(step, complete: false),
-                    icon: const Icon(Icons.send, size: 16),
+                    onPressed: _busy ? null : () => _handleProgress(complete: false),
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send, size: 16),
                     label: const Text('Yangilash'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => onProgress(step, complete: true),
-                    icon: const Icon(Icons.check, size: 16),
+                    onPressed: _busy ? null : () => _handleProgress(complete: true),
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.check, size: 16),
                     label: const Text('Yakunlash'),
                   ),
                 ),
