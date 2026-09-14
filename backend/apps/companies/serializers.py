@@ -95,7 +95,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     user_id = serializers.UUIDField(source="user.id", read_only=True)
     user_email = serializers.EmailField(source="user.email", read_only=True)
-    user_name = serializers.CharField(source="user.first_name", read_only=True)
+    user_name = serializers.CharField(source="user.display_name", read_only=True)
     user_worker_id = serializers.CharField(source="user.worker_id", read_only=True)
     positions = serializers.ListField(
         child=serializers.ChoiceField(choices=Employee.Position.choices),

@@ -29,7 +29,7 @@ class WorkTypeSerializer(serializers.ModelSerializer):
 
 
 class StepApplicationSerializer(serializers.ModelSerializer):
-    employee_name = serializers.CharField(source="employee.user.first_name", read_only=True)
+    employee_name = serializers.CharField(source="employee.user.display_name", read_only=True)
 
     class Meta:
         model = StepApplication
@@ -39,7 +39,7 @@ class StepApplicationSerializer(serializers.ModelSerializer):
 
 class WorkflowStepSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source="get_role_display", read_only=True)
-    employee_name = serializers.CharField(source="employee.user.first_name", read_only=True)
+    employee_name = serializers.CharField(source="employee.user.display_name", read_only=True)
     photo_requirement_display = serializers.CharField(
         source="get_photo_requirement_display", read_only=True
     )
@@ -74,7 +74,7 @@ class ProgressUpdateSerializer(StorageStampMixin, serializers.ModelSerializer):
     file_fields = ("image",)
     image = serializers.ImageField(write_only=True, required=False, allow_null=True)
     image_url = serializers.SerializerMethodField()
-    employee_name = serializers.CharField(source="employee.first_name", read_only=True)
+    employee_name = serializers.CharField(source="employee.display_name", read_only=True)
 
     class Meta:
         model = ProgressUpdate
@@ -98,7 +98,7 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source="get_role_display", read_only=True)
     stage_display = serializers.CharField(source="get_stage_display", read_only=True, default=None)
     suggested_position = serializers.SerializerMethodField()
-    employee_name = serializers.CharField(source="employee.user.first_name", read_only=True, default=None)
+    employee_name = serializers.CharField(source="employee.user.display_name", read_only=True, default=None)
     photo_requirement_display = serializers.CharField(
         source="get_photo_requirement_display", read_only=True
     )
@@ -106,9 +106,9 @@ class WorkflowStepInstanceSerializer(serializers.ModelSerializer):
         source="get_comment_requirement_display", read_only=True
     )
     status_display = serializers.CharField(source="get_status_display", read_only=True)
-    completed_by_name = serializers.CharField(source="completed_by.first_name", read_only=True, default=None)
-    approved_by_name = serializers.CharField(source="approved_by.first_name", read_only=True, default=None)
-    cancelled_by_name = serializers.CharField(source="cancelled_by.first_name", read_only=True, default=None)
+    completed_by_name = serializers.CharField(source="completed_by.display_name", read_only=True, default=None)
+    approved_by_name = serializers.CharField(source="approved_by.display_name", read_only=True, default=None)
+    cancelled_by_name = serializers.CharField(source="cancelled_by.display_name", read_only=True, default=None)
     depends_on = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     is_available = serializers.BooleanField(read_only=True)
     is_manual = serializers.SerializerMethodField()

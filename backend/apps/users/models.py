@@ -81,6 +81,14 @@ class User(AbstractUser):
     def __str__(self):
         return self.email
 
+    @property
+    def display_name(self):
+        """Ism-familiya to'ldirilmagan (masalan faqat telefon orqali
+        ro'yxatdan o'tgan usta) hollarda bo'sh qatorga tushib qolmasligi
+        uchun — UI'da "biriktirilmagan" bilan aralashib ketmasin."""
+        full = f"{self.first_name} {self.last_name}".strip()
+        return full or self.phone or self.email
+
 
 class GoogleAccount(models.Model):
     """Google hisobini bizning `User`ga bog'lash — Google berilgan `sub`

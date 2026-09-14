@@ -5,7 +5,7 @@ from .models import Payslip, PayslipPayment
 
 class PayslipPaymentSerializer(serializers.ModelSerializer):
     kind_display = serializers.CharField(source="get_kind_display", read_only=True)
-    recorded_by_name = serializers.CharField(source="recorded_by.first_name", read_only=True, default=None)
+    recorded_by_name = serializers.CharField(source="recorded_by.display_name", read_only=True, default=None)
 
     class Meta:
         model = PayslipPayment
@@ -38,4 +38,4 @@ class PayslipSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_employee_name(self, obj):
-        return obj.employee.user.first_name or obj.employee.user.email
+        return obj.employee.user.display_name
