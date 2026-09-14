@@ -970,13 +970,14 @@ class _StepTileState extends State<_StepTile> {
               ],
             ),
           ),
-        // Avval "Yangilash" (oraliq izoh) va "Yakunlash" (bosqichni
-        // tugatish) bir xil ko'rinishdagi ikkita tugma edi — ustalar
-        // ko'p marta "Yangilash"ni bosib, bosqich hech qachon
-        // tugallanmasligiga olib kelgan (izoh+rasm kiritilgan bo'lsa
-        // ham). Endi "Bosqichni yakunlash" yagona katta/asosiy tugma —
-        // oraliq izoh qo'shish esa aniq "tugatmaydi" deb belgilangan
-        // kichik matnli havola.
+        // Avval bu yerda IKKITA alohida tugma bor edi ("Bosqichni
+        // yakunlash" va "Izoh/rasm qo'shish (tugatmaydi)") — usta bosqichi
+        // uchun "hisobot topshirish" niyatida doim ikkinchisini bosgan
+        // (birinchisini "butun buyurtmani yakunlash" kabi qo'rqinchli
+        // alohida amal deb tushungan), natijada bosqich hech qachon
+        // tugallanmagan. Endi FAQAT bitta kirish nuqtasi bor — "Hisobot
+        // topshirish" oynani ochadi, ichkaridagi "Yuborish" esa bosqichni
+        // TO'G'RIDAN-TO'G'RI yakunlaydi (rasm+izoh talablari saqlanadi).
         if (canAct) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -991,31 +992,19 @@ class _StepTileState extends State<_StepTile> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : const Icon(Icons.check, size: 16),
-                label: const Text('Bosqichni yakunlash'),
+                    : const Icon(Icons.camera_alt_outlined, size: 16),
+                label: const Text('Hisobot topshirish'),
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                TextButton.icon(
-                  onPressed:
-                      _busy ? null : () => _handleProgress(complete: false),
-                  icon: const Icon(Icons.add_comment_outlined, size: 15),
-                  label: const Text(
-                    'Izoh/rasm qo\'shish (tugatmaydi)',
-                    style: TextStyle(fontSize: 12.5),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _busy ? null : _handleRelease,
-                  child: const Text('O\'tkazib yuborish'),
-                ),
-              ],
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _busy ? null : _handleRelease,
+                child: const Text('O\'tkazib yuborish'),
+              ),
             ),
           ),
         ],
