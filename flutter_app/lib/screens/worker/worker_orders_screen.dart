@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../api_client.dart';
@@ -187,13 +188,34 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                     style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
                   ),
                 const SizedBox(height: 6),
-                OutlinedButton.icon(
-                  onPressed: () async {
-                    final picked = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 85);
-                    if (picked != null) setDialogState(() => photo = picked);
-                  },
-                  icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                  label: Text(photo == null ? 'Rasm olish' : 'Rasm olindi ✓'),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 85);
+                        if (picked != null) setDialogState(() => photo = picked);
+                      },
+                      icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                      label: Text(photo == null ? 'Rasm olish' : 'Qayta olish'),
+                    ),
+                    // Rasm olingach oldingi holatda faqat "✓" belgisi
+                    // ko'rinardi — olingan rasmning o'zi ko'rinmagani uchun
+                    // foydalanuvchi haqiqatan biriktirilganiga ishonchi
+                    // komil bo'lmasdi. Endi kichik ko'rinish (thumbnail)
+                    // aniq tasdiqlaydi.
+                    if (photo != null) ...[
+                      const SizedBox(width: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(photo!.path),
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -558,80 +580,84 @@ class _StepTile extends StatelessWidget {
     // xuddi shu naqsh qo'llanadi, qarang WorkflowPanel.jsx).
     final canStart = isMine && step.status == 'pending' && step.isAvailable;
     final canAct = isMine && step.status == 'in_progress';
-    return ListTile(
-      dense: true,
-      isThreeLine: step.description.isNotEmpty,
-      leading: Icon(_icon, color: _color),
-      title: Text(step.name),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (step.description.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Text(step.description, style: const TextStyle(fontSize: 12.5)),
-            ),
-          if (step.cuttingInstruction != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Text(
-                step.cuttingInstruction!,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.teal),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          dense: true,
+          isThreeLine: step.description.isNotEmpty,
+          leading: Icon(_icon, color: _color),
+          title: Text(step.name),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (step.description.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(step.description, style: const TextStyle(fontSize: 12.5)),
+                ),
+              if (step.cuttingInstruction != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    step.cuttingInstruction!,
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.teal),
+                  ),
+                )
+              else if (step.workTypeName != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    '${step.quantity ?? ''} ${step.workTypeUnitDisplay ?? ''} × ${step.workTypeName}'.trim(),
+                    style: const TextStyle(fontSize: 12.5, color: Colors.teal),
+                  ),
+                ),
+              Text(
+                [
+                  if (step.stageDisplay != null) step.stageDisplay!,
+                  if (step.roleDisplay != null) step.roleDisplay!,
+                  step.statusDisplay,
+                  if (step.deadline != null) 'muddat: ${step.deadline}',
+                ].join(' · '),
+                style: step.isOverdue ? const TextStyle(color: Colors.red, fontWeight: FontWeight.w600) : null,
               ),
-            )
-          else if (step.workTypeName != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Text(
-                '${step.quantity ?? ''} ${step.workTypeUnitDisplay ?? ''} × ${step.workTypeName}'.trim(),
-                style: const TextStyle(fontSize: 12.5, color: Colors.teal),
-              ),
-            ),
-          Text(
-            [
-              if (step.stageDisplay != null) step.stageDisplay!,
-              if (step.roleDisplay != null) step.roleDisplay!,
-              step.statusDisplay,
-              if (step.deadline != null) 'muddat: ${step.deadline}',
-            ].join(' · '),
-            style: step.isOverdue ? const TextStyle(color: Colors.red, fontWeight: FontWeight.w600) : null,
+            ],
           ),
-        ],
-      ),
-      trailing: canStart
-          ? OutlinedButton(
-              onPressed: () => onStart(step),
-              child: const Text('Boshlash'),
-            )
-          : canAct
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        minimumSize: const Size(0, 32),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: () => onProgress(step, complete: false),
-                      icon: const Icon(Icons.send, size: 14),
-                      label: const Text('Yangilash', style: TextStyle(fontSize: 12)),
-                    ),
-                    const SizedBox(height: 4),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        minimumSize: const Size(0, 32),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      onPressed: () => onProgress(step, complete: true),
-                      icon: const Icon(Icons.check, size: 14),
-                      label: const Text('Yakunlash', style: TextStyle(fontSize: 12)),
-                    ),
-                  ],
+          trailing: canStart
+              ? OutlinedButton(
+                  onPressed: () => onStart(step),
+                  child: const Text('Boshlash'),
                 )
               : null,
+        ),
+        // Ikkita tugma avval `ListTile.trailing`ga (balandligi cheklangan)
+        // siqib qo'yilgan edi — kichik ekranlarda "BOTTOM OVERFLOWED" xatosi
+        // chiqarardi. Endi to'liq kenglikdagi alohida qator, kartaning
+        // o'zi bo'yiga cho'zilib ketadi (overflow bo'lishi mumkin emas).
+        if (canAct)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => onProgress(step, complete: false),
+                    icon: const Icon(Icons.send, size: 16),
+                    label: const Text('Yangilash'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => onProgress(step, complete: true),
+                    icon: const Icon(Icons.check, size: 16),
+                    label: const Text('Yakunlash'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
