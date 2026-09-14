@@ -262,7 +262,7 @@ function WorkflowPipeline({ isManager }) {
                     </button>
                   )
                 )}
-                {step.status === "completed" && isManager && (
+                {step.awaiting_approval && isManager && (
                   <button
                     className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
                     style={{ background: TASK_STATUS.approved.color, color: "#fff" }}
