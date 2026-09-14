@@ -193,6 +193,10 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
           final canSubmit = !photoMissing && !commentMissing;
 
           Future<void> submit() async {
+            // Klaviatura ochiq holda darhol yuklanish holatiga o'tsa,
+            // klaviatura yopilishi bilan oynaning balandligi bir zumda
+            // "sakrab" o'zgarardi — avval klaviaturani yopamiz.
+            FocusScope.of(ctx).unfocus();
             setDialogState(() {
               submitting = true;
               submitError = null;
@@ -224,8 +228,13 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
           return AlertDialog(
             title: Text(complete ? 'Bosqichni yakunlash' : 'Yangilanish qo\'shish'),
             content: submitting
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 28),
+                // `Center` cheklanmagan balandlikda BERILGAN JOYNING
+                // HAMMASINI egallaydi (klaviatura ochilib-yopilishi bilan
+                // bog'liq holatda bu ayniqsa butun ekranga cho'zilib
+                // ketishga olib keldi) — `SizedBox` bilan aniq, kichik
+                // balandlik berilsa, dialog shaklga mos qisqa bo'lib qoladi.
+                ? const SizedBox(
+                    height: 90,
                     child: Center(
                       child: Opacity(opacity: 0.75, child: CircularProgressIndicator()),
                     ),
