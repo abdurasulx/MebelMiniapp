@@ -36,7 +36,11 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    // `_load()` endi xatoni qayta uloqtiradi (chaqiruvchilar buni bilishi
+    // uchun) — bu yerda hech kim natijani kutmayapti, shuning uchun xato
+    // "ushlanmagan istisno" sifatida konsolga chiqib ketmasin (holat
+    // allaqachon `_error`ga yozilgan, ekran o'zi ko'rsatadi).
+    _load().catchError((_) {});
   }
 
   /// `_isActiveForMe` filtri (pastda) bosqich allaqachon bajarilgan/
@@ -98,6 +102,13 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
       _maybeOpenInitial();
     } catch (e) {
       setState(() => _error = e);
+      // Avval xato shu yerda "yutilardi" — hisobot yuborilgach `_load()`
+      // ichida (masalan tarmoq bir zumga uzilib) muvaffaqiyatsiz bo'lsa
+      // ham, buni chaqirgan tomon (dialog/ekran) HECH QACHON bilmasdi —
+      // "muvaffaqiyatli" deb hisoblab, ro'yxat ESKI holatda qolgan bo'lsa
+      // ham oynani yopib/orqaga qaytaverardi. Endi xatoni qayta uloqtiramiz
+      // — chaqiruvchi ekran ochiq qolib, xatoni ko'rsatadi.
+      rethrow;
     } finally {
       setState(() => _loading = false);
     }
@@ -422,7 +433,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Buyurtmalar')),
       body: RefreshIndicator(
-        onRefresh: _load,
+        onRefresh: () => _load().catchError((_) {}),
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null && !OfflineView.isNetworkError(_error)
