@@ -178,6 +178,19 @@ function WorkflowPipeline({ isManager }) {
     }
   };
 
+  const release = async (step) => {
+    setBusyId(step.id);
+    setError("");
+    try {
+      await api(`/workflow-instances/${step.id}/release/`, { method: "POST", body: {} });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const groups = [];
   const groupByOrder = new Map();
   for (const step of instances) {
@@ -301,6 +314,15 @@ function WorkflowPipeline({ isManager }) {
                         </span>
                       )
                     )}
+                    {isManager && step.employee_name && (step.status === "pending" || step.status === "in_progress") && (
+                      <button
+                        className="btn-ghost !px-2.5 !py-1 text-xs"
+                        disabled={busyId === step.id}
+                        onClick={() => release(step)}
+                      >
+                        O'tkazib yuborish
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -389,9 +411,9 @@ function ApplicantsControl({ step, onApproved }) {
 
 /* ================= Usta uchun: "erkin" (xodimi hali yo'q) bosqichlar hovuzi =================
    Bosqich boshlanishga tayyor (oldingi bosqichlar tugagan) va ustaning
-   lavozimiga mos bo'lsa shu yerda ko'rinadi — "Zayavka yuborish" bosilgach
-   firma egasi tasdiqlashini kutadi (bir vaqtda bir nechta usta yuborishi
-   mumkin, faqat bittasi tasdiqlanadi). */
+   lavozimiga mos bo'lsa shu yerda ko'rinadi — "Qabul qilish" bosilgach
+   ADMIN TASDIG'I SHART EMAS, darhol shu ustaga biriktiriladi (bir vaqtda
+   bir nechta usta urinsa, faqat birinchisi ulguradi). */
 function OpenPoolView({ isManager }) {
   const [steps, setSteps] = useState([]);
   const [error, setError] = useState("");
@@ -444,7 +466,7 @@ function OpenPoolView({ isManager }) {
       <p className="text-xs" style={{ color: "var(--muted)" }}>
         {isManager
           ? "Bu bosqichlarga hali usta biriktirilmagan — kerak bo'lsa bekor qiling."
-          : "Bu bosqichlarga hali usta biriktirilmagan — zayavka yuboring, firma egasi tasdiqlasa sizga o'tadi."}
+          : "Bu bosqichlarga hali usta biriktirilmagan — qabul qilsangiz darhol sizga biriktiriladi (tasdiq shart emas)."}
       </p>
       {error && <div className="error">{error}</div>}
       <div className="flex flex-col gap-2">
@@ -472,17 +494,13 @@ function OpenPoolView({ isManager }) {
               >
                 Bekor qilish
               </button>
-            ) : step.my_application_status === "pending" ? (
-              <span className="rounded-full px-2.5 py-1 text-[11px] font-medium" style={{ background: "color-mix(in srgb, var(--muted) 16%, transparent)" }}>
-                Kutilmoqda (tasdiqlanishi kutilmoqda)
-              </span>
             ) : (
               <button
                 className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
                 disabled={busyId === step.id}
                 onClick={() => apply(step)}
               >
-                Zayavka yuborish
+                Qabul qilish
               </button>
             )}
           </div>

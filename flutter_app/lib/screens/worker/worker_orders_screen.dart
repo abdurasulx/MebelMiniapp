@@ -58,6 +58,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
             mySteps: _myStepsFor(order),
             onProgress: _postProgress,
             onStart: _startTask,
+            onRelease: _releaseTask,
             findOrder: _findOrder,
             findMySteps: _myStepsFor,
           ),
@@ -79,12 +80,14 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
       );
       final tasksPage = await ApiClient.instance.get(
         '/workflow-instances/',
-        (j) => Paginated<WorkflowStepInstance>.fromJson(j, WorkflowStepInstance.fromJson),
+        (j) => Paginated<WorkflowStepInstance>.fromJson(
+            j, WorkflowStepInstance.fromJson),
         auth: true,
       );
       final openPage = await ApiClient.instance.get(
         '/workflow-instances/open/',
-        (j) => Paginated<WorkflowStepInstance>.fromJson(j, WorkflowStepInstance.fromJson),
+        (j) => Paginated<WorkflowStepInstance>.fromJson(
+            j, WorkflowStepInstance.fromJson),
         auth: true,
       );
       setState(() {
@@ -126,7 +129,8 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   /// tegishli bo'lmagan buyurtmalar ham cheksiz ko'rinib turaverardi.
   bool _isActiveForMe(Order order) {
     return _myStepsFor(order).any(
-      (s) => s.status == 'in_progress' || (s.status == 'pending' && s.isAvailable),
+      (s) =>
+          s.status == 'in_progress' || (s.status == 'pending' && s.isAvailable),
     );
   }
 
@@ -153,7 +157,38 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bosqich qabul qilindi ✓'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Bosqich qabul qilindi ✓'),
+              backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            duration: const Duration(seconds: 6),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Avval qabul qilingan ("erkin" hovuzdan) bosqichni yana ustasiz holatga
+  /// qaytaradi — boshqa ustalar qayta ko'radi. Faqat hali tugallanmagan
+  /// (pending/in_progress) bosqich uchun ishlaydi (backend tekshiradi).
+  Future<void> _releaseTask(WorkflowStepInstance step) async {
+    try {
+      await ApiClient.instance.post(
+        '/workflow-instances/${step.id}/release/',
+        (j) => j,
+        body: const {},
+      );
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bosqich o\'tkazib yuborildi')),
         );
       }
     } catch (e) {
@@ -172,7 +207,8 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   /// `true` — muvaffaqiyatli yuborildi (chaqiruvchi endi buyurtma tafsiloti
   /// ekranini yopishi kerak). `false` — foydalanuvchi bekor qildi (bu holda
   /// ekran ochiq qolishi kerak).
-  Future<bool> _postProgress(WorkflowStepInstance step, {required bool complete}) async {
+  Future<bool> _postProgress(WorkflowStepInstance step,
+      {required bool complete}) async {
     final commentController = TextEditingController();
     XFile? photo;
     // Izoh yozilganini kuzatish uchun — `commentController`ning o'zi
@@ -191,8 +227,10 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final photoMissing = complete && step.photoRequirement == 'required' && photo == null;
-          final commentMissing = complete && step.commentRequirement == 'required' && !hasComment;
+          final photoMissing =
+              complete && step.photoRequirement == 'required' && photo == null;
+          final commentMissing =
+              complete && step.commentRequirement == 'required' && !hasComment;
           final canSubmit = !photoMissing && !commentMissing;
 
           Future<void> submit() async {
@@ -214,7 +252,8 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                 '/workflow-instances/${step.id}/${complete ? 'complete' : 'progress'}/',
                 (j) => j,
                 fields: {
-                  if (commentController.text.isNotEmpty) 'comment': commentController.text,
+                  if (commentController.text.isNotEmpty)
+                    'comment': commentController.text,
                 },
                 imageFieldName: photo != null ? 'image' : null,
                 imagePath: photo?.path,
@@ -234,7 +273,8 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
           }
 
           return AlertDialog(
-            title: Text(complete ? 'Bosqichni yakunlash' : 'Yangilanish qo\'shish'),
+            title: Text(
+                complete ? 'Bosqichni yakunlash' : 'Yangilanish qo\'shish'),
             content: submitting
                 // `Center` cheklanmagan balandlikda BERILGAN JOYNING
                 // HAMMASINI egallaydi (klaviatura ochilib-yopilishi bilan
@@ -244,7 +284,8 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                 ? const SizedBox(
                     height: 90,
                     child: Center(
-                      child: Opacity(opacity: 0.75, child: CircularProgressIndicator()),
+                      child: Opacity(
+                          opacity: 0.75, child: CircularProgressIndicator()),
                     ),
                   )
                 : Column(
@@ -254,12 +295,14 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                       TextField(
                         controller: commentController,
                         decoration: InputDecoration(
-                          labelText: complete && step.commentRequirement == 'required'
-                              ? 'Izoh (majburiy)'
-                              : 'Izoh (ixtiyoriy)',
+                          labelText:
+                              complete && step.commentRequirement == 'required'
+                                  ? 'Izoh (majburiy)'
+                                  : 'Izoh (ixtiyoriy)',
                         ),
                         maxLines: 3,
-                        onChanged: (v) => setDialogState(() => hasComment = v.trim().isNotEmpty),
+                        onChanged: (v) => setDialogState(
+                            () => hasComment = v.trim().isNotEmpty),
                       ),
                       const SizedBox(height: 10),
                       // Ogohlantirish faqat talab HALI QONDIRILMAGAN bo'lsa
@@ -268,19 +311,25 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                       if (commentMissing)
                         Text(
                           'Bu bosqichni yakunlash uchun izoh majburiy',
-                          style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                          style: TextStyle(
+                              color: Theme.of(ctx).colorScheme.error,
+                              fontSize: 12),
                         ),
                       if (photoMissing)
                         Text(
                           'Bu bosqichni yakunlash uchun rasm majburiy',
-                          style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                          style: TextStyle(
+                              color: Theme.of(ctx).colorScheme.error,
+                              fontSize: 12),
                         ),
                       if (submitError != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
                             submitError!,
-                            style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                            style: TextStyle(
+                                color: Theme.of(ctx).colorScheme.error,
+                                fontSize: 12),
                           ),
                         ),
                       const SizedBox(height: 6),
@@ -288,11 +337,17 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                         children: [
                           OutlinedButton.icon(
                             onPressed: () async {
-                              final picked = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 85);
-                              if (picked != null) setDialogState(() => photo = picked);
+                              final picked = await ImagePicker().pickImage(
+                                  source: ImageSource.camera,
+                                  maxWidth: 1600,
+                                  imageQuality: 85);
+                              if (picked != null)
+                                setDialogState(() => photo = picked);
                             },
-                            icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                            label: Text(photo == null ? 'Rasm olish' : 'Qayta olish'),
+                            icon:
+                                const Icon(Icons.camera_alt_outlined, size: 16),
+                            label: Text(
+                                photo == null ? 'Rasm olish' : 'Qayta olish'),
                           ),
                           // Rasm olingach oldingi holatda faqat "✓" belgisi
                           // ko'rinardi — olingan rasmning o'zi ko'rinmagani uchun
@@ -318,7 +373,9 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
             actions: submitting
                 ? const []
                 : [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Bekor')),
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Bekor')),
                     // Talablar qondirilmaguncha tugma o'chirilgan — foydalanuvchi
                     // "Yuborish"ni bosib, keyin rad javobi olishi (reaktiv xato)
                     // o'rniga, oldindan aniq ko'radi nima yetishmayotganini.
@@ -334,7 +391,8 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
     if (confirmed == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(complete ? 'Bosqich yakunlandi ✓' : 'Yangilanish yuborildi ✓'),
+          content: Text(
+              complete ? 'Bosqich yakunlandi ✓' : 'Yangilanish yuborildi ✓'),
           backgroundColor: Colors.green,
         ),
       );
@@ -344,7 +402,10 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_loading && OfflineView.isNetworkError(_error) && _orders.isEmpty && _myTasks.isEmpty) {
+    if (!_loading &&
+        OfflineView.isNetworkError(_error) &&
+        _orders.isEmpty &&
+        _myTasks.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Buyurtmalar')),
         body: OfflineView(onRetry: _load),
@@ -361,27 +422,33 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null && !OfflineView.isNetworkError(_error)
-                ? Center(child: Text(_error.toString(), style: const TextStyle(color: Colors.red)))
+                ? Center(
+                    child: Text(_error.toString(),
+                        style: const TextStyle(color: Colors.red)))
                 : ListView(
                     padding: const EdgeInsets.all(12),
                     children: [
                       if (_openTasks.isNotEmpty) ...[
                         const Padding(
                           padding: EdgeInsets.only(bottom: 8, left: 4),
-                          child: Text('Erkin topshiriqlar', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text('Erkin topshiriqlar',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                         const Padding(
-                          padding: EdgeInsets.only(bottom: 8, left: 4, right: 4),
+                          padding:
+                              EdgeInsets.only(bottom: 8, left: 4, right: 4),
                           child: Text(
-                            'Bu bosqichlarga hali usta biriktirilmagan — zayavka yuboring, firma egasi tasdiqlasa sizga o\'tadi.',
-                            style: TextStyle(fontSize: 12, color: Colors.black54),
+                            'Bu bosqichlarga hali usta biriktirilmagan — qabul qilsangiz darhol sizga biriktiriladi (tasdiq shart emas).',
+                            style:
+                                TextStyle(fontSize: 12, color: Colors.black54),
                           ),
                         ),
                         Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: Column(
                             children: _openTasks
-                                .map((step) => _OpenTaskTile(step: step, onApplied: _load))
+                                .map((step) =>
+                                    _OpenTaskTile(step: step, onApplied: _load))
                                 .toList(),
                           ),
                         ),
@@ -389,21 +456,30 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                       if (manualTasks.isNotEmpty) ...[
                         const Padding(
                           padding: EdgeInsets.only(bottom: 8, left: 4),
-                          child: Text('Qo\'shimcha vazifalar', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text('Qo\'shimcha vazifalar',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                         Card(
                           margin: const EdgeInsets.only(bottom: 12),
                           child: Column(
                             children: manualTasks
-                                .map((step) => _StepTile(step: step, onProgress: _postProgress, onStart: _startTask))
+                                .map((step) => _StepTile(
+                                    step: step,
+                                    onProgress: _postProgress,
+                                    onStart: _startTask,
+                                    onRelease: _releaseTask))
                                 .toList(),
                           ),
                         ),
                       ],
-                      if (activeOrders.isEmpty && manualTasks.isEmpty && _openTasks.isEmpty)
+                      if (activeOrders.isEmpty &&
+                          manualTasks.isEmpty &&
+                          _openTasks.isEmpty)
                         const Padding(
                           padding: EdgeInsets.only(top: 60),
-                          child: Center(child: Text('Hozircha vazifa yo\'q.', style: TextStyle(color: Colors.black54))),
+                          child: Center(
+                              child: Text('Hozircha vazifa yo\'q.',
+                                  style: TextStyle(color: Colors.black54))),
                         ),
                       for (final order in activeOrders)
                         _OrderCard(
@@ -411,6 +487,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                           mySteps: _myStepsFor(order),
                           onProgress: _postProgress,
                           onStart: _startTask,
+                          onRelease: _releaseTask,
                           findOrder: _findOrder,
                           findMySteps: _myStepsFor,
                         ),
@@ -428,8 +505,10 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
 class _OrderCard extends StatelessWidget {
   final Order order;
   final List<WorkflowStepInstance> mySteps;
-  final Future<bool> Function(WorkflowStepInstance, {required bool complete}) onProgress;
+  final Future<bool> Function(WorkflowStepInstance, {required bool complete})
+      onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
+  final Future<void> Function(WorkflowStepInstance) onRelease;
   final Order? Function(String id) findOrder;
   final List<WorkflowStepInstance> Function(Order) findMySteps;
   const _OrderCard({
@@ -437,6 +516,7 @@ class _OrderCard extends StatelessWidget {
     required this.mySteps,
     required this.onProgress,
     required this.onStart,
+    required this.onRelease,
     required this.findOrder,
     required this.findMySteps,
   });
@@ -446,7 +526,10 @@ class _OrderCard extends StatelessWidget {
   /// ham "Erkin zayavka testi" kabi mazmunsiz bo'lganda). Endi buyurtma
   /// qatoridagi mahsulot nomlari asosiy sarlavha sifatida ko'rsatiladi.
   String get _title {
-    final names = order.items.map((i) => i.productName).where((n) => n.isNotEmpty).toSet();
+    final names = order.items
+        .map((i) => i.productName)
+        .where((n) => n.isNotEmpty)
+        .toSet();
     return names.isEmpty ? order.phone : names.join(', ');
   }
 
@@ -465,6 +548,7 @@ class _OrderCard extends StatelessWidget {
               mySteps: mySteps,
               onProgress: onProgress,
               onStart: onStart,
+              onRelease: onRelease,
               findOrder: findOrder,
               findMySteps: findMySteps,
             ),
@@ -479,25 +563,31 @@ class _OrderCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(_title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text(_title,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   Text(o.statusDisplay, style: const TextStyle(fontSize: 12)),
                 ],
               ),
               Text(
                 o.phone,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
               Text(o.address, style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${formatSom(o.totalPrice)} so\'m', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('${formatSom(o.totalPrice)} so\'m',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   if (mySteps.isNotEmpty)
                     Text(
                       'Mening bosqichlarim: ${mySteps.length}',
-                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      style:
+                          const TextStyle(fontSize: 12, color: Colors.black54),
                     ),
                 ],
               ),
@@ -518,8 +608,10 @@ class _OrderCard extends StatelessWidget {
 class _OrderStepsScreen extends StatefulWidget {
   final Order order;
   final List<WorkflowStepInstance> mySteps;
-  final Future<bool> Function(WorkflowStepInstance, {required bool complete}) onProgress;
+  final Future<bool> Function(WorkflowStepInstance, {required bool complete})
+      onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
+  final Future<void> Function(WorkflowStepInstance) onRelease;
   // `_OrderStepsScreen` push qilingan alohida marshrut bo'lgani uchun
   // ro'yxat sahifasidagi `_load()` bu yerni AVTOMATIK qayta chizmaydi —
   // harakatdan keyin eng yangi order/bosqichlarni shular orqali qidirib
@@ -531,6 +623,7 @@ class _OrderStepsScreen extends StatefulWidget {
     required this.mySteps,
     required this.onProgress,
     required this.onStart,
+    required this.onRelease,
     required this.findOrder,
     required this.findMySteps,
   });
@@ -559,7 +652,8 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
     });
   }
 
-  Future<void> _onProgress(WorkflowStepInstance step, {required bool complete}) async {
+  Future<void> _onProgress(WorkflowStepInstance step,
+      {required bool complete}) async {
     final submitted = await widget.onProgress(step, complete: complete);
     if (!submitted) return; // foydalanuvchi "Bekor" bosdi — ekran ochiq qoladi
     // Hisobot ("Yangilash"/"Yakunlash") muvaffaqiyatli yuborilgach — avval
@@ -575,6 +669,11 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
     _refresh();
   }
 
+  Future<void> _onRelease(WorkflowStepInstance step) async {
+    await widget.onRelease(step);
+    _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = _order;
@@ -582,8 +681,12 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
     final myStepIds = mySteps.map((s) => s.id).toSet();
     // Ko'p vazifa buyurtmaga bog'liq bo'lmasligi mumkin (qo'lda qo'shilgan) —
     // shunda `order.workflowSteps` bo'sh bo'ladi, faqat mySteps ko'rsatiladi.
-    final allSteps = order.workflowSteps.isNotEmpty ? order.workflowSteps : mySteps;
-    final productNames = order.items.map((i) => i.productName).where((n) => n.isNotEmpty).toSet();
+    final allSteps =
+        order.workflowSteps.isNotEmpty ? order.workflowSteps : mySteps;
+    final productNames = order.items
+        .map((i) => i.productName)
+        .where((n) => n.isNotEmpty)
+        .toSet();
     final title = productNames.isEmpty ? order.phone : productNames.join(', ');
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -596,20 +699,25 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(order.phone, style: const TextStyle(fontSize: 12.5, color: Colors.black54)),
+                  Text(order.phone,
+                      style: const TextStyle(
+                          fontSize: 12.5, color: Colors.black54)),
                   const SizedBox(height: 2),
                   Text(
                     '${formatSom(order.totalPrice)} so\'m',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFFECC299).withOpacity(0.4),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(order.statusDisplay, style: const TextStyle(fontSize: 12)),
+                    child: Text(order.statusDisplay,
+                        style: const TextStyle(fontSize: 12)),
                   ),
                   if (order.progressPercent != null) ...[
                     const SizedBox(height: 12),
@@ -618,14 +726,17 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
                       child: LinearProgressIndicator(
                         value: (order.progressPercent ?? 0) / 100,
                         minHeight: 8,
-                        backgroundColor: const Color(0xFFECC299).withOpacity(0.25),
-                        valueColor: const AlwaysStoppedAnimation(Color(0xFF8A5A2B)),
+                        backgroundColor:
+                            const Color(0xFFECC299).withOpacity(0.25),
+                        valueColor:
+                            const AlwaysStoppedAnimation(Color(0xFF8A5A2B)),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Ishlab chiqarish: ${order.progressPercent}%',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF8A7357)),
                     ),
                   ],
                 ],
@@ -644,6 +755,7 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
               isMine: myStepIds.contains(step.id),
               onProgress: _onProgress,
               onStart: _onStart,
+              onRelease: _onRelease,
             ),
           ),
         ],
@@ -657,13 +769,16 @@ class _StepTile extends StatefulWidget {
   // Boshqa ustaning bosqichi bo'lsa `false` — harakat tugmalari
   // (Boshlash/Yangilash/Yakunlash) yashiriladi, faqat holat ko'rsatiladi.
   final bool isMine;
-  final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
+  final Future<void> Function(WorkflowStepInstance, {required bool complete})
+      onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
+  final Future<void> Function(WorkflowStepInstance) onRelease;
   const _StepTile({
     required this.step,
     this.isMine = true,
     required this.onProgress,
     required this.onStart,
+    required this.onRelease,
   });
 
   @override
@@ -695,6 +810,15 @@ class _StepTileState extends State<_StepTile> {
     setState(() => _busy = true);
     try {
       await widget.onProgress(step, complete: complete);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _handleRelease() async {
+    setState(() => _busy = true);
+    try {
+      await widget.onRelease(step);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -759,21 +883,26 @@ class _StepTileState extends State<_StepTile> {
               if (step.description.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
-                  child: Text(step.description, style: const TextStyle(fontSize: 12.5)),
+                  child: Text(step.description,
+                      style: const TextStyle(fontSize: 12.5)),
                 ),
               if (step.cuttingInstruction != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Text(
                     step.cuttingInstruction!,
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.teal),
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.teal),
                   ),
                 )
               else if (step.workTypeName != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Text(
-                    '${step.quantity ?? ''} ${step.workTypeUnitDisplay ?? ''} × ${step.workTypeName}'.trim(),
+                    '${step.quantity ?? ''} ${step.workTypeUnitDisplay ?? ''} × ${step.workTypeName}'
+                        .trim(),
                     style: const TextStyle(fontSize: 12.5, color: Colors.teal),
                   ),
                 ),
@@ -784,27 +913,48 @@ class _StepTileState extends State<_StepTile> {
                   step.statusDisplay,
                   if (step.deadline != null) 'muddat: ${step.deadline}',
                 ].join(' · '),
-                style: step.isOverdue ? const TextStyle(color: Colors.red, fontWeight: FontWeight.w600) : null,
+                style: step.isOverdue
+                    ? const TextStyle(
+                        color: Colors.red, fontWeight: FontWeight.w600)
+                    : null,
               ),
             ],
           ),
-          trailing: canStart
-              ? OutlinedButton(
-                  onPressed: _busy ? null : _handleStart,
-                  child: _busy
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Boshlash'),
-                )
-              : null,
         ),
         // Ikkita tugma avval `ListTile.trailing`ga (balandligi cheklangan)
         // siqib qo'yilgan edi — kichik ekranlarda "BOTTOM OVERFLOWED" xatosi
         // chiqarardi. Endi to'liq kenglikdagi alohida qator, kartaning
         // o'zi bo'yiga cho'zilib ketadi (overflow bo'lishi mumkin emas).
+        // Bosqich qabul qilingan ("erkin" hovuzdan olingan) bo'lsa — usta
+        // hali boshlamasdan ham uni yana o'tkazib yuborishi (bo'shatishi)
+        // mumkin bo'lishi kerak.
+        if (canStart)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : _handleStart,
+                    child: _busy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Boshlash'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextButton(
+                    onPressed: _busy ? null : _handleRelease,
+                    child: const Text('O\'tkazib yuborish'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (canAct)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -812,7 +962,8 @@ class _StepTileState extends State<_StepTile> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _busy ? null : () => _handleProgress(complete: false),
+                    onPressed:
+                        _busy ? null : () => _handleProgress(complete: false),
                     icon: _busy
                         ? const SizedBox(
                             width: 14,
@@ -826,18 +977,31 @@ class _StepTileState extends State<_StepTile> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _busy ? null : () => _handleProgress(complete: true),
+                    onPressed:
+                        _busy ? null : () => _handleProgress(complete: true),
                     icon: _busy
                         ? const SizedBox(
                             width: 14,
                             height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
                           )
                         : const Icon(Icons.check, size: 16),
                     label: const Text('Yakunlash'),
                   ),
                 ),
               ],
+            ),
+          ),
+        if (canAct)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _busy ? null : _handleRelease,
+                child: const Text('O\'tkazib yuborish'),
+              ),
             ),
           ),
       ],
@@ -869,7 +1033,10 @@ class _OpenTaskTile extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 2),
               child: Text(
                 step.cuttingInstruction!,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.teal),
+                style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.teal),
               ),
             ),
           Text(
@@ -885,19 +1052,22 @@ class _OpenTaskTile extends StatelessWidget {
           // matn ba'zi qurilmalarda ko'rinmay (oq fonda oq/shaffof rang bilan)
           // qolib ketardi — rangni aniq belgilaymiz.
           ? const Chip(
-              label: Text('Kutilmoqda', style: TextStyle(fontSize: 11, color: Colors.black87)),
+              label: Text('Kutilmoqda',
+                  style: TextStyle(fontSize: 11, color: Colors.black87)),
               backgroundColor: Colors.white,
             )
-          : const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.black38),
+          : const Icon(Icons.chevron_right_rounded,
+              size: 20, color: Colors.black38),
       // `pending` bo'lganda ham qatorga kirish mumkin — faqat tafsilot
       // ekranida "Qabul qilish" tugmasi o'rniga "Kutilmoqda" holati
       // ko'rsatiladi (avval bu holatda umuman kirib bo'lmasdi).
       onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => _OpenTaskDetailScreen(step: step, onApplied: onApplied),
-                ),
-              ),
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              _OpenTaskDetailScreen(step: step, onApplied: onApplied),
+        ),
+      ),
     );
   }
 }
@@ -942,7 +1112,6 @@ class _OpenTaskDetailScreenState extends State<_OpenTaskDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final step = widget.step;
-    final pending = step.myApplicationStatus == 'pending';
     return Scaffold(
       appBar: AppBar(title: Text(step.name)),
       body: Padding(
@@ -953,7 +1122,10 @@ class _OpenTaskDetailScreenState extends State<_OpenTaskDetailScreen> {
             if (step.cuttingInstruction != null) ...[
               Text(
                 step.cuttingInstruction!,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.teal),
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.teal),
               ),
               const SizedBox(height: 8),
             ],
@@ -962,7 +1134,8 @@ class _OpenTaskDetailScreenState extends State<_OpenTaskDetailScreen> {
                 if (step.orderDisplay != null) 'Buyurtma ${step.orderDisplay}',
                 if (step.roleDisplay != null) step.roleDisplay!,
                 if (step.workTypeName != null)
-                  '${step.quantity ?? ''} ${step.workTypeUnitDisplay ?? ''} × ${step.workTypeName}'.trim(),
+                  '${step.quantity ?? ''} ${step.workTypeUnitDisplay ?? ''} × ${step.workTypeName}'
+                      .trim(),
               ].join(' · '),
               style: const TextStyle(color: Colors.black54),
             ),
@@ -972,48 +1145,33 @@ class _OpenTaskDetailScreenState extends State<_OpenTaskDetailScreen> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(_error!, style: const TextStyle(color: Colors.red)),
               ),
-            // Zayavka allaqachon yuborilgan bo'lsa — bekor qilish/qayta
-            // yuborish uchun backend'da endpoint yo'q, shuning uchun faqat
-            // holatni ko'rsatamiz (foydalanuvchi endi kamida ekranni ochib
-            // holatni ko'ra oladi — avval bu holatda umuman kirib bo'lmasdi).
-            if (pending)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFECC299).withOpacity(0.35),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Text(
-                  'Zayavkangiz yuborilgan — firma egasi tasdiqlashini kutmoqda.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-              )
-            else
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _busy ? null : () => Navigator.pop(context),
-                      child: const Text('O\'tkazib yuborish'),
-                    ),
+            // "Qabul qilish" endi tasdiq kutmasdan DARHOL biriktiradi —
+            // shuning uchun bu yerda "kutish" holati umuman yo'q, faqat
+            // ikkita tanlov: qabul qilish yoki o'tkazib yuborish.
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy ? null : () => Navigator.pop(context),
+                    child: const Text('O\'tkazib yuborish'),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _busy ? null : _apply,
-                      child: _busy
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Text('Qabul qilish'),
-                    ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _busy ? null : _apply,
+                    child: _busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Qabul qilish'),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

@@ -1,4 +1,4 @@
-from django.db import IntegrityError, transaction
+from django.db import transaction
 from django.db.models import Avg, Case, Count, DurationField, ExpressionWrapper, F, IntegerField, Value, When
 from django.utils import timezone
 from rest_framework import permissions, viewsets
@@ -304,10 +304,10 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"])
     def apply(self, request, pk=None):
-        """Usta "erkin" bosqichga zayavka yuboradi. Zayavka darhol
-        biriktirmaydi — firma egasi/menejer tasdiqlashi kerak (qarang
-        `approve_application`); bir nechta usta bir vaqtda zayavka yuborsa
-        ham, faqat bittasi tasdiqlanadi."""
+        """Usta "erkin" bosqichni QABUL QILADI — firma egasi/menejer
+        tasdig'i SHART EMAS, shu zahoti bosqichga biriktiriladi. Bir nechta
+        usta bir vaqtda urinsa ham, faqat birinchisi ulguradi — shu
+        sabab tekshiruv+biriktirish bitta qulflangan tranzaksiya ichida."""
         instance = self._get_step_or_404(pk)
         company = user_company(request.user)
         if company is None or company.id != instance.company_id:
@@ -317,16 +317,58 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
         ).first()
         if employee is None:
             raise PermissionDenied("Siz bu kompaniya xodimi emassiz")
-        if instance.employee_id:
-            raise ValidationError("Bu bosqich allaqachon boshqa ustaga biriktirilgan")
         if instance.role and instance.role not in (employee.positions or []):
             raise ValidationError("Bu bosqich sizning lavozimingizga mos emas")
-        if not instance.is_available:
-            raise ValidationError("Bu bosqich hali boshlanishi mumkin emas — oldingi bosqichlar tugamagan")
-        try:
-            StepApplication.objects.create(step=instance, employee=employee)
-        except IntegrityError:
-            raise ValidationError("Siz bu bosqichga allaqachon zayavka yuborgansiz")
+        now = timezone.now()
+        with transaction.atomic():
+            locked = WorkflowStepInstance.objects.select_for_update().get(pk=instance.pk)
+            if locked.employee_id:
+                raise ValidationError("Bu bosqich allaqachon boshqa ustaga biriktirilgan")
+            if not locked.is_available:
+                raise ValidationError("Bu bosqich hali boshlanishi mumkin emas — oldingi bosqichlar tugamagan")
+            locked.employee = employee
+            locked.save(update_fields=["employee", "updated_at"])
+            StepApplication.objects.update_or_create(
+                step=locked, employee=employee,
+                defaults={"status": ApplicationStatus.APPROVED, "decided_at": now},
+            )
+            instance = locked
+        notify_task_assigned(instance)
+        instance = self.get_queryset().filter(pk=instance.pk).first() or instance
+        return Response(WorkflowStepInstanceSerializer(instance, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"])
+    def release(self, request, pk=None):
+        """Usta avval o'zi qabul qilgan bosqichni O'TKAZIB YUBORADI — yana
+        ustasiz ("erkin") holatga qaytadi, boshqa mos lavozimdagi ustalar
+        hovuzida qayta ko'rinadi. Faqat hali TUGALLANMAGAN (pending yoki
+        in_progress) bosqich uchun — material/ish haqiga hali ta'sir
+        qilmagan, shuning uchun oddiy qaytarish yetarli. Shu bosqichga
+        biriktirilgan ustaning o'zi yoki firma egasi/menejer chaqira oladi."""
+        instance = self._get_step_or_404(pk)
+        company = user_company(request.user)
+        if company is None or company.id != instance.company_id:
+            raise PermissionDenied("Bu bosqich sizning kompaniyangizga tegishli emas")
+        employee = Employee.objects.filter(
+            company=company, user=request.user, is_active=True, is_deleted=False
+        ).first()
+        if not is_company_owner(request.user, company) and (
+            employee is None or instance.employee_id != employee.id
+        ):
+            raise PermissionDenied("Faqat shu bosqichga biriktirilgan usta yoki firma egasi o'tkazib yubora oladi")
+        if not instance.employee_id:
+            raise ValidationError("Bu bosqich hech kimga biriktirilmagan")
+        if instance.status not in (StepStatus.PENDING, StepStatus.IN_PROGRESS):
+            raise ValidationError("Bu bosqichni faqat hali tugallanmagan holatda o'tkazib yuborish mumkin")
+        with transaction.atomic():
+            StepApplication.objects.filter(
+                step=instance, employee_id=instance.employee_id, status=ApplicationStatus.APPROVED
+            ).update(status=ApplicationStatus.REJECTED, decided_at=timezone.now())
+            instance.employee = None
+            instance.status = StepStatus.PENDING
+            instance.started_at = None
+            instance.save(update_fields=["employee", "status", "started_at", "updated_at"])
+        notify_pool_open(instance)
         instance = self.get_queryset().filter(pk=instance.pk).first() or instance
         return Response(WorkflowStepInstanceSerializer(instance, context={"request": request}).data)
 
