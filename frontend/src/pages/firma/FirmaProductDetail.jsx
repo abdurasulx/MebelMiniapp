@@ -805,6 +805,15 @@ function VariantsTab({ product: p, onDone }) {
                     <Pill tone={v.model3d.status === "ready" ? "success" : v.model3d.status === "failed" ? "danger" : "warning"}>
                       {v.model3d.status === "processing" ? "Qayta ishlanmoqda…" : v.model3d.status_display}
                     </Pill>
+                  ) : p.model3d?.status === "ready" ? (
+                    // Variant o'zining ALOHIDA 3D faylini olmagan bo'lishi
+                    // mumkin — bu xato emas, chunki bunday holda runtime'da
+                    // mahsulotning UMUMIY modeli ishlatiladi (qarang
+                    // VariantSerializer.get_model3d izohi backend'da).
+                    // Avval bu yerda har doim "3D fayl yo'q" (xato rang bilan)
+                    // ko'rsatilardi, garchi model haqiqatda mavjud va ishlab
+                    // tursa ham.
+                    <Pill tone="primary">Mahsulotning umumiy modeli</Pill>
                   ) : (
                     <Pill tone="danger">3D fayl yo'q</Pill>
                   )}
