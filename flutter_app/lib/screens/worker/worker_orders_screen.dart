@@ -273,8 +273,12 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
           }
 
           return AlertDialog(
-            title: Text(
-                complete ? 'Bosqichni yakunlash' : 'Yangilanish qo\'shish'),
+            title: Text(complete
+                ? 'Bosqichni yakunlash'
+                // Ustalar bir necha marta shu oynani "Yakunlash" deb
+                // tushunib, bosqichni hech qachon tugatmagan holda izoh
+                // qo'shib qo'yaverishgan — sarlavhada ham aniq eslatamiz.
+                : 'Izoh/rasm qo\'shish (bosqich tugamaydi)'),
             content: submitting
                 // `Center` cheklanmagan balandlikda BERILGAN JOYNING
                 // HAMMASINI egallaydi (klaviatura ochilib-yopilishi bilan
@@ -955,55 +959,55 @@ class _StepTileState extends State<_StepTile> {
               ],
             ),
           ),
-        if (canAct)
+        // Avval "Yangilash" (oraliq izoh) va "Yakunlash" (bosqichni
+        // tugatish) bir xil ko'rinishdagi ikkita tugma edi — ustalar
+        // ko'p marta "Yangilash"ni bosib, bosqich hech qachon
+        // tugallanmasligiga olib kelgan (izoh+rasm kiritilgan bo'lsa
+        // ham). Endi "Bosqichni yakunlash" yagona katta/asosiy tugma —
+        // oraliq izoh qo'shish esa aniq "tugatmaydi" deb belgilangan
+        // kichik matnli havola.
+        if (canAct) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Row(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _busy ? null : () => _handleProgress(complete: true),
+                icon: _busy
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.check, size: 16),
+                label: const Text('Bosqichni yakunlash'),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed:
-                        _busy ? null : () => _handleProgress(complete: false),
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send, size: 16),
-                    label: const Text('Yangilash'),
+                TextButton.icon(
+                  onPressed:
+                      _busy ? null : () => _handleProgress(complete: false),
+                  icon: const Icon(Icons.add_comment_outlined, size: 15),
+                  label: const Text(
+                    'Izoh/rasm qo\'shish (tugatmaydi)',
+                    style: TextStyle(fontSize: 12.5),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed:
-                        _busy ? null : () => _handleProgress(complete: true),
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.check, size: 16),
-                    label: const Text('Yakunlash'),
-                  ),
+                TextButton(
+                  onPressed: _busy ? null : _handleRelease,
+                  child: const Text('O\'tkazib yuborish'),
                 ),
               ],
             ),
           ),
-        if (canAct)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _busy ? null : _handleRelease,
-                child: const Text('O\'tkazib yuborish'),
-              ),
-            ),
-          ),
+        ],
       ],
     );
   }
