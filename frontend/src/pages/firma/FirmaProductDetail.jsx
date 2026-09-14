@@ -832,12 +832,6 @@ function VariantsTab({ product: p, onDone }) {
             <label className="label">Narx (1 m³, so'm)</label>
             <input className="input" type="number" min="0" value={variant.base_price} onChange={(e) => setVariant({ ...variant, base_price: e.target.value })} required />
           </div>
-          {[["width", "Eni"], ["height", "Bo'yi"], ["depth", "Chuquri"]].map(([k, label]) => (
-            <div key={k} style={{ width: 96 }}>
-              <label className="label">{label} (m)</label>
-              <input className="input" type="number" step="0.1" min="0.1" value={variant[k]} onChange={(e) => setVariant({ ...variant, [k]: e.target.value })} />
-            </div>
-          ))}
           <div style={{ minWidth: 220 }}>
             <label className="label">3D fayl (GLB/FBX/OBJ/DAE yoki .zip/.rar) *</label>
             <input
@@ -917,12 +911,6 @@ function VariantEditForm({ productId, variant, onDone, onClose }) {
         <label className="label">Narx (1 m³, so'm)</label>
         <input className="input" type="number" min="0" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: e.target.value })} required />
       </div>
-      {[["width", "Eni"], ["height", "Bo'yi"], ["depth", "Chuquri"]].map(([k, label]) => (
-        <div key={k} style={{ width: 88 }}>
-          <label className="label">{label} (m)</label>
-          <input className="input" type="number" step="0.1" min="0.1" value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
-        </div>
-      ))}
       <div>
         <label className="label">Rang</label>
         <input className="input !w-14 !p-1" type="color" value={colorHex} onChange={(e) => setColorHex(e.target.value)} />
