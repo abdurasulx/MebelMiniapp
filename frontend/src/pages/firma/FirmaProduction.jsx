@@ -120,8 +120,14 @@ function WorkflowPipeline({ isManager }) {
       return next;
     });
 
+  // Standart sahifa hajmi (20) bilan bitta eski buyurtmaning hali
+  // tugallanmagan bosqichi keyingi sahifaga tushib qolib, "X/Y bosqich
+  // bajarildi" hisoblagichi FAQAT hozir yuklangan bosqichlar asosida
+  // noto'g'ri (masalan "2/2", aslida "2/3") ko'rsatib qolishi mumkin edi —
+  // sahifa hajmini kattalashtirib bu holatni kamaytiramiz ("Yana yuklash"
+  // baribir juda katta ro'yxatlar uchun qoladi).
   const load = () =>
-    api("/workflow-instances/")
+    api("/workflow-instances/?page_size=100")
       .then((d) => {
         setInstances((d.results || []).filter((i) => !i.is_manual));
         setNextPage(d.next || null);

@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from apps.companies.models import Employee
 from apps.companies.views import is_company_owner, user_company
+from common.pagination import ConfigurablePageSizePagination
 from apps.notifications.services import (
     notify_application_rejected,
     notify_pool_open,
@@ -145,6 +146,7 @@ class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):
 
     serializer_class = WorkflowStepInstanceSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    pagination_class = ConfigurablePageSizePagination
     http_method_names = ("get", "post", "patch", "delete", "head", "options")
 
     def get_queryset(self):
