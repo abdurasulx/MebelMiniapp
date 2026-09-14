@@ -141,10 +141,13 @@ struct ProductDetailView: View {
                                     .foregroundStyle(.secondary)
                             }
 
+                            // O'lcham endi tahrirlanmaydi — variantning o'zida
+                            // saqlangan standart o'lcham shunchaki ko'rsatiladi
+                            // (narx shu bilan qat'iy, mijoz o'zgartira olmaydi).
                             HStack(spacing: 12) {
-                                dimField(locale.t("product_dim_width"), $width)
-                                dimField(locale.t("product_dim_height"), $height)
-                                dimField(locale.t("product_dim_depth"), $depth)
+                                dimLabel(locale.t("product_dim_width"), width)
+                                dimLabel(locale.t("product_dim_height"), height)
+                                dimLabel(locale.t("product_dim_depth"), depth)
                             }
 
                             Stepper("\(locale.t("product_qty_label")): \(quantity)", value: $quantity, in: 1...50)
@@ -265,12 +268,12 @@ struct ProductDetailView: View {
         }
     }
 
-    private func dimField(_ label: String, _ value: Binding<String>) -> some View {
+    private func dimLabel(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(.caption2).foregroundStyle(.secondary)
-            TextField("0.0", text: value)
-                .keyboardType(.decimalPad)
+            Text(value)
                 .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(.secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
