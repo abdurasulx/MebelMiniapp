@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Play, Check, Clock, Workflow, ClipboardList, Gauge } from "lucide-react";
+import { Play, Check, Clock, Workflow, ClipboardList, Gauge, ChevronDown, ChevronRight, User } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { POSITIONS } from "../../positions";
@@ -110,6 +110,15 @@ function WorkflowPipeline({ isManager }) {
   const [nextPage, setNextPage] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [expanded, setExpanded] = useState(new Set());
+
+  const toggleExpanded = (orderId) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
 
   const load = () =>
     api("/workflow-instances/")
@@ -163,20 +172,6 @@ function WorkflowPipeline({ isManager }) {
     }
   };
 
-  const cancelStep = async (step) => {
-    if (!confirm(`"${step.name}" bosqichi bekor qilinsinmi? Ombordan ayirilgan material qaytariladi, kreditlangan ish haqi (agar bo'lsa) bekor qilinadi.`)) return;
-    setBusyId(step.id);
-    setError("");
-    try {
-      await api(`/workflow-instances/${step.id}/cancel/`, { method: "POST", body: {} });
-      await load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   const groups = [];
   const groupByOrder = new Map();
   for (const step of instances) {
@@ -199,102 +194,114 @@ function WorkflowPipeline({ isManager }) {
           Hali hech qanday buyurtma uchun ishlab chiqarish bosqichi yo'q.
         </p>
       )}
-      {groups.map((g) => (
-        <div key={g.order} className="card flex flex-col gap-3 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="font-semibold">Buyurtma {g.order_display}</span>
-            <StatusBadge status={g.order_status} />
-          </div>
-          <div className="flex flex-col gap-2">
-            {g.steps.map((step) => (
-              <div
-                key={step.id}
-                className="flex flex-wrap items-center gap-3 rounded-xl p-3"
-                style={{ border: "1px solid var(--border)" }}
-              >
-                <span
-                  className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                  style={{
-                    background: `color-mix(in srgb, ${TASK_STATUS[step.status]?.color || "#8a8f98"} 16%, transparent)`,
-                    color: TASK_STATUS[step.status]?.color || "#8a8f98",
-                  }}
-                >
-                  {step.awaiting_approval ? "Admin tasdig'ini kutmoqda" : step.status_display}
+      {groups.map((g) => {
+        const isOpen = expanded.has(g.order);
+        const doneCount = g.steps.filter((s) => s.status === "completed" || s.status === "approved").length;
+        const employeeNames = [...new Set(g.steps.map((s) => s.employee_name).filter(Boolean))];
+        return (
+          <div key={g.order} className="card flex flex-col gap-3 p-4">
+            <button
+              className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
+              onClick={() => toggleExpanded(g.order)}
+            >
+              <span className="inline-flex items-center gap-2 font-semibold">
+                {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                Buyurtma {g.order_display}
+              </span>
+              <span className="inline-flex flex-wrap items-center gap-2">
+                <span className="text-xs" style={{ color: "var(--muted)" }}>
+                  {doneCount}/{g.steps.length} bosqich bajarildi
+                  {employeeNames.length > 0 && ` · ${employeeNames.join(", ")}`}
                 </span>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{step.name}</div>
-                  {step.cutting_instruction && (
-                    <div className="text-xs font-medium" style={{ color: "var(--brand)" }}>{step.cutting_instruction}</div>
-                  )}
-                  <div className="text-xs" style={{ color: "var(--muted)" }}>
-                    {step.role_display}
-                    {step.employee_name && ` · ${step.employee_name}`}
-                    {` · ${step.estimated_hours} soat`}
-                    {step.deadline && (
-                      <span
-                        style={
-                          step.status !== "completed" && new Date(step.deadline) < new Date()
-                            ? { color: "var(--danger)", fontWeight: 600 }
-                            : undefined
-                        }
+                <StatusBadge status={g.order_status} />
+              </span>
+            </button>
+            {isOpen && (
+              <div className="flex flex-col gap-2">
+                {g.steps.map((step) => (
+                  <div
+                    key={step.id}
+                    className="flex flex-wrap items-center gap-3 rounded-xl p-3"
+                    style={{ border: "1px solid var(--border)" }}
+                  >
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                      style={{
+                        background: `color-mix(in srgb, ${TASK_STATUS[step.status]?.color || "#8a8f98"} 16%, transparent)`,
+                        color: TASK_STATUS[step.status]?.color || "#8a8f98",
+                      }}
+                    >
+                      {step.awaiting_approval ? "Admin tasdig'ini kutmoqda" : step.status_display}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{step.name}</div>
+                      {step.cutting_instruction && (
+                        <div className="text-xs font-medium" style={{ color: "var(--brand)" }}>{step.cutting_instruction}</div>
+                      )}
+                      <div className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium" style={{ color: step.employee_name ? "var(--text)" : "var(--muted)" }}>
+                        <User size={11} /> {step.employee_name || "Hali usta biriktirilmagan"}
+                      </div>
+                      <div className="text-xs" style={{ color: "var(--muted)" }}>
+                        {step.role_display}
+                        {` · ${step.estimated_hours} soat`}
+                        {step.deadline && (
+                          <span
+                            style={
+                              step.status !== "completed" && new Date(step.deadline) < new Date()
+                                ? { color: "var(--danger)", fontWeight: 600 }
+                                : undefined
+                            }
+                          >
+                            {` · muddat: ${step.deadline}`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {step.status === "in_progress" && (
+                      step.photo_requirement === "required" ? (
+                        <span className="text-xs" style={{ color: "var(--muted)" }}>
+                          Yakunlash uchun rasm talab qilinadi (mobil ilovadan yuklang)
+                        </span>
+                      ) : step.comment_requirement === "required" ? (
+                        <span className="text-xs" style={{ color: "var(--muted)" }}>
+                          Yakunlash uchun izoh talab qilinadi (mobil ilovadan yozing)
+                        </span>
+                      ) : (
+                        <button
+                          className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
+                          disabled={busyId === step.id}
+                          onClick={() => complete(step)}
+                        >
+                          <Check size={12} /> Bajarildi
+                        </button>
+                      )
+                    )}
+                    {step.awaiting_approval && isManager && (
+                      <button
+                        className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
+                        style={{ background: TASK_STATUS.approved.color, color: "#fff" }}
+                        disabled={busyId === step.id}
+                        onClick={() => approve(step)}
                       >
-                        {` · muddat: ${step.deadline}`}
-                      </span>
+                        <Check size={12} /> Tasdiqlash
+                      </button>
+                    )}
+                    {step.status === "pending" && (
+                      isManager && step.is_available && !step.employee_name && step.open_applications_count > 0 ? (
+                        <ApplicantsControl step={step} onApproved={load} />
+                      ) : (
+                        <span className="text-xs" style={{ color: "var(--muted)" }}>
+                          {step.is_available && !step.employee_name ? "Navbatda (hali zayavka yo'q)" : "Navbatda"}
+                        </span>
+                      )
                     )}
                   </div>
-                </div>
-                {step.status === "in_progress" && (
-                  step.photo_requirement === "required" ? (
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      Yakunlash uchun rasm talab qilinadi (mobil ilovadan yuklang)
-                    </span>
-                  ) : step.comment_requirement === "required" ? (
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      Yakunlash uchun izoh talab qilinadi (mobil ilovadan yozing)
-                    </span>
-                  ) : (
-                    <button
-                      className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
-                      disabled={busyId === step.id}
-                      onClick={() => complete(step)}
-                    >
-                      <Check size={12} /> Bajarildi
-                    </button>
-                  )
-                )}
-                {step.awaiting_approval && isManager && (
-                  <button
-                    className="btn inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
-                    style={{ background: TASK_STATUS.approved.color, color: "#fff" }}
-                    disabled={busyId === step.id}
-                    onClick={() => approve(step)}
-                  >
-                    <Check size={12} /> Tasdiqlash
-                  </button>
-                )}
-                {step.status === "pending" && (
-                  isManager && step.is_available && !step.employee_name && step.open_applications_count > 0 ? (
-                    <ApplicantsControl step={step} onApproved={load} />
-                  ) : (
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>
-                      {step.is_available && !step.employee_name ? "Navbatda (hali zayavka yo'q)" : "Navbatda"}
-                    </span>
-                  )
-                )}
-                {isManager && step.status !== "cancelled" && (
-                  <button
-                    className="btn-danger !px-2.5 !py-1 text-xs"
-                    disabled={busyId === step.id}
-                    onClick={() => cancelStep(step)}
-                  >
-                    Bekor qilish
-                  </button>
-                )}
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
       <div className="flex justify-center">
         <LoadMoreButton next={nextPage} busy={loadingMore} onClick={loadMore} />
       </div>
