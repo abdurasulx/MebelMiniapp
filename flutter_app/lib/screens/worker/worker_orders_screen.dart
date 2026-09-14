@@ -169,7 +169,10 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
     }
   }
 
-  Future<void> _postProgress(WorkflowStepInstance step, {required bool complete}) async {
+  /// `true` — muvaffaqiyatli yuborildi (chaqiruvchi endi buyurtma tafsiloti
+  /// ekranini yopishi kerak). `false` — foydalanuvchi bekor qildi (bu holda
+  /// ekran ochiq qolishi kerak).
+  Future<bool> _postProgress(WorkflowStepInstance step, {required bool complete}) async {
     final commentController = TextEditingController();
     XFile? photo;
     // Izoh yozilganini kuzatish uchun — `commentController`ning o'zi
@@ -193,6 +196,11 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
           final canSubmit = !photoMissing && !commentMissing;
 
           Future<void> submit() async {
+            // Ikki marta ketma-ket bosilsa (tugma hali `submitting` holatiga
+            // o'tib ulgurmagan bitta freym ichida) ikkita so'rov/ikkita
+            // Navigator.pop chaqiruvi ketib, navigatsiya holati buzilishi
+            // mumkin edi — shu yerda ham qo'shimcha himoya.
+            if (submitting) return;
             // Klaviatura ochiq holda darhol yuklanish holatiga o'tsa,
             // klaviatura yopilishi bilan oynaning balandligi bir zumda
             // "sakrab" o'zgarardi — avval klaviaturani yopamiz.
@@ -331,6 +339,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
         ),
       );
     }
+    return confirmed == true;
   }
 
   @override
@@ -419,7 +428,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
 class _OrderCard extends StatelessWidget {
   final Order order;
   final List<WorkflowStepInstance> mySteps;
-  final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
+  final Future<bool> Function(WorkflowStepInstance, {required bool complete}) onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
   final Order? Function(String id) findOrder;
   final List<WorkflowStepInstance> Function(Order) findMySteps;
@@ -509,7 +518,7 @@ class _OrderCard extends StatelessWidget {
 class _OrderStepsScreen extends StatefulWidget {
   final Order order;
   final List<WorkflowStepInstance> mySteps;
-  final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
+  final Future<bool> Function(WorkflowStepInstance, {required bool complete}) onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
   // `_OrderStepsScreen` push qilingan alohida marshrut bo'lgani uchun
   // ro'yxat sahifasidagi `_load()` bu yerni AVTOMATIK qayta chizmaydi —
@@ -551,8 +560,14 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
   }
 
   Future<void> _onProgress(WorkflowStepInstance step, {required bool complete}) async {
-    await widget.onProgress(step, complete: complete);
+    final submitted = await widget.onProgress(step, complete: complete);
+    if (!submitted) return; // foydalanuvchi "Bekor" bosdi — ekran ochiq qoladi
+    // Hisobot ("Yangilash"/"Yakunlash") muvaffaqiyatli yuborilgach — avval
+    // ro'yxat (yuqorida, `_load()` orqali) qayta tartiblanadi, so'ng shu
+    // buyurtma tafsiloti ekrani AVTOMATIK yopiladi va usta ro'yxatga
+    // qaytadi (qo'lda orqaga bosishi shart emas).
     _refresh();
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> _onStart(WorkflowStepInstance step) async {
