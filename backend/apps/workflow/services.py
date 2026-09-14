@@ -8,14 +8,35 @@ from apps.notifications.services import notify_order_status, notify_pool_open, n
 from .models import StepStatus, WorkflowStepInstance
 
 
+def sync_order_status_on_step_start(order):
+    """Birinchi workflow bosqichi haqiqatan boshlanganda (PENDING ->
+    IN_PROGRESS) buyurtmani avtomatik "Ishlab chiqarilmoqda" holatiga
+    o'tkazadi — firma egasi buni qo'lda alohida belgilashini kutmaydi.
+    Aks holda bosqichlar bajarilib ketaveradi-yu, buyurtma "Kutilmoqda"da
+    osilib qolib, hech qachon (barcha bosqich tugagach ham) "Tayyor"ga
+    o'tmaydi — chunki `sync_order_status_on_step_completion` faqat
+    IN_PRODUCTION buyurtmalarni kuzatadi."""
+    from apps.orders.models import Order
+
+    if order.status not in (Order.Status.NEW, Order.Status.ACCEPTED):
+        return
+    order.status = Order.Status.IN_PRODUCTION
+    order.save(update_fields=["status", "updated_at"])
+    notify_order_status(order)
+
+
 def sync_order_status_on_step_completion(order):
     """Buyurtmaning barcha workflow bosqichlari tugagach, buyurtma statusini
     qo'lda "Tayyor" deb belgilashni kutmasdan avtomatik READY holatiga
     o'tkazadi — ishlab chiqarish avtomatlashtirishning bir qismi (ombor va
-    boshqa keyingi bosqichlar buyurtma real vaqtda qayerdaligini bilishi uchun)."""
+    boshqa keyingi bosqichlar buyurtma real vaqtda qayerdaligini bilishi
+    uchun). NEW/ACCEPTED ham qabul qilinadi — masalan barcha bosqichlar
+    (odatiy oqimdan tashqari, masalan admin panel orqali) IN_PRODUCTION'ga
+    hech qachon o'tkazilmasdan to'g'ridan-to'g'ri tugatilgan bo'lsa ham,
+    buyurtma "Kutilmoqda"da osilib qolmasin."""
     from apps.orders.models import Order
 
-    if order.status != Order.Status.IN_PRODUCTION:
+    if order.status not in (Order.Status.NEW, Order.Status.ACCEPTED, Order.Status.IN_PRODUCTION):
         return
     steps = order.workflow_steps.filter(is_deleted=False)
     if not steps.exists():

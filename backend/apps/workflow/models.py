@@ -334,6 +334,10 @@ class WorkflowStepInstance(BaseModel):
             self.status = StepStatus.IN_PROGRESS
             self.started_at = timezone.now()
             self.save(update_fields=["status", "started_at", "updated_at"])
+            if self.order_id:
+                from .services import sync_order_status_on_step_start
+
+                sync_order_status_on_step_start(self.order)
 
     def activate_dependents(self):
         """`required_by` orasida shu bosqich tugashi bilan boshlanishga tayyor
