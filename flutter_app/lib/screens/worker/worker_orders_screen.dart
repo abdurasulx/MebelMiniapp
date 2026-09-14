@@ -176,139 +176,151 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
     // StatefulBuilder'ni qayta chizishga majburlamaydi, shuning uchun
     // holatni alohida o'zgaruvchida (setDialogState orqali) saqlaymiz.
     var hasComment = false;
+    // "Yuborish" bosilgach avval oyna DARHOL yopilib, so'rov orqa fonda
+    // ko'rinmas holda ketardi — natija ko'rinmagani uchun usta ikkinchi
+    // marta bosib yuborishi mumkin edi. Endi oyna ochiq qoladi, shaklning
+    // o'rniga dumaloq yuklanish belgisi ko'rsatiladi, so'ng — FAQAT
+    // buyurtmalar ro'yxati qayta yuklanganidan KEYIN — oyna yopiladi.
+    var submitting = false;
+    String? submitError;
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final photoMissing = complete && step.photoRequirement == 'required' && photo == null;
           final commentMissing = complete && step.commentRequirement == 'required' && !hasComment;
           final canSubmit = !photoMissing && !commentMissing;
+
+          Future<void> submit() async {
+            setDialogState(() {
+              submitting = true;
+              submitError = null;
+            });
+            try {
+              await ApiClient.instance.postMultipart(
+                '/workflow-instances/${step.id}/${complete ? 'complete' : 'progress'}/',
+                (j) => j,
+                fields: {
+                  if (commentController.text.isNotEmpty) 'comment': commentController.text,
+                },
+                imageFieldName: photo != null ? 'image' : null,
+                imagePath: photo?.path,
+                auth: true,
+              );
+              // Avval ro'yxatni yangilab, SO'NG oynani yopamiz — aks holda
+              // oyna yopilgach ekran hali eski holatni ko'rsatib turgan
+              // lahza (miltillash) bo'lardi.
+              await _load();
+              if (ctx.mounted) Navigator.pop(ctx, true);
+            } catch (e) {
+              setDialogState(() {
+                submitting = false;
+                submitError = e.toString();
+              });
+            }
+          }
+
           return AlertDialog(
             title: Text(complete ? 'Bosqichni yakunlash' : 'Yangilanish qo\'shish'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: commentController,
-                  decoration: InputDecoration(
-                    labelText: complete && step.commentRequirement == 'required'
-                        ? 'Izoh (majburiy)'
-                        : 'Izoh (ixtiyoriy)',
-                  ),
-                  maxLines: 3,
-                  onChanged: (v) => setDialogState(() => hasComment = v.trim().isNotEmpty),
-                ),
-                const SizedBox(height: 10),
-                // Ogohlantirish faqat talab HALI QONDIRILMAGAN bo'lsa
-                // ko'rsatiladi — avval izoh/rasm kiritilgandan keyin ham
-                // doimiy ko'rinib, foydalanuvchini chalg'itadigan xato bor edi.
-                if (commentMissing)
-                  Text(
-                    'Bu bosqichni yakunlash uchun izoh majburiy',
-                    style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
-                  ),
-                if (photoMissing)
-                  Text(
-                    'Bu bosqichni yakunlash uchun rasm majburiy',
-                    style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
-                  ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final picked = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 85);
-                        if (picked != null) setDialogState(() => photo = picked);
-                      },
-                      icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                      label: Text(photo == null ? 'Rasm olish' : 'Qayta olish'),
+            content: submitting
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 28),
+                    child: Center(
+                      child: Opacity(opacity: 0.75, child: CircularProgressIndicator()),
                     ),
-                    // Rasm olingach oldingi holatda faqat "✓" belgisi
-                    // ko'rinardi — olingan rasmning o'zi ko'rinmagani uchun
-                    // foydalanuvchi haqiqatan biriktirilganiga ishonchi
-                    // komil bo'lmasdi. Endi kichik ko'rinish (thumbnail)
-                    // aniq tasdiqlaydi.
-                    if (photo != null) ...[
-                      const SizedBox(width: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          File(photo!.path),
-                          width: 44,
-                          height: 44,
-                          fit: BoxFit.cover,
+                  )
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: commentController,
+                        decoration: InputDecoration(
+                          labelText: complete && step.commentRequirement == 'required'
+                              ? 'Izoh (majburiy)'
+                              : 'Izoh (ixtiyoriy)',
                         ),
+                        maxLines: 3,
+                        onChanged: (v) => setDialogState(() => hasComment = v.trim().isNotEmpty),
+                      ),
+                      const SizedBox(height: 10),
+                      // Ogohlantirish faqat talab HALI QONDIRILMAGAN bo'lsa
+                      // ko'rsatiladi — avval izoh/rasm kiritilgandan keyin ham
+                      // doimiy ko'rinib, foydalanuvchini chalg'itadigan xato bor edi.
+                      if (commentMissing)
+                        Text(
+                          'Bu bosqichni yakunlash uchun izoh majburiy',
+                          style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                        ),
+                      if (photoMissing)
+                        Text(
+                          'Bu bosqichni yakunlash uchun rasm majburiy',
+                          style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                        ),
+                      if (submitError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            submitError!,
+                            style: TextStyle(color: Theme.of(ctx).colorScheme.error, fontSize: 12),
+                          ),
+                        ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final picked = await ImagePicker().pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 85);
+                              if (picked != null) setDialogState(() => photo = picked);
+                            },
+                            icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                            label: Text(photo == null ? 'Rasm olish' : 'Qayta olish'),
+                          ),
+                          // Rasm olingach oldingi holatda faqat "✓" belgisi
+                          // ko'rinardi — olingan rasmning o'zi ko'rinmagani uchun
+                          // foydalanuvchi haqiqatan biriktirilganiga ishonchi
+                          // komil bo'lmasdi. Endi kichik ko'rinish (thumbnail)
+                          // aniq tasdiqlaydi.
+                          if (photo != null) ...[
+                            const SizedBox(width: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                File(photo!.path),
+                                width: 44,
+                                height: 44,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
+                  ),
+            actions: submitting
+                ? const []
+                : [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Bekor')),
+                    // Talablar qondirilmaguncha tugma o'chirilgan — foydalanuvchi
+                    // "Yuborish"ni bosib, keyin rad javobi olishi (reaktiv xato)
+                    // o'rniga, oldindan aniq ko'radi nima yetishmayotganini.
+                    ElevatedButton(
+                      onPressed: canSubmit ? submit : null,
+                      child: const Text('Yuborish'),
+                    ),
                   ],
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Bekor')),
-              // Talablar qondirilmaguncha tugma o'chirilgan — foydalanuvchi
-              // "Yuborish"ni bosib, keyin rad javobi olishi (reaktiv xato)
-              // o'rniga, oldindan aniq ko'radi nima yetishmayotganini.
-              ElevatedButton(
-                onPressed: canSubmit ? () => Navigator.pop(ctx, true) : null,
-                child: const Text('Yuborish'),
-              ),
-            ],
           );
         },
       ),
     );
-    if (confirmed != true) return;
-    if (complete && step.photoRequirement == 'required' && photo == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bu bosqich uchun rasm majburiy')),
-        );
-      }
-      return;
-    }
-    if (complete && step.commentRequirement == 'required' && commentController.text.trim().isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bu bosqich uchun izoh majburiy')),
-        );
-      }
-      return;
-    }
-    try {
-      await ApiClient.instance.postMultipart(
-        '/workflow-instances/${step.id}/${complete ? 'complete' : 'progress'}/',
-        (j) => j,
-        fields: {
-          if (commentController.text.isNotEmpty) 'comment': commentController.text,
-        },
-        imageFieldName: photo != null ? 'image' : null,
-        imagePath: photo?.path,
-        auth: true,
+    if (confirmed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(complete ? 'Bosqich yakunlandi ✓' : 'Yangilanish yuborildi ✓'),
+          backgroundColor: Colors.green,
+        ),
       );
-      await _load();
-      // Avval muvaffaqiyatli yuborilgandan keyin hech qanday tasdiq
-      // ko'rsatilmasdi — usta natijani faqat ro'yxat/holat o'zgarishidan
-      // (agar sezsa) bilardi. Endi aniq tasdiq xabari chiqadi.
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(complete ? 'Bosqich yakunlandi ✓' : 'Yangilanish yuborildi ✓'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            duration: const Duration(seconds: 6),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
     }
   }
 
