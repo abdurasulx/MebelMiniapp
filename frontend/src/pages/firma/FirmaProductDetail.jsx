@@ -775,7 +775,7 @@ function VariantsTab({ product: p, onDone }) {
                     </button>
                   </div>
                 </div>
-                <Row label="Narx (m³)">
+                <Row label="Narx">
                   {v.discount_active ? (
                     <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       <span style={{ textDecoration: "line-through", color: ENT.muted, fontSize: 12 }}>
@@ -829,7 +829,7 @@ function VariantsTab({ product: p, onDone }) {
             <input className="input" value={variant.name} onChange={(e) => setVariant({ ...variant, name: e.target.value })} required />
           </div>
           <div style={{ minWidth: 150 }}>
-            <label className="label">Narx (1 m³, so'm)</label>
+            <label className="label">Narx (so'm)</label>
             <input className="input" type="number" min="0" value={variant.base_price} onChange={(e) => setVariant({ ...variant, base_price: e.target.value })} required />
           </div>
           <div style={{ minWidth: 220 }}>
@@ -908,7 +908,7 @@ function VariantEditForm({ productId, variant, onDone, onClose }) {
         <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
       </div>
       <div style={{ minWidth: 130 }}>
-        <label className="label">Narx (1 m³, so'm)</label>
+        <label className="label">Narx (so'm)</label>
         <input className="input" type="number" min="0" value={form.base_price} onChange={(e) => setForm({ ...form, base_price: e.target.value })} required />
       </div>
       <div>
@@ -921,7 +921,7 @@ function VariantEditForm({ productId, variant, onDone, onClose }) {
       </div>
       <div style={{ width: "100%", marginTop: 4, paddingTop: 10, borderTop: `1px dashed ${ENT.border}`, display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 10 }}>
         <div style={{ minWidth: 130 }}>
-          <label className="label">Tannarx (1 m³, ixtiyoriy)</label>
+          <label className="label">Tannarx (ixtiyoriy)</label>
           <input className="input" type="number" min="0" placeholder="—"
             value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: e.target.value })} />
         </div>

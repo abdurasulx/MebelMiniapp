@@ -212,8 +212,8 @@ export default function ProductDetail() {
                     {p.variants.map((v) => (
                       <option key={v.id} value={v.id}>
                         {v.name} — {v.discount_active
-                          ? `${Number(v.effective_base_price).toLocaleString()} so'm/m³ (-${Number(v.discount_percent)}%)`
-                          : `${Number(v.base_price).toLocaleString()} so'm/m³`}
+                          ? `${Number(v.effective_base_price).toLocaleString()} so'm (-${Number(v.discount_percent)}%)`
+                          : `${Number(v.base_price).toLocaleString()} so'm`}
                         {(v.model3d?.glb_url || p.model3d?.glb_url) ? " · AR" : ""}
                       </option>
                     ))}

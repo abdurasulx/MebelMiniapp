@@ -1,7 +1,7 @@
-/// Katalog/Sevimlilar kartalarida "N so'm/m³ dan" narxini ko'rsatadi —
+/// Katalog/Sevimlilar kartalarida "N so'm dan" narxini ko'rsatadi —
 /// birinchi variant chegirmasi faol bo'lsa, eski narx chizib qo'yilgan
 /// holda va chegirma foizi bilan birga ko'rsatiladi.
-export default function PriceTag({ variant, suffix = "/m³ dan" }) {
+export default function PriceTag({ variant, suffix = " dan" }) {
   if (!variant) return null;
   if (variant.discount_active) {
     return (
