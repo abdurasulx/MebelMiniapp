@@ -41,6 +41,17 @@ struct ProductDetailView: View {
         return product?.model3d
     }
 
+    // Ko'rsatiladigan o'lcham — variantning qo'lda kiritiladigan (hozir
+    // doim standart 1x1x1 bo'lib qolgan) maydonidan emas, 3D model
+    // faylining o'zidan (geometriyadan) hisoblangan haqiqiy o'lchamdan
+    // (`bbox_*`) olinadi; narx/AR hisob-kitobi esa hamon variant qiymatiga
+    // (`width`/`height`/`depth` holat o'zgaruvchilari) asoslanadi — ular
+    // shu yerda o'zgartirilmaydi, faqat KO'RSATILADIGAN matn boshqa manbadan.
+    private func displayDim(_ bbox: Double?, fallback: String) -> String {
+        guard let bbox else { return fallback }
+        return String(format: "%.2f", bbox)
+    }
+
     private var arScaleFactors: SIMD3<Float> {
         guard let variant = selectedVariant,
               let w = Double(width), let h = Double(height), let d = Double(depth),
@@ -145,9 +156,9 @@ struct ProductDetailView: View {
                             // saqlangan standart o'lcham shunchaki ko'rsatiladi
                             // (narx shu bilan qat'iy, mijoz o'zgartira olmaydi).
                             HStack(spacing: 12) {
-                                dimLabel(locale.t("product_dim_width"), width)
-                                dimLabel(locale.t("product_dim_height"), height)
-                                dimLabel(locale.t("product_dim_depth"), depth)
+                                dimLabel(locale.t("product_dim_width"), displayDim(activeModel3d?.bboxWidthValue, fallback: width))
+                                dimLabel(locale.t("product_dim_height"), displayDim(activeModel3d?.bboxHeightValue, fallback: height))
+                                dimLabel(locale.t("product_dim_depth"), displayDim(activeModel3d?.bboxDepthValue, fallback: depth))
                             }
 
                             Stepper("\(locale.t("product_qty_label")): \(quantity)", value: $quantity, in: 1...50)

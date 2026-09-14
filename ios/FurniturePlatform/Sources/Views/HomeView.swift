@@ -24,7 +24,7 @@ enum SortOption: String, CaseIterable, Identifiable {
 }
 
 /// Bosh sahifa — endi alohida "Katalog" tabi yo'q, bu ekranning o'zi
-/// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha), viloyat/
+/// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha),
 /// saralash/AR filtri, kategoriya bo'yicha filtr, kolleksiyalar/ommabop
 /// mahsulotlar bannerlari va to'liq mahsulotlar to'ri — bittagina umumiy
 /// holat (`products`/`categories`/filtrlar) asosida, ikkita alohida
@@ -37,7 +37,6 @@ enum SortOption: String, CaseIterable, Identifiable {
 /// qaytganda ham saqlanib qoladi, qayta yuklanmaydi.
 struct HomeView: View {
     @EnvironmentObject private var likes: LikesStore
-    @EnvironmentObject private var location: LocationStore
     @EnvironmentObject private var locale: LocaleStore
     @State private var products: [Product] = []
     @State private var categories: [Category] = []
@@ -50,7 +49,6 @@ struct HomeView: View {
     @State private var sort: SortOption = .popular
     @State private var onlyWithAR = false
     @State private var showFilters = false
-    @State private var showViloyatPicker = false
 
     @State private var imageResults: [Product]?
     @State private var isImageSearching = false
@@ -147,15 +145,7 @@ struct HomeView: View {
                 }
                 .refreshable { await load() }
                 .onChange(of: sort) { _, _ in Task { await load() } }
-                .onChange(of: location.viloyat) { _, _ in Task { await load() } }
                 .sheet(isPresented: $showFilters) { filterSheet }
-                .confirmationDialog(locale.t("home_viloyat_title"), isPresented: $showViloyatPicker, titleVisibility: .visible) {
-                    Button(locale.t("home_viloyat_all")) { location.setViloyat(nil) }
-                    Button("📍 \(locale.t("home_gps_detect"))") { location.detectFromGps() }
-                    ForEach(viloyatlar) { v in
-                        Button(v.label) { location.setViloyat(v.code) }
-                    }
-                }
             }
         }
     }
@@ -191,7 +181,6 @@ struct HomeView: View {
 
     private var toolbarRow: some View {
         HStack(spacing: 8) {
-            viloyatChip
             Spacer()
             if imageResults == nil {
                 sortMenu
@@ -204,26 +193,6 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal)
-    }
-
-    private var viloyatChip: some View {
-        Button {
-            showViloyatPicker = true
-        } label: {
-            HStack(spacing: 6) {
-                if location.status == .loading {
-                    ProgressView().controlSize(.mini)
-                } else {
-                    Image(systemName: "mappin.circle.fill")
-                }
-                Text(location.viloyatLabelText).font(.caption).bold()
-                Image(systemName: "chevron.down").font(.caption2)
-            }
-            .padding(.horizontal, 12).padding(.vertical, 7)
-            .background(Color(.secondarySystemBackground))
-            .foregroundStyle(.primary)
-            .clipShape(Capsule())
-        }
     }
 
     private var sortMenu: some View {
@@ -427,12 +396,6 @@ struct HomeView: View {
         errorMessage = nil
         isOffline = false
         var params: [String] = []
-        if let lat = location.lat, let lng = location.lng {
-            params.append("lat=\(lat)")
-            params.append("lng=\(lng)")
-        } else if let viloyat = location.viloyat {
-            params.append("viloyat=\(viloyat)")
-        }
         if sort == .top {
             params.append("ordering=top")
         }

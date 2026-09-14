@@ -4,16 +4,14 @@ import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../likes_store.dart';
 import '../locale_store.dart';
-import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
-import '../viloyat.dart';
 import '../widgets/offline_view.dart';
 import '../widgets/product_card.dart';
 
 /// Bosh sahifa — endi alohida "Katalog" tabi yo'q, bu ekranning o'zi
-/// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha), viloyat/
-/// "Top" filtri, kategoriya bo'yicha filtr, kolleksiyalar/ommabop
+/// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha), "Top"
+/// filtri, kategoriya bo'yicha filtr, kolleksiyalar/ommabop
 /// mahsulotlar bannerlari va to'liq mahsulotlar to'ri — bittagina umumiy
 /// holat (`_products`/`_categories`/filtrlar) asosida, ikkita alohida
 /// so'rov/state o'rniga (avval Katalog alohida tab bo'lib, xuddi shu
@@ -67,12 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _error = null;
     });
     try {
-      final location = context.read<LocationStore>();
       final params = <String, String>{
-        if (location.lat != null && location.lng != null) ...{
-          'lat': location.lat!.toString(),
-          'lng': location.lng!.toString(),
-        } else if (location.viloyat != null) 'viloyat': location.viloyat!,
         if (_topOnly) 'ordering': 'top',
       };
       final query = params.isEmpty
@@ -136,52 +129,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedCategorySlug != null ||
       _imageResults != null ||
       _imageSearching;
-
-  Future<void> _pickViloyat() async {
-    final location = context.read<LocationStore>();
-    final loc = context.read<LocaleStore>();
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      builder: (ctx) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              title: Text(loc.t('home_all'), style: const TextStyle(color: AppColors.deep)),
-              trailing: location.viloyat == null && location.lat == null
-                  ? const Icon(Icons.check, color: AppColors.deep)
-                  : null,
-              onTap: () => Navigator.pop(ctx, '__all__'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.my_location_rounded, color: AppColors.deep),
-              title: Text(loc.t('home_gps_detect'), style: const TextStyle(color: AppColors.deep)),
-              onTap: () => Navigator.pop(ctx, '__gps__'),
-            ),
-            for (final v in viloyatlar)
-              ListTile(
-                title: Text(v.label, style: const TextStyle(color: AppColors.deep)),
-                trailing: location.viloyat == v.code
-                    ? const Icon(Icons.check, color: AppColors.deep)
-                    : null,
-                onTap: () => Navigator.pop(ctx, v.code),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (choice == null) return;
-    if (choice == '__gps__') {
-      await location.detectFromGps();
-    } else if (choice == '__all__') {
-      await location.setViloyat(null);
-    } else {
-      await location.setViloyat(choice);
-    }
-    if (mounted) _load();
-  }
 
   Future<void> _pickAndSearchByImage() async {
     final loc = context.read<LocaleStore>();
@@ -255,7 +202,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return Scaffold(body: SafeArea(child: OfflineView(onRetry: _load)));
     }
 
-    final location = context.watch<LocationStore>();
     final loc = context.watch<LocaleStore>();
 
     return Scaffold(
@@ -266,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.only(bottom: 24, top: 8),
             children: [
               _searchBar(loc),
-              _filterChips(location, loc),
+              _filterChips(loc),
               if (_error != null && !OfflineView.isNetworkError(_error))
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -350,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _filterChips(LocationStore location, LocaleStore loc) {
+  Widget _filterChips(LocaleStore loc) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: SizedBox(
@@ -359,20 +305,6 @@ class _HomeScreenState extends State<HomeScreen> {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
-            ActionChip(
-              avatar: location.status == LocationStatus.loading
-                  ? const SizedBox(
-                      width: 14, height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.place_rounded, size: 16, color: AppColors.deep),
-              label: Text(
-                location.viloyatLabelText(loc),
-                style: const TextStyle(color: AppColors.deep, fontWeight: FontWeight.w600, fontSize: 12.5),
-              ),
-              onPressed: _pickViloyat,
-            ),
-            const SizedBox(width: 8),
             ChoiceChip(
               avatar: Icon(
                 Icons.trending_up_rounded,

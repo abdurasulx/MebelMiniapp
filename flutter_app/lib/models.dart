@@ -133,9 +133,33 @@ class Model3D {
   final String? glbUrl;
   final String? usdzUrl;
   final String? status;
-  Model3D({this.glbUrl, this.usdzUrl, this.status});
-  factory Model3D.fromJson(Map<String, dynamic> j) =>
-      Model3D(glbUrl: j['glb_url'], usdzUrl: j['usdz_url'], status: j['status']);
+  // Model faylining o'zidan (geometriyadan) avtomatik hisoblangan haqiqiy
+  // o'lcham (backend `apps/assets/geometry.py::extract_bbox`) — `Variant.width/
+  // height/depth`dan farqli, bu qo'lda kiritiladigan/o'zgartiriladigan
+  // maydon emas, doim 3D modelning o'ziga mos keladi.
+  final String? bboxWidth;
+  final String? bboxHeight;
+  final String? bboxDepth;
+  Model3D({
+    this.glbUrl,
+    this.usdzUrl,
+    this.status,
+    this.bboxWidth,
+    this.bboxHeight,
+    this.bboxDepth,
+  });
+  factory Model3D.fromJson(Map<String, dynamic> j) => Model3D(
+    glbUrl: j['glb_url'],
+    usdzUrl: j['usdz_url'],
+    status: j['status'],
+    bboxWidth: j['bbox_width']?.toString(),
+    bboxHeight: j['bbox_height']?.toString(),
+    bboxDepth: j['bbox_depth']?.toString(),
+  );
+
+  double? get bboxWidthValue => bboxWidth != null ? double.tryParse(bboxWidth!) : null;
+  double? get bboxHeightValue => bboxHeight != null ? double.tryParse(bboxHeight!) : null;
+  double? get bboxDepthValue => bboxDepth != null ? double.tryParse(bboxDepth!) : null;
 }
 
 class CompanyTier {
@@ -301,16 +325,23 @@ class Product {
   });
 
   /// Kartochkada nomdan keyin ko'rsatiladigan qisqa xususiyat qatori —
-  /// masalan "kulrang · 60×90×60 sm" (rang avtomatik aniqlangan, o'lcham
-  /// birinchi variantdan, metrdan santimetrga o'tkazilib).
+  /// masalan "kulrang · 60×90×60 sm" (rang avtomatik aniqlangan). O'lcham
+  /// endi variantning qo'lda kiritiladigan (hozir doim standart 1x1x1
+  /// bo'lib qolgan) maydonidan emas — 3D model faylining o'zidan
+  /// (geometriyadan) hisoblangan haqiqiy o'lchamdan (`bbox_*`) olinadi,
+  /// model hali tayyor bo'lmasa variantning o'z qiymatiga tushamiz.
   String? get attributeSummary {
     final parts = <String>[];
     if (colorTag != null && colorTag!.isNotEmpty) parts.add(colorTag!);
     if (variants.isNotEmpty) {
       final v = variants.first;
-      final w = (v.widthValue * 100).round();
-      final h = (v.heightValue * 100).round();
-      final d = (v.depthValue * 100).round();
+      final activeModel = v.model3d ?? model3d;
+      final wv = activeModel?.bboxWidthValue ?? v.widthValue;
+      final hv = activeModel?.bboxHeightValue ?? v.heightValue;
+      final dv = activeModel?.bboxDepthValue ?? v.depthValue;
+      final w = (wv * 100).round();
+      final h = (hv * 100).round();
+      final d = (dv * 100).round();
       if (w > 1 && h > 1 && d > 1) parts.add('$w×$h×$d sm');
     }
     return parts.isEmpty ? null : parts.join(' · ');

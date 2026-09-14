@@ -225,14 +225,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
   Widget _characteristicsTab(Product p, LocaleStore loc) {
     final v = _selectedVariant;
+    // O'lcham endi variantda qo'lda kiritiladigan (va hozir doim standart
+    // 1x1x1 bo'lib qolgan) maydondan emas — 3D model faylining o'zidan
+    // (geometriyadan) avtomatik hisoblangan haqiqiy o'lchamdan (`bbox_*`)
+    // olinadi, shunda ko'rsatilgan raqam har doim ko'rinayotgan modelga
+    // mos keladi. Model hali tayyor bo'lmasa (yuklanmagan/processing),
+    // variantning o'z qiymatiga tushamiz.
+    final model = _activeModel3d;
+    final w = model?.bboxWidthValue ?? v?.widthValue;
+    final h = model?.bboxHeightValue ?? v?.heightValue;
+    final d = model?.bboxDepthValue ?? v?.depthValue;
     final rows = <(String, String)>[
       if (p.categoryName != null) (loc.t('product_char_category'), p.categoryName!),
       (loc.t('product_char_company'), p.companyName),
       if (v != null) (loc.t('product_char_material'), v.name),
-      if (v != null)
+      if (w != null && h != null && d != null)
         (
           loc.t('product_char_size'),
-          '${(v.widthValue * 100).round()}×${(v.heightValue * 100).round()}×${(v.depthValue * 100).round()} sm',
+          '${(w * 100).round()}×${(h * 100).round()}×${(d * 100).round()} sm',
         ),
       if (p.colorTag?.isNotEmpty == true) (loc.t('product_char_color'), p.colorTag!),
     ];

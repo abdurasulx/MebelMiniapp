@@ -103,6 +103,17 @@ struct Model3D: Codable {
     let usdzUrl: String?
     let status: String
     let statusDisplay: String
+    // Model faylining o'zidan (geometriyadan) avtomatik hisoblangan haqiqiy
+    // o'lcham (backend `apps/assets/geometry.py::extract_bbox`) — `Variant.width/
+    // height/depth`dan farqli, bu qo'lda kiritiladigan/o'zgartiriladigan
+    // maydon emas, doim 3D modelning o'ziga mos keladi.
+    let bboxWidth: String?
+    let bboxHeight: String?
+    let bboxDepth: String?
+
+    var bboxWidthValue: Double? { bboxWidth.flatMap(Double.init) }
+    var bboxHeightValue: Double? { bboxHeight.flatMap(Double.init) }
+    var bboxDepthValue: Double? { bboxDepth.flatMap(Double.init) }
 }
 
 struct CompanyTier: Codable {
@@ -198,11 +209,20 @@ struct Product: Codable, Identifiable {
     var attributeSummary: String? {
         var parts: [String] = []
         if let colorTag, !colorTag.isEmpty { parts.append(colorTag) }
-        if let v = variants.first {
-            let w = Int((v.widthValue * 100).rounded())
-            let h = Int((v.heightValue * 100).rounded())
-            let d = Int((v.depthValue * 100).rounded())
-            if w > 1, h > 1, d > 1 { parts.append("\(w)×\(h)×\(d) sm") }
+        // O'lcham endi variantning qo'lda kiritiladigan (hozir doim standart
+        // 1x1x1 bo'lib qolgan) maydonidan emas — 3D model faylining o'zidan
+        // (geometriyadan) hisoblangan haqiqiy o'lchamdan (`bbox_*`) olinadi,
+        // model hali tayyor bo'lmasa variantning o'z qiymatiga tushamiz.
+        let model = variants.first?.model3d ?? model3d
+        let v = variants.first
+        let w = model?.bboxWidthValue ?? v?.widthValue
+        let h = model?.bboxHeightValue ?? v?.heightValue
+        let d = model?.bboxDepthValue ?? v?.depthValue
+        if let w, let h, let d {
+            let wi = Int((w * 100).rounded())
+            let hi = Int((h * 100).rounded())
+            let di = Int((d * 100).rounded())
+            if wi > 1, hi > 1, di > 1 { parts.append("\(wi)×\(hi)×\(di) sm") }
         }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
