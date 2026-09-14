@@ -328,7 +328,10 @@ class ApiClient {
         }).join('; ');
       }
     } catch (_) {}
-    return 'Xatolik ($statusCode)';
+    // Body JSON emas (masalan noto'g'ri host/proxy xatosida server oddiy
+    // HTML sahifa qaytarishi mumkin) — foydalanuvchiga xom status kodi
+    // o'rniga hech bo'lmasa nima qilish kerakligini aytamiz.
+    return 'Server xatosi ($statusCode) — birozdan keyin qayta urinib ko\'ring';
   }
 
   /// `true` — yangilandi. `false` — refresh tokeni haqiqatan ham yaroqsiz

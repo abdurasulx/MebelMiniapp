@@ -58,6 +58,8 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
             mySteps: _myStepsFor(order),
             onProgress: _postProgress,
             onStart: _startTask,
+            findOrder: _findOrder,
+            findMySteps: _myStepsFor,
           ),
         ),
       );
@@ -103,6 +105,19 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
   List<WorkflowStepInstance> _myStepsFor(Order order) =>
       _myTasks.where((t) => t.order == order.id).toList();
 
+  /// `_OrderStepsScreen` alohida marshrut sifatida ochilgani uchun harakat
+  /// (progress/complete) bajarilgandan keyin — bu yerdagi `_load()` ro'yxatni
+  /// yangilasa ham — o'sha ekran o'zining ESKI (push qilinganda olingan)
+  /// `order`/`mySteps` nusxasini ko'rsatishda davom etardi (chiqib-kirmasdan
+  /// yangilanmasdi). Shu funksiya orqali harakatdan keyin ENG YANGI
+  /// buyurtmani qidirib topib beradi.
+  Order? _findOrder(String id) {
+    for (final o in _orders) {
+      if (o.id == id) return o;
+    }
+    return null;
+  }
+
   /// Buyurtma ro'yxatda ko'rsatilishi uchun — MENING bosqichlarimdan
   /// kamida bittasi HOZIR harakat qilinadigan bo'lishi kerak (navbatim
   /// kelgan yoki allaqachon boshlanган). Aks holda (bosqichim allaqachon
@@ -136,9 +151,20 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
         );
       }
       await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bosqich qabul qilindi ✓'), backgroundColor: Colors.green),
+        );
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            duration: const Duration(seconds: 6),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
@@ -262,9 +288,26 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
         auth: true,
       );
       await _load();
+      // Avval muvaffaqiyatli yuborilgandan keyin hech qanday tasdiq
+      // ko'rsatilmasdi — usta natijani faqat ro'yxat/holat o'zgarishidan
+      // (agar sezsa) bilardi. Endi aniq tasdiq xabari chiqadi.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(complete ? 'Bosqich yakunlandi ✓' : 'Yangilanish yuborildi ✓'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            duration: const Duration(seconds: 6),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
@@ -338,6 +381,8 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                           mySteps: _myStepsFor(order),
                           onProgress: _postProgress,
                           onStart: _startTask,
+                          findOrder: _findOrder,
+                          findMySteps: _myStepsFor,
                         ),
                     ],
                   ),
@@ -355,11 +400,15 @@ class _OrderCard extends StatelessWidget {
   final List<WorkflowStepInstance> mySteps;
   final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
+  final Order? Function(String id) findOrder;
+  final List<WorkflowStepInstance> Function(Order) findMySteps;
   const _OrderCard({
     required this.order,
     required this.mySteps,
     required this.onProgress,
     required this.onStart,
+    required this.findOrder,
+    required this.findMySteps,
   });
 
   /// Karta sarlavhasi — avval telefon raqami bo'lib, qaysi mahsulot
@@ -386,6 +435,8 @@ class _OrderCard extends StatelessWidget {
               mySteps: mySteps,
               onProgress: onProgress,
               onStart: onStart,
+              findOrder: findOrder,
+              findMySteps: findMySteps,
             ),
           ),
         ),
@@ -434,20 +485,64 @@ class _OrderCard extends StatelessWidget {
 /// bosqichlar tarixi), farqi: FAQAT MENGA biriktirilgan bosqichlarda
 /// harakat (Boshlash/Yangilash/Yakunlash) tugmalari ko'rinadi — boshqa
 /// ustalarning bosqichlari shu yerda faqat holat sifatida ko'rsatiladi.
-class _OrderStepsScreen extends StatelessWidget {
+class _OrderStepsScreen extends StatefulWidget {
   final Order order;
   final List<WorkflowStepInstance> mySteps;
   final Future<void> Function(WorkflowStepInstance, {required bool complete}) onProgress;
   final Future<void> Function(WorkflowStepInstance) onStart;
+  // `_OrderStepsScreen` push qilingan alohida marshrut bo'lgani uchun
+  // ro'yxat sahifasidagi `_load()` bu yerni AVTOMATIK qayta chizmaydi —
+  // harakatdan keyin eng yangi order/bosqichlarni shular orqali qidirib
+  // topib, mahalliy holatni qo'lda yangilaymiz (qarang `_refresh`).
+  final Order? Function(String id) findOrder;
+  final List<WorkflowStepInstance> Function(Order) findMySteps;
   const _OrderStepsScreen({
     required this.order,
     required this.mySteps,
     required this.onProgress,
     required this.onStart,
+    required this.findOrder,
+    required this.findMySteps,
   });
 
   @override
+  State<_OrderStepsScreen> createState() => _OrderStepsScreenState();
+}
+
+class _OrderStepsScreenState extends State<_OrderStepsScreen> {
+  late Order _order;
+  late List<WorkflowStepInstance> _mySteps;
+
+  @override
+  void initState() {
+    super.initState();
+    _order = widget.order;
+    _mySteps = widget.mySteps;
+  }
+
+  void _refresh() {
+    final fresh = widget.findOrder(_order.id);
+    if (fresh == null || !mounted) return;
+    setState(() {
+      _order = fresh;
+      _mySteps = widget.findMySteps(fresh);
+    });
+  }
+
+  Future<void> _onProgress(WorkflowStepInstance step, {required bool complete}) async {
+    await widget.onProgress(step, complete: complete);
+    _refresh();
+  }
+
+  Future<void> _onStart(WorkflowStepInstance step) async {
+    await widget.onStart(step);
+    _refresh();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final order = _order;
+    final mySteps = _mySteps;
     final myStepIds = mySteps.map((s) => s.id).toSet();
     // Ko'p vazifa buyurtmaga bog'liq bo'lmasligi mumkin (qo'lda qo'shilgan) —
     // shunda `order.workflowSteps` bo'sh bo'ladi, faqat mySteps ko'rsatiladi.
@@ -511,8 +606,8 @@ class _OrderStepsScreen extends StatelessWidget {
             (step) => _StepTile(
               step: step,
               isMine: myStepIds.contains(step.id),
-              onProgress: onProgress,
-              onStart: onStart,
+              onProgress: _onProgress,
+              onStart: _onStart,
             ),
           ),
         ],
