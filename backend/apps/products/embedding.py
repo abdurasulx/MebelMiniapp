@@ -120,30 +120,41 @@ def _ensure_collection():
 
 def upsert_product_embedding(product):
     """Mahsulot rasmini embedding qilib Qdrant'ga saqlaydi (yoki rasm
-    yo'q/o'chirilgan bo'lsa, mavjud yozuvni o'chiradi)."""
-    if not product.image or product.is_deleted:
-        delete_product_embedding(product.id)
-        return
-    embedding = compute_embedding(product.image)
-    if embedding is None:
-        return
-    from qdrant_client.models import PointStruct
+    yo'q/o'chirilgan bo'lsa, mavjud yozuvni o'chiradi).
 
-    _ensure_collection()
-    client = get_qdrant_client()
-    client.upsert(
-        collection_name=COLLECTION_NAME,
-        points=[
-            PointStruct(
-                id=str(product.id),
-                vector=embedding,
-                payload={
-                    "category_id": str(product.category_id) if product.category_id else None,
-                    "is_published": product.is_published,
-                },
-            )
-        ],
-    )
+    Bu `Product.save()` ichidan, ma'lumot MySQL'ga allaqachon yozilgandan
+    KEYIN chaqiriladi — shuning uchun bu yerdagi xato (masalan embedded
+    Qdrant'ning lokal fayl-lock'ini bir nechta gunicorn worker process bir
+    vaqtda ushlab bo'lmasligi) butun so'rovni 500'ga olib kelib, mahsulot
+    DB'da yaratilgan-u, frontend buni xato deb bilib ro'yxatni qayta
+    yuklamay qolishiga sabab bo'lardi (qarang delete_product_embedding —
+    xuddi shu sababdan u ham xatoni yutadi)."""
+    try:
+        if not product.image or product.is_deleted:
+            delete_product_embedding(product.id)
+            return
+        embedding = compute_embedding(product.image)
+        if embedding is None:
+            return
+        from qdrant_client.models import PointStruct
+
+        _ensure_collection()
+        client = get_qdrant_client()
+        client.upsert(
+            collection_name=COLLECTION_NAME,
+            points=[
+                PointStruct(
+                    id=str(product.id),
+                    vector=embedding,
+                    payload={
+                        "category_id": str(product.category_id) if product.category_id else None,
+                        "is_published": product.is_published,
+                    },
+                )
+            ],
+        )
+    except Exception:
+        logger.exception("Mahsulot embedding'ini Qdrant'ga yozib bo'lmadi")
 
 
 def delete_product_embedding(product_id):
