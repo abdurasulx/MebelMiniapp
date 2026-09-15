@@ -68,7 +68,14 @@ class CompanyViewSet(viewsets.ModelViewSet):
         return qs.filter(is_active=True)
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        # Platforma admini yangi kompaniya + uning egasini birga yaratganda
+        # (qarang CompanySerializer.create()) `owner` allaqachon shu yerda
+        # hosil bo'ladi — shuning uchun uni qayta `request.user`ga bosib
+        # qo'ymaymiz.
+        if serializer.validated_data.get("owner_email"):
+            serializer.save()
+        else:
+            serializer.save(owner=self.request.user)
 
     def perform_destroy(self, instance):
         instance.is_deleted = True

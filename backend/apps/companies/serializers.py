@@ -30,6 +30,17 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
     tariff_plan_name = serializers.CharField(source="tariff_plan.name", read_only=True, default=None)
     billing_summary = serializers.SerializerMethodField()
     can_review = serializers.SerializerMethodField()
+    owner_display_name = serializers.CharField(source="owner.display_name", read_only=True)
+    owner_email_display = serializers.EmailField(source="owner.email", read_only=True)
+    # Faqat platforma admini yangi kompaniya yaratishda, uning egasini ham
+    # SHU FORMADA birga yaratishi uchun (qarang CompanyViewSet.perform_create
+    # va quyidagi create()) — oddiy firma egasi o'zi kompaniya ochganda bu
+    # maydonlar yuborilmaydi, `owner` avvalgidek `request.user` bo'lib qoladi.
+    owner_email = serializers.EmailField(write_only=True, required=False)
+    owner_password = serializers.CharField(write_only=True, required=False, min_length=6)
+    owner_first_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    owner_last_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    owner_phone = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     def get_logo_url(self, obj):
         return visible_file_url(obj, "logo", self.context.get("request"))
@@ -60,6 +71,13 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
         fields = (
             "id",
             "owner",
+            "owner_display_name",
+            "owner_email_display",
+            "owner_email",
+            "owner_password",
+            "owner_first_name",
+            "owner_last_name",
+            "owner_phone",
             "name",
             "slug",
             "description",
@@ -86,6 +104,40 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
             "created_at",
         )
         read_only_fields = ("id", "owner", "slug", "created_at")
+
+    def validate(self, attrs):
+        owner_email = attrs.get("owner_email")
+        if owner_email:
+            request = self.context.get("request")
+            is_platform_admin = (
+                request and request.user.is_authenticated and request.user.role == User.Role.PLATFORM_ADMIN
+            )
+            if not is_platform_admin:
+                raise serializers.ValidationError(
+                    "Faqat platforma admini kompaniya egasini shu yerda yarata oladi"
+                )
+            if not attrs.get("owner_password"):
+                raise serializers.ValidationError({"owner_password": "Bu maydon majburiy"})
+            if User.objects.filter(email=owner_email).exists():
+                raise serializers.ValidationError({"owner_email": "Bu email allaqachon ro'yxatdan o'tgan"})
+        return attrs
+
+    def create(self, validated_data):
+        owner_email = validated_data.pop("owner_email", None)
+        owner_password = validated_data.pop("owner_password", None)
+        owner_first_name = validated_data.pop("owner_first_name", "")
+        owner_last_name = validated_data.pop("owner_last_name", "")
+        owner_phone = validated_data.pop("owner_phone", "")
+        if owner_email:
+            validated_data["owner"] = User.objects.create_user(
+                email=owner_email,
+                password=owner_password,
+                first_name=owner_first_name,
+                last_name=owner_last_name,
+                phone=owner_phone,
+                role=User.Role.COMPANY_OWNER,
+            )
+        return super().create(validated_data)
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
