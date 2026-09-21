@@ -123,17 +123,19 @@ export default function FirmaProductDetail() {
   const completeness = computeCompleteness(product, steps);
 
   return (
-    <div style={{ background: ENT.bg, margin: "-24px", minHeight: "100%" }}>
-      <HeroHeader
-        product={product}
-        completeness={completeness}
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
-        onTogglePublish={togglePublish}
-        onDelete={remove}
-      />
+    <div style={{ background: ENT.bg, margin: "calc(-1 * var(--portal-pad, 24px))", minHeight: "100%" }}>
+      <div style={{ position: "sticky", top: "calc(-1 * var(--portal-pad, 24px))", zIndex: 30 }}>
+        <HeroHeader
+          product={product}
+          completeness={completeness}
+          menuOpen={menuOpen}
+          setMenuOpen={setMenuOpen}
+          onTogglePublish={togglePublish}
+          onDelete={remove}
+        />
 
-      <TabsNav tab={tab} setTab={setTab} product={product} steps={steps} />
+        <TabsNav tab={tab} setTab={setTab} product={product} steps={steps} />
+      </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 20, padding: "20px 24px 60px", maxWidth: 1400, margin: "0 auto" }} className="ent-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
@@ -338,7 +340,7 @@ function HeroHeader({ product, completeness, menuOpen, setMenuOpen, onTogglePubl
   const previewHref = marketOrigin ? `${marketOrigin}/products/${product.id}` : `/products/${product.id}?portal=market`;
 
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 30, background: ENT.card, borderBottom: `1px solid ${ENT.border}` }}>
+    <div style={{ background: ENT.card, borderBottom: `1px solid ${ENT.border}` }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 24px", flexWrap: "wrap" }}>
         <Link
           to="/products"
@@ -428,7 +430,7 @@ function TabsNav({ tab, setTab, product, steps }) {
     production: (steps || []).length,
   };
   return (
-    <div style={{ background: ENT.card, borderBottom: `1px solid ${ENT.border}`, position: "sticky", top: 73, zIndex: 25 }}>
+    <div style={{ background: ENT.card, borderBottom: `1px solid ${ENT.border}` }}>
       <div style={{ display: "flex", gap: 4, padding: "0 20px", overflowX: "auto" }}>
         {TABS.map((t) => {
           const active = t.key === tab;
@@ -463,7 +465,7 @@ function RightPanel({ product, completeness }) {
   const modelReady = hasReadyModel3d(product);
   const arReady = !!(product.model3d?.usdz_url && product.model3d?.status === "ready") || readyVariantModels.some((v) => v.model3d?.usdz_url);
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, position: "sticky", top: 130 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, position: "sticky", top: "calc(130px - var(--portal-pad, 24px))" }}>
       <Card title="Mahsulot ko'rinishi">
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {product.image_url ? (
