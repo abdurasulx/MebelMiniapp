@@ -170,11 +170,14 @@ class Model3DViewerSerializer(serializers.ModelSerializer):
         result = []
         for v in obj.owning_product.variants.filter(is_deleted=False):
             variant_model = getattr(v, "model3d", None)
-            has_own_model = (
-                variant_model is not None
-                and not variant_model.is_deleted
-                and variant_model.can_view(request.user if request else None)
-            )
+            # Bu serializer faqat `obj.can_view(...)` o'tgandan keyin chaqiriladi
+            # (qarang Model3DViewerView) — ya'ni havola egasi ko'ruvchiga ruxsat
+            # bergan. Havola butun mahsulot uchun bitta bo'lgani sababli, uning
+            # variantlari ham shu ruxsat bilan ko'rinadi (har variant modelining
+            # o'z `visibility`si bu yerda qayta tekshirilmaydi — aks holda bitta
+            # variantni "ochiq" qilgan firma qolgan variantlarni yashirin holda
+            # qoldirardi).
+            has_own_model = variant_model is not None and not variant_model.is_deleted
             result.append({
                 "id": v.id,
                 "name": v.name,

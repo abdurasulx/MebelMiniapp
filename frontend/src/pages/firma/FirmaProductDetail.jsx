@@ -1558,17 +1558,32 @@ const VISIBILITY_OPTIONS = [
 ];
 
 function SharingTab({ product, onDone, embedded }) {
-  const model = product.model3d;
-  const [visibility, setVisibility] = useState(model?.visibility || "private");
-  const [emailsText, setEmailsText] = useState((model?.allowed_emails || []).join(", "));
-  const [error, setError] = useState("");
-  const [msg, setMsg] = useState("");
-  const [busy, setBusy] = useState(false);
+  // 3D model mahsulotga ham, alohida variantga ham biriktirilishi mumkin.
+  // Havola butun mahsulot uchun bitta: umumiy model bo'lsa o'sha, bo'lmasa
+  // birinchi variant modeli. Ko'ruvchi havoladagi chiplar orqali barcha
+  // variantlarni almashtira oladi (qarang Viewer.jsx).
+  const model = product.model3d || product.variants.find((v) => v.model3d)?.model3d;
 
   if (!model) {
     const body = <p style={{ fontSize: 13, color: ENT.muted }}>Ulashish sozlamalari mavjud bo'lishi uchun avval 3D model yuklang.</p>;
     return embedded ? null : <Card title="Ulashish" icon={Share2}>{body}</Card>;
   }
+
+  const content = <ModelShareForm key={model.id} model={model} variantCount={product.variants.length} onDone={onDone} />;
+
+  return embedded ? (
+    <Card title="Ulashish sozlamalari" description="3D modelni tashqi havola orqali ulashish." icon={Share2}>{content}</Card>
+  ) : (
+    <Card title="Ulashish" description="3D modelni tashqi havola orqali ulashish." icon={Share2}>{content}</Card>
+  );
+}
+
+function ModelShareForm({ model, variantCount, onDone }) {
+  const [visibility, setVisibility] = useState(model.visibility || "private");
+  const [emailsText, setEmailsText] = useState((model.allowed_emails || []).join(", "));
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const shareUrl = `${window.location.protocol}//${window.location.host}/viewer/${model.share_token}/`;
 
@@ -1595,8 +1610,12 @@ function SharingTab({ product, onDone, embedded }) {
     setTimeout(() => setMsg(""), 2500);
   };
 
-  const content = (
+  return (
     <form onSubmit={save} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <p style={{ fontSize: 12.5, color: ENT.muted, margin: 0 }}>
+        Mahsulotni sotuvga qo'yish bu sozlamaga ta'sir qilmaydi — havola alohida boshqariladi (standart: yopiq).
+        {variantCount > 1 && " Havoladagi ko'ruvchi barcha variantlarni tanlab ko'ra oladi."}
+      </p>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 12 }}>
         <div style={{ minWidth: 260, flex: 1 }}>
           <label className="label">Kim ko'ra oladi</label>
@@ -1622,11 +1641,5 @@ function SharingTab({ product, onDone, embedded }) {
       {error && <div className="error">{error}</div>}
       {msg && <Pill tone="success" icon={Check}>{msg}</Pill>}
     </form>
-  );
-
-  return embedded ? (
-    <Card title="Ulashish sozlamalari" description="3D modelni tashqi havola orqali ulashish." icon={Share2}>{content}</Card>
-  ) : (
-    <Card title="Ulashish" description="3D modelni tashqi havola orqali ulashish." icon={Share2}>{content}</Card>
   );
 }
