@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Play, Pause } from "lucide-react";
 
 let loaded = false;
 
@@ -22,6 +23,8 @@ function hexToRgba(hex) {
  */
 export default function ModelViewer({ glb, usdz, alt = "3D model", poster, style, colorHex, textureUrl }) {
   const ref = useRef(null);
+  const [hasAnimation, setHasAnimation] = useState(false);
+  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
     if (!loaded) {
@@ -55,9 +58,34 @@ export default function ModelViewer({ glb, usdz, alt = "3D model", poster, style
     return () => el.removeEventListener("load", apply);
   }, [glb, colorHex, textureUrl]);
 
+  // Model o'z animatsiyasiga ega bo'lsagina play tugmasi chiqadi (GLB
+  // `animations` — masalan eshik/tortma ochilishi). Avtomatik boshlanmaydi.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setHasAnimation(false);
+    setPlaying(false);
+    const check = () => setHasAnimation((el.availableAnimations || []).length > 0);
+    el.addEventListener("load", check);
+    if (el.loaded) check();
+    return () => el.removeEventListener("load", check);
+  }, [glb]);
+
+  const toggleAnimation = () => {
+    const el = ref.current;
+    if (!el) return;
+    if (playing) {
+      el.pause();
+    } else {
+      el.play({ repetitions: Infinity });
+    }
+    setPlaying(!playing);
+  };
+
   if (!glb && !usdz) return null;
 
   return (
+    <div style={{ position: "relative" }}>
     <model-viewer
       ref={ref}
       src={glb || undefined}
@@ -77,5 +105,33 @@ export default function ModelViewer({ glb, usdz, alt = "3D model", poster, style
         ...style,
       }}
     ></model-viewer>
+    {hasAnimation && (
+      <button
+        type="button"
+        onClick={toggleAnimation}
+        title={playing ? "Animatsiyani to'xtatish" : "Animatsiyani ijro etish"}
+        style={{
+          position: "absolute",
+          left: 12,
+          bottom: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "8px 14px",
+          borderRadius: 999,
+          border: "1px solid var(--border)",
+          background: "var(--card)",
+          color: "var(--text)",
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: "pointer",
+          boxShadow: "0 2px 8px rgba(0,0,0,.15)",
+        }}
+      >
+        {playing ? <Pause size={15} /> : <Play size={15} />}
+        {playing ? "To'xtatish" : "Animatsiya"}
+      </button>
+    )}
+    </div>
   );
 }

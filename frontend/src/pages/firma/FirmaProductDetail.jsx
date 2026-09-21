@@ -612,19 +612,31 @@ function ImagesCard({ product, onDone }) {
     }
   };
 
+  // Asosiy rasm serverda alohida faylga nusxalanadi (boshqa upload_to
+  // papkaga) — to'liq URL hech qachon mos kelmaydi, shuning uchun taqqoslash
+  // fayl nomi (oxirgi segment) bo'yicha.
+  const sameFile = (a, b) => !!a && !!b && a.split("/").pop() === b.split("/").pop();
+  // Mahsulot yaratilganda yuklangan asosiy rasm galereyada (`ProductImage`)
+  // yo'q bo'lishi mumkin — shunda u ham ro'yxatda ko'rinishi kerak.
+  const primaryOnly =
+    product.image_url && !(product.images || []).some((img) => sameFile(img.image_url, product.image_url));
+
   return (
     <Card
       title="Rasmlar"
       description="Yuklangan rasmlardan istalganini asosiy rasm sifatida belgilashingiz mumkin — u katalog kartochkasida ko'rsatiladi."
       icon={Images}
     >
-      {product.images?.length > 0 ? (
+      {primaryOnly || product.images?.length > 0 ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10, marginBottom: 16 }}>
+          {primaryOnly && (
+            <div style={{ position: "relative", aspectRatio: "1/1", borderRadius: 10, overflow: "hidden", border: `1px solid ${ENT.primary}` }}>
+              <img src={product.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ position: "absolute", top: 6, left: 6 }}><Pill tone="primary">Asosiy</Pill></div>
+            </div>
+          )}
           {product.images.map((img) => {
-            // Asosiy rasm serverda alohida faylga nusxalanadi (boshqa
-            // upload_to papkaga) — to'liq URL hech qachon mos kelmaydi,
-            // shuning uchun taqqoslash fayl nomi (oxirgi segment) bo'yicha.
-            const isPrimary = product.image_url && img.image_url?.split("/").pop() === product.image_url.split("/").pop();
+            const isPrimary = sameFile(img.image_url, product.image_url);
             return (
               <div key={img.id} className="group" style={{ position: "relative", aspectRatio: "1/1", borderRadius: 10, overflow: "hidden", border: `1px solid ${isPrimary ? ENT.primary : ENT.border}` }}>
                 <img src={img.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />

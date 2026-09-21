@@ -3,7 +3,17 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { Layers, Camera, Maximize, Link2, Check, ListTree, Search, Eye, EyeOff, ChevronRight, Ruler, Box } from "lucide-react";
+import { Layers, Camera, Maximize, Link2, Check, ListTree, Search, Eye, EyeOff, ChevronRight, Ruler, Box, DoorOpen, DoorClosed, Play, Pause } from "lucide-react";
+
+// CAD dasturlar (Bazis va shunga o'xshash mebel loyihalash dasturlari) eshik
+// ochilish animatsiyasini eksport qila olmaydi — shuning uchun eshik nomi
+// bo'yicha avtomatik topib, saytning o'zi interaktiv aylantiradi (haqiqiy
+// mebel-konfigurator saytlari — Bazis namoyish sahifalari ham — shu yo'l
+// bilan ishlaydi).
+const DOOR_NAME_RE = /\b(dver|door|eshik)/i;
+const HINGE_NAME_RE = /(petlya|hinge|zawes|scharnir)/i;
+const HANDLE_NAME_RE = /(ruchka|handle)/i;
+const DOOR_OPEN_ANGLE = Math.PI * 0.6; // ~108 daraja
 
 const MODES = [
   { value: "textured", label: "Teksturada" },
@@ -50,6 +60,10 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
   const [measuring, setMeasuring] = useState(false);
   const [measureDistance, setMeasureDistance] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [hasDoors, setHasDoors] = useState(false);
+  const [doorsOpen, setDoorsOpen] = useState(false);
+  const [hasAnimation, setHasAnimation] = useState(false);
+  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -88,9 +102,24 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
     const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
     let raf;
+    const clock = new THREE.Clock();
     function animate() {
       raf = requestAnimationFrame(animate);
       controls.update();
+      // Modelning o'z (GLB'ga eksport qilingan) animatsiyasi — faqat play
+      // bosilganda `action.paused=false` bo'ladi, aks holda mixer qotib turadi.
+      stateRef.current.mixer?.update(clock.getDelta());
+      // `st` obyekti pastda e'lon qilinadi, lekin `animate()` shu yerda
+      // darhol (birinchi marta sinxron) chaqiriladi — shuning uchun `st`ni
+      // to'g'ridan-to'g'ri yopishtirib bo'lmaydi (TDZ xatosi). `stateRef`
+      // esa komponent boshida `useRef({})` bilan allaqachon mavjud.
+      const doorPivots = stateRef.current.doorPivots;
+      if (doorPivots) {
+        for (const pivot of doorPivots) {
+          const target = pivot.userData.doorOpen ? pivot.userData.openSign * DOOR_OPEN_ANGLE : 0;
+          pivot.rotation.y += (target - pivot.rotation.y) * 0.12;
+        }
+      }
       renderer.render(scene, camera);
     }
     animate();
@@ -219,6 +248,8 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
     loader.load(glb, (gltf) => {
       if (cancelled) return;
       if (st.root) st.scene.remove(st.root);
+      st.mixer?.stopAllAction();
+      st.mixer = null;
 
       const root = gltf.scene;
       root.traverse((o) => {
@@ -249,6 +280,27 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
       st.root = root;
       st.selectedNode = null;
       frameObject(st.camera, root, st.controls);
+
+      const doorPivots = setupDoorPivots(root);
+      st.doorPivots = doorPivots;
+      setHasDoors(doorPivots.length > 0);
+      setDoorsOpen(false);
+
+      if (gltf.animations?.length) {
+        const mixer = new THREE.AnimationMixer(root);
+        st.mixer = mixer;
+        st.animActions = gltf.animations.map((clip) => {
+          const action = mixer.clipAction(clip);
+          action.play();
+          action.paused = true;
+          return action;
+        });
+        setHasAnimation(true);
+      } else {
+        st.animActions = [];
+        setHasAnimation(false);
+      }
+      setPlaying(false);
 
       applyMode(st, mode);
       setTree(buildTree(root));
@@ -316,6 +368,26 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
 
   const fullscreen = () => {
     mountRef.current?.requestFullscreen?.();
+  };
+
+  const toggleDoors = () => {
+    const st = stateRef.current;
+    if (!st.doorPivots?.length) return;
+    const next = !doorsOpen;
+    st.doorPivots.forEach((pivot) => {
+      pivot.userData.doorOpen = next;
+    });
+    setDoorsOpen(next);
+  };
+
+  const toggleAnimation = () => {
+    const st = stateRef.current;
+    if (!st.animActions?.length) return;
+    const next = !playing;
+    st.animActions.forEach((action) => {
+      action.paused = !next;
+    });
+    setPlaying(next);
   };
 
   const toggleNodeVisible = (node) => {
@@ -431,6 +503,24 @@ export default function ModelSceneViewer({ glb, alt = "3D model", style }) {
       )}
 
       <div style={{ position: "absolute", top: 10, right: 10, display: "flex", gap: 6 }}>
+        {hasAnimation && (
+          <ToolbarButton
+            title={playing ? "Animatsiyani to'xtatish" : "Animatsiyani ijro etish"}
+            active={playing}
+            onClick={toggleAnimation}
+          >
+            {playing ? <Pause size={16} /> : <Play size={16} />}
+          </ToolbarButton>
+        )}
+        {hasDoors && (
+          <ToolbarButton
+            title={doorsOpen ? "Eshiklarni yopish" : "Eshiklarni ochish"}
+            active={doorsOpen}
+            onClick={toggleDoors}
+          >
+            {doorsOpen ? <DoorOpen size={16} /> : <DoorClosed size={16} />}
+          </ToolbarButton>
+        )}
         <ToolbarButton title="Sahna tuzilmasi" active={treeOpen} onClick={() => setTreeOpen((v) => !v)}>
           <ListTree size={16} />
         </ToolbarButton>
@@ -676,18 +766,114 @@ function frameObject(camera, object, controls, marginFactor = 1.25) {
   controls.update();
 }
 
+/**
+ * Nomi bo'yicha eshik (dver/door/eshik) deb topilgan har bir qism uchun
+ * aylanish nuqtasi (pivot) yaratadi — CAD dastur (Bazis va h.k.) eshik
+ * ochilishini animatsiya sifatida eksport qila olmagani uchun, saytning
+ * o'zi interaktiv ravishda ochib-yopa oladigan qilib beriladi.
+ *
+ * Har bir eshik uchun: yaqin turgan osma (petlya) qismi topilsa, aylanish
+ * o'qi shu osmaning joylashuvidan o'tkaziladi (aniq); topilmasa, eshikning
+ * markazdan uzoqroq chetidan taxminiy o'q olinadi (eng yaqin taxmin).
+ * `Object3D.attach()` — dunyoviy transformatsiyani saqlagan holda qayta
+ * ota-belgilash — eshik vizual jihatdan bir joyda turgan holda, faqat
+ * aylanish markazini o'zgartirish imkonini beradi.
+ */
+function setupDoorPivots(root) {
+  root.updateMatrixWorld(true);
+
+  const allMatches = [];
+  root.traverse((o) => {
+    if (DOOR_NAME_RE.test(o.name)) allMatches.push(o);
+  });
+  // Ba'zi modellarda "ikki tabaqali eshik" kabi guruh nomi ham "dver" so'zini
+  // o'z ichiga oladi va shu bilan birga uning ichidagi har bir haqiqiy eshik
+  // barg (leaf) ham alohida moslikka tushadi — natijada bir-birining ichiga
+  // joylashgan bir nechta pivot hosil bo'lib, aylanishlar bir-ustiga qo'shilib
+  // ketadi (hech qachon to'g'ri yopilmaydi). Shuning uchun faqat boshqa hech
+  // qanday moslikni o'z ichiga OLMAYDIGAN (eng ichki, leaf) tugunlar qoldiriladi.
+  const isAncestorOf = (possibleAncestor, node) => {
+    let p = node.parent;
+    while (p) {
+      if (p === possibleAncestor) return true;
+      p = p.parent;
+    }
+    return false;
+  };
+  const doorNodes = allMatches.filter(
+    (node) => !allMatches.some((other) => other !== node && isAncestorOf(node, other))
+  );
+
+  const pivots = [];
+  const box = new THREE.Box3();
+  const worldPos = new THREE.Vector3();
+
+  for (const doorNode of doorNodes) {
+    const parent = doorNode.parent;
+    if (!parent) continue;
+
+    let hingeX = null;
+    for (const sibling of parent.children) {
+      if (sibling !== doorNode && HINGE_NAME_RE.test(sibling.name)) {
+        sibling.getWorldPosition(worldPos);
+        hingeX = worldPos.x;
+        break;
+      }
+    }
+
+    box.setFromObject(doorNode);
+    if (box.isEmpty()) continue;
+    const center = box.getCenter(new THREE.Vector3());
+    if (hingeX === null) {
+      // Osma topilmadi — eng yaqin taxmin sifatida chap chetni ilashish
+      // nuqtasi deb olamiz.
+      hingeX = box.min.x;
+    }
+    const hingeWorldPos = new THREE.Vector3(hingeX, center.y, center.z);
+
+    const pivot = new THREE.Group();
+    pivot.name = `${doorNode.name} (ochish o'qi)`;
+    pivot.userData.__helper = true; // tuzilma panelida alohida ko'rsatilmasin
+    pivot.userData.isDoorPivot = true;
+    pivot.userData.doorOpen = false;
+    pivot.userData.openSign = hingeX <= center.x ? -1 : 1;
+
+    pivot.position.copy(parent.worldToLocal(hingeWorldPos.clone()));
+    parent.add(pivot);
+    pivot.attach(doorNode);
+
+    // Eshikka yaqin tutqich (ruchka) bo'lsa, u ham eshik bilan birga
+    // aylanishi kerak — aks holda tutqich joyida qolib, eshik undan
+    // "chiqib ketgandek" ko'rinadi.
+    for (const sibling of [...parent.children]) {
+      if (sibling !== pivot && HANDLE_NAME_RE.test(sibling.name)) {
+        pivot.attach(sibling);
+      }
+    }
+
+    pivots.push(pivot);
+  }
+
+  return pivots;
+}
+
 /** GLTF sahna grafigidan (yordamchi chekka/karkas overlaylarni chetlab)
  * ko'rsatish/yashirish daraxtini quradi. */
 function buildTree(root) {
   function walk(node) {
-    return node.children
-      .filter((c) => !c.userData?.__helper && !c.isLight && !c.isCamera)
-      .map((c) => ({
-        id: c.uuid,
-        name: c.name || "(nomsiz element)",
-        ref: c,
-        children: walk(c),
-      }));
+    const result = [];
+    for (const c of node.children) {
+      if (c.isLight || c.isCamera) continue;
+      if (c.userData?.__helper) {
+        // Texnik yordamchi tugun (masalan eshik ochish-pivot guruhi yoki
+        // chekka chizig'i) — o'zi ro'yxatda ko'rinmaydi, lekin ichidagi
+        // haqiqiy qismlar (masalan eshikning o'zi) shu darajada davom etadi.
+        result.push(...walk(c));
+        continue;
+      }
+      result.push({ id: c.uuid, name: c.name || "(nomsiz element)", ref: c, children: walk(c) });
+    }
+    return result;
   }
   return walk(root);
 }
