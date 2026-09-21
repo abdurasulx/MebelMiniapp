@@ -395,18 +395,35 @@ final class AuthStore: ObservableObject {
     // uchun (masalan har `refreshUser()` chaqiruvida) — sessiya davomida
     // bir marta yetarli, backend baribir idempotent (`update_or_create`).
     private var didRegisterDeviceThisSession = false
+    private var pushTokenObserver: NSObjectProtocol?
+
+    /// FCM token keyinroq (ruxsat berilgach) kelsa — qurilmani token bilan qayta ro'yxatdan o'tkazamiz.
+    private func observePushToken() {
+        guard pushTokenObserver == nil else { return }
+        pushTokenObserver = NotificationCenter.default.addObserver(
+            forName: .pushTokenUpdated, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.isAuthenticated else { return }
+                self.didRegisterDeviceThisSession = false
+                await self.registerDeviceIfNeeded()
+            }
+        }
+    }
 
     /// Mobil so'rov-imzosi qatlami (nwupdate.md) uchun qurilmani backend'da
-    /// ro'yxatdan o'tkazadi — FCM/APNs push YO'Q (Apple Developer Program
-    /// talab qilingani uchun hozircha sozlanmagan), shuning uchun `token`
-    /// yubormaymiz — faqat `device_id` orqali imzo-tekshiruv ishlashi uchun.
+    /// ro'yxatdan o'tkazadi. FCM token (push) olingan bo'lsa u ham yuboriladi;
+    /// hali olinmagan bo'lsa (ruxsat kutilmoqda yoki Firebase sozlanmagan)
+    /// faqat `device_id` bilan — token kelganda qayta chaqiriladi.
     private func registerDeviceIfNeeded() async {
         guard !didRegisterDeviceThisSession else { return }
+        PushManager.shared.requestAuthorizationAndRegister()
         struct Body: Encodable {
             let deviceId: String
             let platform: String
             let deviceName: String
             let vcode: Int
+            let token: String?
         }
         let signature = DeviceSignature.shared
         let deviceId = await signature.currentDeviceId
@@ -416,7 +433,10 @@ final class AuthStore: ObservableObject {
         do {
             let _: StatusResp = try await APIClient.shared.post(
                 "/notifications/register_device/",
-                body: Body(deviceId: deviceId, platform: "ios", deviceName: deviceName, vcode: vcode),
+                body: Body(
+                    deviceId: deviceId, platform: "ios", deviceName: deviceName, vcode: vcode,
+                    token: PushManager.shared.fcmToken
+                ),
                 auth: true
             )
             await DeviceSignature.shared.markRegistered()
@@ -442,6 +462,7 @@ final class AuthStore: ObservableObject {
             let me: User = try await APIClient.shared.get("/users/me/", auth: true)
             self.user = me
             self.isAuthenticated = true
+            observePushToken()
             await registerDeviceIfNeeded()
         } catch APIError.server(_, let statusCode) where statusCode == 401 {
             // Faqat server aniq "401 — token yaroqsiz" deb javob berganda

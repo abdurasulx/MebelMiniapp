@@ -10,6 +10,9 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: 7.1.0
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: 11.0.0
 targets:
   FurniturePlatform:
     type: application
@@ -20,6 +23,13 @@ targets:
     dependencies:
       - package: GoogleSignIn
         product: GoogleSignIn
+      - package: Firebase
+        product: FirebaseMessaging
+    entitlements:
+      path: Resources/FurniturePlatform.entitlements
+      properties:
+        # Xcode Release/App Store imzolashda buni avtomatik "production"ga almashtiradi.
+        aps-environment: development
     info:
       path: Resources/Info.plist
       properties:
@@ -28,6 +38,8 @@ targets:
         NSLocationWhenInUseUsageDescription: "Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak."
         CFBundleDisplayName: "Furniture Platform"
         ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes:
+          - remote-notification
         # Google Cloud Console > Credentials > OAuth Client ID (iOS turi).
         GIDClientID: "857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa.apps.googleusercontent.com"
         CFBundleURLTypes:
@@ -38,7 +50,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: uz.furnitureplatform.app
         SWIFT_VERSION: 5.0
         TARGETED_DEVICE_FAMILY: "1"
-        DEVELOPMENT_TEAM: "B3D558FP56"
+        DEVELOPMENT_TEAM: "BHMWKLT3YF"
         CODE_SIGN_STYLE: Automatic
   FurniturePlatformUITests:
     type: bundle.ui-testing
@@ -49,7 +61,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: uz.furnitureplatform.uitests
         SWIFT_VERSION: 5.0
-        DEVELOPMENT_TEAM: "B3D558FP56"
+        DEVELOPMENT_TEAM: "BHMWKLT3YF"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: YES
     dependencies:

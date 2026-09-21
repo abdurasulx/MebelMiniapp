@@ -37,6 +37,10 @@
 	<string>Mebelni AR orqali xonangizda ko'rish uchun kamera kerak.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>
