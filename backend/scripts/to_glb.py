@@ -58,7 +58,7 @@ if texture_dir and texture_dir.is_dir():
     # uchun rekursiv qidiriladi.
     available = {p.name.lower(): p for p in texture_dir.rglob("*") if p.is_file()}
     relinked = 0
-    for image in bpy.data.images:
+    for image in list(bpy.data.images):
         if image.filepath and Path(bpy.path.abspath(image.filepath)).exists():
             continue  # rasm allaqachon to'g'ri topilgan
         # MTL fayllar ko'pincha Windows'da eksport qilingani uchun teskari
@@ -69,9 +69,23 @@ if texture_dir and texture_dir.is_dir():
         basename = raw_name.replace("\\", "/").rsplit("/", 1)[-1]
         match = available.get(basename.lower())
         if match:
-            image.filepath = str(match)
+            # Mavjud (yuklanmagan) rasmning `filepath`ini o'zgartirib `reload()`
+            # qilish Blender 4.0'da rasm piksellarini eksportchiga yetkazmaydi
+            # (GLB'da rasmlar 0 ta chiqadi) — shuning uchun rasm yangidan
+            # yuklanib, shu rasmni ishlatgan barcha tekstura tugunlariga
+            # qayta biriktiriladi.
             try:
-                image.reload()
+                new_image = bpy.data.images.load(str(match), check_existing=False)
+                new_image.colorspace_settings.name = image.colorspace_settings.name
+                for mat in bpy.data.materials:
+                    if not mat.use_nodes:
+                        continue
+                    for node in mat.node_tree.nodes:
+                        if node.type == "TEX_IMAGE" and node.image == image:
+                            node.image = new_image
+                old_name = image.name
+                bpy.data.images.remove(image)
+                new_image.name = old_name
                 relinked += 1
             except Exception as e:
                 print(f"Rasmni qayta yuklashda xato ({match.name}): {e}")
