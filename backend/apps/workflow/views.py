@@ -19,10 +19,12 @@ from apps.notifications.services import (
 from apps.products.models import Product
 from apps.products.views import can_manage
 
+from .bazis_import import parse_bazis_project
 from .models import (
     ApplicationStatus,
     PhotoRequirement,
     ProgressUpdate,
+    Stage,
     StepApplication,
     StepStatus,
     WorkflowStep,
@@ -134,6 +136,103 @@ class WorkflowStepViewSet(viewsets.ModelViewSet):
         self._get_product()
         instance.is_deleted = True
         instance.save(update_fields=["is_deleted"])
+
+
+class WorkflowStepBazisImportView(APIView):
+    """Bazis (mebel CAD) eksport faylidan (`.project`, XML) mahsulot uchun
+    workflow bosqichlari shablonini avtomatik tuzadi
+    (`/products/<product_pk>/workflow-steps/import-bazis/`).
+
+    Uchta guruh yaratiladi: kesish (varaq materiali bo'yicha), kromkalash
+    (lenta turi bo'yicha) va TESHISH — diametr bo'yicha guruhlangan, aynan
+    shu maqsad uchun (masalan "Teshish Ø8mm"): har bir guruh o'z `WorkType`
+    yozuviga bog'lanadi (firma katalogida topilmasa — narxi 0 bilan
+    avtomatik yaratiladi). Narx 0 bo'lsa `WorkflowStep.cost` ham 0 bo'lib
+    qoladi — ya'ni admin "Ish turlari" bo'limida narx qo'ymaguncha, bu
+    bosqich uchun hech kimga ish haqi yozilmaydi (qarang WorkType.save() /
+    Payslip.recompute). Bosqichlar bir-biriga BOG'LANMAYDI (depends_on bo'sh
+    qoladi) — turli diametrdagi teshiklar odatda parallel/bir xil operatorda
+    bajariladi, admin kerak bo'lsa keyin qo'lda ketma-ketlik belgilaydi."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def _get_product(self, product_pk):
+        product = Product.objects.select_related("company").get(pk=product_pk, is_deleted=False)
+        if not can_manage(self.request.user, product.company):
+            raise PermissionDenied("Bu mahsulot sizniki emas")
+        return product
+
+    def _get_or_create_work_type(self, company, name, unit, stage):
+        work_type, _ = WorkType.objects.get_or_create(
+            company=company, name=name, defaults={"unit": unit, "stage": stage}
+        )
+        return work_type
+
+    def post(self, request, product_pk):
+        product = self._get_product(product_pk)
+        upload = request.FILES.get("file")
+        if not upload:
+            raise ValidationError("Fayl yuborilmadi")
+        try:
+            parsed = parse_bazis_project(upload.read())
+        except Exception:
+            raise ValidationError(
+                "Faylni o'qib bo'lmadi — bu Bazis'dan eksport qilingan to'g'ri .project fayli ekanini tekshiring"
+            )
+
+        last_index = (
+            WorkflowStep.objects.filter(product=product, is_deleted=False)
+            .order_by("-order_index")
+            .values_list("order_index", flat=True)
+            .first()
+        )
+        next_index = (last_index + 1) if last_index is not None else 0
+        created = []
+
+        with transaction.atomic():
+            for sheet_name, count in parsed.sheet_usage.items():
+                work_type = self._get_or_create_work_type(
+                    product.company, f"Kesish: {sheet_name}", "dona", Stage.CUTTING
+                )
+                step = WorkflowStep.objects.create(
+                    product=product, order_index=next_index, name=work_type.name,
+                    work_type=work_type, quantity=count,
+                    cut_note=f"Bazis import — \"{parsed.product_name}\"",
+                )
+                created.append(step)
+                next_index += 1
+
+            for band_name, count in parsed.band_usage.items():
+                work_type = self._get_or_create_work_type(
+                    product.company, f"Kromkalash: {band_name}", "dona", Stage.EDGE_PROCESSING
+                )
+                step = WorkflowStep.objects.create(
+                    product=product, order_index=next_index, name=work_type.name,
+                    work_type=work_type, quantity=count,
+                )
+                created.append(step)
+                next_index += 1
+
+            for hole_label, count in parsed.hole_groups.items():
+                work_type = self._get_or_create_work_type(
+                    product.company, f"Teshish {hole_label}", "dona", Stage.OTHER
+                )
+                step = WorkflowStep.objects.create(
+                    product=product, order_index=next_index, name=work_type.name,
+                    work_type=work_type, quantity=count,
+                )
+                created.append(step)
+                next_index += 1
+
+        return Response(
+            {
+                "product_name": parsed.product_name,
+                "parts_count": len(parsed.parts),
+                "holes_total": sum(parsed.hole_groups.values()),
+                "steps": WorkflowStepSerializer(created, many=True, context={"request": request}).data,
+            },
+            status=201,
+        )
 
 
 class WorkflowStepInstanceViewSet(viewsets.ModelViewSet):

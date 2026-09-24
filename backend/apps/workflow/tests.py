@@ -469,6 +469,108 @@ class WorkTypeTests(APITestCase):
         self.assertEqual(instance.cost, Decimal("8000.00"))
 
 
+# Kichiklashtirilgan, lekin haqiqiy fayl bilan bir xil tuzilishdagi Bazis
+# eksporti: 2 ta detal (birinchisi teshiklar bilan), 1 ta varaq material,
+# 1 ta kromka lentasi.
+BAZIS_FIXTURE = """<?xml version="1.0" encoding="windows-1251"?><project importBMV="1.86">
+<good typeId="product" id="1" count="1" name="test mahsulot" code="1">
+<part id="1" name="01_001 tag" dl="600" dw="350" count="2" elt="@operation#1"/>
+<part id="2" name="01_002 yon" dl="500" dw="300" count="1"/>
+</good>
+<good typeId="tool.cutting" id="2"/>
+<good typeId="sheet" id="3" t="16" name="DSP oq"><part id="10" count="1000" l="2800" w="2070"/></good>
+<good typeId="tool.edgeline" id="4" elWidthPreJoint="1"/>
+<good typeId="band" id="5" t="1" w="19" name="PVX oq"/>
+<operation typeId="CS" id="1" tool1="2"><material id="3"/><part id="1" /><part id="2" /></operation>
+<operation typeId="EL" id="2" tool1="4"><material id="5"/><part id="1" /></operation>
+<operation typeId="XNC" id="3" bySizeDetail="true" code="1_01_001" typeName="01_001 tag" program="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&lt;program dx=&quot;600.00&quot; dy=&quot;350.00&quot; dz=&quot;16.00&quot;&gt;&lt;tool name=&quot;Bore8&quot; d=&quot;8&quot; /&gt;&lt;bf x=&quot;50&quot; y=&quot;50&quot; dp=&quot;13&quot; name=&quot;Bore8&quot;/&gt;&lt;bf x=&quot;550&quot; y=&quot;50&quot; dp=&quot;13&quot; name=&quot;Bore8&quot;/&gt;&lt;/program&gt;"/>
+</project>""".encode("windows-1251")
+
+
+class BazisImportTests(APITestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="owner-bazis@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+        )
+        self.company = Company.objects.create(owner=self.owner, name="ShopBazis", slug="shop-bazis")
+        self.category = Category.objects.create(name_uz="StullarBazis", slug="stullar-bazis")
+        self.product = Product.objects.create(
+            company=self.company, category=self.category, name_uz="Shkaf", is_published=True
+        )
+        self.client = APIClient()
+
+    def _upload(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.client.force_authenticate(self.owner)
+        f = SimpleUploadedFile("test.project", BAZIS_FIXTURE, content_type="application/xml")
+        return self.client.post(
+            f"/api/v1/products/{self.product.id}/workflow-steps/import-bazis/",
+            {"file": f},
+            format="multipart",
+        )
+
+    def test_import_creates_cutting_edge_and_hole_steps(self):
+        resp = self._upload()
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data["parts_count"], 2)
+        # "01_001 tag" 2 dona kerak, unda 2 ta Ø8 teshik bor -> jami 4
+        self.assertEqual(resp.data["holes_total"], 4)
+
+        steps = WorkflowStep.objects.filter(product=self.product, is_deleted=False)
+        self.assertEqual(steps.count(), 3)
+
+        cutting = steps.get(name__startswith="Kesish")
+        # "01_001 tag" (2 dona) + "01_002 yon" (1 dona) — ikkalasi ham shu varaqdan
+        self.assertEqual(cutting.quantity, Decimal("3"))
+
+        edge = steps.get(name__startswith="Kromkalash")
+        self.assertEqual(edge.quantity, Decimal("2"))  # "01_001 tag" 2 dona
+
+        hole = steps.get(name__startswith="Teshish")
+        self.assertEqual(hole.quantity, Decimal("4"))
+        # Narx belgilanmagan (yangi WorkType price_per_unit=0) — ish haqi hisoblanmasin.
+        self.assertEqual(hole.cost, Decimal("0.00"))
+        self.assertEqual(hole.work_type.price_per_unit, Decimal("0.00"))
+
+    def test_second_import_reuses_existing_work_types(self):
+        self._upload()
+        self.assertEqual(WorkType.objects.filter(company=self.company).count(), 3)
+        self._upload()
+        # Qayta import qilinsa ham WorkType'lar takrorlanmaydi (get_or_create).
+        self.assertEqual(WorkType.objects.filter(company=self.company).count(), 3)
+        # Lekin har import o'z bosqichlarini yaratadi (eski shablon o'chirilmaydi).
+        self.assertEqual(WorkflowStep.objects.filter(product=self.product, is_deleted=False).count(), 6)
+
+    def test_stranger_cannot_import_into_others_product(self):
+        other = User.objects.create_user(
+            email="stranger-bazis@test.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+        )
+        Company.objects.create(owner=other, name="Boshqa", slug="boshqa-firma")
+        self.client.force_authenticate(other)
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        f = SimpleUploadedFile("test.project", BAZIS_FIXTURE, content_type="application/xml")
+        resp = self.client.post(
+            f"/api/v1/products/{self.product.id}/workflow-steps/import-bazis/",
+            {"file": f},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    def test_invalid_file_returns_400(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.client.force_authenticate(self.owner)
+        f = SimpleUploadedFile("bad.project", b"not xml at all", content_type="application/xml")
+        resp = self.client.post(
+            f"/api/v1/products/{self.product.id}/workflow-steps/import-bazis/",
+            {"file": f},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 400)
+
+
 class MaterialConsumptionAndPayrollTests(APITestCase):
     """'Bajardim' bosilganda ombor va ish haqi avtomatik yangilanishi kerak
     (bitta atomik amalda) — spetsifikatsiyaning eng muhim talabi."""

@@ -1027,6 +1027,9 @@ function ProductionTab({ product, steps, onStepsChange }) {
   const [form, setForm] = useState(EMPTY_STEP);
   const [workTypes, setWorkTypes] = useState([]);
   const [materials, setMaterials] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState("");
+  const bazisInputRef = useRef(null);
 
   useEffect(() => {
     api("/work-types/").then((d) => setWorkTypes(d.results || [])).catch(() => {});
@@ -1076,13 +1079,51 @@ function ProductionTab({ product, steps, onStepsChange }) {
   const totalCost = (steps || []).reduce((n, s) => n + Number(s.cost || 0), 0);
   const totalHours = (steps || []).reduce((n, s) => n + Number(s.estimated_hours || 0), 0);
 
+  const importBazis = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError("");
+    setImportMsg("");
+    setImporting(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    api(`/products/${product.id}/workflow-steps/import-bazis/`, { method: "POST", body: fd, isForm: true })
+      .then((d) => {
+        setImportMsg(
+          `"${d.product_name}" — ${d.parts_count} ta detal, ${d.holes_total} ta teshik topildi. ` +
+            `${d.steps.length} ta bosqich qo'shildi (narxlarni "Ish turlari" bo'limida belgilang).`
+        );
+        onStepsChange();
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setImporting(false));
+  };
+
   return (
     <Card
       title="Ishlab chiqarish jarayoni"
       description="Bosqichlar ketma-ket zanjir sifatida ishlaydi — buyurtma tushganda shu zanjir nusxalanadi va har bosqich mustaqil kuzatiladi."
       icon={Workflow}
-      actions={<EntButton small onClick={() => setShowForm((v) => !v)}>+ Bosqich</EntButton>}
+      actions={
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            ref={bazisInputRef}
+            type="file"
+            accept=".project"
+            style={{ display: "none" }}
+            onChange={importBazis}
+          />
+          <EntButton small variant="ghost" disabled={importing} onClick={() => bazisInputRef.current?.click()}>
+            <Upload size={13} /> {importing ? "Import qilinmoqda…" : "Bazis'dan import"}
+          </EntButton>
+          <EntButton small onClick={() => setShowForm((v) => !v)}>+ Bosqich</EntButton>
+        </div>
+      }
     >
+      {importMsg && (
+        <div style={{ marginBottom: 12 }}><Pill tone="success" icon={Check}>{importMsg}</Pill></div>
+      )}
       {steps === null ? (
         <p style={{ fontSize: 13, color: ENT.muted }}>Yuklanmoqda…</p>
       ) : steps.length === 0 ? (

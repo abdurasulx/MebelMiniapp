@@ -81,6 +81,7 @@ from apps.users.views import (
 from apps.workflow.views import (
     WorkflowCapacityView,
     WorkflowStatsView,
+    WorkflowStepBazisImportView,
     WorkflowStepInstanceViewSet,
     WorkflowStepViewSet,
     WorkTypeViewSet,
@@ -194,6 +195,11 @@ urlpatterns = [
     path("products/<uuid:product_pk>/images/", product_image_list, name="product-image-list"),
     path("products/<uuid:product_pk>/images/<uuid:pk>/", product_image_detail, name="product-image-detail"),
     path("products/<uuid:product_pk>/workflow-steps/", workflow_step_list, name="workflow-step-list"),
+    path(
+        "products/<uuid:product_pk>/workflow-steps/import-bazis/",
+        WorkflowStepBazisImportView.as_view(),
+        name="workflow-step-import-bazis",
+    ),
     path(
         "products/<uuid:product_pk>/workflow-steps/<uuid:pk>/",
         workflow_step_detail,
