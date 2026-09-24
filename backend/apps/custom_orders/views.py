@@ -17,7 +17,12 @@ from .serializers import (
     DesignSerializer,
     DesignVersionSerializer,
 )
-from .services import approve_design_version, create_custom_order_on_site, set_item_cost
+from .services import (
+    approve_design_version,
+    create_custom_order_on_site,
+    get_or_create_custom_item_placeholder,
+    set_item_cost,
+)
 
 
 class CustomOrderCreateView(APIView):
@@ -41,14 +46,19 @@ class CustomOrderCreateView(APIView):
 
         resolved_items = []
         for raw in data["items"]:
-            product = Product.objects.filter(id=raw["product"], company=company, is_deleted=False).first()
-            if product is None:
-                raise ValidationError("Mahsulot topilmadi")
             variant = None
-            if raw.get("variant"):
-                variant = Variant.objects.filter(id=raw["variant"], product=product, is_deleted=False).first()
-                if variant is None:
-                    raise ValidationError("Variant topilmadi")
+            if raw.get("product"):
+                product = Product.objects.filter(id=raw["product"], company=company, is_deleted=False).first()
+                if product is None:
+                    raise ValidationError("Mahsulot topilmadi")
+                if raw.get("variant"):
+                    variant = Variant.objects.filter(id=raw["variant"], product=product, is_deleted=False).first()
+                    if variant is None:
+                        raise ValidationError("Variant topilmadi")
+            else:
+                # Katalogga mos kelmaydigan, usta erkin nom kiritgan band —
+                # qarang get_or_create_custom_item_placeholder.
+                product = get_or_create_custom_item_placeholder(company)
             resolved_items.append({**raw, "product": product, "variant": variant})
 
         order = create_custom_order_on_site(

@@ -84,6 +84,42 @@ class CreateCustomOrderOnSiteTests(APITestCase):
         resp = self.client.post("/api/v1/custom-orders/create/", self._payload(), format="json")
         self.assertEqual(resp.status_code, 201, resp.data)
 
+    def test_customer_found_by_phone_when_worker_id_unknown(self):
+        self.customer.phone = "+998901112233"
+        self.customer.save(update_fields=["phone"])
+        self.client.force_authenticate(self.usta_user)
+        resp = self.client.post(
+            "/api/v1/custom-orders/create/",
+            self._payload(customer_worker_id="+998901112233"),
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        order = Order.objects.get(pk=resp.data["id"])
+        self.assertEqual(order.customer_id, self.customer.id)
+
+    def test_free_form_item_without_catalog_product(self):
+        self.client.force_authenticate(self.usta_user)
+        payload = self._payload(
+            items=[{"custom_name": "Individual shkaf, eshigi tovsiz", "width": "2", "height": "2.4", "depth": "0.6", "quantity": 1}]
+        )
+        resp = self.client.post("/api/v1/custom-orders/create/", payload, format="json")
+        self.assertEqual(resp.status_code, 201, resp.data)
+        order = Order.objects.get(pk=resp.data["id"])
+        item = order.items.first()
+        self.assertEqual(item.product_name, "Individual shkaf, eshigi tovsiz")
+        self.assertIsNone(item.variant)
+        # Ikkinchi shu firmadagi erkin band ham xuddi shu placeholder mahsulotga
+        # tushishi kerak (har safar yangi Product yaratilmasin).
+        resp2 = self.client.post("/api/v1/custom-orders/create/", payload, format="json")
+        order2 = Order.objects.get(pk=resp2.data["id"])
+        self.assertEqual(order.items.first().product_id, order2.items.first().product_id)
+
+    def test_item_without_product_or_custom_name_rejected(self):
+        self.client.force_authenticate(self.usta_user)
+        payload = self._payload(items=[{"width": "1", "height": "1", "depth": "1", "quantity": 1}])
+        resp = self.client.post("/api/v1/custom-orders/create/", payload, format="json")
+        self.assertEqual(resp.status_code, 400)
+
 
 # Kichiklashtirilgan Bazis eksporti — apps/workflow/tests.py::BAZIS_FIXTURE bilan
 # bir xil tuzilish (1 detal, 2 dona, 2 ta Ø8 teshik, 1 varaq material).

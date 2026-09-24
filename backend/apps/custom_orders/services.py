@@ -14,6 +14,7 @@ from apps.notifications.services import (
     notify_task_assigned,
 )
 from apps.orders.models import Order, OrderItem
+from apps.products.models import Category, Product
 from apps.workflow.models import STAGE_POSITION, Stage, StepStatus, WorkflowStepInstance, WorkType
 
 from .models import AuditEntityType, AuditLogEntry, Design
@@ -24,6 +25,24 @@ def _log(entity_type, entity_id, action, changed_by, old_value=None, new_value=N
         entity_type=entity_type, entity_id=entity_id, action=action, changed_by=changed_by,
         old_value=old_value, new_value=new_value, reason=reason,
     )
+
+
+def get_or_create_custom_item_placeholder(company):
+    """Katalogga mos kelmaydigan (usta qo'lda nom kiritgan) individual
+    buyum uchun — `OrderItem.product` FK majburiy (`on_delete=PROTECT`)
+    bo'lgani sabab, haqiqiy `Product` yozuvi kerak. Har firma uchun bitta
+    yashirin (sotuvga chiqarilmagan) "placeholder" mahsulot bir marta
+    yaratiladi va qayta ishlatiladi — ko'rinadigan nom baribir
+    `OrderItem.product_name`dan olinadi (qarang create_custom_order_on_site),
+    bu yozuvning o'zi hech qayerda ko'rsatilmaydi."""
+    category, _ = Category.objects.get_or_create(
+        slug="individual-boshqa", defaults={"name_uz": "Individual / Boshqa"}
+    )
+    product, _ = Product.objects.get_or_create(
+        company=company, category=category, name_uz="Individual buyum (erkin nom)",
+        defaults={"is_published": False, "description": "Katalogga mos kelmaydigan individual buyurtma bandlari uchun avtomatik yaratilgan yozuv."},
+    )
+    return product
 
 
 @transaction.atomic
@@ -68,7 +87,7 @@ def create_custom_order_on_site(
             order=order,
             product=item["product"],
             variant=variant,
-            product_name=item["product"].name_uz,
+            product_name=item.get("custom_name") or item["product"].name_uz,
             variant_name=variant.name if variant else "",
             width=item["width"],
             height=item["height"],

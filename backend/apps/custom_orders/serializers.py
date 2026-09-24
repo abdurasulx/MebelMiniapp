@@ -50,13 +50,24 @@ class DesignSerializer(serializers.ModelSerializer):
 
 
 class CustomOrderItemInputSerializer(serializers.Serializer):
-    product = serializers.UUIDField()
+    # Ikkalasidan biri: katalogdan `product`, yoki katalogga mos kelmaydigan
+    # individual buyum uchun `custom_name` (erkin matn) — qarang
+    # validate() va views.CustomOrderCreateView (bo'sh bo'lsa firma uchun
+    # bitta umumiy "placeholder" Product avtomatik ishlatiladi, faqat
+    # ko'rinadigan nomi shu `custom_name` bo'ladi).
+    product = serializers.UUIDField(required=False, allow_null=True)
+    custom_name = serializers.CharField(required=False, allow_blank=True, default="")
     variant = serializers.UUIDField(required=False, allow_null=True)
     width = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=Decimal("0.1"))
     height = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=Decimal("0.1"))
     depth = serializers.DecimalField(max_digits=6, decimal_places=2, min_value=Decimal("0.1"))
     quantity = serializers.IntegerField(min_value=1, default=1)
     is_custom_size = serializers.BooleanField(default=False)
+
+    def validate(self, attrs):
+        if not attrs.get("product") and not (attrs.get("custom_name") or "").strip():
+            raise serializers.ValidationError("Mahsulot tanlang yoki nomini kiriting")
+        return attrs
 
 
 class CreateCustomOrderOnSiteSerializer(serializers.Serializer):
@@ -68,9 +79,10 @@ class CreateCustomOrderOnSiteSerializer(serializers.Serializer):
     bilan bir xil `is_mock` naqshi, qarang apps.attendance.services)."""
 
     items = CustomOrderItemInputSerializer(many=True)
-    # Mijoz doimiy qidiruvchi ID (worker_id) orqali topiladi — mijoz shu
-    # orqali o'z ilovasida buyurtmani kuzatib borishi mumkin bo'ladi.
-    # Endi survey.customer degan zaxira yo'q, shuning uchun majburiy.
+    # Mijoz qidiruvchi ID (worker_id) YOKI telefon raqami (+998...) orqali
+    # topiladi — maydon nomi tarixiy sabab bilan "customer_worker_id"
+    # qolgan (mobil ilova ham shu nomni yuboradi), lekin qarang
+    # validate_customer_worker_id: ikkalasi ham qabul qilinadi.
     customer_worker_id = serializers.CharField()
     address = serializers.CharField(required=False, allow_blank=True, default="")
     latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
@@ -86,8 +98,13 @@ class CreateCustomOrderOnSiteSerializer(serializers.Serializer):
         return items
 
     def validate_customer_worker_id(self, value):
-        try:
-            self._customer = User.objects.get(worker_id=value)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("Bu qidiruvchi ID bo'yicha foydalanuvchi topilmadi")
+        value = value.strip()
+        user = User.objects.filter(worker_id=value).first() or User.objects.filter(
+            phone=value
+        ).exclude(phone="").first()
+        if user is None:
+            raise serializers.ValidationError(
+                "Bu qidiruvchi ID yoki telefon raqami bo'yicha foydalanuvchi topilmadi"
+            )
+        self._customer = user
         return value

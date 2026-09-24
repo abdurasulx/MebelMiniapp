@@ -204,7 +204,10 @@ export default function FirmaOrders() {
 }
 
 function emptyItem() {
-  return { product: "", variant: "", width: "1", height: "1", depth: "1", quantity: "1", is_custom_size: true };
+  return {
+    product: "", variant: "", isFree: false, customName: "",
+    width: "1", height: "1", depth: "1", quantity: "1", is_custom_size: true,
+  };
 }
 
 function NewCustomOrderModal({ products, onClose, onDone }) {
@@ -228,10 +231,10 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
         customer_worker_id: customerWorkerId,
         address,
         items: items
-          .filter((it) => it.product)
+          .filter((it) => (it.isFree ? it.customName.trim() : it.product))
           .map((it) => ({
-            product: it.product,
-            variant: it.variant || null,
+            ...(it.isFree ? { custom_name: it.customName.trim() } : { product: it.product }),
+            variant: it.isFree ? null : it.variant || null,
             width: it.width,
             height: it.height,
             depth: it.depth,
@@ -271,9 +274,10 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
         <h3 className="text-lg font-semibold">Yangi buyurtma (individual loyiha)</h3>
 
         <label className="flex flex-col gap-1 text-sm">
-          Mijoz qidiruvchi ID
+          Mijoz qidiruvchi ID yoki telefon raqami
           <input
-            className="input" required value={customerWorkerId}
+            className="input" required placeholder="masalan 1234567890 yoki +998901234567"
+            value={customerWorkerId}
             onChange={(e) => setCustomerWorkerId(e.target.value)}
           />
         </label>
@@ -288,22 +292,38 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
             return (
               <div key={i} className="flex flex-col gap-2 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
                 <div className="flex items-center gap-2">
-                  <select
-                    className="input flex-1" required value={it.product}
-                    onChange={(e) => setItem(i, { product: e.target.value, variant: "" })}
+                  {it.isFree ? (
+                    <input
+                      className="input flex-1" required placeholder="Mahsulot nomi (erkin)"
+                      value={it.customName}
+                      onChange={(e) => setItem(i, { customName: e.target.value })}
+                    />
+                  ) : (
+                    <select
+                      className="input flex-1" required value={it.product}
+                      onChange={(e) => setItem(i, { product: e.target.value, variant: "" })}
+                    >
+                      <option value="">Mahsulot tanlang…</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name_uz}</option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    className={it.isFree ? "btn !px-2.5 !py-1.5 text-xs" : "btn-ghost !px-2.5 !py-1.5 text-xs"}
+                    title="Katalogda yo'q mahsulot uchun nomni qo'lda kiriting"
+                    onClick={() => setItem(i, { isFree: !it.isFree, product: "", variant: "" })}
                   >
-                    <option value="">Mahsulot tanlang…</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name_uz}</option>
-                    ))}
-                  </select>
+                    Erkin nom
+                  </button>
                   {items.length > 1 && (
                     <button type="button" className="icon-btn" onClick={() => removeItem(i)}>
                       <X size={14} />
                     </button>
                   )}
                 </div>
-                {product?.variants?.length > 0 && (
+                {!it.isFree && product?.variants?.length > 0 && (
                   <select
                     className="input" value={it.variant}
                     onChange={(e) => setItem(i, { variant: e.target.value })}
@@ -315,10 +335,22 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
                   </select>
                 )}
                 <div className="grid grid-cols-4 gap-2">
-                  <input className="input" type="number" step="0.01" min="0.1" placeholder="Eni (m)" value={it.width} onChange={(e) => setItem(i, { width: e.target.value })} />
-                  <input className="input" type="number" step="0.01" min="0.1" placeholder="Bo'yi (m)" value={it.height} onChange={(e) => setItem(i, { height: e.target.value })} />
-                  <input className="input" type="number" step="0.01" min="0.1" placeholder="Chuquri (m)" value={it.depth} onChange={(e) => setItem(i, { depth: e.target.value })} />
-                  <input className="input" type="number" min="1" placeholder="Soni" value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} />
+                  <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                    Eni (m)
+                    <input className="input" type="number" step="0.01" min="0.1" value={it.width} onChange={(e) => setItem(i, { width: e.target.value })} />
+                  </label>
+                  <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                    Bo'yi (m)
+                    <input className="input" type="number" step="0.01" min="0.1" value={it.height} onChange={(e) => setItem(i, { height: e.target.value })} />
+                  </label>
+                  <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                    Chuquri (m)
+                    <input className="input" type="number" step="0.01" min="0.1" value={it.depth} onChange={(e) => setItem(i, { depth: e.target.value })} />
+                  </label>
+                  <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                    Soni
+                    <input className="input" type="number" min="1" value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} />
+                  </label>
                 </div>
               </div>
             );
