@@ -213,14 +213,12 @@ function emptyItem() {
 function NewCustomOrderModal({ products, onClose, onDone }) {
   const [customerWorkerId, setCustomerWorkerId] = useState("");
   const [address, setAddress] = useState("");
-  const [items, setItems] = useState([emptyItem()]);
+  const [it, setIt] = useState(emptyItem());
   const [bazisFile, setBazisFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const setItem = (i, patch) => setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
-  const addItem = () => setItems((prev) => [...prev, emptyItem()]);
-  const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
+  const patchItem = (patch) => setIt((prev) => ({ ...prev, ...patch }));
 
   const submit = async (e) => {
     e.preventDefault();
@@ -230,9 +228,8 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
       const body = {
         customer_worker_id: customerWorkerId,
         address,
-        items: items
-          .filter((it) => (it.isFree ? it.customName.trim() : it.product))
-          .map((it) => ({
+        items: [
+          {
             ...(it.isFree ? { custom_name: it.customName.trim() } : { product: it.product }),
             variant: it.isFree ? null : it.variant || null,
             width: it.width,
@@ -241,15 +238,16 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
             quantity: Number(it.quantity) || 1,
             // Katalogdan tanlangan (erkin bo'lmagan) va variant biriktirilgan
             // band — narx variantning standart narxidan avtomatik hisoblanadi
-            // (o'lchamlar ham o'sha variantdan olingan, qarang setItem
+            // (o'lchamlar ham o'sha variantdan olingan, qarang patchItem
             // "product"/"variant" chaqiruvlari). Erkin nomli band uchun narx
             // avtomatik hisoblanmaydi — admin keyin qo'lda kiritadi.
             is_custom_size: it.isFree || !it.variant,
-          })),
+          },
+        ],
       };
       const order = await api("/custom-orders/create/", { method: "POST", body });
 
-      if (bazisFile && items.some((it) => it.isFree)) {
+      if (bazisFile && it.isFree) {
         const fd = new FormData();
         fd.append("file", bazisFile);
         try {
@@ -292,16 +290,16 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
         </label>
 
         <div className="flex flex-col gap-3">
-          {items.map((it, i) => {
+          {(() => {
             const product = products.find((p) => p.id === it.product);
             return (
-              <div key={i} className="flex flex-col gap-2 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+              <div className="flex flex-col gap-2 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
                 <div className="flex items-center gap-2">
                   {it.isFree ? (
                     <input
                       className="input flex-1" required placeholder="Mahsulot nomi (erkin)"
                       value={it.customName}
-                      onChange={(e) => setItem(i, { customName: e.target.value })}
+                      onChange={(e) => patchItem({ customName: e.target.value })}
                     />
                   ) : (
                     <select
@@ -309,7 +307,7 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
                       onChange={(e) => {
                         const p = products.find((x) => x.id === e.target.value);
                         const v = p?.variants?.[0];
-                        setItem(i, {
+                        patchItem({
                           product: e.target.value,
                           variant: v?.id || "",
                           width: v?.width ?? it.width,
@@ -328,25 +326,20 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
                     type="button"
                     className={it.isFree ? "btn !px-2.5 !py-1.5 text-xs" : "btn-ghost !px-2.5 !py-1.5 text-xs"}
                     title="Katalogda yo'q mahsulot uchun nomni qo'lda kiriting"
-                    onClick={() => setItem(i, {
+                    onClick={() => patchItem({
                       isFree: !it.isFree, product: "", variant: "",
                       width: "1", height: "1", depth: "1",
                     })}
                   >
                     Erkin nom
                   </button>
-                  {items.length > 1 && (
-                    <button type="button" className="icon-btn" onClick={() => removeItem(i)}>
-                      <X size={14} />
-                    </button>
-                  )}
                 </div>
                 {!it.isFree && product?.variants?.length > 0 && (
                   <select
                     className="input" value={it.variant}
                     onChange={(e) => {
                       const v = product.variants.find((x) => x.id === e.target.value);
-                      setItem(i, {
+                      patchItem({
                         variant: e.target.value,
                         width: v?.width ?? it.width,
                         height: v?.height ?? it.height,
@@ -366,20 +359,17 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
                     qiymati jim yuboriladi (qarang emptyItem/submit). */}
                 <label className="flex max-w-[120px] flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
                   Soni
-                  <input className="input" type="number" min="1" value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} />
+                  <input className="input" type="number" min="1" value={it.quantity} onChange={(e) => patchItem({ quantity: e.target.value })} />
                 </label>
               </div>
             );
-          })}
-          <button type="button" className="btn-ghost self-start !px-3 !py-1.5 text-xs" onClick={addItem}>
-            + Band qo'shish
-          </button>
+          })()}
         </div>
 
         {/* Bazis fayl faqat erkin (katalogda yo'q) band bo'lsa ma'noli —
             katalogdan tanlangan mahsulotning o'z ishlab chiqarish
             shabloni bor, alohida CAD fayl import qilish shart emas. */}
-        {items.some((it) => it.isFree) && (
+        {it.isFree && (
         <label className="flex flex-col gap-1 text-sm">
           Bazis fayl (ixtiyoriy)
           <div className="flex items-center gap-2">
