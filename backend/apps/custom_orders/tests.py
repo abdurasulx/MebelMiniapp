@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -6,6 +7,7 @@ from rest_framework.test import APIClient, APITestCase
 from apps.companies.models import Company, Employee, PayType
 from apps.orders.models import Order
 from apps.products.models import Category, Product, Variant
+from apps.workflow.models import WorkType
 
 from .models import Design
 
@@ -185,6 +187,59 @@ class DesignBazisImportTests(APITestCase):
             f"/api/v1/custom-orders/{self.order.id}/import-bazis/", {"file": f}, format="multipart"
         )
         self.assertEqual(resp.status_code, 400)
+
+    def test_import_with_prices_sets_work_type_price_immediately(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        f = SimpleUploadedFile("test.project", BAZIS_FIXTURE, content_type="application/xml")
+        resp = self.client.post(
+            f"/api/v1/custom-orders/{self.order.id}/import-bazis/",
+            {"file": f, "prices": json.dumps({"Teshish Ø8mm": "1500", "Kesish: DSP oq": ""})},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+
+        hole_wt = WorkType.objects.get(company=self.company, name="Teshish Ø8mm")
+        self.assertEqual(hole_wt.price_per_unit, Decimal("1500.00"))
+        # Bo'sh narx yuborilgan guruh WorkType sifatida baribir yaratiladi
+        # (keyinroq ishlatish uchun), lekin narxi 0 (pulsiz) bo'lib qoladi.
+        cut_wt = WorkType.objects.get(company=self.company, name="Kesish: DSP oq")
+        self.assertEqual(cut_wt.price_per_unit, Decimal("0.00"))
+
+
+class BazisPreviewTests(APITestCase):
+    def setUp(self):
+        self.owner, self.company, self.usta_user, self.customer, self.product = make_company_with_usta()
+        self.client = APIClient()
+
+    def _upload(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        f = SimpleUploadedFile("test.project", BAZIS_FIXTURE, content_type="application/xml")
+        return self.client.post("/api/v1/custom-orders/parse-bazis/", {"file": f}, format="multipart")
+
+    def test_preview_returns_groups_without_saving_anything(self):
+        self.client.force_authenticate(self.usta_user)
+        resp = self._upload()
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual(resp.data["holes_total"], 4)
+        names = {g["name"] for g in resp.data["groups"]}
+        self.assertIn("Teshish Ø8mm", names)
+        self.assertIn("Kesish: DSP oq", names)
+        # Hech qanday Design/Order/WorkType yaratilmagan bo'lishi kerak.
+        self.assertEqual(Design.objects.count(), 0)
+        self.assertEqual(WorkType.objects.filter(company=self.company).count(), 0)
+
+    def test_preview_shows_existing_work_type_price(self):
+        WorkType.objects.create(company=self.company, name="Teshish Ø8mm", unit="dona", price_per_unit=Decimal("2000"))
+        self.client.force_authenticate(self.usta_user)
+        resp = self._upload()
+        group = next(g for g in resp.data["groups"] if g["name"] == "Teshish Ø8mm")
+        self.assertEqual(group["price_per_unit"], "2000.00")
+
+    def test_unauthenticated_cannot_preview(self):
+        resp = self._upload()
+        self.assertEqual(resp.status_code, 401)
 
 
 class WorkflowInstancesFromBazisDesignTests(APITestCase):

@@ -5,6 +5,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from apps.ar_collections.views import ARCollectionItemViewSet, ARCollectionViewSet
 from apps.attendance.views import AttendanceRecordViewSet, WorkplaceViewSet
 from apps.custom_orders.views import (
+    BazisPreviewView,
     CustomOrderCreateView,
     DesignBazisImportView,
     DesignVersionViewSet,
@@ -240,6 +241,7 @@ urlpatterns = [
         name="ar-collection-item-detail",
     ),
     path("custom-orders/create/", CustomOrderCreateView.as_view(), name="custom-order-create"),
+    path("custom-orders/parse-bazis/", BazisPreviewView.as_view(), name="custom-order-parse-bazis"),
     path(
         "custom-orders/<uuid:order_id>/import-bazis/",
         DesignBazisImportView.as_view(),

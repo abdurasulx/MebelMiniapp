@@ -1,3 +1,6 @@
+import json
+from decimal import Decimal, InvalidOperation
+
 from django.db.models import Max
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
@@ -10,6 +13,7 @@ from apps.companies.views import is_company_owner, user_company, user_has_positi
 from apps.orders.models import Order, OrderItem
 from apps.products.models import Product, Variant
 from apps.workflow.bazis_import import parse_bazis_project
+from apps.workflow.models import WorkType
 
 from .models import Design, DesignVersion
 from .serializers import (
@@ -19,6 +23,7 @@ from .serializers import (
 )
 from .services import (
     approve_design_version,
+    bazis_groups_from_summary,
     create_custom_order_on_site,
     get_or_create_custom_item_placeholder,
     set_item_cost,
@@ -76,10 +81,89 @@ class CustomOrderCreateView(APIView):
         return Response(OrderSerializer(order, context={"request": request}).data, status=201)
 
 
+def _require_order_creator(request):
+    """`CustomOrderCreateView` bilan bir xil ruxsat tekshiruvi (usta yoki
+    firma egasi) — Bazis fayl bilan bog'liq ikkala view ham shu."""
+    company = user_company(request.user)
+    if company is None:
+        raise PermissionDenied("Siz hech qanday firmaga tegishli emassiz")
+    if not (is_company_owner(request.user, company) or user_has_position(request.user, company, "usta")):
+        raise PermissionDenied("Faqat usta yoki firma egasi Bazis faylini ishlata oladi")
+    return company
+
+
+def _parse_bazis_upload(upload):
+    raw = upload.read()
+    try:
+        parsed = parse_bazis_project(raw)
+    except Exception:
+        raise ValidationError(
+            "Faylni o'qib bo'lmadi — bu Bazis'dan eksport qilingan to'g'ri .project fayli ekanini tekshiring"
+        )
+    upload.seek(0)
+    summary = {
+        "product_name": parsed.product_name,
+        "parts_count": len(parsed.parts),
+        "sheet_usage": dict(parsed.sheet_usage),
+        "band_usage": dict(parsed.band_usage),
+        "hole_groups": dict(parsed.hole_groups),
+    }
+    return parsed, summary
+
+
+class BazisPreviewView(APIView):
+    """Buyurtma HALI yaratilmasdan oldin (yaratish formasining o'zida)
+    Bazis faylini ko'rib chiqish uchun — `POST /custom-orders/parse-bazis/`.
+    Hech narsa saqlamaydi, faqat kesish/kromkalash/teshish guruhlarini va
+    ularning joriy narxini (agar "Ish turlari" katalogida allaqachon
+    mavjud bo'lsa) qaytaradi — admin shu yerning o'zida narx ko'rib/
+    belgilab, keyin buyurtma bilan birga yuboradi (qarang
+    DesignBazisImportView'ning `prices` parametri)."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        company = _require_order_creator(request)
+        upload = request.FILES.get("file")
+        if not upload:
+            raise ValidationError("Fayl yuborilmadi")
+        parsed, summary = _parse_bazis_upload(upload)
+
+        groups = []
+        for name, stage, work_type_name, unit, quantity in bazis_groups_from_summary(summary):
+            work_type = WorkType.objects.filter(company=company, name=work_type_name).first()
+            groups.append(
+                {
+                    "name": name,
+                    "stage": stage,
+                    "quantity": quantity,
+                    "unit": unit,
+                    "price_per_unit": str(work_type.price_per_unit) if work_type else "0",
+                }
+            )
+
+        return Response(
+            {
+                "product_name": parsed.product_name,
+                "parts_count": len(parsed.parts),
+                "holes_total": sum(parsed.hole_groups.values()),
+                "groups": groups,
+            },
+            status=200,
+        )
+
+
 class DesignBazisImportView(APIView):
     """Individual loyiha buyurtmasi yaratilgach (odatda darhol, xuddi shu
     ekranda) Bazis (mebel CAD) eksport faylini shu buyurtmaning dizayniga
     biriktiradi — `POST /custom-orders/<order_id>/import-bazis/`.
+
+    Ixtiyoriy `prices` maydoni (JSON matn, `{"guruh nomi": "narx", ...}`) —
+    `BazisPreviewView`da ko'rsatilgan guruhlarga admin shu yerda belgilagan
+    narxlarni darhol `WorkType` katalogiga yozadi (guruh `prices`da yo'q
+    yoki narxi bo'sh bo'lsa — WorkType baribir yaratiladi, lekin narxi 0
+    holida qoladi, ya'ni "pulsiz" — keyinroq ham "Ish turlari" bo'limidan
+    belgilash mumkin).
 
     Fayl darhol topshiriq yaratmaydi (buyurtma hali DESIGNING holatida,
     dizayn versiyasi tasdiqlanishi kerak) — faqat parslangan natija
@@ -91,11 +175,7 @@ class DesignBazisImportView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def post(self, request, order_id):
-        company = user_company(request.user)
-        if company is None:
-            raise PermissionDenied("Siz hech qanday firmaga tegishli emassiz")
-        if not (is_company_owner(request.user, company) or user_has_position(request.user, company, "usta")):
-            raise PermissionDenied("Faqat usta yoki firma egasi Bazis faylini biriktira oladi")
+        company = _require_order_creator(request)
 
         order = Order.objects.filter(id=order_id, company=company, is_deleted=False).select_related(
             "custom_design"
@@ -109,24 +189,30 @@ class DesignBazisImportView(APIView):
         upload = request.FILES.get("file")
         if not upload:
             raise ValidationError("Fayl yuborilmadi")
-        raw = upload.read()
-        try:
-            parsed = parse_bazis_project(raw)
-        except Exception:
-            raise ValidationError(
-                "Faylni o'qib bo'lmadi — bu Bazis'dan eksport qilingan to'g'ri .project fayli ekanini tekshiring"
-            )
-        upload.seek(0)
+        parsed, summary = _parse_bazis_upload(upload)
 
         design.bazis_file = upload
-        design.bazis_summary = {
-            "product_name": parsed.product_name,
-            "parts_count": len(parsed.parts),
-            "sheet_usage": dict(parsed.sheet_usage),
-            "band_usage": dict(parsed.band_usage),
-            "hole_groups": dict(parsed.hole_groups),
-        }
+        design.bazis_summary = summary
         design.save(update_fields=["bazis_file", "bazis_summary"])
+
+        raw_prices = request.data.get("prices")
+        prices = {}
+        if raw_prices:
+            try:
+                prices = json.loads(raw_prices)
+            except (TypeError, ValueError):
+                prices = {}
+        for name, stage, work_type_name, unit, _quantity in bazis_groups_from_summary(summary):
+            work_type, _created = WorkType.objects.get_or_create(
+                company=company, name=work_type_name, defaults={"unit": unit, "stage": stage}
+            )
+            price = prices.get(name)
+            if price not in (None, ""):
+                try:
+                    work_type.price_per_unit = Decimal(str(price))
+                    work_type.save(update_fields=["price_per_unit"])
+                except (InvalidOperation, TypeError):
+                    pass
 
         return Response(
             {

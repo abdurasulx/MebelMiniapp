@@ -215,10 +215,41 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
   const [address, setAddress] = useState("");
   const [it, setIt] = useState(emptyItem());
   const [bazisFile, setBazisFile] = useState(null);
+  const [bazisGroups, setBazisGroups] = useState(null);
+  const [bazisLoading, setBazisLoading] = useState(false);
+  const [bazisError, setBazisError] = useState("");
+  // Har guruh (masalan "Teshish Ø8mm") uchun: pullikmi va narxi — qarang
+  // pickBazisFile (fayl tanlangach avtomatik to'ldiriladi, agar shu
+  // guruh nomi bilan "Ish turlari"da narx allaqachon bo'lsa).
+  const [groupPay, setGroupPay] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const patchItem = (patch) => setIt((prev) => ({ ...prev, ...patch }));
+
+  const pickBazisFile = async (file) => {
+    setBazisFile(file);
+    setBazisGroups(null);
+    setBazisError("");
+    if (!file) return;
+    setBazisLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const d = await api("/custom-orders/parse-bazis/", { method: "POST", body: fd, isForm: true });
+      setBazisGroups(d.groups || []);
+      const initial = {};
+      for (const g of d.groups || []) {
+        const existing = Number(g.price_per_unit) || 0;
+        initial[g.name] = { paid: existing > 0, price: existing > 0 ? String(existing) : "" };
+      }
+      setGroupPay(initial);
+    } catch (err) {
+      setBazisError(err.message);
+    } finally {
+      setBazisLoading(false);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -250,6 +281,11 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
       if (bazisFile && it.isFree) {
         const fd = new FormData();
         fd.append("file", bazisFile);
+        const prices = {};
+        for (const [name, g] of Object.entries(groupPay)) {
+          if (g.paid && g.price) prices[name] = g.price;
+        }
+        fd.append("prices", JSON.stringify(prices));
         try {
           await api(`/custom-orders/${order.id}/import-bazis/`, { method: "POST", body: fd, isForm: true });
         } catch (err) {
@@ -377,11 +413,11 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
               <Upload size={13} /> {bazisFile ? bazisFile.name : "Fayl tanlash (.project)"}
               <input
                 type="file" accept=".project" style={{ display: "none" }}
-                onChange={(e) => setBazisFile(e.target.files?.[0] || null)}
+                onChange={(e) => pickBazisFile(e.target.files?.[0] || null)}
               />
             </label>
             {bazisFile && (
-              <button type="button" className="icon-btn" onClick={() => setBazisFile(null)}>
+              <button type="button" className="icon-btn" onClick={() => pickBazisFile(null)}>
                 <X size={14} />
               </button>
             )}
@@ -390,6 +426,37 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
             CAD dasturidan eksport qilingan .project fayli — detal/teshik ma'lumotidan ishlab chiqarish
             topshiriqlari avtomatik tuziladi (dizayn tasdiqlanib "Ishlab chiqarishga" o'tganda).
           </span>
+
+          {bazisLoading && <span style={{ fontSize: 12, color: "var(--muted)" }}>Tahlil qilinmoqda…</span>}
+          {bazisError && <div className="error">{bazisError}</div>}
+          {bazisGroups?.length > 0 && (
+            <div className="flex flex-col gap-1.5 rounded-lg border p-2.5" style={{ borderColor: "var(--border)" }}>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)" }}>
+                Topilgan ishlar — har biriga ixtiyoriy ravishda narx belgilang:
+              </span>
+              {bazisGroups.map((g) => {
+                const gp = groupPay[g.name] || { paid: false, price: "" };
+                return (
+                  <div key={g.name} className="flex items-center gap-2 text-xs">
+                    <label className="flex flex-1 items-center gap-1.5">
+                      <input
+                        type="checkbox" checked={gp.paid}
+                        onChange={(e) => setGroupPay((prev) => ({ ...prev, [g.name]: { ...gp, paid: e.target.checked } }))}
+                      />
+                      {g.name} <span style={{ color: "var(--muted)" }}>({g.quantity} {g.unit})</span>
+                    </label>
+                    {gp.paid && (
+                      <input
+                        className="input !w-24 !py-1 text-xs" type="number" min="0" placeholder="narx"
+                        value={gp.price}
+                        onChange={(e) => setGroupPay((prev) => ({ ...prev, [g.name]: { ...gp, price: e.target.value } }))}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </label>
         )}
 

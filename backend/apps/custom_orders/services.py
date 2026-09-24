@@ -149,15 +149,16 @@ def approve_design_version(*, design_version, approved_by):
     return design
 
 
-def _bazis_instance_specs(design):
-    """`design.bazis_summary`dan (qarang DesignBazisImportView) kesish/
-    kromkalash/teshish guruhlarini WorkflowStepInstance yaratish uchun
-    `(nomi, stage, work_type_nomi, birlik, miqdor)` ro'yxatiga aylantiradi —
-    aynan `apps.workflow.views.WorkflowStepBazisImportView` bilan bir xil
-    guruhlash mantig'i, farqi — bu yerda mahsulot SHABLONI emas, shu
-    BUYURTMANING o'ziga tegishli haqiqiy topshiriq (`WorkflowStepInstance`)
-    yaratiladi."""
-    summary = design.bazis_summary or {}
+def bazis_groups_from_summary(summary):
+    """Parslangan Bazis xulosasidan (`sheet_usage`/`band_usage`/`hole_groups`
+    — qarang `apps.workflow.bazis_import.parse_bazis_project`) kesish/
+    kromkalash/teshish guruhlarini `(nomi, stage, work_type_nomi, birlik,
+    miqdor)` ro'yxatiga aylantiradi — aynan `apps.workflow.views.
+    WorkflowStepBazisImportView` bilan bir xil guruhlash mantig'i. Ikkala
+    joyda ham (buyurtma yaratishdan oldingi ko'rib chiqish va haqiqiy
+    `WorkflowStepInstance` yaratish) shu bitta funksiya ishlatiladi —
+    guruh nomlari (demak, ularga bog'lanadigan `WorkType`lar ham) hech
+    qachon ikki joyda farqlanib qolmasligi uchun."""
     specs = []
     for sheet_name, count in (summary.get("sheet_usage") or {}).items():
         specs.append((f"Kesish: {sheet_name}", Stage.CUTTING, f"Kesish: {sheet_name}", "dona", count))
@@ -168,6 +169,10 @@ def _bazis_instance_specs(design):
     for hole_label, count in (summary.get("hole_groups") or {}).items():
         specs.append((f"Teshish {hole_label}", Stage.OTHER, f"Teshish {hole_label}", "dona", count))
     return specs
+
+
+def _bazis_instance_specs(design):
+    return bazis_groups_from_summary(design.bazis_summary or {})
 
 
 def create_workflow_instances_from_design(order, design):
