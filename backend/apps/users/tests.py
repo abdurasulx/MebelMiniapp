@@ -4,6 +4,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession, User
 
@@ -191,16 +192,38 @@ class GoogleLoginTests(TestCase):
         resp = self._login()
         self.assertEqual(resp.status_code, 400)
 
-    def test_platform_admin_cannot_login_via_google(self):
-        """XAVFSIZLIK: platforma admini faqat email+parol bilan kirishi
-        kerak — Google email-bo'yicha avtomatik bog'lash orqali ham
-        kirolmasligi kerak."""
-        User.objects.create_user(
+    def test_platform_admin_google_login_creates_separate_shadow_customer(self):
+        """XAVFSIZLIK: platforma admin HUQUQLARI bilan Google orqali token
+        olib bo'lmaydi (faqat email+parol, qarang AdminLogin) — lekin admin
+        ham market'dan oddiy mijoz sifatida foydalana olishi kerak, shuning
+        uchun rad etish o'rniga ALOHIDA (admin hisobi bilan hech qanday
+        huquqiy aloqasi yo'q) mijoz hisobi yaratiladi."""
+        admin = User.objects.create_user(
             email="user@example.com", password="StrongPass123", role=User.Role.PLATFORM_ADMIN
         )
         resp = self._login()
-        self.assertEqual(resp.status_code, 400)
-        self.assertFalse(GoogleAccount.objects.filter(user__email="user@example.com").exists())
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["is_new_user"])
+
+        # Admin hisobiga hech qanday Google bog'lanish yaratilmagan.
+        self.assertFalse(GoogleAccount.objects.filter(user=admin).exists())
+        # O'rniga yangi, alohida (customer) hisob yaratildi.
+        self.assertEqual(User.objects.count(), 2)
+        shadow = User.objects.exclude(pk=admin.pk).get()
+        self.assertEqual(shadow.role, User.Role.CUSTOMER)
+        self.assertNotEqual(shadow.email, admin.email)
+        self.assertTrue(GoogleAccount.objects.filter(user=shadow, google_sub="google-sub-1").exists())
+
+        # Access token shadow (customer) hisobga tegishli, admin'ga emas.
+        access = AccessToken(data["access"])
+        self.assertEqual(str(access["user_id"]), str(shadow.id))
+
+        # Qayta kirganda xuddi shu shadow hisobga tushiladi, yangisi yaratilmaydi.
+        resp2 = self._login()
+        self.assertEqual(resp2.status_code, 200)
+        self.assertFalse(resp2.json()["is_new_user"])
+        self.assertEqual(User.objects.count(), 2)
 
     def test_platform_admin_with_linked_google_sub_still_blocked(self):
         user = User.objects.create_user(

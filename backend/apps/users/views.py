@@ -254,15 +254,16 @@ def _resolve_google_user(claims: dict) -> tuple:
     if existing is not None:
         if not existing.is_active:
             raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
-        # XAVFSIZLIK: platforma admini hech qachon Google orqali kira
-        # olmasligi kerak (faqat email+parol, qarang AdminLogin) — aks
-        # holda, agar adminning email manzili biror Google hisobiga
-        # tegishli bo'lib qolsa, shu email-bo'yicha avtomatik bog'lash
-        # orqali admin hisobiga OAuth orqali kirish imkoni ochilib qolardi.
+        # XAVFSIZLIK: platforma admini hech qachon Google orqali O'Z HISOBIGA
+        # kira olmasligi kerak (faqat email+parol, qarang AdminLogin) — aks
+        # holda, agar adminning email manzili biror Google hisobiga tegishli
+        # bo'lib qolsa, shu email-bo'yicha avtomatik bog'lash orqali admin
+        # HUQUQLARI bilan token olish imkoni ochilib qolardi. Lekin admin ham
+        # oddiy odam sifatida market'dan mijoz bo'lib foydalanishi kerak —
+        # shuning uchun rad etish o'rniga, shu Google hisobga ALOHIDA (admin
+        # bilan hech qanday aloqasi yo'q) mijoz hisobi bog'lanadi.
         if existing.role == "platform_admin":
-            raise ValidationError(
-                "Platforma admini uchun Google orqali kirish o'chirilgan. Email va parol bilan kiring."
-            )
+            return _shadow_customer_for_admin(claims), True
         GoogleAccount.objects.create(user=existing, google_sub=sub, email=email)
         return existing, False
 
@@ -278,6 +279,29 @@ def _resolve_google_user(claims: dict) -> tuple:
     user.save()
     GoogleAccount.objects.create(user=user, google_sub=sub, email=email)
     return user, True
+
+
+def _shadow_customer_for_admin(claims: dict) -> User:
+    """Platforma admini bilan bir xil Google hisob market'da alohida mijoz
+    bo'lishi uchun — `User.email` unique bo'lgani sabab admin bilan bir xil
+    emaildan foydalana olmaymiz, shuning uchun sun'iy (ko'rinmaydigan) email
+    bilan yangi mijoz hisobi yaratamiz. Bu hisob shu Google `sub`ga bog'lanadi
+    (qarang `_resolve_google_user`) — keyingi kirishlarda to'g'ridan-to'g'ri
+    shu (mijoz) hisobga tushiladi, admin hisobiga hech qachon emas."""
+    sub = claims["sub"]
+    email = (claims.get("email") or "").strip().lower()
+    user = User(
+        email=f"admin-market-{sub}@google.local",
+        first_name=(claims.get("given_name") or "").strip(),
+        last_name=(claims.get("family_name") or "").strip(),
+        role=User.Role.CUSTOMER,
+        registration_completed=False,
+        phone_verified=False,
+    )
+    user.set_unusable_password()
+    user.save()
+    GoogleAccount.objects.create(user=user, google_sub=sub, email=email)
+    return user
 
 
 class GoogleLoginView(APIView):
