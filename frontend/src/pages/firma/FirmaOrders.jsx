@@ -206,7 +206,7 @@ export default function FirmaOrders() {
 function emptyItem() {
   return {
     product: "", variant: "", isFree: false, customName: "",
-    width: "1", height: "1", depth: "1", quantity: "1", is_custom_size: true,
+    width: "1", height: "1", depth: "1", quantity: "1",
   };
 }
 
@@ -239,12 +239,17 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
             height: it.height,
             depth: it.depth,
             quantity: Number(it.quantity) || 1,
-            is_custom_size: it.is_custom_size,
+            // Katalogdan tanlangan (erkin bo'lmagan) va variant biriktirilgan
+            // band — narx variantning standart narxidan avtomatik hisoblanadi
+            // (o'lchamlar ham o'sha variantdan olingan, qarang setItem
+            // "product"/"variant" chaqiruvlari). Erkin nomli band uchun narx
+            // avtomatik hisoblanmaydi — admin keyin qo'lda kiritadi.
+            is_custom_size: it.isFree || !it.variant,
           })),
       };
       const order = await api("/custom-orders/create/", { method: "POST", body });
 
-      if (bazisFile) {
+      if (bazisFile && items.some((it) => it.isFree)) {
         const fd = new FormData();
         fd.append("file", bazisFile);
         try {
@@ -301,10 +306,20 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
                   ) : (
                     <select
                       className="input flex-1" required value={it.product}
-                      onChange={(e) => setItem(i, { product: e.target.value, variant: "" })}
+                      onChange={(e) => {
+                        const p = products.find((x) => x.id === e.target.value);
+                        const v = p?.variants?.[0];
+                        setItem(i, {
+                          product: e.target.value,
+                          variant: v?.id || "",
+                          width: v?.width ?? it.width,
+                          height: v?.height ?? it.height,
+                          depth: v?.depth ?? it.depth,
+                        });
+                      }}
                     >
                       <option value="">Mahsulot tanlang…</option>
-                      {products.map((p) => (
+                      {products.filter((p) => p.category_slug !== "individual-boshqa").map((p) => (
                         <option key={p.id} value={p.id}>{p.name_uz}</option>
                       ))}
                     </select>
@@ -313,7 +328,10 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
                     type="button"
                     className={it.isFree ? "btn !px-2.5 !py-1.5 text-xs" : "btn-ghost !px-2.5 !py-1.5 text-xs"}
                     title="Katalogda yo'q mahsulot uchun nomni qo'lda kiriting"
-                    onClick={() => setItem(i, { isFree: !it.isFree, product: "", variant: "" })}
+                    onClick={() => setItem(i, {
+                      isFree: !it.isFree, product: "", variant: "",
+                      width: "1", height: "1", depth: "1",
+                    })}
                   >
                     Erkin nom
                   </button>
@@ -326,32 +344,45 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
                 {!it.isFree && product?.variants?.length > 0 && (
                   <select
                     className="input" value={it.variant}
-                    onChange={(e) => setItem(i, { variant: e.target.value })}
+                    onChange={(e) => {
+                      const v = product.variants.find((x) => x.id === e.target.value);
+                      setItem(i, {
+                        variant: e.target.value,
+                        width: v?.width ?? it.width,
+                        height: v?.height ?? it.height,
+                        depth: v?.depth ?? it.depth,
+                      });
+                    }}
                   >
-                    <option value="">Variant — standart</option>
                     {product.variants.map((v) => (
                       <option key={v.id} value={v.id}>{v.name}</option>
                     ))}
                   </select>
                 )}
-                <div className="grid grid-cols-4 gap-2">
-                  <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                    Eni (m)
-                    <input className="input" type="number" step="0.01" min="0.1" value={it.width} onChange={(e) => setItem(i, { width: e.target.value })} />
-                  </label>
-                  <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                    Bo'yi (m)
-                    <input className="input" type="number" step="0.01" min="0.1" value={it.height} onChange={(e) => setItem(i, { height: e.target.value })} />
-                  </label>
-                  <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                    Chuquri (m)
-                    <input className="input" type="number" step="0.01" min="0.1" value={it.depth} onChange={(e) => setItem(i, { depth: e.target.value })} />
-                  </label>
-                  <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                    Soni
-                    <input className="input" type="number" min="1" value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} />
-                  </label>
-                </div>
+                {/* Katalogdan tanlangan mahsulot o'lchami (Eni/Bo'yi/Chuquri)
+                    variantning o'zidan avtomatik olinadi — faqat erkin
+                    nomli (yoki hech qanday variantga ega bo'lmagan) band
+                    uchun qo'lda kiritish kerak. */}
+                {(it.isFree || !it.variant) && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                      Eni (m)
+                      <input className="input" type="number" step="0.01" min="0.1" value={it.width} onChange={(e) => setItem(i, { width: e.target.value })} />
+                    </label>
+                    <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                      Bo'yi (m)
+                      <input className="input" type="number" step="0.01" min="0.1" value={it.height} onChange={(e) => setItem(i, { height: e.target.value })} />
+                    </label>
+                    <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                      Chuquri (m)
+                      <input className="input" type="number" step="0.01" min="0.1" value={it.depth} onChange={(e) => setItem(i, { depth: e.target.value })} />
+                    </label>
+                  </div>
+                )}
+                <label className="flex max-w-[120px] flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
+                  Soni
+                  <input className="input" type="number" min="1" value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} />
+                </label>
               </div>
             );
           })}
@@ -360,6 +391,10 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
           </button>
         </div>
 
+        {/* Bazis fayl faqat erkin (katalogda yo'q) band bo'lsa ma'noli —
+            katalogdan tanlangan mahsulotning o'z ishlab chiqarish
+            shabloni bor, alohida CAD fayl import qilish shart emas. */}
+        {items.some((it) => it.isFree) && (
         <label className="flex flex-col gap-1 text-sm">
           Bazis fayl (ixtiyoriy)
           <div className="flex items-center gap-2">
@@ -381,6 +416,7 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
             topshiriqlari avtomatik tuziladi (dizayn tasdiqlanib "Ishlab chiqarishga" o'tganda).
           </span>
         </label>
+        )}
 
         {error && <div className="error">{error}</div>}
 
