@@ -359,26 +359,11 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
                     ))}
                   </select>
                 )}
-                {/* Katalogdan tanlangan mahsulot o'lchami (Eni/Bo'yi/Chuquri)
-                    variantning o'zidan avtomatik olinadi — faqat erkin
-                    nomli (yoki hech qanday variantga ega bo'lmagan) band
-                    uchun qo'lda kiritish kerak. */}
-                {(it.isFree || !it.variant) && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                      Eni (m)
-                      <input className="input" type="number" step="0.01" min="0.1" value={it.width} onChange={(e) => setItem(i, { width: e.target.value })} />
-                    </label>
-                    <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                      Bo'yi (m)
-                      <input className="input" type="number" step="0.01" min="0.1" value={it.height} onChange={(e) => setItem(i, { height: e.target.value })} />
-                    </label>
-                    <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
-                      Chuquri (m)
-                      <input className="input" type="number" step="0.01" min="0.1" value={it.depth} onChange={(e) => setItem(i, { depth: e.target.value })} />
-                    </label>
-                  </div>
-                )}
+                {/* Eni/Bo'yi/Chuquri hech qachon so'ralmaydi — katalog
+                    mahsuloti bo'lsa variantdan avtomatik olinadi, erkin
+                    nomli band uchun esa umuman ahamiyatsiz (narxni admin
+                    keyin qo'lda kiritadi) — ikkalasida ham standart "1"
+                    qiymati jim yuboriladi (qarang emptyItem/submit). */}
                 <label className="flex max-w-[120px] flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
                   Soni
                   <input className="input" type="number" min="1" value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} />
