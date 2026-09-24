@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Phone, MapPin, MessageSquare, X, Workflow } from "lucide-react";
+import { Phone, MapPin, MessageSquare, X, Workflow, Upload } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { NEXT_STATUS, ORDER_STATUS, StatusBadge } from "../../orderStatus";
@@ -10,19 +10,28 @@ export default function FirmaOrders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [products, setProducts] = useState([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
   const [nextPage, setNextPage] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [showNew, setShowNew] = useState(false);
 
-  const load = () =>
-    Promise.all([api("/orders/"), api("/employees/")])
-      .then(([d, emp]) => {
+  const load = () => {
+    const companySlug = user?.company?.slug;
+    return Promise.all([
+      api("/orders/"),
+      api("/employees/"),
+      companySlug ? api(`/products/?company=${companySlug}`) : Promise.resolve({ results: [] }),
+    ])
+      .then(([d, emp, prod]) => {
         setOrders(d.results || []);
         setNextPage(d.next || null);
         setEmployees((emp.results || []).filter((e) => e.pay_type === "commission"));
+        setProducts(prod.results || []);
       })
       .catch((e) => setError(e.message));
+  };
 
   const setSoldBy = async (o, employeeId) => {
     try {
@@ -66,7 +75,7 @@ export default function FirmaOrders() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           className="rounded-full px-3 py-1.5 text-xs font-medium transition"
           style={
@@ -97,8 +106,18 @@ export default function FirmaOrders() {
             </button>
           );
         })}
+        <button className="btn !px-3 !py-1.5 text-xs ml-auto" onClick={() => setShowNew(true)}>
+          + Yangi buyurtma
+        </button>
       </div>
       {error && <div className="error">{error}</div>}
+      {showNew && (
+        <NewCustomOrderModal
+          products={products}
+          onClose={() => setShowNew(false)}
+          onDone={() => { setShowNew(false); load(); }}
+        />
+      )}
       {shown.length === 0 && (
         <p className="text-sm" style={{ color: "var(--muted)" }}>Buyurtmalar yo'q.</p>
       )}
@@ -180,6 +199,164 @@ export default function FirmaOrders() {
       <div className="flex justify-center">
         <LoadMoreButton next={nextPage} busy={loadingMore} onClick={loadMore} />
       </div>
+    </div>
+  );
+}
+
+function emptyItem() {
+  return { product: "", variant: "", width: "1", height: "1", depth: "1", quantity: "1", is_custom_size: true };
+}
+
+function NewCustomOrderModal({ products, onClose, onDone }) {
+  const [customerWorkerId, setCustomerWorkerId] = useState("");
+  const [address, setAddress] = useState("");
+  const [items, setItems] = useState([emptyItem()]);
+  const [bazisFile, setBazisFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const setItem = (i, patch) => setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  const addItem = () => setItems((prev) => [...prev, emptyItem()]);
+  const removeItem = (i) => setItems((prev) => prev.filter((_, idx) => idx !== i));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const body = {
+        customer_worker_id: customerWorkerId,
+        address,
+        items: items
+          .filter((it) => it.product)
+          .map((it) => ({
+            product: it.product,
+            variant: it.variant || null,
+            width: it.width,
+            height: it.height,
+            depth: it.depth,
+            quantity: Number(it.quantity) || 1,
+            is_custom_size: it.is_custom_size,
+          })),
+      };
+      const order = await api("/custom-orders/create/", { method: "POST", body });
+
+      if (bazisFile) {
+        const fd = new FormData();
+        fd.append("file", bazisFile);
+        try {
+          await api(`/custom-orders/${order.id}/import-bazis/`, { method: "POST", body: fd, isForm: true });
+        } catch (err) {
+          setError(`Buyurtma yaratildi, lekin Bazis fayli yuklanmadi: ${err.message}`);
+          onDone();
+          return;
+        }
+      }
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <form
+        className="card flex w-full max-w-lg flex-col gap-4 p-6"
+        style={{ maxHeight: "90vh", overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+      >
+        <h3 className="text-lg font-semibold">Yangi buyurtma (individual loyiha)</h3>
+
+        <label className="flex flex-col gap-1 text-sm">
+          Mijoz qidiruvchi ID
+          <input
+            className="input" required value={customerWorkerId}
+            onChange={(e) => setCustomerWorkerId(e.target.value)}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Manzil (ixtiyoriy)
+          <input className="input" value={address} onChange={(e) => setAddress(e.target.value)} />
+        </label>
+
+        <div className="flex flex-col gap-3">
+          {items.map((it, i) => {
+            const product = products.find((p) => p.id === it.product);
+            return (
+              <div key={i} className="flex flex-col gap-2 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="input flex-1" required value={it.product}
+                    onChange={(e) => setItem(i, { product: e.target.value, variant: "" })}
+                  >
+                    <option value="">Mahsulot tanlang…</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name_uz}</option>
+                    ))}
+                  </select>
+                  {items.length > 1 && (
+                    <button type="button" className="icon-btn" onClick={() => removeItem(i)}>
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {product?.variants?.length > 0 && (
+                  <select
+                    className="input" value={it.variant}
+                    onChange={(e) => setItem(i, { variant: e.target.value })}
+                  >
+                    <option value="">Variant — standart</option>
+                    {product.variants.map((v) => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                )}
+                <div className="grid grid-cols-4 gap-2">
+                  <input className="input" type="number" step="0.01" min="0.1" placeholder="Eni (m)" value={it.width} onChange={(e) => setItem(i, { width: e.target.value })} />
+                  <input className="input" type="number" step="0.01" min="0.1" placeholder="Bo'yi (m)" value={it.height} onChange={(e) => setItem(i, { height: e.target.value })} />
+                  <input className="input" type="number" step="0.01" min="0.1" placeholder="Chuquri (m)" value={it.depth} onChange={(e) => setItem(i, { depth: e.target.value })} />
+                  <input className="input" type="number" min="1" placeholder="Soni" value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} />
+                </div>
+              </div>
+            );
+          })}
+          <button type="button" className="btn-ghost self-start !px-3 !py-1.5 text-xs" onClick={addItem}>
+            + Band qo'shish
+          </button>
+        </div>
+
+        <label className="flex flex-col gap-1 text-sm">
+          Bazis fayl (ixtiyoriy)
+          <div className="flex items-center gap-2">
+            <label className="btn-ghost inline-flex cursor-pointer items-center gap-1.5 !px-3 !py-1.5 text-xs">
+              <Upload size={13} /> {bazisFile ? bazisFile.name : "Fayl tanlash (.project)"}
+              <input
+                type="file" accept=".project" style={{ display: "none" }}
+                onChange={(e) => setBazisFile(e.target.files?.[0] || null)}
+              />
+            </label>
+            {bazisFile && (
+              <button type="button" className="icon-btn" onClick={() => setBazisFile(null)}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <span style={{ fontSize: 11, color: "var(--muted)" }}>
+            CAD dasturidan eksport qilingan .project fayli — detal/teshik ma'lumotidan ishlab chiqarish
+            topshiriqlari avtomatik tuziladi (dizayn tasdiqlanib "Ishlab chiqarishga" o'tganda).
+          </span>
+        </label>
+
+        {error && <div className="error">{error}</div>}
+
+        <div className="flex justify-end gap-2">
+          <button type="button" className="btn-ghost" onClick={onClose}>Bekor qilish</button>
+          <button type="submit" className="btn" disabled={busy}>{busy ? "Yaratilmoqda…" : "Yaratish"}</button>
+        </div>
+      </form>
     </div>
   );
 }
