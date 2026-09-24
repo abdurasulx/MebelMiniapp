@@ -14,7 +14,7 @@ from apps.notifications.services import (
     notify_task_assigned,
 )
 from apps.orders.models import Order, OrderItem
-from apps.workflow.models import STAGE_POSITION, StepStatus, WorkflowStepInstance
+from apps.workflow.models import STAGE_POSITION, Stage, StepStatus, WorkflowStepInstance, WorkType
 
 from .models import AuditEntityType, AuditLogEntry, Design
 
@@ -130,34 +130,95 @@ def approve_design_version(*, design_version, approved_by):
     return design
 
 
+def _bazis_instance_specs(design):
+    """`design.bazis_summary`dan (qarang DesignBazisImportView) kesish/
+    kromkalash/teshish guruhlarini WorkflowStepInstance yaratish uchun
+    `(nomi, stage, work_type_nomi, birlik, miqdor)` ro'yxatiga aylantiradi —
+    aynan `apps.workflow.views.WorkflowStepBazisImportView` bilan bir xil
+    guruhlash mantig'i, farqi — bu yerda mahsulot SHABLONI emas, shu
+    BUYURTMANING o'ziga tegishli haqiqiy topshiriq (`WorkflowStepInstance`)
+    yaratiladi."""
+    summary = design.bazis_summary or {}
+    specs = []
+    for sheet_name, count in (summary.get("sheet_usage") or {}).items():
+        specs.append((f"Kesish: {sheet_name}", Stage.CUTTING, f"Kesish: {sheet_name}", "dona", count))
+    for band_name, count in (summary.get("band_usage") or {}).items():
+        specs.append(
+            (f"Kromkalash: {band_name}", Stage.EDGE_PROCESSING, f"Kromkalash: {band_name}", "dona", count)
+        )
+    for hole_label, count in (summary.get("hole_groups") or {}).items():
+        specs.append((f"Teshish {hole_label}", Stage.OTHER, f"Teshish {hole_label}", "dona", count))
+    return specs
+
+
 def create_workflow_instances_from_design(order, design):
-    """CUSTOM_PROJECT buyurtma IN_PRODUCTION'ga o'tganda, dizayner belgilagan
-    `production_sequence` (Stage qiymatlari ro'yxati) asosida ketma-ket
-    bog'langan ad-hoc `WorkflowStepInstance`lar yaratadi — mavjud
+    """CUSTOM_PROJECT buyurtma IN_PRODUCTION'ga o'tganda topshiriqlar
+    yaratadi — ikki manbadan biridan:
+
+    1. **Bazis fayli biriktirilgan bo'lsa** (`design.bazis_summary`, qarang
+       DesignBazisImportView): kesish/kromkalash/teshish bo'yicha DETAL
+       darajasidagi aniq topshiriqlar, har biri o'z `WorkType`iga (demak,
+       narx belgilansa — ish haqiga) bog'langan holda.
+    2. **Aks holda** (eski xatti-harakat): dizayner qo'lda tanlagan
+       `production_sequence` (Stage qiymatlari ro'yxati) asosida oddiy
+       ketma-ket bosqichlar.
+
+    Ikkalasida ham natija bir xil naqsh bilan ishlanadi — ketma-ket
+    bog'langan (`depends_on`) ad-hoc `WorkflowStepInstance`lar, mavjud
     `apps.workflow.services.create_workflow_instances`dagi shablon-nusxalash
     o'rniga (READY_PRODUCT'da ishlatiladigan yo'l, bu yerda tegilmaydi)."""
-    sequence = design.production_sequence or []
-    if not sequence:
-        return []
+    bazis_specs = _bazis_instance_specs(design) if design.bazis_summary else []
 
-    now = timezone.now()
-    instances = []
+    if bazis_specs:
+        instances = []
+        for index, (name, stage, work_type_name, unit, quantity) in enumerate(bazis_specs):
+            work_type, _ = WorkType.objects.get_or_create(
+                company=order.company, name=work_type_name, defaults={"unit": unit, "stage": stage}
+            )
+            instances.append(
+                WorkflowStepInstance(
+                    company=order.company,
+                    order=order,
+                    template_step=None,
+                    order_index=index,
+                    name=name,
+                    stage=stage,
+                    role=work_type.required_role,
+                    work_type=work_type,
+                    quantity=quantity,
+                    # `WorkflowStep`dan farqli, `WorkflowStepInstance.save()` cost'ni
+                    # avtomatik hisoblamaydi (u boshqa maydonlar kabi YARATISH
+                    # paytida muhrlanadigan snapshot) — shuning uchun bu yerda
+                    # qo'lda hisoblanadi.
+                    cost=Decimal(quantity) * work_type.price_per_unit,
+                )
+            )
+        WorkflowStepInstance.objects.bulk_create(instances)
+    else:
+        sequence = design.production_sequence or []
+        if not sequence:
+            return []
+        instances = [
+            WorkflowStepInstance(
+                company=order.company,
+                order=order,
+                template_step=None,
+                order_index=index,
+                name=f"{order} — {stage}",
+                stage=stage,
+                role=STAGE_POSITION.get(stage) or "",
+            )
+            for index, stage in enumerate(sequence)
+        ]
+        WorkflowStepInstance.objects.bulk_create(instances)
+
     previous = None
-    for index, stage in enumerate(sequence):
-        instance = WorkflowStepInstance.objects.create(
-            company=order.company,
-            order=order,
-            template_step=None,
-            order_index=index,
-            name=f"{order} — {stage}",
-            stage=stage,
-            role=STAGE_POSITION.get(stage) or "",
-        )
+    for instance in instances:
         if previous is not None:
             instance.depends_on.set([previous])
-        instances.append(instance)
         previous = instance
 
+    now = timezone.now()
     first = instances[0]
     if first.is_available:
         first.status = StepStatus.IN_PROGRESS

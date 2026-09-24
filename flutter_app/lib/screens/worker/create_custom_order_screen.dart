@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -33,7 +34,8 @@ class _OrderItemDraft {
 class CreateCustomOrderScreen extends StatefulWidget {
   const CreateCustomOrderScreen({super.key});
   @override
-  State<CreateCustomOrderScreen> createState() => _CreateCustomOrderScreenState();
+  State<CreateCustomOrderScreen> createState() =>
+      _CreateCustomOrderScreenState();
 }
 
 class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
@@ -43,6 +45,25 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
   final _addressController = TextEditingController();
   bool _busy = false;
   String? _error;
+  // Bazis (mebel CAD) eksport fayli — biriktirilsa, buyurtma yaratilgach
+  // darhol yuklanadi va dizaynga bog'lanadi (qarang backend
+  // apps.custom_orders.views.DesignBazisImportView). Ixtiyoriy — usta
+  // hali CAD faylisiz ham (masalan keyinroq biriktiradigan) buyurtma
+  // yaratishi kerak bo'lishi mumkin.
+  String? _bazisFilePath;
+  String? _bazisFileName;
+
+  Future<void> _pickBazisFile() async {
+    final files = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['project'],
+    );
+    if (files.isEmpty || files.first.path == null) return;
+    setState(() {
+      _bazisFilePath = files.first.path;
+      _bazisFileName = files.first.name;
+    });
+  }
 
   @override
   void initState() {
@@ -50,7 +71,9 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
     final slug = context.read<AuthStore>().user?.company?.slug;
     if (slug != null) {
       ApiClient.instance
-          .get('/products/?company=$slug', (j) => Paginated<Product>.fromJson(j, Product.fromJson), auth: true)
+          .get('/products/?company=$slug',
+              (j) => Paginated<Product>.fromJson(j, Product.fromJson),
+              auth: true)
           .then((page) => setState(() => _products = page.results))
           .catchError((_) {});
     }
@@ -61,15 +84,18 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-      throw _LocationException('Joylashuvga ruxsat berilmagan. Sozlamalardan ruxsat bering.');
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw _LocationException(
+          'Joylashuvga ruxsat berilmagan. Sozlamalardan ruxsat bering.');
     }
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw _LocationException('Joylashuv xizmati o\'chirilgan.');
     }
     try {
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
       );
     } catch (_) {
       throw _LocationException('Joylashuv aniqlanmadi. Qayta urining.');
@@ -88,9 +114,9 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
       } catch (_) {
         position = null;
       }
-      await ApiClient.instance.post(
+      final created = await ApiClient.instance.post(
         '/custom-orders/create/',
-        (j) => j,
+        (j) => j as Map<String, dynamic>,
         body: {
           'items': _items
               .where((it) => it.productId != null)
@@ -110,13 +136,39 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
           if (position != null) 'longitude': position.longitude,
           if (position != null) 'accuracy': position.accuracy,
           if (position != null) 'is_mock': position.isMocked,
-          if (position != null) 'device_timestamp': position.timestamp.toIso8601String(),
+          if (position != null)
+            'device_timestamp': position.timestamp.toIso8601String(),
           'platform': 'android',
         },
         auth: true,
       );
+
+      // Bazis fayli biriktirilgan bo'lsa, buyurtma yaratilgan zahoti
+      // yuklaymiz — dizayn "Ishlab chiqarishga" o'tkazilganda backend shu
+      // fayldagi detal/teshik ma'lumotidan haqiqiy topshiriqlarni avtomatik
+      // yaratadi (qarang create_workflow_instances_from_design). Bu
+      // muvaffaqiyatsiz bo'lsa ham buyurtmaning o'zi yaratilgan bo'ladi —
+      // shuning uchun xatoni butun oqimni to'xtatmasdan, alohida ko'rsatamiz.
+      String? bazisWarning;
+      final orderId = created['id'] as String?;
+      if (_bazisFilePath != null && orderId != null) {
+        try {
+          await ApiClient.instance.postMultipart(
+            '/custom-orders/$orderId/import-bazis/',
+            (j) => j,
+            imageFieldName: 'file',
+            imagePath: _bazisFilePath!,
+            auth: true,
+          );
+        } catch (e) {
+          bazisWarning = 'Buyurtma yaratildi, lekin Bazis fayli yuklanmadi: $e';
+        }
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Buyurtma yaratildi')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(bazisWarning ?? 'Buyurtma yaratildi')),
+        );
         Navigator.of(context).pop();
       }
     } catch (e) {
@@ -137,7 +189,8 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
             controller: _customerWorkerIdController,
             decoration: const InputDecoration(
               labelText: 'Mijoz qidiruvchi ID',
-              helperText: 'Mijoz shu ID orqali o\'z ilovasida buyurtmani kuzatib borishi mumkin bo\'ladi.',
+              helperText:
+                  'Mijoz shu ID orqali o\'z ilovasida buyurtmani kuzatib borishi mumkin bo\'ladi.',
               helperMaxLines: 2,
             ),
           ),
@@ -151,22 +204,44 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
             DropdownButtonFormField<String>(
               initialValue: item.productId,
               decoration: const InputDecoration(labelText: 'Mahsulot'),
-              items: _products.map((p) => DropdownMenuItem(value: p.id, child: Text(p.nameUz))).toList(),
+              items: _products
+                  .map((p) =>
+                      DropdownMenuItem(value: p.id, child: Text(p.nameUz)))
+                  .toList(),
               onChanged: (v) => setState(() => item.productId = v),
             ),
             Row(
               children: [
-                Expanded(child: TextField(controller: item.widthController, decoration: const InputDecoration(labelText: 'Eni'), keyboardType: TextInputType.number)),
+                Expanded(
+                    child: TextField(
+                        controller: item.widthController,
+                        decoration: const InputDecoration(labelText: 'Eni'),
+                        keyboardType: TextInputType.number)),
                 const SizedBox(width: 8),
-                Expanded(child: TextField(controller: item.heightController, decoration: const InputDecoration(labelText: 'Bo\'yi'), keyboardType: TextInputType.number)),
+                Expanded(
+                    child: TextField(
+                        controller: item.heightController,
+                        decoration: const InputDecoration(labelText: 'Bo\'yi'),
+                        keyboardType: TextInputType.number)),
                 const SizedBox(width: 8),
-                Expanded(child: TextField(controller: item.depthController, decoration: const InputDecoration(labelText: 'Chuquri'), keyboardType: TextInputType.number)),
+                Expanded(
+                    child: TextField(
+                        controller: item.depthController,
+                        decoration: const InputDecoration(labelText: 'Chuquri'),
+                        keyboardType: TextInputType.number)),
               ],
             ),
             Row(
               children: [
-                Expanded(child: TextField(controller: item.qtyController, decoration: const InputDecoration(labelText: 'Soni'), keyboardType: TextInputType.number)),
-                Checkbox(value: item.isCustomSize, onChanged: (v) => setState(() => item.isCustomSize = v ?? true)),
+                Expanded(
+                    child: TextField(
+                        controller: item.qtyController,
+                        decoration: const InputDecoration(labelText: 'Soni'),
+                        keyboardType: TextInputType.number)),
+                Checkbox(
+                    value: item.isCustomSize,
+                    onChanged: (v) =>
+                        setState(() => item.isCustomSize = v ?? true)),
                 const Text('Narx keyinroq'),
               ],
             ),
@@ -177,7 +252,29 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
             icon: const Icon(Icons.add),
             label: const Text('Band qo\'shish'),
           ),
-          if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
+          const Divider(),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.upload_file),
+            title: Text(_bazisFileName ?? 'Bazis fayl biriktirish (ixtiyoriy)'),
+            subtitle: _bazisFileName == null
+                ? const Text(
+                    'CAD dasturidan eksport qilingan .project fayli — detal/teshik'
+                    ' ma\'lumotidan ishlab chiqarish topshiriqlari avtomatik tuziladi.')
+                : null,
+            trailing: _bazisFileName != null
+                ? IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => setState(() {
+                      _bazisFilePath = null;
+                      _bazisFileName = null;
+                    }),
+                  )
+                : null,
+            onTap: _pickBazisFile,
+          ),
+          if (_error != null)
+            Text(_error!, style: const TextStyle(color: Colors.red)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _busy ? null : _submit,

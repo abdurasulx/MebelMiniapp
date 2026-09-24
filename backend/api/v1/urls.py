@@ -6,6 +6,7 @@ from apps.ar_collections.views import ARCollectionItemViewSet, ARCollectionViewS
 from apps.attendance.views import AttendanceRecordViewSet, WorkplaceViewSet
 from apps.custom_orders.views import (
     CustomOrderCreateView,
+    DesignBazisImportView,
     DesignVersionViewSet,
     DesignViewSet,
     OrderItemCostViewSet,
@@ -239,6 +240,11 @@ urlpatterns = [
         name="ar-collection-item-detail",
     ),
     path("custom-orders/create/", CustomOrderCreateView.as_view(), name="custom-order-create"),
+    path(
+        "custom-orders/<uuid:order_id>/import-bazis/",
+        DesignBazisImportView.as_view(),
+        name="custom-order-import-bazis",
+    ),
 ]
 
 urlpatterns += router.urls

@@ -7,8 +7,9 @@ from rest_framework.views import APIView
 
 from apps.companies.models import Employee
 from apps.companies.views import is_company_owner, user_company, user_has_position
-from apps.orders.models import OrderItem
+from apps.orders.models import Order, OrderItem
 from apps.products.models import Product, Variant
+from apps.workflow.bazis_import import parse_bazis_project
 
 from .models import Design, DesignVersion
 from .serializers import (
@@ -63,6 +64,68 @@ class CustomOrderCreateView(APIView):
         from apps.orders.serializers import OrderSerializer
 
         return Response(OrderSerializer(order, context={"request": request}).data, status=201)
+
+
+class DesignBazisImportView(APIView):
+    """Individual loyiha buyurtmasi yaratilgach (odatda darhol, xuddi shu
+    ekranda) Bazis (mebel CAD) eksport faylini shu buyurtmaning dizayniga
+    biriktiradi — `POST /custom-orders/<order_id>/import-bazis/`.
+
+    Fayl darhol topshiriq yaratmaydi (buyurtma hali DESIGNING holatida,
+    dizayn versiyasi tasdiqlanishi kerak) — faqat parslangan natija
+    `Design.bazis_summary`ga keshlanadi. Buyurtma `IN_PRODUCTION`ga
+    o'tganda, `create_workflow_instances_from_design` shu ma'lumotdan
+    detal/teshik darajasidagi haqiqiy topshiriqlarni yaratadi (qarang
+    apps.orders.views — set_status)."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, order_id):
+        company = user_company(request.user)
+        if company is None:
+            raise PermissionDenied("Siz hech qanday firmaga tegishli emassiz")
+        if not (is_company_owner(request.user, company) or user_has_position(request.user, company, "usta")):
+            raise PermissionDenied("Faqat usta yoki firma egasi Bazis faylini biriktira oladi")
+
+        order = Order.objects.filter(id=order_id, company=company, is_deleted=False).select_related(
+            "custom_design"
+        ).first()
+        if order is None:
+            raise ValidationError("Buyurtma topilmadi")
+        design = getattr(order, "custom_design", None)
+        if design is None:
+            raise ValidationError("Bu buyurtma individual loyiha emas")
+
+        upload = request.FILES.get("file")
+        if not upload:
+            raise ValidationError("Fayl yuborilmadi")
+        raw = upload.read()
+        try:
+            parsed = parse_bazis_project(raw)
+        except Exception:
+            raise ValidationError(
+                "Faylni o'qib bo'lmadi — bu Bazis'dan eksport qilingan to'g'ri .project fayli ekanini tekshiring"
+            )
+        upload.seek(0)
+
+        design.bazis_file = upload
+        design.bazis_summary = {
+            "product_name": parsed.product_name,
+            "parts_count": len(parsed.parts),
+            "sheet_usage": dict(parsed.sheet_usage),
+            "band_usage": dict(parsed.band_usage),
+            "hole_groups": dict(parsed.hole_groups),
+        }
+        design.save(update_fields=["bazis_file", "bazis_summary"])
+
+        return Response(
+            {
+                "product_name": parsed.product_name,
+                "parts_count": len(parsed.parts),
+                "holes_total": sum(parsed.hole_groups.values()),
+            },
+            status=201,
+        )
 
 
 class DesignViewSet(viewsets.ReadOnlyModelViewSet):

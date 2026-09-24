@@ -27,6 +27,14 @@ class Design(BaseModel):
     # versiyasi (alohida model kerak emas, custom loyihaning o'ziga xos
     # o'lchamlari/tarkibi baribir OrderItem'larda saqlanadi).
     source_products = models.ManyToManyField("products.Product", blank=True, related_name="+")
+    # Buyurtma yaratilishi bilan (yoki keyinroq, tasdiqlashdan oldin) biriktirilishi
+    # mumkin bo'lgan Bazis (mebel CAD) eksporti — usta shu faylni to'g'ridan-to'g'ri
+    # buyurtma yaratish oqimida yuklaydi (qarang apps.custom_orders.views.
+    # DesignBazisImportView). Biriktirilgan bo'lsa, `bazis_summary` shu yerda
+    # keshlanadi va `create_workflow_instances_from_design` `production_sequence`
+    # o'rniga shundan DETAL/TESHIK darajasidagi haqiqiy topshiriqlar yaratadi.
+    bazis_file = models.FileField(upload_to="custom_orders/bazis/", blank=True, null=True)
+    bazis_summary = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"Design — {self.order_id}"

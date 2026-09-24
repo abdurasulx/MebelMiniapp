@@ -45,6 +45,10 @@ dependencies:
   # qattiq yozib qo'yish o'rniga, `pubspec.yaml`dagi `version: X.Y.Z+BUILD`
   # avtomatik o'qiladi.
   package_info_plus: ^10.2.1
+  # Individual loyiha buyurtmasi yaratishda Bazis (mebel CAD) .project faylini
+  # qurilmadan tanlash uchun — image_picker faqat rasm/kamera bilan ishlaydi,
+  # bu esa ixtiyoriy kengaytmali fayl tanlashga imkon beradi.
+  file_picker: ^13.1.0
 
 dev_dependencies:
   flutter_test:
