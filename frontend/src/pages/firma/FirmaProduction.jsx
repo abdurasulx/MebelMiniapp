@@ -6,7 +6,6 @@ import { POSITIONS } from "../../positions";
 import { TASK_FLOW, TASK_STAGE, TASK_STATUS } from "../../taskStage";
 import { StatusBadge } from "../../orderStatus";
 import LoadMoreButton from "../../components/LoadMoreButton";
-import DateRangeInput from "../../components/DateRangeInput";
 
 const TABS = [
   { key: "pipeline", label: "Ishlab chiqarish pipeline", icon: Workflow },
@@ -514,23 +513,16 @@ function OpenPoolView({ isManager }) {
 
 function ManagerView() {
   const [tasks, setTasks] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [products, setProducts] = useState([]);
   const [error, setError] = useState("");
-  const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState("");
   const [nextPage, setNextPage] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = () =>
-    Promise.all([api("/workflow-instances/"), api("/employees/"), api("/orders/"), api("/products/")])
-      .then(([t, e, o, p]) => {
+    api("/workflow-instances/")
+      .then((t) => {
         setTasks((t.results || []).filter((x) => x.is_manual));
         setNextPage(t.next || null);
-        setEmployees((e.results || []).filter((x) => x.is_active));
-        setOrders(o.results || []);
-        setProducts(p.results || []);
       })
       .catch((err) => setError(err.message));
 
@@ -587,7 +579,6 @@ function ManagerView() {
             );
           })}
         </div>
-        <button className="btn" onClick={() => setShowForm(true)}>+ Yangi vazifa</button>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -603,171 +594,9 @@ function ManagerView() {
       <div className="flex justify-center">
         <LoadMoreButton next={nextPage} busy={loadingMore} onClick={loadMore} />
       </div>
-
-      {showForm && (
-        <TaskForm
-          employees={employees}
-          orders={orders}
-          products={products}
-          onClose={() => setShowForm(false)}
-          onDone={() => { setShowForm(false); load(); }}
-        />
-      )}
     </div>
   );
 }
-
-function TaskForm({ employees, orders, products, onClose, onDone }) {
-  const [form, setForm] = useState({
-    name: "", description: "", stage: "assembly", employee: "", order: "", product: "",
-    planned_start_date: "", deadline: "", requires_approval: "",
-  });
-  const [error, setError] = useState("");
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-
-  const suggestedPos = TASK_STAGE_TO_POSITION[form.stage];
-  const filteredEmployees = suggestedPos
-    ? employees.filter((e) => (e.positions || []).includes(suggestedPos))
-    : employees;
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (form.requires_approval === "") {
-      setError("Tasdiqlash shart yoki shart emasligini tanlang");
-      return;
-    }
-    try {
-      const body = { ...form, requires_approval: form.requires_approval === "true" };
-      if (!body.employee) delete body.employee;
-      if (!body.order) delete body.order;
-      if (!body.product) delete body.product;
-      if (!body.planned_start_date) delete body.planned_start_date;
-      if (!body.deadline) delete body.deadline;
-      await api("/workflow-instances/", { method: "POST", body });
-      onDone();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <form
-        className="card flex w-full max-w-md flex-col gap-4 p-6"
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-      >
-        <h2 className="text-base font-semibold">Yangi vazifa</h2>
-        <div>
-          <label className="label">Sarlavha *</label>
-          <input className="input" value={form.name} onChange={set("name")} required />
-        </div>
-        <div>
-          <label className="label">Bosqich</label>
-          <select className="input" value={form.stage} onChange={set("stage")}>
-            {Object.entries(TASK_STAGE).map(([k, v]) => (
-              <option key={k} value={k}>{v.label}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label">
-            Kimga tayinlansin?
-            {suggestedPos && (
-              <span className="ml-1" style={{ color: "var(--muted)" }}>
-                (tavsiya: {POSITIONS[suggestedPos]?.label})
-              </span>
-            )}
-          </label>
-          <select className="input" value={form.employee} onChange={set("employee")}>
-            <option value="">Tayinlanmagan</option>
-            {filteredEmployees.map((e) => (
-              <option key={e.id} value={e.id}>{e.user_name || e.user_email}</option>
-            ))}
-          </select>
-          {suggestedPos && filteredEmployees.length === 0 && (
-            <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-              Bu kasbdagi xodim yo'q — barcha xodimlar ko'rsatilyapti.
-            </p>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Buyurtma (ixtiyoriy)</label>
-            <select className="input" value={form.order} onChange={set("order")}>
-              <option value="">—</option>
-              {orders.map((o) => (
-                <option key={o.id} value={o.id}>{o.customer_email} — #{o.id.slice(0, 8)}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">Bog'liq mahsulot (ixtiyoriy)</label>
-            <select className="input" value={form.product} onChange={set("product")}>
-              <option value="">—</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>{p.name_uz}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="label">Boshlanish — tugash sanasi</label>
-          <DateRangeInput
-            start={form.planned_start_date}
-            stop={form.deadline}
-            onChange={({ start, stop }) =>
-              setForm((f) => ({ ...f, planned_start_date: start, deadline: stop }))
-            }
-          />
-        </div>
-        <div>
-          <label className="label">Tasdiqlash shartmi? *</label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className={form.requires_approval === "true" ? "btn !px-3 !py-1.5 text-xs" : "btn-ghost !px-3 !py-1.5 text-xs"}
-              onClick={() => setForm((f) => ({ ...f, requires_approval: "true" }))}
-            >
-              Tasdiqlash shart
-            </button>
-            <button
-              type="button"
-              className={form.requires_approval === "false" ? "btn !px-3 !py-1.5 text-xs" : "btn-ghost !px-3 !py-1.5 text-xs"}
-              onClick={() => setForm((f) => ({ ...f, requires_approval: "false" }))}
-            >
-              Tasdiqlash shart emas
-            </button>
-          </div>
-          <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-            Shart bo'lsa — usta "Bajardim" bosgach, siz tasdiqlamaguncha ish haqi hisobiga qo'shilmaydi.
-          </p>
-        </div>
-        <div>
-          <label className="label">Izoh</label>
-          <textarea className="input" rows={2} value={form.description} onChange={set("description")} />
-        </div>
-        {error && <div className="error">{error}</div>}
-        <div className="flex gap-2">
-          <button className="btn" type="submit">Saqlash</button>
-          <button className="btn-ghost" type="button" onClick={onClose}>Bekor</button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-const TASK_STAGE_TO_POSITION = {
-  cutting: "usta",
-  edge_processing: "usta",
-  assembly: "usta",
-  painting: "usta",
-  quality_control: "usta",
-  installation: "ornatuvchi",
-  delivery: "haydovchi",
-  other: null,
-};
 
 /* ================= Xodim ko'rinishi ================= */
 

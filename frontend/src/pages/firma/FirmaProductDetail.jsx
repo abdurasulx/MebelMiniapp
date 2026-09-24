@@ -1021,6 +1021,53 @@ const EMPTY_STEP = {
   cut_piece_length: "", cut_piece_width: "", cut_piece_count: "", cut_note: "",
 };
 
+function StepPriceEditor({ step, product, onDone }) {
+  const [value, setValue] = useState(step.work_type_price_per_unit ?? "0");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const save = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      // Narx `WorkType` katalogida saqlanadi (bir nechta bosqich bitta ish
+      // turini ishlatishi mumkin), lekin bosqichning `cost`i faqat o'zi
+      // qayta save() qilinganda qayta hisoblanadi (qarang WorkflowStep.save())
+      // — shuning uchun narxni yangilagandan keyin shu bosqichni ham
+      // (o'zgarishsiz) qayta yuboramiz, cost darhol yangilansin.
+      await api(`/work-types/${step.work_type}/`, { method: "PATCH", body: { price_per_unit: value } });
+      await api(`/products/${product.id}/workflow-steps/${step.id}/`, {
+        method: "PATCH",
+        body: { quantity: step.quantity },
+      });
+      onDone();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+      <label style={{ fontSize: 12, color: ENT.muted }}>Narx (birligiga):</label>
+      <input
+        type="number" min="0" step="0.01" value={value}
+        onChange={(e) => setValue(e.target.value)}
+        style={{ width: 100, fontSize: 12, padding: "3px 6px", borderRadius: 6, border: `1px solid ${ENT.border}` }}
+      />
+      <span style={{ fontSize: 12, color: ENT.muted }}>so'm</span>
+      <button
+        type="button" onClick={save} disabled={busy}
+        style={{ fontSize: 11.5, fontWeight: 600, color: ENT.primary, background: "transparent", border: "none", cursor: "pointer" }}
+      >
+        {busy ? "Saqlanmoqda…" : "Saqlash"}
+      </button>
+      {error && <span style={{ fontSize: 11.5, color: ENT.danger }}>{error}</span>}
+    </div>
+  );
+}
+
 function ProductionTab({ product, steps, onStepsChange }) {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -1154,6 +1201,9 @@ function ProductionTab({ product, steps, onStepsChange }) {
                         {s.photo_requirement !== "optional" && ` · ${PHOTO_REQUIREMENT[s.photo_requirement]} rasm`}
                         {s.comment_requirement !== "optional" && ` · ${PHOTO_REQUIREMENT[s.comment_requirement]} izoh`}
                       </div>
+                      {s.work_type && (
+                        <StepPriceEditor step={s} product={product} onDone={onStepsChange} />
+                      )}
                     </div>
                     <div style={{ display: "flex", gap: 4 }}>
                       <IconBtn title="Yuqoriga" disabled={i === 0} onClick={() => move(s, -1)}><ArrowUp size={13} /></IconBtn>

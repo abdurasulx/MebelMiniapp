@@ -48,6 +48,12 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
     )
     work_type_name = serializers.CharField(source="work_type.name", read_only=True, default=None)
     work_type_unit_display = serializers.CharField(source="work_type.get_unit_display", read_only=True, default=None)
+    # Ro'yxatda narxni to'g'ridan-to'g'ri (alohida "Ish turlari" bo'limiga
+    # o'tmasdan) ko'rish/tahrirlash imkoni uchun — qarang FirmaProductDetail
+    # ProductionTab'dagi StepPriceEditor.
+    work_type_price_per_unit = serializers.DecimalField(
+        source="work_type.price_per_unit", max_digits=12, decimal_places=2, read_only=True, default=None
+    )
     raw_material_name = serializers.CharField(source="raw_material.name", read_only=True, default=None)
     raw_material_unit = serializers.CharField(source="raw_material.unit", read_only=True, default=None)
     cutting_instruction = serializers.CharField(read_only=True)
@@ -60,7 +66,8 @@ class WorkflowStepSerializer(serializers.ModelSerializer):
         fields = (
             "id", "product", "order_index", "name", "role", "role_display",
             "employee", "employee_name", "estimated_hours",
-            "work_type", "work_type_name", "work_type_unit_display", "quantity", "cost",
+            "work_type", "work_type_name", "work_type_unit_display", "work_type_price_per_unit",
+            "quantity", "cost",
             "raw_material", "raw_material_name", "raw_material_unit",
             "cut_piece_length", "cut_piece_width", "cut_piece_count", "cut_note", "cutting_instruction",
             "required_materials", "photo_requirement", "photo_requirement_display",
