@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  model_viewer_plus paketi 3D (GLB) ko'rsatgichni WebView'ga yuklash uchun
+  qurilmaning o'zida (127.0.0.1) vaqtinchalik lokal HTTP server ishga
+  tushiradi — Android API 28+ standart holatda BARCHA shifrlanmagan (http://)
+  trafikni bloklaydi, shu jumladan shu lokal serverni ham
+  (net::ERR_CLEARTEXT_NOT_PERMITTED xatosi). Haqiqiy (tashqi) tarmoq trafigi
+  (backend API va h.k.) hamon HTTPS talab qiladi — bu yerda faqat qurilmaning
+  o'zidagi (loopback) manzilga ruxsat beriladi.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
