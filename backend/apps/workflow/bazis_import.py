@@ -45,7 +45,11 @@ class BazisImportResult:
     sheet_usage: "Counter" = field(default_factory=Counter)
     # kromka nomi -> shu kromka bilan qoplanadigan qirralar umumiy uzunligi (metr)
     band_usage: "Counter" = field(default_factory=Counter)
-    # "Ø8" kabi diametr yorlig'i -> mahsulot bo'yicha umumiy teshik soni
+    # Armatura (evro/ekssentrik/polka) bo'yicha guruhlangan TO'LOV birliklari
+    # — qarang `_apply_hardware_grouping`. Xom (diametr bo'yicha) teshik
+    # sonlari emas, balki usta HAQIQATDA nechta ISHNI bajarganini aks
+    # ettiradi (bitta biriktirgich bir nechta jismoniy teshikdan iborat
+    # bo'lsa ham, bir marta hisoblanadi).
     hole_groups: "Counter" = field(default_factory=Counter)
 
 
@@ -69,6 +73,65 @@ def _diameter_label(tool_name: str, diameter: str | None) -> str:
     if re.search(r"th", tool_name, re.IGNORECASE):
         label += " (o'tuvchi)"
     return label
+
+
+EVRO_LABEL = "Evro (konfirmat) biriktirgich"
+EKSENTRIK_LABEL = "Ekssentrik (minifiks) biriktirgich"
+POLKA_LABEL = "Polka derjateli"
+
+_EVRO_RAW_LABEL = "Ø7mm (o'tuvchi)"
+_EKSENTRIK_RAW_LABEL = "Ø15mm"
+_EKSENTRIK_SIDE_LABEL = "Ø8mm"
+_EKSENTRIK_PILOT_LABEL = "Ø4.5mm"
+
+
+def _apply_hardware_grouping(raw_hole_groups: "Counter") -> "Counter":
+    """Xom (faqat diametr bo'yicha) teshik sonlarini haqiqiy mebel
+    armaturasi (usta ishlatadigan biriktirgich turlari) bo'yicha TO'LOV
+    birliklariga aylantiradi — usta diametr uchun emas, BIRIKTIRGICH uchun
+    ish haqi olishi kerak (foydalanuvchi tasdiqlagan qoida):
+
+      - **Evro** (konfirmat shurup): ikkita detalda ikki xil diametrda
+        teshiladi, lekin ikkalasi BITTA biriktirgich — faqat doimiy
+        belgisi (Ø7mm o'tuvchi teshik) orqali sanaladi, chunki ikkinchi
+        teshikning diametri qat'iy emas (armatura turiga qarab farqlanadi).
+      - **Ekssentrik** (minifiks): 3 ta jismoniy teshik — Ø15mm (korpus)
+        + Ø8mm (bir xil detalda) + Ø4.5mm (ikkinchi detalda) — BITTA
+        biriktirgich, Ø15mm soniga teng sanaladi.
+      - Ekssentrikka "yutilgan" Ø8mm/Ø4.5mm teshiklar (ekssentrik soniga
+        teng miqdorda) alohida to'lanmaydi. Ø8mm'dan ORTIG'I (agar
+        ekssentrikka sig'masa) YO'QOTILMAYDI — xavfsizlik uchun alohida
+        "Ø8mm" guruhi sifatida qoladi (aks holda usta bajargan ish
+        kuzatuvsiz, pulsiz qolib ketishi mumkin edi).
+      - Ø4.5mm'dan ekssentrikka yutilganidan QOLGANI — mustaqil holdagi
+        **Polka derjateli** teshiklari, har biri ALOHIDA to'lanadi.
+      - Boshqa barcha diametrlar (Ø3mm, Ø5mm, Ø20mm, Ø35mm va h.k.) —
+        armatura qoidasi berilmagani uchun o'zgarishsiz, diametr bo'yicha
+        alohida guruh sifatida qoladi."""
+    groups: Counter = Counter()
+
+    evro = raw_hole_groups.get(_EVRO_RAW_LABEL, 0)
+    if evro:
+        groups[EVRO_LABEL] = evro
+
+    eksentrik = raw_hole_groups.get(_EKSENTRIK_RAW_LABEL, 0)
+    if eksentrik:
+        groups[EKSENTRIK_LABEL] = eksentrik
+
+    leftover_side = raw_hole_groups.get(_EKSENTRIK_SIDE_LABEL, 0) - eksentrik
+    if leftover_side > 0:
+        groups[_EKSENTRIK_SIDE_LABEL] = leftover_side
+
+    polka = raw_hole_groups.get(_EKSENTRIK_PILOT_LABEL, 0) - eksentrik
+    if polka > 0:
+        groups[POLKA_LABEL] = polka
+
+    handled = {_EVRO_RAW_LABEL, _EKSENTRIK_RAW_LABEL, _EKSENTRIK_SIDE_LABEL, _EKSENTRIK_PILOT_LABEL}
+    for label, count in raw_hole_groups.items():
+        if label not in handled:
+            groups[label] = count
+
+    return groups
 
 
 def parse_bazis_project(raw: bytes) -> BazisImportResult:
@@ -149,5 +212,5 @@ def parse_bazis_project(raw: bytes) -> BazisImportResult:
                 label = _diameter_label(tool_name, tool_diameter.get(tool_name))
                 hole_groups[label] += part_count
 
-    result.hole_groups = hole_groups
+    result.hole_groups = _apply_hardware_grouping(hole_groups)
     return result
