@@ -9,6 +9,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.companies.models import Employee
+from apps.inventory.models import Material
 from apps.notifications.services import (
     notify_custom_order_location_suspicious,
     notify_pool_open,
@@ -172,6 +173,11 @@ def bazis_groups_from_summary(summary):
     return specs
 
 
+def extra_job_work_type_name(stage_name, job_name):
+    """Qo'lda qo'shilgan etap ichidagi ish uchun `WorkType` nomi."""
+    return f"{stage_name}: {job_name}"
+
+
 def _bazis_instance_specs(design):
     return bazis_groups_from_summary(design.bazis_summary or {})
 
@@ -195,33 +201,51 @@ def create_workflow_instances_from_design(order, design):
     bazis_specs = _bazis_instance_specs(design) if design.bazis_summary else []
 
     if bazis_specs:
-        # Kesish/Kromkalash — "asosiy bosqich"lar: usta buyurtma yaratishda
-        # (yoki keyinroq "Ishlab chiqarish" sahifasida) har biriga aniq
-        # xodim YOKI ochiq rol belgilagan bo'lishi mumkin (qarang
-        # apps.custom_orders.views._parse_assignments). Teshish guruhlari
-        # ("kichik bosqich", Stage.OTHER) ga bu tegishli emas — ular
-        # oldingidek `work_type.required_role`ni meros oladi.
+        # Har etap (Kesish/Kromkalash/Teshish) uchun buyurtma yaratishda (yoki
+        # keyinroq "Ishlab chiqarish" sahifasida) aniq xodim YOKI ochiq rol
+        # belgilangan bo'lishi mumkin (qarang views._parse_assignments); qo'lda
+        # qo'shilgan etaplar o'z mas'ulini o'zida saqlaydi.
         assignments = design.bazis_assignments or {}
-        employee_ids = {
-            entry["employee_id"] for entry in assignments.values() if entry.get("employee_id")
-        }
+        extra_stages = design.extra_stages or []
+        person_entries = list(assignments.values()) + [st for st in extra_stages]
+        employee_ids = {e["employee_id"] for e in person_entries if e.get("employee_id")}
         employees_by_id = {
             str(e.id): e for e in Employee.objects.filter(id__in=employee_ids, company=order.company)
         } if employee_ids else {}
+
+        # Bazis material nomi -> tanlangan ombor materiali (faqat tavsif uchun).
+        materials_by_id = {
+            str(m.id): m
+            for m in Material.objects.filter(
+                id__in=list((design.material_map or {}).values()), company=order.company
+            )
+        }
+        summary = design.bazis_summary or {}
+        group_material = {}
+        for sheet_name in summary.get("sheet_usage") or {}:
+            group_material[f"Kesish: {sheet_name}"] = (design.material_map or {}).get(sheet_name)
+        for band_name in summary.get("band_usage") or {}:
+            group_material[f"Kromkalash: {band_name}"] = (design.material_map or {}).get(band_name)
+
+        def resolve_person(entry, default_role=""):
+            employee = None
+            role = default_role
+            if entry.get("employee_id"):
+                employee = employees_by_id.get(entry["employee_id"])
+            elif entry.get("role"):
+                role = entry["role"]
+            return employee, role
 
         instances = []
         for index, (name, stage, work_type_name, unit, quantity) in enumerate(bazis_specs):
             work_type, _ = WorkType.objects.get_or_create(
                 company=order.company, name=work_type_name, defaults={"unit": unit, "stage": stage}
             )
-            role = work_type.required_role
-            employee = None
-            if stage in (Stage.CUTTING, Stage.EDGE_PROCESSING):
-                assignment = assignments.get(str(stage)) or {}
-                if assignment.get("employee_id"):
-                    employee = employees_by_id.get(assignment["employee_id"])
-                elif assignment.get("role"):
-                    role = assignment["role"]
+            employee, role = resolve_person(assignments.get(str(stage)) or {}, work_type.required_role)
+            description = ""
+            material = materials_by_id.get(group_material.get(name) or "")
+            if material is not None:
+                description = f"Xom ashyo: {material.name} ({material.unit_cost:g} so'm/{material.unit})"
             instances.append(
                 WorkflowStepInstance(
                     company=order.company,
@@ -229,6 +253,7 @@ def create_workflow_instances_from_design(order, design):
                     template_step=None,
                     order_index=index,
                     name=name,
+                    description=description,
                     stage=stage,
                     role=role,
                     employee=employee,
@@ -241,6 +266,32 @@ def create_workflow_instances_from_design(order, design):
                     cost=Decimal(quantity) * work_type.price_per_unit,
                 )
             )
+
+        # Usta qo'lda qo'shgan qo'shimcha etaplar — Bazis bosqichlaridan keyin.
+        for stage_entry in extra_stages:
+            employee, role = resolve_person(stage_entry)
+            for job in stage_entry["jobs"]:
+                work_type, _ = WorkType.objects.get_or_create(
+                    company=order.company,
+                    name=extra_job_work_type_name(stage_entry["name"], job["name"]),
+                    defaults={"unit": "dona", "stage": Stage.OTHER},
+                )
+                job_quantity = Decimal(job["quantity"])
+                instances.append(
+                    WorkflowStepInstance(
+                        company=order.company,
+                        order=order,
+                        template_step=None,
+                        order_index=len(instances),
+                        name=f"{stage_entry['name']}: {job['name']}",
+                        stage=Stage.OTHER,
+                        role=role,
+                        employee=employee,
+                        work_type=work_type,
+                        quantity=job_quantity,
+                        cost=job_quantity * work_type.price_per_unit,
+                    )
+                )
         WorkflowStepInstance.objects.bulk_create(instances)
     else:
         sequence = design.production_sequence or []

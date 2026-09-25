@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient, APITestCase
 
 from apps.companies.models import Company, Employee, PayType
+from apps.inventory.models import Material
 from apps.orders.models import Order
 from apps.products.models import Category, Product, Variant
 from apps.workflow.models import WorkType
@@ -247,6 +248,47 @@ class DesignBazisImportTests(APITestCase):
         self.assertEqual(design.bazis_assignments, {})
 
 
+    def test_import_stores_material_map_and_extra_stages_and_sets_job_price(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        usta_employee = Employee.objects.get(company=self.company, user=self.usta_user)
+        mine = Material.objects.create(company=self.company, name="Kronospan 16", unit="dona", unit_cost=Decimal("250000"))
+        foreign_company = make_company_with_usta(suffix="3")[1]
+        foreign = Material.objects.create(company=foreign_company, name="Begona", unit="dona")
+        f = SimpleUploadedFile("test.project", BAZIS_FIXTURE, content_type="application/xml")
+        resp = self.client.post(
+            f"/api/v1/custom-orders/{self.order.id}/import-bazis/",
+            {
+                "file": f,
+                "assignments": json.dumps({"other": {"employee_id": str(usta_employee.id)}}),
+                "material_map": json.dumps({"DSP oq": str(mine.id), "Boshqa": str(foreign.id), "Yomon": "not-a-uuid"}),
+                "extra_stages": json.dumps(
+                    [
+                        {
+                            "name": "Yig'ish",
+                            "role": "usta",
+                            "jobs": [
+                                {"name": "Karkas", "quantity": "2", "price": "50000"},
+                                {"name": "", "quantity": "1", "price": "1"},
+                            ],
+                        },
+                        {"name": "   ", "jobs": []},
+                    ]
+                ),
+            },
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        design = Design.objects.get(order=self.order)
+        self.assertEqual(design.bazis_assignments["other"], {"employee_id": str(usta_employee.id)})
+        self.assertEqual(design.material_map, {"DSP oq": str(mine.id)})
+        self.assertEqual(len(design.extra_stages), 1)
+        self.assertEqual(design.extra_stages[0]["role"], "usta")
+        self.assertEqual(len(design.extra_stages[0]["jobs"]), 1)
+        wt = WorkType.objects.get(company=self.company, name="Yig'ish: Karkas")
+        self.assertEqual(wt.price_per_unit, Decimal("50000.00"))
+
+
 class BazisPreviewTests(APITestCase):
     def setUp(self):
         self.owner, self.company, self.usta_user, self.customer, self.product = make_company_with_usta()
@@ -276,6 +318,15 @@ class BazisPreviewTests(APITestCase):
         resp = self._upload()
         group = next(g for g in resp.data["groups"] if g["name"] == "Teshish Ø8mm")
         self.assertEqual(group["price_per_unit"], "2000.00")
+
+    def test_preview_lists_bazis_materials_with_name_suggestion(self):
+        mine = Material.objects.create(company=self.company, name="dsp OQ", unit="dona", unit_cost=Decimal("1"))
+        self.client.force_authenticate(self.usta_user)
+        resp = self._upload()
+        self.assertEqual(resp.status_code, 200, resp.data)
+        sheet = next(m for m in resp.data["materials"] if m["kind"] == "sheet")
+        self.assertEqual(sheet["name"], "DSP oq")
+        self.assertEqual(sheet["suggested_material_id"], str(mine.id))
 
     def test_unauthenticated_cannot_preview(self):
         resp = self._upload()
@@ -362,6 +413,43 @@ class WorkflowInstancesFromBazisDesignTests(APITestCase):
         # work_type.required_role'ni meros oladi (bo'sh, chunki narx
         # belgilanmagan WorkType uchun required_role ham bo'sh).
         self.assertIsNone(hole.employee_id)
+
+    def test_extra_stages_material_description_and_other_stage_assignment(self):
+        from .services import create_workflow_instances_from_design
+
+        usta_employee = Employee.objects.get(company=self.company, user=self.usta_user)
+        material = Material.objects.create(company=self.company, name="Kronospan 16", unit="dona", unit_cost=Decimal("250000"))
+        order, design = self._make_order_with_design()
+        design.bazis_summary = {
+            "product_name": "shkaf", "parts_count": 2,
+            "sheet_usage": {"DSP oq": 3}, "band_usage": {}, "hole_groups": {"Ø8mm": 4},
+        }
+        design.bazis_assignments = {"other": {"employee_id": str(usta_employee.id)}}
+        design.material_map = {"DSP oq": str(material.id)}
+        design.extra_stages = [
+            {"name": "Yig'ish", "role": "usta", "jobs": [{"name": "Karkas", "quantity": "2", "price": "50000"}]}
+        ]
+        design.save(update_fields=["bazis_summary", "bazis_assignments", "material_map", "extra_stages"])
+        WorkType.objects.create(
+            company=self.company, name="Yig'ish: Karkas", unit="dona", price_per_unit=Decimal("50000")
+        )
+
+        instances = create_workflow_instances_from_design(order, design)
+        self.assertEqual(len(instances), 3)  # 1 kesish + 1 teshish + 1 qo'shimcha ish
+
+        cutting = next(i for i in instances if i.name.startswith("Kesish"))
+        self.assertIn("Kronospan 16", cutting.description)
+        # raw_material ATAYLAB bog'lanmaydi — ombordan noto'g'ri miqdor ayirilmasligi uchun
+        self.assertIsNone(cutting.raw_material_id)
+
+        hole = next(i for i in instances if i.name.startswith("Teshish"))
+        self.assertEqual(hole.employee_id, usta_employee.id)
+
+        extra = next(i for i in instances if i.name == "Yig'ish: Karkas")
+        self.assertEqual(extra.role, "usta")
+        self.assertEqual(extra.quantity, Decimal("2"))
+        self.assertEqual(extra.cost, Decimal("100000.00"))
+        self.assertEqual(extra.stage, "other")
 
     def test_without_bazis_summary_falls_back_to_production_sequence(self):
         from .services import create_workflow_instances_from_design

@@ -5,12 +5,15 @@ import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { NEXT_STATUS, ORDER_STATUS, StatusBadge } from "../../orderStatus";
 import LoadMoreButton from "../../components/LoadMoreButton";
+import BazisSetup from "./BazisSetup";
+import { buildBazisPayload, initialBazisState } from "./bazisState";
 
 export default function FirmaOrders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
+  const [materials, setMaterials] = useState([]);
   const [products, setProducts] = useState([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
@@ -23,13 +26,15 @@ export default function FirmaOrders() {
     return Promise.all([
       api("/orders/"),
       api("/employees/"),
+      api("/materials/?page_size=200").catch(() => ({ results: [] })),
       companySlug ? api(`/products/?company=${companySlug}`) : Promise.resolve({ results: [] }),
     ])
-      .then(([d, emp, prod]) => {
+      .then(([d, emp, mats, prod]) => {
         setOrders(d.results || []);
         setNextPage(d.next || null);
         setEmployees((emp.results || []).filter((e) => e.pay_type === "commission"));
         setAllEmployees(emp.results || []);
+        setMaterials(mats.results || []);
         setProducts(prod.results || []);
       })
       .catch((e) => setError(e.message));
@@ -117,6 +122,7 @@ export default function FirmaOrders() {
         <NewCustomOrderModal
           products={products}
           allEmployees={allEmployees}
+          materials={materials}
           onClose={() => setShowNew(false)}
           onDone={() => { setShowNew(false); load(); }}
         />
@@ -213,42 +219,18 @@ function emptyItem() {
   };
 }
 
-// Kesish/Kromkalash — "asosiy bosqich"lar, har biriga aniq usta YOKI
-// ochiq rol belgilanadi (qarang backend apps.custom_orders.views.
-// _parse_assignments). Teshish guruhlari ("kichik bosqich") bunga
-// tegishli emas.
-const MAIN_STAGES = [
-  { key: "cutting", label: "Kesish" },
-  { key: "edge_processing", label: "Kromkalash" },
-];
-const ROLE_CHOICES = [
-  { value: "usta", label: "Usta (ishlab chiqarish)" },
-  { value: "ornatuvchi", label: "O'rnatuvchi (montaj)" },
-  { value: "omborchi", label: "Omborchi" },
-  { value: "menejer", label: "Menejer" },
-];
-
-function emptyStageAssignment() {
-  return { mode: "role", employeeId: "", role: "" };
-}
-
-function NewCustomOrderModal({ products, allEmployees, onClose, onDone }) {
+function NewCustomOrderModal({ products, allEmployees, materials, onClose, onDone }) {
   const [customerWorkerId, setCustomerWorkerId] = useState("");
   const [address, setAddress] = useState("");
   const [it, setIt] = useState(emptyItem());
   const [bazisFile, setBazisFile] = useState(null);
-  const [bazisGroups, setBazisGroups] = useState(null);
+  // Fayl tanlangach `/custom-orders/parse-bazis/` natijasi ({groups, materials}) va
+  // undagi foydalanuvchi tanlovlari (`bz`) — qarang BazisSetup.
+  const [bazisPreview, setBazisPreview] = useState(null);
+  const [bz, setBz] = useState(null);
   const [bazisLoading, setBazisLoading] = useState(false);
   const [bazisError, setBazisError] = useState("");
-  // Har guruh (masalan "Teshish Ø8mm") uchun: pullikmi va narxi — qarang
-  // pickBazisFile (fayl tanlangach avtomatik to'ldiriladi, agar shu
-  // guruh nomi bilan "Ish turlari"da narx allaqachon bo'lsa).
-  const [groupPay, setGroupPay] = useState({});
-  // Kesish/Kromkalash uchun kim bajarishi — qarang MAIN_STAGES.
-  const [stageAssignments, setStageAssignments] = useState({
-    cutting: emptyStageAssignment(),
-    edge_processing: emptyStageAssignment(),
-  });
+  const [companyMaterials, setCompanyMaterials] = useState(materials);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -256,7 +238,8 @@ function NewCustomOrderModal({ products, allEmployees, onClose, onDone }) {
 
   const pickBazisFile = async (file) => {
     setBazisFile(file);
-    setBazisGroups(null);
+    setBazisPreview(null);
+    setBz(null);
     setBazisError("");
     if (!file) return;
     setBazisLoading(true);
@@ -264,13 +247,8 @@ function NewCustomOrderModal({ products, allEmployees, onClose, onDone }) {
       const fd = new FormData();
       fd.append("file", file);
       const d = await api("/custom-orders/parse-bazis/", { method: "POST", body: fd, isForm: true });
-      setBazisGroups(d.groups || []);
-      const initial = {};
-      for (const g of d.groups || []) {
-        const existing = Number(g.price_per_unit) || 0;
-        initial[g.name] = { paid: existing > 0, price: existing > 0 ? String(existing) : "" };
-      }
-      setGroupPay(initial);
+      setBazisPreview(d);
+      setBz(initialBazisState(d));
     } catch (err) {
       setBazisError(err.message);
     } finally {
@@ -305,29 +283,14 @@ function NewCustomOrderModal({ products, allEmployees, onClose, onDone }) {
       };
       const order = await api("/custom-orders/create/", { method: "POST", body });
 
-      if (bazisFile && it.isFree) {
+      if (bazisFile && it.isFree && bz && bazisPreview) {
         const fd = new FormData();
         fd.append("file", bazisFile);
-        const prices = {};
-        for (const [name, g] of Object.entries(groupPay)) {
-          if (g.paid && g.price) prices[name] = g.price;
-        }
-        fd.append("prices", JSON.stringify(prices));
-
-        const stageGroupExists = {
-          cutting: bazisGroups.some((g) => g.stage === "cutting"),
-          edge_processing: bazisGroups.some((g) => g.stage === "edge_processing"),
-        };
-        const assignments = {};
-        for (const { key } of MAIN_STAGES) {
-          if (!stageGroupExists[key]) continue;
-          const a = stageAssignments[key];
-          if (a.mode === "employee" && a.employeeId) assignments[key] = { employee_id: a.employeeId };
-          else if (a.mode === "role" && a.role) assignments[key] = { role: a.role };
-        }
-        if (Object.keys(assignments).length > 0) {
-          fd.append("assignments", JSON.stringify(assignments));
-        }
+        const payload = buildBazisPayload(bz, bazisPreview.groups);
+        fd.append("prices", JSON.stringify(payload.prices));
+        if (Object.keys(payload.assignments).length > 0) fd.append("assignments", JSON.stringify(payload.assignments));
+        if (Object.keys(payload.materialMap).length > 0) fd.append("material_map", JSON.stringify(payload.materialMap));
+        if (payload.extraStages.length > 0) fd.append("extra_stages", JSON.stringify(payload.extraStages));
         try {
           await api(`/custom-orders/${order.id}/import-bazis/`, { method: "POST", body: fd, isForm: true });
         } catch (err) {
@@ -448,109 +411,40 @@ function NewCustomOrderModal({ products, allEmployees, onClose, onDone }) {
             katalogdan tanlangan mahsulotning o'z ishlab chiqarish
             shabloni bor, alohida CAD fayl import qilish shart emas. */}
         {it.isFree && (
-        <label className="flex flex-col gap-1 text-sm">
-          Bazis fayl (ixtiyoriy)
-          <div className="flex items-center gap-2">
-            <label className="btn-ghost inline-flex cursor-pointer items-center gap-1.5 !px-3 !py-1.5 text-xs">
-              <Upload size={13} /> {bazisFile ? bazisFile.name : "Fayl tanlash (.project)"}
-              <input
-                type="file" accept=".project" style={{ display: "none" }}
-                onChange={(e) => pickBazisFile(e.target.files?.[0] || null)}
+          <div className="flex flex-col gap-2 text-sm">
+            <span>Bazis fayl (ixtiyoriy)</span>
+            <div className="flex items-center gap-2">
+              <label className="btn-ghost inline-flex cursor-pointer items-center gap-1.5 !px-3 !py-1.5 text-xs">
+                <Upload size={13} /> {bazisFile ? bazisFile.name : "Fayl tanlash (.project)"}
+                <input
+                  type="file" accept=".project" style={{ display: "none" }}
+                  onChange={(e) => pickBazisFile(e.target.files?.[0] || null)}
+                />
+              </label>
+              {bazisFile && (
+                <button type="button" className="icon-btn" onClick={() => pickBazisFile(null)}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>
+              CAD dasturidan eksport qilingan .project fayli — detal/teshik ma'lumotidan ishlab chiqarish
+              topshiriqlari avtomatik tuziladi (dizayn tasdiqlanib "Ishlab chiqarishga" o'tganda).
+            </span>
+
+            {bazisLoading && <span style={{ fontSize: 12, color: "var(--muted)" }}>Tahlil qilinmoqda…</span>}
+            {bazisError && <div className="error">{bazisError}</div>}
+            {bazisPreview && bz && (
+              <BazisSetup
+                preview={bazisPreview}
+                state={bz}
+                setState={setBz}
+                employees={allEmployees}
+                companyMaterials={companyMaterials}
+                onMaterialCreated={(m) => setCompanyMaterials((prev) => [...prev, m])}
               />
-            </label>
-            {bazisFile && (
-              <button type="button" className="icon-btn" onClick={() => pickBazisFile(null)}>
-                <X size={14} />
-              </button>
             )}
           </div>
-          <span style={{ fontSize: 11, color: "var(--muted)" }}>
-            CAD dasturidan eksport qilingan .project fayli — detal/teshik ma'lumotidan ishlab chiqarish
-            topshiriqlari avtomatik tuziladi (dizayn tasdiqlanib "Ishlab chiqarishga" o'tganda).
-          </span>
-
-          {bazisLoading && <span style={{ fontSize: 12, color: "var(--muted)" }}>Tahlil qilinmoqda…</span>}
-          {bazisError && <div className="error">{bazisError}</div>}
-          {bazisGroups?.length > 0 && (
-            <div className="flex flex-col gap-1.5 rounded-lg border p-2.5" style={{ borderColor: "var(--border)" }}>
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)" }}>
-                Topilgan ishlar — har biriga ixtiyoriy ravishda narx belgilang:
-              </span>
-              {bazisGroups.map((g) => {
-                const gp = groupPay[g.name] || { paid: false, price: "" };
-                return (
-                  <div key={g.name} className="flex items-center gap-2 text-xs">
-                    <label className="flex flex-1 items-center gap-1.5">
-                      <input
-                        type="checkbox" checked={gp.paid}
-                        onChange={(e) => setGroupPay((prev) => ({ ...prev, [g.name]: { ...gp, paid: e.target.checked } }))}
-                      />
-                      {g.name} <span style={{ color: "var(--muted)" }}>({g.quantity} {g.unit})</span>
-                    </label>
-                    {gp.paid && (
-                      <input
-                        className="input !w-24 !py-1 text-xs" type="number" min="0" placeholder="narx"
-                        value={gp.price}
-                        onChange={(e) => setGroupPay((prev) => ({ ...prev, [g.name]: { ...gp, price: e.target.value } }))}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {bazisGroups?.length > 0 && (
-            <div className="flex flex-col gap-2 rounded-lg border p-2.5" style={{ borderColor: "var(--border)" }}>
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)" }}>
-                Asosiy bosqichlar — Kesish va Kromkalash uchun kim bajarishini belgilang:
-              </span>
-              {MAIN_STAGES.filter((s) => bazisGroups.some((g) => g.stage === s.key)).map((s) => {
-                const a = stageAssignments[s.key];
-                const patchStage = (patch) =>
-                  setStageAssignments((prev) => ({ ...prev, [s.key]: { ...prev[s.key], ...patch } }));
-                return (
-                  <div key={s.key} className="flex flex-col gap-1 text-xs">
-                    <span className="font-medium">{s.label}</span>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        className="input !w-auto !py-1 text-xs"
-                        value={a.mode}
-                        onChange={(e) => patchStage({ mode: e.target.value })}
-                      >
-                        <option value="role">Ochiq (rol bo'yicha)</option>
-                        <option value="employee">Aniq usta</option>
-                      </select>
-                      {a.mode === "role" ? (
-                        <select
-                          className="input !w-auto !py-1 text-xs"
-                          value={a.role}
-                          onChange={(e) => patchStage({ role: e.target.value })}
-                        >
-                          <option value="">Rol tanlang…</option>
-                          {ROLE_CHOICES.map((r) => (
-                            <option key={r.value} value={r.value}>{r.label}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <select
-                          className="input !w-auto !py-1 text-xs"
-                          value={a.employeeId}
-                          onChange={(e) => patchStage({ employeeId: e.target.value })}
-                        >
-                          <option value="">Usta tanlang…</option>
-                          {allEmployees.map((emp) => (
-                            <option key={emp.id} value={emp.id}>{emp.user_name || emp.user_email}</option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </label>
         )}
 
         {error && <div className="error">{error}</div>}

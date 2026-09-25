@@ -43,6 +43,16 @@ class Design(BaseModel):
     # "edge_processing": {...}} — qarang apps.custom_orders.views.
     # DesignBazisImportView va services.create_workflow_instances_from_design.
     bazis_assignments = models.JSONField(default=dict, blank=True)
+    # Bazis'dagi material nomi ("ДСП бук 16") -> firma omboridagi
+    # `inventory.Material.id`. Har buyurtmada boshqacha tanlanishi mumkin
+    # (bir mijozga arzonroq, boshqasiga qimmatroq DSP). Faqat tavsif/tannarx
+    # uchun ishlatiladi — `WorkflowStepInstance.raw_material` (ombordan
+    # avtomatik ayirish) ATAYLAB bog'lanmaydi: u `quantity`ni material
+    # birligida ayiradi, bu yerda esa `quantity` detal SONI.
+    material_map = models.JSONField(default=dict, blank=True)
+    # Usta qo'lda qo'shgan qo'shimcha etaplar:
+    # [{"name", "employee_id"|"role", "jobs": [{"name", "quantity", "price"}]}]
+    extra_stages = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return f"Design — {self.order_id}"

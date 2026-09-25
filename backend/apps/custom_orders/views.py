@@ -1,4 +1,5 @@
 import json
+import uuid
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import Max
@@ -10,6 +11,7 @@ from rest_framework.views import APIView
 
 from apps.companies.models import Employee
 from apps.companies.views import is_company_owner, user_company, user_has_position
+from apps.inventory.models import Material
 from apps.orders.models import Order, OrderItem
 from apps.products.models import Product, Variant
 from apps.workflow.bazis_import import parse_bazis_project
@@ -25,6 +27,7 @@ from .services import (
     approve_design_version,
     bazis_groups_from_summary,
     create_custom_order_on_site,
+    extra_job_work_type_name,
     get_or_create_custom_item_placeholder,
     set_item_cost,
 )
@@ -111,34 +114,117 @@ def _parse_bazis_upload(upload):
     return parsed, summary
 
 
+def _load_json(raw):
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_person(entry, company):
+    """`{"employee_id": ...}` YOKI `{"role": ...}` — mas'ul shaxs (aniq
+    xodim yoki ochiq rol). Noto'g'ri qiymat -> None (jim tashlanadi)."""
+    if not isinstance(entry, dict):
+        return None
+    employee_id = entry.get("employee_id")
+    role = entry.get("role")
+    if employee_id:
+        if _is_uuid(employee_id) and Employee.objects.filter(
+            id=employee_id, company=company, is_active=True
+        ).exists():
+            return {"employee_id": str(employee_id)}
+        return None
+    if role in {c[0] for c in Employee.Position.choices}:
+        return {"role": role}
+    return None
+
+
 def _parse_assignments(raw_assignments, company):
     """`assignments` (JSON matn, `{"cutting": {"employee_id": "<uuid>"} yoki
-    {"role": "usta"}, "edge_processing": {...}}`) — Kesish/Kromkalash
-    "asosiy bosqich"lariga KIM bajarishini oldindan belgilaydi (aniq usta
-    YOKI ochiq rol). Noto'g'ri/bo'sh qiymatlar jim tashlab yuboriladi —
-    bu ixtiyoriy maydon, kiritilmasa bosqichlar oddiy ochiq (rolsiz)
-    qoladi va keyin "Ishlab chiqarish" sahifasida qo'lda biriktiriladi."""
-    if not raw_assignments:
-        return {}
-    try:
-        raw = json.loads(raw_assignments)
-    except (TypeError, ValueError):
-        return {}
+    {"role": "usta"}, "edge_processing": {...}, "other": {...}}`) — Bazis
+    etaplariga (Kesish/Kromkalash/Teshish) KIM bajarishini oldindan
+    belgilaydi. Noto'g'ri/bo'sh qiymatlar jim tashlab yuboriladi — bu
+    ixtiyoriy maydon, kiritilmasa bosqichlar oddiy ochiq (rolsiz) qoladi va
+    keyin "Ishlab chiqarish" sahifasida qo'lda biriktiriladi."""
+    raw = _load_json(raw_assignments)
     if not isinstance(raw, dict):
         return {}
-    valid_roles = {c[0] for c in Employee.Position.choices}
     result = {}
-    for stage_key in (str(Stage.CUTTING), str(Stage.EDGE_PROCESSING)):
-        entry = raw.get(stage_key)
-        if not isinstance(entry, dict):
+    for stage_key in (str(Stage.CUTTING), str(Stage.EDGE_PROCESSING), str(Stage.OTHER)):
+        person = _parse_person(raw.get(stage_key), company)
+        if person:
+            result[stage_key] = person
+    return result
+
+
+def _parse_material_map(raw_map, company):
+    """`{"Bazis material nomi": "<Material uuid>"}` — faqat shu firmaning
+    o'chirilmagan materiallari qabul qilinadi."""
+    raw = _load_json(raw_map)
+    if not isinstance(raw, dict):
+        return {}
+    wanted = {str(v) for v in raw.values() if v}
+    valid = {
+        str(pk)
+        for pk in Material.objects.filter(
+            company=company, is_deleted=False, id__in=[v for v in wanted if _is_uuid(v)]
+        ).values_list("id", flat=True)
+    }
+    return {str(name): str(mid) for name, mid in raw.items() if str(mid) in valid}
+
+
+def _is_uuid(value):
+    try:
+        uuid.UUID(str(value))
+        return True
+    except ValueError:
+        return False
+
+
+def _decimal_or(value, default):
+    try:
+        d = Decimal(str(value))
+    except (InvalidOperation, TypeError):
+        return default
+    return d if d >= 0 else default
+
+
+def _parse_extra_stages(raw_stages, company):
+    """Usta qo'lda qo'shgan qo'shimcha etaplar — har biri nom, mas'ul shaxs
+    va ishlar ro'yxati (`name`, `quantity`, `price`). Nomsiz etap/ish jim
+    tashlanadi."""
+    raw = _load_json(raw_stages)
+    if not isinstance(raw, list):
+        return []
+    result = []
+    for stage in raw[:30]:
+        if not isinstance(stage, dict):
             continue
-        employee_id = entry.get("employee_id")
-        role = entry.get("role")
-        if employee_id:
-            if Employee.objects.filter(id=employee_id, company=company, is_active=True).exists():
-                result[stage_key] = {"employee_id": str(employee_id)}
-        elif role in valid_roles:
-            result[stage_key] = {"role": role}
+        name = str(stage.get("name") or "").strip()[:100]
+        if not name:
+            continue
+        jobs = []
+        for job in (stage.get("jobs") or [])[:50]:
+            if not isinstance(job, dict):
+                continue
+            job_name = str(job.get("name") or "").strip()[:100]
+            if not job_name:
+                continue
+            quantity = _decimal_or(job.get("quantity"), Decimal("1"))
+            if quantity <= 0:
+                quantity = Decimal("1")
+            jobs.append(
+                {
+                    "name": job_name,
+                    "quantity": str(quantity),
+                    "price": str(_decimal_or(job.get("price"), Decimal("0"))),
+                }
+            )
+        entry = {"name": name, "jobs": jobs}
+        entry.update(_parse_person(stage, company) or {})
+        result.append(entry)
     return result
 
 
@@ -173,12 +259,30 @@ class BazisPreviewView(APIView):
                 }
             )
 
+        # Xom ashyo: Bazis'dagi varaq (DSP/DVP) va kromka nomlari — har biri
+        # uchun firma omboridagi materialni tanlash mumkin. Nomi aynan mos
+        # kelgan mavjud material (katta-kichik harfga bog'liq emas) taklif
+        # sifatida qaytariladi.
+        materials = []
+        for kind, usage in (("sheet", summary["sheet_usage"]), ("band", summary["band_usage"])):
+            for name, quantity in usage.items():
+                match = Material.objects.filter(company=company, is_deleted=False, name__iexact=name).first()
+                materials.append(
+                    {
+                        "name": name,
+                        "kind": kind,
+                        "quantity": quantity,
+                        "suggested_material_id": str(match.id) if match else None,
+                    }
+                )
+
         return Response(
             {
                 "product_name": parsed.product_name,
                 "parts_count": len(parsed.parts),
                 "holes_total": sum(parsed.hole_groups.values()),
                 "groups": groups,
+                "materials": materials,
             },
             status=200,
         )
@@ -225,7 +329,13 @@ class DesignBazisImportView(APIView):
         design.bazis_file = upload
         design.bazis_summary = summary
         design.bazis_assignments = _parse_assignments(request.data.get("assignments"), company)
-        design.save(update_fields=["bazis_file", "bazis_summary", "bazis_assignments"])
+        design.material_map = _parse_material_map(request.data.get("material_map"), company)
+        design.extra_stages = _parse_extra_stages(request.data.get("extra_stages"), company)
+        design.save(
+            update_fields=[
+                "bazis_file", "bazis_summary", "bazis_assignments", "material_map", "extra_stages",
+            ]
+        )
 
         raw_prices = request.data.get("prices")
         prices = {}
@@ -245,6 +355,18 @@ class DesignBazisImportView(APIView):
                     work_type.save(update_fields=["price_per_unit"])
                 except (InvalidOperation, TypeError):
                     pass
+
+        # Qo'shimcha etaplardagi ishlar ham xuddi Bazis guruhlari kabi WorkType
+        # katalogiga tushadi (narxi shu yerda belgilanadi) — ish haqi shundan
+        # hisoblanadi.
+        for stage in design.extra_stages:
+            for job in stage["jobs"]:
+                work_type, _created = WorkType.objects.get_or_create(
+                    company=company, name=extra_job_work_type_name(stage["name"], job["name"]),
+                    defaults={"unit": "dona", "stage": Stage.OTHER},
+                )
+                work_type.price_per_unit = Decimal(job["price"])
+                work_type.save(update_fields=["price_per_unit"])
 
         return Response(
             {
