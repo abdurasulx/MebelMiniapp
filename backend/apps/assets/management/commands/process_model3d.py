@@ -15,6 +15,17 @@ ARCHIVE_FORMATS = (".zip", ".rar")
 MODEL_SEARCH_PRIORITY = (".glb", ".gltf", ".fbx", ".obj", ".dae")
 SCRIPTS_DIR = Path(__file__).resolve().parents[4] / "scripts"
 
+# Hech qanday mebel buyumi (hatto eng katta shkaf/divan ham) 15 metrdan
+# katta bo'lmaydi — shundan katta bbox chiqsa, bu deyarli har doim manba
+# fayl millimetrda modellashtirilgan-u, lekin metr deb eksport qilingani
+# (yoki Blender shunday deb import qilgani) sababli 1000x katta chiqqan
+# degani (docs — real hodisa: 1.8m stul 1800 "metr" bo'lib chiqqan edi).
+# Bunday holatda modelni avtomatik 0.001x (mm->m) kichraytiramiz — bu
+# "ixtiyoriy kichraytirish" emas, aksincha modelni HAQIQIY o'lchamiga
+# QAYTARISH (real mahsulotni ko'rsatish uchun zarur tuzatish).
+IMPLAUSIBLE_SIZE_METERS = 15
+MM_TO_M_FACTOR = 0.001
+
 
 class Command(BaseCommand):
     """Model3D uchun to'liq avtomatik konvertatsiya: (ZIP/RAR ->) FBX/OBJ -> GLB -> USDZ.
@@ -115,7 +126,39 @@ class Command(BaseCommand):
                 glb_path = Path(model.glb_file.path)
 
             with open(glb_path, "rb") as f:
-                model.apply_bbox(extract_bbox(f))
+                bbox = extract_bbox(f)
+
+            if bbox and max(bbox["width"], bbox["height"], bbox["depth"]) > IMPLAUSIBLE_SIZE_METERS:
+                rescaled = Path(tmp_dir) / f"{model.id}_rescaled.glb"
+                if self._run_blender(
+                    blender_bin, SCRIPTS_DIR / "rescale_glb.py",
+                    [str(glb_path), str(rescaled), str(MM_TO_M_FACTOR)],
+                ) and rescaled.exists():
+                    with open(rescaled, "rb") as f:
+                        model.glb_file.save(f"{model.id}.glb", File(f), save=False)
+                    model.save(update_fields=["glb_file"])
+                    glb_path = Path(model.glb_file.path)
+                    with open(glb_path, "rb") as f:
+                        bbox = extract_bbox(f)
+                    if bbox and max(bbox["width"], bbox["height"], bbox["depth"]) > IMPLAUSIBLE_SIZE_METERS:
+                        # mm->m tuzatishdan keyin ham amalga oshmaydigan darajada katta —
+                        # bu oddiy birlik xatosi emas, manba fayl haqiqatda buzilgan
+                        # bo'lishi mumkin. Avtomatik taxmin qilishni davom ettirish
+                        # xavfli (noto'g'ri kichraytirib qo'yishi mumkin) — shuning
+                        # uchun to'xtatib, firma xodimiga xabar beramiz.
+                        self._fail(
+                            model,
+                            f"Model o'lchami g'ayritabiiy katta (mm->m tuzatishdan keyin ham "
+                            f"{max(bbox['width'], bbox['height'], bbox['depth'])}m) — manba fayl "
+                            f"birligini tekshiring",
+                        )
+                        return
+                else:
+                    self.stderr.write(
+                        "O'lcham tuzatish (mm->m) muvaffaqiyatsiz — asl bbox bilan davom etiladi"
+                    )
+
+            model.apply_bbox(bbox)
             bbox_fields = ["bbox_width", "bbox_height", "bbox_depth", "shape_tag"]
 
             if options["skip_usdz"]:
