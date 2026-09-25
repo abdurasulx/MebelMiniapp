@@ -236,3 +236,27 @@ body {
     --portal-pad: 1.5rem;
   }
 }
+
+/* Tanlash (picker) oynasi animatsiyalari — qarang MaterialPicker.jsx */
+@keyframes picker-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes picker-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes picker-pop-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes picker-pop-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(12px) scale(0.97); }
+}
+@keyframes picker-item-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.picker-backdrop { animation: picker-fade-in 0.18s ease-out both; }
+.picker-panel { animation: picker-pop-in 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
+.picker-item { animation: picker-item-in 0.26s ease-out both; }
+.picker-closing.picker-backdrop { animation: picker-fade-out 0.16s ease-in both; }
+.picker-closing .picker-panel { animation: picker-pop-out 0.16s ease-in both; }
+@media (prefers-reduced-motion: reduce) {
+  .picker-backdrop, .picker-panel, .picker-item { animation: none !important; }
+}

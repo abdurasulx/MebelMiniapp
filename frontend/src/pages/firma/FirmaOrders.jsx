@@ -441,7 +441,7 @@ function NewCustomOrderModal({ products, allEmployees, materials, onClose, onDon
                 setState={setBz}
                 employees={allEmployees}
                 companyMaterials={companyMaterials}
-                onMaterialCreated={(m) => setCompanyMaterials((prev) => [...prev, m])}
+                onMaterialCreated={(m) => setCompanyMaterials((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]))}
               />
             )}
           </div>

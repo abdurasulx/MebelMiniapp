@@ -216,7 +216,14 @@ class MaterialViewSet(CompanyScopedViewSet):
         company = user_company(self.request.user)
         if company is None:
             return Material.objects.none()
-        return Material.objects.filter(company=company, is_deleted=False)
+        qs = Material.objects.filter(company=company, is_deleted=False)
+        # `?search=` — nom bo'yicha katta-kichik harfga bog'liq bo'lmagan
+        # qidiruv (SQL ILIKE '%...%'): xom ashyo tanlash oynasi real-time
+        # shu bilan qidiradi.
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            qs = qs.filter(name__icontains=search)
+        return qs.order_by("name")
 
     def perform_destroy(self, instance):
         self._own_company()

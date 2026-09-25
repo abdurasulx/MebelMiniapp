@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import MaterialPicker from "./MaterialPicker";
 import { api } from "../../api";
 import { POSITIONS } from "../../positions";
 import { STAGES, emptyPerson, newId } from "./bazisState";
@@ -229,6 +230,7 @@ function NewMaterialForm({ defaultName, onCreated, onCancel }) {
 
 function MaterialsTab({ preview, state, setState, companyMaterials, onMaterialCreated }) {
   const [creating, setCreating] = useState(null);
+  const [picking, setPicking] = useState(null);
   const materials = preview.materials || [];
   if (materials.length === 0) {
     return <p className="text-xs" style={{ color: "var(--muted)" }}>Faylda xom ashyo topilmadi.</p>;
@@ -249,22 +251,37 @@ function MaterialsTab({ preview, state, setState, companyMaterials, onMaterialCr
             <span className="text-xs" style={{ color: "var(--muted)" }}>{m.quantity} dona</span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <select
-              className="input !w-auto !py-1 text-xs flex-1"
-              value={state.materialMap[m.name] || ""}
-              onChange={(e) => select(m.name, e.target.value)}
-            >
-              <option value="">— tanlanmagan —</option>
-              {companyMaterials.map((cm) => (
-                <option key={cm.id} value={cm.id}>
-                  {cm.name} — {Number(cm.unit_cost).toLocaleString()} so'm/{cm.unit}
-                </option>
-              ))}
-            </select>
+            {(() => {
+              const chosen = companyMaterials.find((cm) => cm.id === state.materialMap[m.name]);
+              return (
+                <button
+                  type="button"
+                  className="input !py-1.5 flex flex-1 items-center justify-between gap-2 text-left text-xs transition hover:brightness-95"
+                  onClick={() => setPicking(m.name)}
+                >
+                  <span className="truncate">
+                    {chosen
+                      ? `${chosen.name} — ${Number(chosen.unit_cost).toLocaleString()} so'm/${chosen.unit}`
+                      : "Ombordan tanlash…"}
+                  </span>
+                  <ChevronDown size={14} />
+                </button>
+              );
+            })()}
             <button type="button" className="btn-ghost inline-flex items-center gap-1 !px-2.5 !py-1 text-xs" onClick={() => setCreating(m.name)}>
               <Plus size={12} /> Yangi xom ashyo
             </button>
           </div>
+          {picking === m.name && (
+            <MaterialPicker
+              selectedId={state.materialMap[m.name] || null}
+              onClose={() => setPicking(null)}
+              onSelect={(material) => {
+                if (material) onMaterialCreated(material);
+                select(m.name, material ? material.id : "");
+              }}
+            />
+          )}
           {creating === m.name && (
             <NewMaterialForm
               defaultName={m.name}

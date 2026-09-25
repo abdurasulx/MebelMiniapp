@@ -312,3 +312,30 @@ class SheetMaterialTests(APITestCase):
         )
         self.assertEqual(resp.status_code, 400)
         self.assertIn("qoldig'i yo'q", str(resp.data))
+
+
+class MaterialSearchTests(APITestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user(email="search-owner@inv.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.company = Company.objects.create(owner=self.owner, name="Qidiruv", slug="qidiruv-inv")
+        other_owner = User.objects.create_user(email="search-other@inv.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        other = Company.objects.create(owner=other_owner, name="Boshqa", slug="boshqa-inv")
+        Material.objects.create(company=self.company, name="ДСП бук 16")
+        Material.objects.create(company=self.company, name="Kronospan Oq")
+        Material.objects.create(company=other, name="Kronospan Begona")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _names(self, query):
+        resp = self.client.get("/api/v1/materials/", {"search": query})
+        self.assertEqual(resp.status_code, 200)
+        return [m["name"] for m in resp.data["results"]]
+
+    def test_search_is_case_insensitive_substring_and_company_scoped(self):
+        self.assertEqual(self._names("KRONO"), ["Kronospan Oq"])
+        self.assertEqual(self._names("бук"), ["ДСП бук 16"])
+        self.assertEqual(self._names("zzz"), [])
+
+    def test_no_search_returns_all_own_materials_sorted(self):
+        self.assertEqual(self._names(""), ["Kronospan Oq", "ДСП бук 16"])
