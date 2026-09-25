@@ -13,7 +13,7 @@ from apps.companies.views import is_company_owner, user_company, user_has_positi
 from apps.orders.models import Order, OrderItem
 from apps.products.models import Product, Variant
 from apps.workflow.bazis_import import parse_bazis_project
-from apps.workflow.models import WorkType
+from apps.workflow.models import Stage, WorkType
 
 from .models import Design, DesignVersion
 from .serializers import (
@@ -111,6 +111,37 @@ def _parse_bazis_upload(upload):
     return parsed, summary
 
 
+def _parse_assignments(raw_assignments, company):
+    """`assignments` (JSON matn, `{"cutting": {"employee_id": "<uuid>"} yoki
+    {"role": "usta"}, "edge_processing": {...}}`) — Kesish/Kromkalash
+    "asosiy bosqich"lariga KIM bajarishini oldindan belgilaydi (aniq usta
+    YOKI ochiq rol). Noto'g'ri/bo'sh qiymatlar jim tashlab yuboriladi —
+    bu ixtiyoriy maydon, kiritilmasa bosqichlar oddiy ochiq (rolsiz)
+    qoladi va keyin "Ishlab chiqarish" sahifasida qo'lda biriktiriladi."""
+    if not raw_assignments:
+        return {}
+    try:
+        raw = json.loads(raw_assignments)
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    valid_roles = {c[0] for c in Employee.Position.choices}
+    result = {}
+    for stage_key in (str(Stage.CUTTING), str(Stage.EDGE_PROCESSING)):
+        entry = raw.get(stage_key)
+        if not isinstance(entry, dict):
+            continue
+        employee_id = entry.get("employee_id")
+        role = entry.get("role")
+        if employee_id:
+            if Employee.objects.filter(id=employee_id, company=company, is_active=True).exists():
+                result[stage_key] = {"employee_id": str(employee_id)}
+        elif role in valid_roles:
+            result[stage_key] = {"role": role}
+    return result
+
+
 class BazisPreviewView(APIView):
     """Buyurtma HALI yaratilmasdan oldin (yaratish formasining o'zida)
     Bazis faylini ko'rib chiqish uchun — `POST /custom-orders/parse-bazis/`.
@@ -193,7 +224,8 @@ class DesignBazisImportView(APIView):
 
         design.bazis_file = upload
         design.bazis_summary = summary
-        design.save(update_fields=["bazis_file", "bazis_summary"])
+        design.bazis_assignments = _parse_assignments(request.data.get("assignments"), company)
+        design.save(update_fields=["bazis_file", "bazis_summary", "bazis_assignments"])
 
         raw_prices = request.data.get("prices")
         prices = {}

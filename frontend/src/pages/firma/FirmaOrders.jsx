@@ -10,6 +10,7 @@ export default function FirmaOrders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
   const [products, setProducts] = useState([]);
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
@@ -28,6 +29,7 @@ export default function FirmaOrders() {
         setOrders(d.results || []);
         setNextPage(d.next || null);
         setEmployees((emp.results || []).filter((e) => e.pay_type === "commission"));
+        setAllEmployees(emp.results || []);
         setProducts(prod.results || []);
       })
       .catch((e) => setError(e.message));
@@ -114,6 +116,7 @@ export default function FirmaOrders() {
       {showNew && (
         <NewCustomOrderModal
           products={products}
+          allEmployees={allEmployees}
           onClose={() => setShowNew(false)}
           onDone={() => { setShowNew(false); load(); }}
         />
@@ -210,7 +213,26 @@ function emptyItem() {
   };
 }
 
-function NewCustomOrderModal({ products, onClose, onDone }) {
+// Kesish/Kromkalash — "asosiy bosqich"lar, har biriga aniq usta YOKI
+// ochiq rol belgilanadi (qarang backend apps.custom_orders.views.
+// _parse_assignments). Teshish guruhlari ("kichik bosqich") bunga
+// tegishli emas.
+const MAIN_STAGES = [
+  { key: "cutting", label: "Kesish" },
+  { key: "edge_processing", label: "Kromkalash" },
+];
+const ROLE_CHOICES = [
+  { value: "usta", label: "Usta (ishlab chiqarish)" },
+  { value: "ornatuvchi", label: "O'rnatuvchi (montaj)" },
+  { value: "omborchi", label: "Omborchi" },
+  { value: "menejer", label: "Menejer" },
+];
+
+function emptyStageAssignment() {
+  return { mode: "role", employeeId: "", role: "" };
+}
+
+function NewCustomOrderModal({ products, allEmployees, onClose, onDone }) {
   const [customerWorkerId, setCustomerWorkerId] = useState("");
   const [address, setAddress] = useState("");
   const [it, setIt] = useState(emptyItem());
@@ -222,6 +244,11 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
   // pickBazisFile (fayl tanlangach avtomatik to'ldiriladi, agar shu
   // guruh nomi bilan "Ish turlari"da narx allaqachon bo'lsa).
   const [groupPay, setGroupPay] = useState({});
+  // Kesish/Kromkalash uchun kim bajarishi — qarang MAIN_STAGES.
+  const [stageAssignments, setStageAssignments] = useState({
+    cutting: emptyStageAssignment(),
+    edge_processing: emptyStageAssignment(),
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -286,6 +313,21 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
           if (g.paid && g.price) prices[name] = g.price;
         }
         fd.append("prices", JSON.stringify(prices));
+
+        const stageGroupExists = {
+          cutting: bazisGroups.some((g) => g.stage === "cutting"),
+          edge_processing: bazisGroups.some((g) => g.stage === "edge_processing"),
+        };
+        const assignments = {};
+        for (const { key } of MAIN_STAGES) {
+          if (!stageGroupExists[key]) continue;
+          const a = stageAssignments[key];
+          if (a.mode === "employee" && a.employeeId) assignments[key] = { employee_id: a.employeeId };
+          else if (a.mode === "role" && a.role) assignments[key] = { role: a.role };
+        }
+        if (Object.keys(assignments).length > 0) {
+          fd.append("assignments", JSON.stringify(assignments));
+        }
         try {
           await api(`/custom-orders/${order.id}/import-bazis/`, { method: "POST", body: fd, isForm: true });
         } catch (err) {
@@ -452,6 +494,57 @@ function NewCustomOrderModal({ products, onClose, onDone }) {
                         onChange={(e) => setGroupPay((prev) => ({ ...prev, [g.name]: { ...gp, price: e.target.value } }))}
                       />
                     )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {bazisGroups?.length > 0 && (
+            <div className="flex flex-col gap-2 rounded-lg border p-2.5" style={{ borderColor: "var(--border)" }}>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--muted)" }}>
+                Asosiy bosqichlar — Kesish va Kromkalash uchun kim bajarishini belgilang:
+              </span>
+              {MAIN_STAGES.filter((s) => bazisGroups.some((g) => g.stage === s.key)).map((s) => {
+                const a = stageAssignments[s.key];
+                const patchStage = (patch) =>
+                  setStageAssignments((prev) => ({ ...prev, [s.key]: { ...prev[s.key], ...patch } }));
+                return (
+                  <div key={s.key} className="flex flex-col gap-1 text-xs">
+                    <span className="font-medium">{s.label}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        className="input !w-auto !py-1 text-xs"
+                        value={a.mode}
+                        onChange={(e) => patchStage({ mode: e.target.value })}
+                      >
+                        <option value="role">Ochiq (rol bo'yicha)</option>
+                        <option value="employee">Aniq usta</option>
+                      </select>
+                      {a.mode === "role" ? (
+                        <select
+                          className="input !w-auto !py-1 text-xs"
+                          value={a.role}
+                          onChange={(e) => patchStage({ role: e.target.value })}
+                        >
+                          <option value="">Rol tanlang…</option>
+                          {ROLE_CHOICES.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <select
+                          className="input !w-auto !py-1 text-xs"
+                          value={a.employeeId}
+                          onChange={(e) => patchStage({ employeeId: e.target.value })}
+                        >
+                          <option value="">Usta tanlang…</option>
+                          {allEmployees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>{emp.user_name || emp.user_email}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                   </div>
                 );
               })}

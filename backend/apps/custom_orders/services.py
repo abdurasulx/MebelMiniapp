@@ -8,6 +8,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.utils import timezone
 
+from apps.companies.models import Employee
 from apps.notifications.services import (
     notify_custom_order_location_suspicious,
     notify_pool_open,
@@ -194,11 +195,33 @@ def create_workflow_instances_from_design(order, design):
     bazis_specs = _bazis_instance_specs(design) if design.bazis_summary else []
 
     if bazis_specs:
+        # Kesish/Kromkalash — "asosiy bosqich"lar: usta buyurtma yaratishda
+        # (yoki keyinroq "Ishlab chiqarish" sahifasida) har biriga aniq
+        # xodim YOKI ochiq rol belgilagan bo'lishi mumkin (qarang
+        # apps.custom_orders.views._parse_assignments). Teshish guruhlari
+        # ("kichik bosqich", Stage.OTHER) ga bu tegishli emas — ular
+        # oldingidek `work_type.required_role`ni meros oladi.
+        assignments = design.bazis_assignments or {}
+        employee_ids = {
+            entry["employee_id"] for entry in assignments.values() if entry.get("employee_id")
+        }
+        employees_by_id = {
+            str(e.id): e for e in Employee.objects.filter(id__in=employee_ids, company=order.company)
+        } if employee_ids else {}
+
         instances = []
         for index, (name, stage, work_type_name, unit, quantity) in enumerate(bazis_specs):
             work_type, _ = WorkType.objects.get_or_create(
                 company=order.company, name=work_type_name, defaults={"unit": unit, "stage": stage}
             )
+            role = work_type.required_role
+            employee = None
+            if stage in (Stage.CUTTING, Stage.EDGE_PROCESSING):
+                assignment = assignments.get(str(stage)) or {}
+                if assignment.get("employee_id"):
+                    employee = employees_by_id.get(assignment["employee_id"])
+                elif assignment.get("role"):
+                    role = assignment["role"]
             instances.append(
                 WorkflowStepInstance(
                     company=order.company,
@@ -207,7 +230,8 @@ def create_workflow_instances_from_design(order, design):
                     order_index=index,
                     name=name,
                     stage=stage,
-                    role=work_type.required_role,
+                    role=role,
+                    employee=employee,
                     work_type=work_type,
                     quantity=quantity,
                     # `WorkflowStep`dan farqli, `WorkflowStepInstance.save()` cost'ni

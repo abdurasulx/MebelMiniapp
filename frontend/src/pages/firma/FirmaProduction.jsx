@@ -513,16 +513,18 @@ function OpenPoolView({ isManager }) {
 
 function ManagerView() {
   const [tasks, setTasks] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState("");
   const [nextPage, setNextPage] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = () =>
-    api("/workflow-instances/")
-      .then((t) => {
+    Promise.all([api("/workflow-instances/"), api("/employees/")])
+      .then(([t, emp]) => {
         setTasks((t.results || []).filter((x) => x.is_manual));
         setNextPage(t.next || null);
+        setEmployees(emp.results || []);
       })
       .catch((err) => setError(err.message));
 
@@ -588,7 +590,7 @@ function ManagerView() {
 
       <div className="flex flex-col gap-3">
         {shown.map((t) => (
-          <TaskCard key={t.id} task={t} manager onChanged={load} />
+          <TaskCard key={t.id} task={t} manager employees={employees} onChanged={load} />
         ))}
       </div>
       <div className="flex justify-center">
@@ -663,7 +665,7 @@ function EmployeeView() {
 
 /* ================= Umumiy vazifa kartasi ================= */
 
-function TaskCard({ task, manager, onChanged }) {
+function TaskCard({ task, manager, employees, onChanged }) {
   const [error, setError] = useState("");
   const stage = TASK_STAGE[task.stage] || TASK_STAGE.other;
   const isOverdue = task.deadline && task.status !== "completed" && new Date(task.deadline) < new Date();
@@ -682,6 +684,24 @@ function TaskCard({ task, manager, onChanged }) {
     if (!confirm(`"${task.name}" o'chirilsinmi?`)) return;
     try {
       await api(`/workflow-instances/${task.id}/`, { method: "DELETE" });
+      onChanged();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const assignEmployee = async (employeeId) => {
+    try {
+      await api(`/workflow-instances/${task.id}/`, { method: "PATCH", body: { employee: employeeId || null } });
+      onChanged();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const assignRole = async (role) => {
+    try {
+      await api(`/workflow-instances/${task.id}/`, { method: "PATCH", body: { employee: null, role } });
       onChanged();
     } catch (e) {
       setError(e.message);
@@ -718,6 +738,31 @@ function TaskCard({ task, manager, onChanged }) {
           {task.deadline && ` · muddat: ${task.deadline}`}
         </div>
         {task.description && <div className="mt-1 text-sm">{task.description}</div>}
+        {manager && employees && task.status !== "completed" && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <select
+              className="input !w-auto !py-1 text-xs"
+              value={task.employee || ""}
+              onChange={(e) => assignEmployee(e.target.value)}
+            >
+              <option value="">Aniq usta tanlang…</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>{emp.user_name || emp.user_email}</option>
+              ))}
+            </select>
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>yoki</span>
+            <select
+              className="input !w-auto !py-1 text-xs"
+              value={!task.employee ? task.role || "" : ""}
+              onChange={(e) => assignRole(e.target.value)}
+            >
+              <option value="">Ochiq (rol tanlang)…</option>
+              {Object.entries(POSITIONS).map(([key, p]) => (
+                <option key={key} value={key}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {error && <div className="error mt-1">{error}</div>}
       </div>
       <div className="flex gap-2">

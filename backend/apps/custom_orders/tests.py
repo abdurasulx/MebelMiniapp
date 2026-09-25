@@ -14,19 +14,21 @@ from .models import Design
 User = get_user_model()
 
 
-def make_company_with_usta():
-    owner = User.objects.create_user(email="owner@custom.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
-    company = Company.objects.create(owner=owner, name="Custom Shop", slug="custom-shop")
+def make_company_with_usta(suffix=""):
+    owner = User.objects.create_user(
+        email=f"owner{suffix}@custom.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+    )
+    company = Company.objects.create(owner=owner, name=f"Custom Shop{suffix}", slug=f"custom-shop{suffix}")
     usta_user = User.objects.create_user(
-        email="usta@custom.uz", password="pass12345", role=User.Role.EMPLOYEE, worker_id="USTA001"
+        email=f"usta{suffix}@custom.uz", password="pass12345", role=User.Role.EMPLOYEE, worker_id=f"USTA001{suffix}"
     )
     Employee.objects.create(
         company=company, user=usta_user, positions=["usta"], pay_type=PayType.FIXED, base_salary=Decimal("1000000")
     )
     customer = User.objects.create_user(
-        email="mijoz@custom.uz", password="pass12345", role=User.Role.CUSTOMER, worker_id="MIJOZ001"
+        email=f"mijoz{suffix}@custom.uz", password="pass12345", role=User.Role.CUSTOMER, worker_id=f"MIJOZ001{suffix}"
     )
-    category = Category.objects.create(name_uz="Oshxona", slug="oshxona")
+    category, _ = Category.objects.get_or_create(slug=f"oshxona{suffix}", defaults={"name_uz": "Oshxona"})
     product = Product.objects.create(company=company, category=category, name_uz="Oshxona to'plami", is_published=True)
     Variant.objects.create(product=product, name="oddiy", base_price=Decimal("100000"))
     return owner, company, usta_user, customer, product
@@ -206,6 +208,44 @@ class DesignBazisImportTests(APITestCase):
         cut_wt = WorkType.objects.get(company=self.company, name="Kesish: DSP oq")
         self.assertEqual(cut_wt.price_per_unit, Decimal("0.00"))
 
+    def test_import_with_assignments_stores_employee_and_role(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        usta_employee = Employee.objects.get(company=self.company, user=self.usta_user)
+        f = SimpleUploadedFile("test.project", BAZIS_FIXTURE, content_type="application/xml")
+        resp = self.client.post(
+            f"/api/v1/custom-orders/{self.order.id}/import-bazis/",
+            {
+                "file": f,
+                "assignments": json.dumps(
+                    {
+                        "cutting": {"employee_id": str(usta_employee.id)},
+                        "edge_processing": {"role": "usta"},
+                    }
+                ),
+            },
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        design = Design.objects.get(order=self.order)
+        self.assertEqual(design.bazis_assignments["cutting"], {"employee_id": str(usta_employee.id)})
+        self.assertEqual(design.bazis_assignments["edge_processing"], {"role": "usta"})
+
+    def test_import_with_assignments_ignores_foreign_employee(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        other_owner, other_company, other_usta, _, _ = make_company_with_usta(suffix="2")
+        other_employee = Employee.objects.get(company=other_company, user=other_usta)
+        f = SimpleUploadedFile("test.project", BAZIS_FIXTURE, content_type="application/xml")
+        resp = self.client.post(
+            f"/api/v1/custom-orders/{self.order.id}/import-bazis/",
+            {"file": f, "assignments": json.dumps({"cutting": {"employee_id": str(other_employee.id)}})},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        design = Design.objects.get(order=self.order)
+        self.assertEqual(design.bazis_assignments, {})
+
 
 class BazisPreviewTests(APITestCase):
     def setUp(self):
@@ -291,6 +331,37 @@ class WorkflowInstancesFromBazisDesignTests(APITestCase):
 
         self.assertEqual(instances[0].status, StepStatus.IN_PROGRESS)
         self.assertFalse(instances[1].is_available)  # birinchisiga bog'liq
+
+    def test_bazis_assignments_set_employee_or_role_on_main_stages_only(self):
+        from .services import create_workflow_instances_from_design
+
+        usta_employee = Employee.objects.get(company=self.company, user=self.usta_user)
+        order, design = self._make_order_with_design()
+        design.bazis_summary = {
+            "product_name": "shkaf",
+            "parts_count": 2,
+            "sheet_usage": {"DSP oq": 3},
+            "band_usage": {"PVX oq": 2},
+            "hole_groups": {"Ø8mm": 4},
+        }
+        design.bazis_assignments = {
+            "cutting": {"employee_id": str(usta_employee.id)},
+            "edge_processing": {"role": "usta"},
+        }
+        design.save(update_fields=["bazis_summary", "bazis_assignments"])
+
+        instances = create_workflow_instances_from_design(order, design)
+        cutting = next(i for i in instances if i.name.startswith("Kesish"))
+        edge = next(i for i in instances if i.name.startswith("Kromkalash"))
+        hole = next(i for i in instances if i.name.startswith("Teshish"))
+
+        self.assertEqual(cutting.employee_id, usta_employee.id)
+        self.assertEqual(edge.role, "usta")
+        self.assertIsNone(edge.employee_id)
+        # Teshish (kichik bosqich) — assignments'ga tegishli emas, oddiy
+        # work_type.required_role'ni meros oladi (bo'sh, chunki narx
+        # belgilanmagan WorkType uchun required_role ham bo'sh).
+        self.assertIsNone(hole.employee_id)
 
     def test_without_bazis_summary_falls_back_to_production_sequence(self):
         from .services import create_workflow_instances_from_design

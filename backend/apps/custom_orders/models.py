@@ -35,6 +35,14 @@ class Design(BaseModel):
     # o'rniga shundan DETAL/TESHIK darajasidagi haqiqiy topshiriqlar yaratadi.
     bazis_file = models.FileField(upload_to="custom_orders/bazis/", blank=True, null=True)
     bazis_summary = models.JSONField(default=dict, blank=True)
+    # Kesish/Kromkalash — "asosiy bosqich"lar (qarang
+    # services.bazis_groups_from_summary) — har biriga KIM bajarishi
+    # oldindan belgilanadi: aniq usta (`employee_id`) YOKI ochiq rol
+    # (`role`, keyin shu rolga ega har qanday xodim navbatdan oladi).
+    # Shakli: {"cutting": {"employee_id": "<uuid>"} yoki {"role": "usta"},
+    # "edge_processing": {...}} — qarang apps.custom_orders.views.
+    # DesignBazisImportView va services.create_workflow_instances_from_design.
+    bazis_assignments = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"Design — {self.order_id}"
