@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Warehouse as WarehouseIcon, Boxes, Package, ChevronRight, Pencil, Trash2, AlertTriangle, PackageX, Plus } from "lucide-react";
 import { api } from "../../api";
+import LocationPicker from "../../components/LocationPicker";
 
 const KIND_ICON = { raw_material: Boxes, finished_goods: Package };
 
@@ -10,7 +11,7 @@ export default function FirmaWarehouses() {
   const [lowStock, setLowStock] = useState([]);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", kind: "raw_material", address: "" });
+  const [form, setForm] = useState({ name: "", kind: "raw_material", address: "", latitude: "", longitude: "" });
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -33,8 +34,11 @@ export default function FirmaWarehouses() {
     setError("");
     setBusy(true);
     try {
-      await api("/warehouses/", { method: "POST", body: form });
-      setForm({ name: "", kind: "raw_material", address: "" });
+      await api("/warehouses/", {
+        method: "POST",
+        body: { ...form, latitude: form.latitude || null, longitude: form.longitude || null },
+      });
+      setForm({ name: "", kind: "raw_material", address: "", latitude: "", longitude: "" });
       setShowForm(false);
       load();
     } catch (err) {
@@ -94,7 +98,7 @@ export default function FirmaWarehouses() {
             </div>
             <div className="sm:col-span-2">
               <label className="label">Manzil (lokatsiya) *</label>
-              <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
+              <LocationPicker value={form} onChange={(p) => setForm((f) => ({ ...f, ...p }))} />
             </div>
           </div>
           {error && <div className="error">{error}</div>}
@@ -261,7 +265,10 @@ function LowStockRow({ material, warehouses, onRestocked }) {
 }
 
 function WarehouseEditForm({ warehouse, onClose, onSaved }) {
-  const [form, setForm] = useState({ name: warehouse.name, kind: warehouse.kind, address: warehouse.address || "" });
+  const [form, setForm] = useState({
+    name: warehouse.name, kind: warehouse.kind, address: warehouse.address || "",
+    latitude: warehouse.latitude ?? "", longitude: warehouse.longitude ?? "",
+  });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -270,7 +277,10 @@ function WarehouseEditForm({ warehouse, onClose, onSaved }) {
     setError("");
     setBusy(true);
     try {
-      await api(`/warehouses/${warehouse.id}/`, { method: "PATCH", body: form });
+      await api(`/warehouses/${warehouse.id}/`, {
+        method: "PATCH",
+        body: { ...form, latitude: form.latitude || null, longitude: form.longitude || null },
+      });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -296,9 +306,9 @@ function WarehouseEditForm({ warehouse, onClose, onSaved }) {
           <option value="finished_goods">Tayyor mahsulot ombori</option>
         </select>
       </div>
-      <div style={{ minWidth: 200, flex: 1 }}>
+      <div style={{ minWidth: 260, flex: 1 }}>
         <label className="label">Manzil *</label>
-        <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} required />
+        <LocationPicker value={form} onChange={(p) => setForm((f) => ({ ...f, ...p }))} />
       </div>
       {error && <div className="error">{error}</div>}
       <div className="flex gap-2">

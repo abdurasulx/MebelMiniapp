@@ -25,7 +25,7 @@ class WarehouseSerializer(serializers.ModelSerializer):
         model = Warehouse
         fields = (
             "id", "company", "name", "kind", "kind_display",
-            "address", "is_active", "created_at",
+            "address", "latitude", "longitude", "is_active", "created_at",
         )
         read_only_fields = ("id", "company", "created_at")
 

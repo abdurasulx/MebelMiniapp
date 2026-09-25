@@ -42,6 +42,23 @@ class InventoryPermissionTests(APITestCase):
         )
         self.assertEqual(resp.status_code, 201, resp.data)
 
+    def test_warehouse_stores_optional_coordinates(self):
+        self.client.force_authenticate(self.owner)
+        resp = self.client.post(
+            "/api/v1/warehouses/",
+            {"name": "Xarita ombor", "kind": "raw_material", "address": "Chilonzor",
+             "latitude": "41.311081", "longitude": "69.240562"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data["latitude"], "41.311081")
+        no_coords = self.client.post(
+            "/api/v1/warehouses/",
+            {"name": "Koordinatasiz", "kind": "raw_material", "address": "Yunusobod", "latitude": None, "longitude": None},
+            format="json",
+        )
+        self.assertEqual(no_coords.status_code, 201, no_coords.data)
+
     def test_warehouse_requires_address(self):
         self.client.force_authenticate(self.owner)
         resp = self.client.post(

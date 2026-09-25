@@ -30,6 +30,9 @@ class Warehouse(BaseModel):
     # Ombor manzili/lokatsiyasi — yaratishda majburiy (qayerdaligi noma'lum
     # ombor bo'lishi mumkin emas).
     address = models.CharField(max_length=500)
+    # Xaritadan yoki hozirgi joylashuvdan belgilangan aniq nuqta (ixtiyoriy).
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
