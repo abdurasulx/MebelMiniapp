@@ -339,3 +339,41 @@ class MaterialSearchTests(APITestCase):
 
     def test_no_search_returns_all_own_materials_sorted(self):
         self.assertEqual(self._names(""), ["Kronospan Oq", "ДСП бук 16"])
+
+
+class MaterialImageRequiredTests(APITestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.owner = User.objects.create_user(email="img-owner@inv.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.company = Company.objects.create(owner=self.owner, name="Rasm", slug="rasm-inv")
+        self.client = APIClient()
+        self.client.force_authenticate(self.owner)
+
+    def _png(self):
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (2, 2), "white").save(buf, format="PNG")
+        return SimpleUploadedFile("dsp.png", buf.getvalue(), content_type="image/png")
+
+    def test_create_without_image_rejected(self):
+        resp = self.client.post("/api/v1/materials/", {"name": "DSP", "unit": "dona"}, format="multipart")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("image", resp.data)
+
+    def test_create_with_image_ok_and_update_without_image_ok(self):
+        resp = self.client.post(
+            "/api/v1/materials/", {"name": "DSP", "unit": "dona", "image": self._png()}, format="multipart"
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertTrue(resp.data["image"])
+        upd = self.client.patch(f"/api/v1/materials/{resp.data['id']}/", {"unit_cost": "5"}, format="json")
+        self.assertEqual(upd.status_code, 200, upd.data)
+
+    def test_legacy_material_without_image_can_still_be_edited(self):
+        legacy = Material.objects.create(company=self.company, name="Eski")
+        upd = self.client.patch(f"/api/v1/materials/{legacy.id}/", {"unit_cost": "7"}, format="json")
+        self.assertEqual(upd.status_code, 200, upd.data)

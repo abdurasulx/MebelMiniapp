@@ -63,6 +63,7 @@ function MaterialWarehousePanel({ warehouseId }) {
   const [newMaterial, setNewMaterial] = useState({
     name: "", unit: "dona", unit_cost: "", dimension_type: "none", stock_unit_length: "", min_stock: "",
   });
+  const [newMaterialImage, setNewMaterialImage] = useState(null);
   const [remnants, setRemnants] = useState([]);
   const [busy, setBusy] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState(null);
@@ -98,14 +99,22 @@ function MaterialWarehousePanel({ warehouseId }) {
     setError("");
     setBusy(true);
     try {
-      const created = await api("/materials/", {
-        method: "POST",
-        body: {
-          ...newMaterial,
-          stock_unit_length: newMaterial.dimension_type === "linear" ? (newMaterial.stock_unit_length || null) : null,
-          min_stock: newMaterial.min_stock || 0,
-        },
-      });
+      if (!newMaterialImage) {
+        setError("Xom ashyo rasmi majburiy");
+        setBusy(false);
+        return;
+      }
+      const fd = new FormData();
+      const body = {
+        ...newMaterial,
+        stock_unit_length: newMaterial.dimension_type === "linear" ? (newMaterial.stock_unit_length || "") : "",
+        min_stock: newMaterial.min_stock || 0,
+        unit_cost: newMaterial.unit_cost || 0,
+      };
+      Object.entries(body).forEach(([k, v]) => { if (v !== "") fd.append(k, v); });
+      fd.append("image", newMaterialImage);
+      const created = await api("/materials/", { method: "POST", body: fd, isForm: true });
+      setNewMaterialImage(null);
       setNewMaterial({ name: "", unit: "dona", unit_cost: "", dimension_type: "none", stock_unit_length: "", min_stock: "" });
       setShowNewMaterial(false);
       setMove((m) => ({ ...m, material: created.id }));
@@ -194,7 +203,16 @@ function MaterialWarehousePanel({ warehouseId }) {
                 {materials.map((m) => (
                   <Fragment key={m.id}>
                     <tr>
-                      <td className="font-medium">{m.name}</td>
+                      <td className="font-medium">
+                        <span className="inline-flex items-center gap-2">
+                          {m.image ? (
+                            <img src={m.image} alt="" className="h-8 w-8 rounded-md object-cover" />
+                          ) : (
+                            <span className="inline-block h-8 w-8 rounded-md" style={{ background: "var(--border)" }} title="Rasm yo'q" />
+                          )}
+                          {m.name}
+                        </span>
+                      </td>
                       <td>{m.unit_display}</td>
                       <td>{Number(m.unit_cost).toLocaleString()} so'm</td>
                       <td className="text-right">
@@ -334,7 +352,14 @@ function MaterialWarehousePanel({ warehouseId }) {
                     qilish" orqali o'z eni/bo'yi bilan kiritiladi.
                   </p>
                 )}
-                <button className="btn !px-3 !py-1.5 text-xs" type="button" onClick={createMaterial} disabled={busy || !newMaterial.name}>
+                <div>
+                  <label className="label">Rasm (majburiy)</label>
+                  <input
+                    className="input" type="file" accept="image/*"
+                    onChange={(e) => setNewMaterialImage(e.target.files?.[0] || null)}
+                  />
+                </div>
+                <button className="btn !px-3 !py-1.5 text-xs" type="button" onClick={createMaterial} disabled={busy || !newMaterial.name || !newMaterialImage}>
                   Qo'shish
                 </button>
               </div>
@@ -477,6 +502,7 @@ function MaterialEditForm({ material, onClose, onSaved }) {
     stock_unit_length: material.stock_unit_length || "",
     min_stock: material.min_stock || "",
   });
+  const [image, setImage] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -489,6 +515,11 @@ function MaterialEditForm({ material, onClose, onSaved }) {
         method: "PATCH",
         body: { ...form, stock_unit_length: form.dimension_type === "linear" ? (form.stock_unit_length || null) : null },
       });
+      if (image) {
+        const fd = new FormData();
+        fd.append("image", image);
+        await api(`/materials/${material.id}/`, { method: "PATCH", body: fd, isForm: true });
+      }
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -538,6 +569,10 @@ function MaterialEditForm({ material, onClose, onSaved }) {
             onChange={(e) => setForm({ ...form, stock_unit_length: e.target.value })} />
         </div>
       )}
+      <div>
+        <label className="label">{material.image ? "Rasmni almashtirish" : "Rasm (yo'q — yuklang)"}</label>
+        <input className="input" type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0] || null)} />
+      </div>
       {error && <div className="error">{error}</div>}
       <div className="flex gap-2">
         <button className="btn !px-3 !py-1.5 text-xs" type="submit" disabled={busy}>{busy ? "Saqlanmoqda…" : "Saqlash"}</button>

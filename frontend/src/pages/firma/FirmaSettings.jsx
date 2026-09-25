@@ -87,7 +87,15 @@ export default function FirmaSettings() {
         setLocating(false);
       },
       (err) => {
-        setError("Joylashuvni aniqlab bo'lmadi: " + err.message);
+        // code 1 = PERMISSION_DENIED (foydalanuvchi rad etgan yoki sahifa
+        // iframe/ruxsat siyosati tufayli bloklangan).
+        setError(
+          err.code === 1
+            ? "Brauzer joylashuvga ruxsat bermadi. Manzil satridagi qulf belgisi orqali \"Joylashuv\"ni yoqing " +
+              "(va sahifa boshqa ilova ichida emas, to'g'ridan-to'g'ri brauzerda ochilganini tekshiring) " +
+              "yoki koordinatalarni qo'lda kiriting."
+            : "Joylashuvni aniqlab bo'lmadi: " + err.message
+        );
         setLocating(false);
       },
     );
@@ -234,28 +242,28 @@ export default function FirmaSettings() {
             <div className="relative">
               <AtSign size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
               <input
-                className="input pl-9" type="url" placeholder="https://instagram.com/…"
+                className="input !pl-9" type="url" placeholder="https://instagram.com/…"
                 value={form.instagram_url} onChange={set("instagram_url")} disabled={!isOwner}
               />
             </div>
             <div className="relative">
               <Send size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
               <input
-                className="input pl-9" type="url" placeholder="https://t.me/…"
+                className="input !pl-9" type="url" placeholder="https://t.me/…"
                 value={form.telegram_url} onChange={set("telegram_url")} disabled={!isOwner}
               />
             </div>
             <div className="relative">
               <LinkIcon size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
               <input
-                className="input pl-9" type="url" placeholder="https://facebook.com/…"
+                className="input !pl-9" type="url" placeholder="https://facebook.com/…"
                 value={form.facebook_url} onChange={set("facebook_url")} disabled={!isOwner}
               />
             </div>
             <div className="relative">
               <Globe size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--muted)" }} />
               <input
-                className="input pl-9" type="url" placeholder="https://sizning-sayt.uz"
+                className="input !pl-9" type="url" placeholder="https://sizning-sayt.uz"
                 value={form.website_url} onChange={set("website_url")} disabled={!isOwner}
               />
             </div>

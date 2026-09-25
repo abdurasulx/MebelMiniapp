@@ -45,12 +45,17 @@ class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Material
         fields = (
-            "id", "company", "name", "unit", "unit_display", "unit_cost",
+            "id", "company", "name", "unit", "unit_display", "unit_cost", "image",
             "dimension_type", "dimension_type_display",
             "stock_unit_length", "min_stock", "default_supplier", "default_supplier_name",
             "is_active", "created_at",
         )
         read_only_fields = ("id", "company", "created_at")
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get("image"):
+            raise serializers.ValidationError({"image": "Xom ashyo rasmi majburiy"})
+        return attrs
 
 
 class MaterialStockSerializer(serializers.ModelSerializer):

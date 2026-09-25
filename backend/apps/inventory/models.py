@@ -77,6 +77,11 @@ class Material(BaseModel):
     name = models.CharField(max_length=255)
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES, default="dona")
     unit_cost = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    # Yangi material qo'shishda rasm MAJBURIY (serializer tekshiradi) — omborda
+    # o'xshash nomli/rangli xom ashyoni adashtirmaslik uchun. Model darajasida
+    # `blank=True`, chunki rasm talabi qo'yilishidan oldin yaratilgan eski
+    # materiallarda rasm yo'q va ularni tahrirlash bloklanmasligi kerak.
+    image = models.ImageField(upload_to="materials/", blank=True, null=True)
     dimension_type = models.CharField(
         max_length=10, choices=DimensionType.choices, default=DimensionType.NONE
     )

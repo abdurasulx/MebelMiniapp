@@ -5,6 +5,7 @@ from .models import (
     ManufacturedUnit,
     Material,
     MaterialMovement,
+    MaterialRemnant,
     MaterialStock,
     ProductMovement,
     ProductStock,
@@ -15,6 +16,7 @@ admin.site.register(Warehouse)
 admin.site.register(Material)
 admin.site.register(MaterialStock)
 admin.site.register(MaterialMovement)
+admin.site.register(MaterialRemnant)
 admin.site.register(ProductStock)
 admin.site.register(ProductMovement)
 admin.site.register(BillOfMaterial)

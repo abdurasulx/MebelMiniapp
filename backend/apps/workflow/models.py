@@ -79,6 +79,10 @@ class WorkType(BaseModel):
     price_per_unit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     required_role = models.CharField(max_length=20, choices=Employee.Position.choices, blank=True)
     is_active = models.BooleanField(default=True)
+    # Buyurtma yaratish oqimi (Bazis guruhlari, qo'lda qo'shilgan etap ishlari)
+    # avtomatik yaratgan yozuvlar — narx eslab qolinishi uchun saqlanadi,
+    # lekin Sozlamalardagi "Ish turlari" ro'yxatida ko'rsatilmaydi.
+    is_auto = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("stage", "name")

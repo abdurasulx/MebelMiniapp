@@ -346,7 +346,7 @@ class DesignBazisImportView(APIView):
                 prices = {}
         for name, stage, work_type_name, unit, _quantity in bazis_groups_from_summary(summary):
             work_type, _created = WorkType.objects.get_or_create(
-                company=company, name=work_type_name, defaults={"unit": unit, "stage": stage}
+                company=company, name=work_type_name, defaults={"unit": unit, "stage": stage, "is_auto": True}
             )
             price = prices.get(name)
             if price not in (None, ""):
@@ -363,7 +363,7 @@ class DesignBazisImportView(APIView):
             for job in stage["jobs"]:
                 work_type, _created = WorkType.objects.get_or_create(
                     company=company, name=extra_job_work_type_name(stage["name"], job["name"]),
-                    defaults={"unit": "dona", "stage": Stage.OTHER},
+                    defaults={"unit": "dona", "stage": Stage.OTHER, "is_auto": True},
                 )
                 work_type.price_per_unit = Decimal(job["price"])
                 work_type.save(update_fields=["price_per_unit"])

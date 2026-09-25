@@ -60,7 +60,10 @@ class WorkTypeViewSet(viewsets.ModelViewSet):
         company = user_company(self.request.user)
         if company is None:
             return WorkType.objects.none()
-        return WorkType.objects.filter(company=company, is_deleted=False)
+        qs = WorkType.objects.filter(company=company, is_deleted=False)
+        if self.action == "list":
+            qs = qs.filter(is_auto=False)
+        return qs
 
     def _own_company(self):
         company = user_company(self.request.user)

@@ -248,6 +248,22 @@ class DesignBazisImportTests(APITestCase):
         self.assertEqual(design.bazis_assignments, {})
 
 
+    def test_auto_created_work_types_hidden_from_settings_list(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        manual = WorkType.objects.create(company=self.company, name="Qo'lda ish turi", unit="dona")
+        f = SimpleUploadedFile("test.project", BAZIS_FIXTURE, content_type="application/xml")
+        resp = self.client.post(
+            f"/api/v1/custom-orders/{self.order.id}/import-bazis/", {"file": f}, format="multipart"
+        )
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertTrue(WorkType.objects.get(company=self.company, name="Teshish Ø8mm").is_auto)
+
+        self.client.force_authenticate(self.owner)
+        listing = self.client.get("/api/v1/work-types/")
+        self.assertEqual(listing.status_code, 200)
+        self.assertEqual([w["name"] for w in listing.data["results"]], [manual.name])
+
     def test_import_stores_material_map_and_extra_stages_and_sets_job_price(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
 

@@ -239,7 +239,8 @@ def create_workflow_instances_from_design(order, design):
         instances = []
         for index, (name, stage, work_type_name, unit, quantity) in enumerate(bazis_specs):
             work_type, _ = WorkType.objects.get_or_create(
-                company=order.company, name=work_type_name, defaults={"unit": unit, "stage": stage}
+                company=order.company, name=work_type_name,
+                defaults={"unit": unit, "stage": stage, "is_auto": True},
             )
             employee, role = resolve_person(assignments.get(str(stage)) or {}, work_type.required_role)
             description = ""
@@ -274,7 +275,7 @@ def create_workflow_instances_from_design(order, design):
                 work_type, _ = WorkType.objects.get_or_create(
                     company=order.company,
                     name=extra_job_work_type_name(stage_entry["name"], job["name"]),
-                    defaults={"unit": "dona", "stage": Stage.OTHER},
+                    defaults={"unit": "dona", "stage": Stage.OTHER, "is_auto": True},
                 )
                 job_quantity = Decimal(job["quantity"])
                 instances.append(

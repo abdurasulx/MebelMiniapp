@@ -116,7 +116,12 @@ export default function MaterialPicker({ selectedId, onSelect, onClose }) {
               onMouseEnter={() => setActive(i)}
               onClick={() => choose(m)}
             >
-              <span className="min-w-0">
+              {m.image ? (
+                <img src={m.image} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
+              ) : (
+                <span className="inline-block h-9 w-9 shrink-0 rounded-md" style={{ background: "var(--border)" }} />
+              )}
+              <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{m.name}</span>
                 <span className="block text-xs" style={{ color: "var(--muted)" }}>
                   {Number(m.unit_cost).toLocaleString()} so'm / {m.unit_display || m.unit}

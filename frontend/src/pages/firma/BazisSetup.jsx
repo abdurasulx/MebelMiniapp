@@ -185,18 +185,21 @@ function NewMaterialForm({ defaultName, onCreated, onCancel }) {
   const [name, setName] = useState(defaultName);
   const [unit, setUnit] = useState("dona");
   const [unitCost, setUnitCost] = useState("");
+  const [image, setImage] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const save = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !image) return;
     setBusy(true);
     setError("");
     try {
-      const created = await api("/materials/", {
-        method: "POST",
-        body: { name: name.trim(), unit, unit_cost: unitCost || "0" },
-      });
+      const fd = new FormData();
+      fd.append("name", name.trim());
+      fd.append("unit", unit);
+      fd.append("unit_cost", unitCost || "0");
+      fd.append("image", image);
+      const created = await api("/materials/", { method: "POST", body: fd, isForm: true });
       onCreated(created);
     } catch (e) {
       setError(e.message);
@@ -217,9 +220,13 @@ function NewMaterialForm({ defaultName, onCreated, onCancel }) {
           value={unitCost} onChange={(e) => setUnitCost(e.target.value)}
         />
       </div>
+      <label className="flex flex-col gap-0.5 text-xs" style={{ color: "var(--muted)" }}>
+        Rasm (majburiy)
+        <input className="input !py-1 text-xs" type="file" accept="image/*" onChange={(e) => setImage(e.target.files?.[0] || null)} />
+      </label>
       {error && <div className="error">{error}</div>}
       <div className="flex gap-1.5">
-        <button type="button" className="btn !px-3 !py-1 text-xs" disabled={busy || !name.trim()} onClick={save}>
+        <button type="button" className="btn !px-3 !py-1 text-xs" disabled={busy || !name.trim() || !image} onClick={save}>
           {busy ? "Saqlanmoqda…" : "Saqlash"}
         </button>
         <button type="button" className="btn-ghost !px-3 !py-1 text-xs" onClick={onCancel}>Bekor qilish</button>
