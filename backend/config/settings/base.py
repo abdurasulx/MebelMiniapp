@@ -188,6 +188,21 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Python'ning standart `mimetypes` moduli 3D-model kengaytmalarini (.usdz/
+# .glb/.gltf) UMUMAN bilmaydi — `config.urls`dagi media serve view'i
+# (`django.views.static.serve`) shu modulga tayanib Content-Type belgilaydi,
+# demak bularsiz HAMMASI "application/octet-stream" sifatida yuboriladi.
+# iOS Safari'ning AR Quick Look'i (`<model-viewer ios-src>` orqali) aynan
+# `model/vnd.usdz+zip` Content-Type'ni talab qiladi — noto'g'ri bo'lsa "AR'da
+# ko'rish" tugmasi bosilganda hech narsa ochilmaydi yoki fayl oddiy yuklab
+# olinadi (Quick Look ishga tushmaydi). Shuning uchun bu yerda, urls.py
+# `serve_static`ni ro'yxatdan o'tkazishdan OLDIN, qo'lda ro'yxatga olamiz.
+import mimetypes  # noqa: E402
+
+mimetypes.add_type("model/vnd.usdz+zip", ".usdz")
+mimetypes.add_type("model/gltf-binary", ".glb")
+mimetypes.add_type("model/gltf+json", ".gltf")
+
 # nginx (deploy/nginx/qrbite.uz.conf) TLS'ni o'zida tugatib, Django'ga
 # oddiy HTTP orqali proksi qiladi (backend Mac'da, tashqi domen VPS'da) —
 # shu sabab `request.is_secure()` standart holatda HAR DOIM False bo'lardi,
