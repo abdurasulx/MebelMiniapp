@@ -119,6 +119,70 @@ class CreateCustomOrderOnSiteTests(APITestCase):
         order2 = Order.objects.get(pk=resp2.data["id"])
         self.assertEqual(order.items.first().product_id, order2.items.first().product_id)
 
+    def test_unknown_phone_creates_guest_customer_and_reuses_it(self):
+        self.client.force_authenticate(self.usta_user)
+        payload = self._payload(customer_worker_id="90 123 45 67", customer_name="Sarvarbek")
+        resp = self.client.post("/api/v1/custom-orders/create/", payload, format="json")
+        self.assertEqual(resp.status_code, 201, resp.data)
+        order = Order.objects.get(pk=resp.data["id"])
+        guest = order.customer
+        self.assertEqual(guest.phone, "+998901234567")
+        self.assertTrue(guest.email.endswith("@guest.local"))
+        self.assertEqual(guest.first_name, "Sarvarbek")
+        self.assertFalse(guest.has_usable_password())
+
+        # Xuddi shu raqam (boshqa yozuv shakli bilan) ikkinchi marta — yangi hisob ochilmaydi.
+        resp2 = self.client.post(
+            "/api/v1/custom-orders/create/", self._payload(customer_worker_id="+998901234567"), format="json"
+        )
+        self.assertEqual(Order.objects.get(pk=resp2.data["id"]).customer_id, guest.id)
+        self.assertEqual(User.objects.filter(phone="+998901234567").count(), 1)
+
+    def test_existing_user_found_by_unformatted_phone(self):
+        self.customer.phone = "+998901112233"
+        self.customer.save(update_fields=["phone"])
+        self.client.force_authenticate(self.usta_user)
+        resp = self.client.post(
+            "/api/v1/custom-orders/create/", self._payload(customer_worker_id="901112233"), format="json"
+        )
+        self.assertEqual(Order.objects.get(pk=resp.data["id"]).customer_id, self.customer.id)
+
+    def test_link_guest_order_to_real_customer(self):
+        self.client.force_authenticate(self.usta_user)
+        resp = self.client.post(
+            "/api/v1/custom-orders/create/", self._payload(customer_worker_id="+998907778899"), format="json"
+        )
+        order_id = resp.data["id"]
+        url = f"/api/v1/custom-orders/{order_id}/link-customer/"
+
+        # haqiqiy mijoz keyin boshqa yo'l bilan ro'yxatdan o'tgan (masalan Google)
+        real = User.objects.create_user(email="real@mijoz.uz", password="pass12345", role=User.Role.CUSTOMER, worker_id="REAL777")
+        ok = self.client.post(url, {"customer_worker_id": "REAL777"}, format="json")
+        self.assertEqual(ok.status_code, 200, ok.data)
+        self.assertEqual(Order.objects.get(pk=order_id).customer_id, real.id)
+
+        # endi u haqiqiy mijozga bog'langan — qayta bog'lab bo'lmaydi
+        again = self.client.post(url, {"customer_worker_id": "MIJOZ001"}, format="json")
+        self.assertEqual(again.status_code, 400)
+
+    def test_link_unknown_customer_rejected(self):
+        self.client.force_authenticate(self.usta_user)
+        resp = self.client.post(
+            "/api/v1/custom-orders/create/", self._payload(customer_worker_id="+998907778800"), format="json"
+        )
+        bad = self.client.post(
+            f"/api/v1/custom-orders/{resp.data['id']}/link-customer/", {"customer_worker_id": "NOPE"}, format="json"
+        )
+        self.assertEqual(bad.status_code, 400)
+
+    def test_non_phone_unknown_id_still_rejected_with_hint(self):
+        self.client.force_authenticate(self.usta_user)
+        resp = self.client.post(
+            "/api/v1/custom-orders/create/", self._payload(customer_worker_id="9999999999"), format="json"
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("telefon", str(resp.data).lower())
+
     def test_item_without_product_or_custom_name_rejected(self):
         self.client.force_authenticate(self.usta_user)
         payload = self._payload(items=[{"width": "1", "height": "1", "depth": "1", "quantity": 1}])

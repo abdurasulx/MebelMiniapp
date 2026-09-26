@@ -3,8 +3,10 @@ yaratishi, dizayn versiyasi tasdiqlanishi, ishlab chiqarish bosqichlarining
 dizayner belgilagan ketma-ketlik asosida yaratilishi. READY_PRODUCT oqimi
 (`apps.orders`/`apps.workflow`) bu modul tomonidan hech qanday o'zgartirilmaydi."""
 
+import re
 from decimal import Decimal
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
@@ -27,6 +29,40 @@ def _log(entity_type, entity_id, action, changed_by, old_value=None, new_value=N
         entity_type=entity_type, entity_id=entity_id, action=action, changed_by=changed_by,
         old_value=old_value, new_value=new_value, reason=reason,
     )
+
+
+GUEST_EMAIL_DOMAIN = "guest.local"
+
+
+def normalize_uz_phone(value):
+    """"+998901234567" / "998901234567" / "901234567" -> "+998901234567";
+    telefon raqamiga o'xshamasa (masalan noma'lum qidiruvchi ID) — None."""
+    digits = re.sub(r"\D", "", value or "")
+    if len(digits) == 9:
+        return f"+998{digits}"
+    if len(digits) == 12 and digits.startswith("998"):
+        return f"+{digits}"
+    return None
+
+
+def get_or_create_guest_customer(phone, name=""):
+    """Tizimda hali yo'q mijoz uchun vaqtincha (parolsiz) hisob. `phone`
+    OTP-kirishdagi (`OTPVerifyView`) bilan bir xil formatda saqlanadi —
+    mijoz keyin shu raqam bilan SMS orqali kirsa, aynan shu hisob topiladi
+    va buyurtma avtomatik o'ziga tegishli bo'lib qoladi (qo'shimcha
+    bog'lash shart emas). Boshqa yo'l bilan (Google/email) ro'yxatdan
+    o'tsa — `LinkCustomerView` orqali qo'lda bog'lanadi."""
+    User = get_user_model()
+    user = User.objects.filter(phone=phone).first()
+    if user is not None:
+        return user
+    user = User(
+        phone=phone, email=f"{phone}@{GUEST_EMAIL_DOMAIN}", role=User.Role.CUSTOMER,
+        phone_verified=True, first_name=(name or "").strip()[:150],
+    )
+    user.set_unusable_password()
+    user.save()
+    return user
 
 
 def get_or_create_custom_item_placeholder(company):

@@ -8,6 +8,7 @@ from apps.custom_orders.views import (
     BazisPreviewView,
     CustomOrderCreateView,
     DesignBazisImportView,
+    LinkCustomerView,
     DesignVersionViewSet,
     DesignViewSet,
     OrderItemCostViewSet,
@@ -242,6 +243,11 @@ urlpatterns = [
     ),
     path("custom-orders/create/", CustomOrderCreateView.as_view(), name="custom-order-create"),
     path("custom-orders/parse-bazis/", BazisPreviewView.as_view(), name="custom-order-parse-bazis"),
+    path(
+        "custom-orders/<uuid:order_id>/link-customer/",
+        LinkCustomerView.as_view(),
+        name="custom-order-link-customer",
+    ),
     path(
         "custom-orders/<uuid:order_id>/import-bazis/",
         DesignBazisImportView.as_view(),

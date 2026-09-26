@@ -2,6 +2,7 @@ import json
 import uuid
 from decimal import Decimal, InvalidOperation
 
+from django.contrib.auth import get_user_model
 from django.db.models import Max
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
@@ -27,8 +28,11 @@ from .services import (
     approve_design_version,
     bazis_groups_from_summary,
     create_custom_order_on_site,
+    GUEST_EMAIL_DOMAIN,
     extra_job_work_type_name,
     get_or_create_custom_item_placeholder,
+    get_or_create_guest_customer,
+    normalize_uz_phone,
     set_item_cost,
 )
 
@@ -71,7 +75,9 @@ class CustomOrderCreateView(APIView):
 
         order = create_custom_order_on_site(
             company=company,
-            customer=serializer._customer,
+            customer=serializer._customer or get_or_create_guest_customer(
+                serializer._guest_phone, data.get("customer_name", "")
+            ),
             items=resolved_items,
             created_by=request.user,
             address=data.get("address", ""),
@@ -93,6 +99,42 @@ def _require_order_creator(request):
     if not (is_company_owner(request.user, company) or user_has_position(request.user, company, "usta")):
         raise PermissionDenied("Faqat usta yoki firma egasi Bazis faylini ishlata oladi")
     return company
+
+
+class LinkCustomerView(APIView):
+    """Vaqtincha (topilmagan telefon bo'yicha ochilgan) mijozga tegishli
+    individual buyurtmani haqiqiy foydalanuvchi profiliga bog'laydi —
+    `POST /custom-orders/<order_id>/link-customer/` {customer_worker_id}
+    (qidiruvchi ID yoki telefon). Faqat hali vaqtincha hisobda turgan
+    buyurtma bog'lanadi: haqiqiy mijozning buyurtmasi adashib boshqaga
+    o'tib ketmasligi uchun."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, order_id):
+        company = _require_order_creator(request)
+        order = Order.objects.filter(
+            id=order_id, company=company, order_type=Order.OrderType.CUSTOM_PROJECT, is_deleted=False
+        ).select_related("customer").first()
+        if order is None:
+            raise ValidationError("Buyurtma topilmadi")
+        if not order.customer.email.endswith(f"@{GUEST_EMAIL_DOMAIN}"):
+            raise ValidationError("Bu buyurtma allaqachon haqiqiy mijozga bog'langan")
+
+        value = str(request.data.get("customer_worker_id") or "").strip()
+        phone = normalize_uz_phone(value)
+        User = get_user_model()
+        user = (
+            User.objects.filter(worker_id=value).first()
+            or User.objects.filter(phone__in=[value, phone or value]).exclude(phone="").first()
+        )
+        if user is None or user.id == order.customer_id:
+            raise ValidationError("Bu qidiruvchi ID yoki telefon raqami bo'yicha boshqa foydalanuvchi topilmadi")
+        if user.email.endswith(f"@{GUEST_EMAIL_DOMAIN}"):
+            raise ValidationError("Bu ham hali ro'yxatdan o'tmagan vaqtincha mijoz")
+        order.customer = user
+        order.save(update_fields=["customer"])
+        return Response({"customer_name": user.display_name})
 
 
 def _parse_bazis_upload(upload):

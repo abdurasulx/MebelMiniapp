@@ -6,6 +6,7 @@ from rest_framework import serializers
 from common.serializers import visible_file_url
 
 from .models import Design, DesignVersion
+from .services import normalize_uz_phone
 
 User = get_user_model()
 
@@ -84,6 +85,8 @@ class CreateCustomOrderOnSiteSerializer(serializers.Serializer):
     # qolgan (mobil ilova ham shu nomni yuboradi), lekin qarang
     # validate_customer_worker_id: ikkalasi ham qabul qilinadi.
     customer_worker_id = serializers.CharField()
+    # Faqat mijoz tizimda topilmay, yangi (vaqtincha) hisob ochilganda ishlatiladi.
+    customer_name = serializers.CharField(required=False, allow_blank=True, default="", max_length=150)
     address = serializers.CharField(required=False, allow_blank=True, default="")
     latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
     longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
@@ -99,12 +102,20 @@ class CreateCustomOrderOnSiteSerializer(serializers.Serializer):
 
     def validate_customer_worker_id(self, value):
         value = value.strip()
-        user = User.objects.filter(worker_id=value).first() or User.objects.filter(
-            phone=value
-        ).exclude(phone="").first()
-        if user is None:
-            raise serializers.ValidationError(
-                "Bu qidiruvchi ID yoki telefon raqami bo'yicha foydalanuvchi topilmadi"
-            )
+        phone = normalize_uz_phone(value)
+        user = (
+            User.objects.filter(worker_id=value).first()
+            or User.objects.filter(phone__in=[value, phone or value]).exclude(phone="").first()
+        )
         self._customer = user
+        self._guest_phone = None
+        if user is None:
+            # Topilmasa ham buyurtma yaratiladi (telefon bo'yicha vaqtincha
+            # mijoz hisobi bilan) — qarang services.get_or_create_guest_customer.
+            if phone is None:
+                raise serializers.ValidationError(
+                    "Bu qidiruvchi ID bo'yicha foydalanuvchi topilmadi. Yangi mijoz uchun "
+                    "telefon raqamini +998901234567 ko'rinishida kiriting"
+                )
+            self._guest_phone = phone
         return value

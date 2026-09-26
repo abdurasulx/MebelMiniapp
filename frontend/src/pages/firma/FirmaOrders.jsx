@@ -49,6 +49,17 @@ export default function FirmaOrders() {
     }
   };
 
+  const linkCustomer = async (o) => {
+    const value = prompt("Haqiqiy mijozning qidiruvchi ID yoki telefon raqamini kiriting:");
+    if (!value) return;
+    try {
+      await api(`/custom-orders/${o.id}/link-customer/`, { method: "POST", body: { customer_worker_id: value.trim() } });
+      load();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   const loadMore = async () => {
     if (!nextPage) return;
     setLoadingMore(true);
@@ -136,6 +147,14 @@ export default function FirmaOrders() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <span className="font-semibold">{o.customer_name || o.customer_email}</span>
+              {o.order_type === "custom_project" && o.customer_email?.endsWith("@guest.local") && (
+                <span className="ml-2 inline-flex items-center gap-1.5 align-middle">
+                  <span className="badge" title="Bu mijoz hali tizimda ro'yxatdan o'tmagan">Ro'yxatdan o'tmagan</span>
+                  <button type="button" className="btn-ghost !px-2 !py-0.5 text-xs" onClick={() => linkCustomer(o)}>
+                    Mijozni bog'lash
+                  </button>
+                </span>
+              )}
               <span className="ml-2 inline-flex flex-wrap items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
                 <Phone size={12} /> {o.phone} · <MapPin size={12} /> {o.address} · {new Date(o.created_at).toLocaleString("uz-UZ")}
               </span>
@@ -221,6 +240,7 @@ function emptyItem() {
 
 function NewCustomOrderModal({ products, allEmployees, materials, onClose, onDone }) {
   const [customerWorkerId, setCustomerWorkerId] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [address, setAddress] = useState("");
   const [it, setIt] = useState(emptyItem());
   const [bazisFile, setBazisFile] = useState(null);
@@ -263,6 +283,7 @@ function NewCustomOrderModal({ products, allEmployees, materials, onClose, onDon
     try {
       const body = {
         customer_worker_id: customerWorkerId,
+        customer_name: customerName.trim(),
         address,
         items: [
           {
@@ -324,6 +345,14 @@ function NewCustomOrderModal({ products, allEmployees, materials, onClose, onDon
             value={customerWorkerId}
             onChange={(e) => setCustomerWorkerId(e.target.value)}
           />
+          <span style={{ fontSize: 11, color: "var(--muted)" }}>
+            Mijoz tizimda topilmasa, telefon raqami bo'yicha vaqtincha mijoz ochiladi — u shu raqam bilan
+            kirganda buyurtma avtomatik o'ziga bog'lanadi.
+          </span>
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          Mijoz ismi (yangi mijoz bo'lsa, ixtiyoriy)
+          <input className="input" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           Manzil (ixtiyoriy)
