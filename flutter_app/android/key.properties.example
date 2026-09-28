@@ -1,0 +1,20 @@
+# Play Store'ga chiqariladigan build ("release") uchun HAQIQIY imzolash
+# kaliti — build.gradle.kts shu faylni (android/key.properties, nomsiz
+# ".example"siz) topsa avtomatik ishlatadi.
+#
+# 1) Yangi kalit yaratish (terminalda, bir marta, keyin ABADIY saqlanadi —
+#    yo'qotilsa ilovani boshqa hech qachon yangilab bo'lmaydi):
+#
+#      keytool -genkey -v -keystore ~/vida-upload-keystore.jks \
+#        -keyalg RSA -keysize 2048 -validity 10000 -alias vida-upload
+#
+#    So'ralgan parollarni (store va key) va shu .jks faylni ISHONCHLI
+#    joyda (parol menejeri + zaxira nusxa) saqlang — reponing o'ziga HECH
+#    QACHON qo'shilmasin (shuning uchun .gitignore'da).
+#
+# 2) Shu faylni "android/key.properties" nomi bilan nusxalab, pastdagi
+#    qiymatlarni to'ldiring:
+storePassword=BU_YERGA_STORE_PAROLI
+keyPassword=BU_YERGA_KEY_PAROLI
+keyAlias=vida-upload
+storeFile=/Users/SIZNING_USERINGIZ/vida-upload-keystore.jks

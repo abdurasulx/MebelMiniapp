@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -6,8 +8,23 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+// Play Store'ga chiqariladigan build ("release") HAQIQIY kalit bilan
+// imzolanishi shart — debug kalit bilan yaratilgan .aab Play Console'ga
+// yuklanadi, lekin keyingi yangilanishlar butunlay boshqa (yangi debug)
+// kalit bilan chiqib qolishi va reject bo'lishi mumkin, shuning uchun
+// PUL emas, ISHONCH masalasi: shu kalit birinchi chiqarishdan boshlab
+// doim BIR XIL saqlanishi kerak (yo'qolsa — ilovani boshqa hech qachon
+// yangilab bo'lmaydi, faqat yangi package nomi bilan qayta e'lon qilish
+// qoladi). To'liq yo'riqnoma: android/key.properties.example.
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
-    namespace = "uz.furnitureplatform.furniture_platform_mobile"
+    namespace = "uz.vida.burchaksoft"
     // Flutter'ning o'zi bergan standart qiymat (`flutter.compileSdkVersion`)
     // o'rnatilgan Flutter SDK versiyasiga qarab har xil kompyuterda har xil
     // bo'lib qolishi mumkin — masalan eski Flutter SDK'da 33 bo'lib,
@@ -26,21 +43,36 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "uz.furnitureplatform.furniture_platform_mobile"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // DIQQAT: Play Store'da e'lon qilingandan keyin bu bir marta
+        // tanlanadi va keyin UMUMAN o'zgartirib bo'lmaydi (yangi ID —
+        // yangi, boshqa ilova sifatida qaraladi, eski o'rnatishlar
+        // yangilanmaydi). Chiqarishdan oldin oxirgi marta tasdiqlang.
+        applicationId = "uz.vida.burchaksoft"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // `android/key.properties` mavjud bo'lsa (qarang
+            // key.properties.example) — haqiqiy kalit bilan imzolanadi;
+            // bo'lmasa (masalan oddiy lokal sinov uchun) debug kalitga
+            // tushadi, shunda `flutter run --release` baribir ishlayveradi,
+            // lekin BUNDAY .aab Play Console'ga yuklanmaydi.
+            signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
         }
     }
 }

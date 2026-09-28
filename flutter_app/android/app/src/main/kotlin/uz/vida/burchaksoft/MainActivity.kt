@@ -1,4 +1,4 @@
-package uz.furnitureplatform.furniture_platform_mobile
+package uz.vida.burchaksoft
 
 import io.flutter.embedding.android.FlutterActivity
 
