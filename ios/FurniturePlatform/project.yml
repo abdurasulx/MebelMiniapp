@@ -1,6 +1,6 @@
 name: FurniturePlatform
 options:
-  bundleIdPrefix: uz.furnitureplatform
+  bundleIdPrefix: uz.vida
   deploymentTarget:
     iOS: "18.0"
 configs:
@@ -36,18 +36,23 @@ targets:
         UILaunchScreen: {}
         NSCameraUsageDescription: "Mebelni AR orqali xonangizda ko'rish uchun kamera kerak."
         NSLocationWhenInUseUsageDescription: "Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak."
-        CFBundleDisplayName: "Furniture Platform"
+        CFBundleDisplayName: "VIDA Market"
         ITSAppUsesNonExemptEncryption: false
         UIBackgroundModes:
           - remote-notification
-        # Google Cloud Console > Credentials > OAuth Client ID (iOS turi).
+        # DIQQAT: paket nomi uz.furnitureplatform.app'dan uz.vida.burchaksoft'ga
+        # o'zgargani uchun bu OAuth client ENDI ESKI (noto'g'ri) — Google Sign-In
+        # ishlashi uchun Google Cloud Console'da YANGI "iOS" turidagi OAuth
+        # client yaratish kerak (Bundle ID: uz.vida.burchaksoft), so'ng shu
+        # ikkala qiymatni (GIDClientID va pastdagi CFBundleURLSchemes) undan
+        # olingan Client ID bilan almashtiring.
         GIDClientID: "857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa.apps.googleusercontent.com"
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - "com.googleusercontent.apps.857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: uz.furnitureplatform.app
+        PRODUCT_BUNDLE_IDENTIFIER: uz.vida.burchaksoft
         SWIFT_VERSION: 5.0
         TARGETED_DEVICE_FAMILY: "1"
         DEVELOPMENT_TEAM: "BHMWKLT3YF"
@@ -59,7 +64,7 @@ targets:
       - path: UITests
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: uz.furnitureplatform.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: uz.vida.burchaksoft.uitests
         SWIFT_VERSION: 5.0
         DEVELOPMENT_TEAM: "BHMWKLT3YF"
         CODE_SIGN_STYLE: Automatic
