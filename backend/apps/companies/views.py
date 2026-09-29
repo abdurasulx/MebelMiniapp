@@ -1,4 +1,10 @@
 from django.utils import timezone
+
+from apps.notifications.services import (
+    notify_employee_invited,
+    notify_invitation_accepted,
+    notify_invitation_declined,
+)
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -162,7 +168,8 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         company = Company.objects.filter(owner=self.request.user, is_deleted=False).first()
         if company is None:
             raise PermissionDenied("Faqat kompaniya egasi xodim taklif qila oladi")
-        serializer.save(company=company)
+        invitation = serializer.save(company=company)
+        notify_employee_invited(invitation)
 
     @action(detail=True, methods=["post"])
     def accept(self, request, pk=None):
@@ -214,6 +221,7 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         invitation.status = EmployeeInvitation.Status.ACCEPTED
         invitation.responded_at = timezone.now()
         invitation.save(update_fields=["status", "responded_at"])
+        notify_invitation_accepted(invitation)
         return Response(EmployeeInvitationSerializer(invitation, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
@@ -226,6 +234,7 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         invitation.status = EmployeeInvitation.Status.DECLINED
         invitation.responded_at = timezone.now()
         invitation.save(update_fields=["status", "responded_at"])
+        notify_invitation_declined(invitation)
         return Response(EmployeeInvitationSerializer(invitation, context={"request": request}).data)
 
     def perform_destroy(self, instance):

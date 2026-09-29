@@ -14,6 +14,9 @@ class NotificationType(models.TextChoices):
     TASK_APPLICATION_REJECTED = "task_application_rejected", "Zayavka rad etildi"
     ATTENDANCE_REJECTED = "attendance_rejected", "Davomat rad etildi"
     CUSTOM_ORDER_LOCATION_SUSPICIOUS = "custom_order_location_flag", "Buyurtma joylashuvi shubhali"
+    EMPLOYEE_INVITED = "employee_invited", "Ishga taklif qilindi"
+    EMPLOYEE_INVITATION_ACCEPTED = "employee_invitation_accepted", "Taklif qabul qilindi"
+    EMPLOYEE_INVITATION_DECLINED = "employee_invitation_declined", "Taklif rad etildi"
 
 
 class NotificationQuerySet(models.QuerySet):

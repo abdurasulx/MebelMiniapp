@@ -165,3 +165,58 @@ def notify_task_available(step):
     )
     send_push(step.employee.user, title, step.name, data={"type": "task_available", "step_id": str(step.id)})
     push_unread_count(step.employee.user_id)
+
+
+def notify_employee_invited(invitation):
+    """Firma egasi xodimni `worker_id` orqali ishga taklif qilganda,
+    taklif qilingan foydalanuvchiga yuboriladi (qarang
+    apps.companies.views.EmployeeInvitationViewSet.perform_create)."""
+    title = "Sizni ishga taklif qilishdi"
+    body = f"{invitation.company.name} firmasi sizni xodim sifatida taklif qildi"
+    Notification.objects.create(
+        recipient_id=invitation.invited_user_id,
+        notif_type=NotificationType.EMPLOYEE_INVITED,
+        title=title,
+        body=body,
+    )
+    send_push(
+        invitation.invited_user, title, body,
+        data={"type": "employee_invited", "invitation_id": str(invitation.id)},
+    )
+    push_unread_count(invitation.invited_user_id)
+
+
+def notify_invitation_accepted(invitation):
+    """Taklif qilingan foydalanuvchi qabul qilganda firma egasiga
+    yuboriladi (qarang EmployeeInvitationViewSet.accept)."""
+    title = "Taklif qabul qilindi"
+    body = f"{invitation.invited_user.display_name} taklifingizni qabul qildi"
+    Notification.objects.create(
+        recipient_id=invitation.company.owner_id,
+        notif_type=NotificationType.EMPLOYEE_INVITATION_ACCEPTED,
+        title=title,
+        body=body,
+    )
+    send_push(
+        invitation.company.owner, title, body,
+        data={"type": "employee_invitation_accepted", "invitation_id": str(invitation.id)},
+    )
+    push_unread_count(invitation.company.owner_id)
+
+
+def notify_invitation_declined(invitation):
+    """Taklif qilingan foydalanuvchi rad etganda firma egasiga yuboriladi
+    (qarang EmployeeInvitationViewSet.decline)."""
+    title = "Taklif rad etildi"
+    body = f"{invitation.invited_user.display_name} taklifingizni rad etdi"
+    Notification.objects.create(
+        recipient_id=invitation.company.owner_id,
+        notif_type=NotificationType.EMPLOYEE_INVITATION_DECLINED,
+        title=title,
+        body=body,
+    )
+    send_push(
+        invitation.company.owner, title, body,
+        data={"type": "employee_invitation_declined", "invitation_id": str(invitation.id)},
+    )
+    push_unread_count(invitation.company.owner_id)

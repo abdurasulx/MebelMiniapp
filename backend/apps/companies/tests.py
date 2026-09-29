@@ -91,3 +91,61 @@ class TariffPlanTests(APITestCase):
         summary = self.company.billing_summary
         self.assertIsNone(summary["plan"])
         self.assertIsNone(summary["total"])
+
+
+class EmployeeInvitationNotificationTests(APITestCase):
+    """Ishga taklif oqimida bildirishnoma (in-app + push) yuborilishi —
+    qarang apps.notifications.services.notify_employee_invited/
+    notify_invitation_accepted/notify_invitation_declined."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(
+            email="invite-owner@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+        )
+        self.company = Company.objects.create(owner=self.owner, name="Invite Shop", slug="invite-shop")
+        self.worker = User.objects.create_user(
+            email="invite-worker@shop.uz", password="pass12345", role=User.Role.CUSTOMER, worker_id="INV001"
+        )
+        self.client = APIClient()
+
+    def _invite(self):
+        self.client.force_authenticate(self.owner)
+        return self.client.post(
+            "/api/v1/employee-invitations/",
+            {"worker_id": "INV001", "positions": ["usta"], "pay_type": "fixed"},
+            format="json",
+        )
+
+    def test_invite_notifies_invited_user(self):
+        from apps.notifications.models import Notification, NotificationType
+
+        resp = self._invite()
+        self.assertEqual(resp.status_code, 201, resp.data)
+        notif = Notification.objects.get(recipient=self.worker, notif_type=NotificationType.EMPLOYEE_INVITED)
+        self.assertIn(self.company.name, notif.body)
+
+    def test_accept_notifies_owner(self):
+        from apps.notifications.models import Notification, NotificationType
+
+        resp = self._invite()
+        invitation_id = resp.data["id"]
+        self.client.force_authenticate(self.worker)
+        accept = self.client.post(f"/api/v1/employee-invitations/{invitation_id}/accept/")
+        self.assertEqual(accept.status_code, 200, accept.data)
+        notif = Notification.objects.get(
+            recipient=self.owner, notif_type=NotificationType.EMPLOYEE_INVITATION_ACCEPTED
+        )
+        self.assertIn("qabul qildi", notif.body)
+
+    def test_decline_notifies_owner(self):
+        from apps.notifications.models import Notification, NotificationType
+
+        resp = self._invite()
+        invitation_id = resp.data["id"]
+        self.client.force_authenticate(self.worker)
+        decline = self.client.post(f"/api/v1/employee-invitations/{invitation_id}/decline/")
+        self.assertEqual(decline.status_code, 200, decline.data)
+        notif = Notification.objects.get(
+            recipient=self.owner, notif_type=NotificationType.EMPLOYEE_INVITATION_DECLINED
+        )
+        self.assertIn("rad etdi", notif.body)
