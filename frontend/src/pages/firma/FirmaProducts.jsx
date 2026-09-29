@@ -95,6 +95,11 @@ export default function FirmaProducts() {
                   <div className="text-xs" style={{ color: "var(--muted)" }}>
                     {p.variants.length} ta variant
                   </div>
+                  {Number(p.available_quantity) > 0 && (
+                    <span className="badge badge-brand mt-1 inline-block" style={{ fontSize: 10.5 }}>
+                      Tayyor: {p.available_quantity} dona
+                    </span>
+                  )}
                 </div>
                 <ChevronRight
                   size={16}

@@ -1,33 +1,37 @@
 import { useEffect, useState } from "react";
-import { Play, Check, Clock, Workflow, ClipboardList, Gauge, ChevronDown, ChevronRight, User } from "lucide-react";
+import { Play, Check, Clock, Workflow, ClipboardList, Gauge, ChevronDown, ChevronRight, User, Hammer } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { POSITIONS } from "../../positions";
 import { TASK_FLOW, TASK_STAGE, TASK_STATUS } from "../../taskStage";
 import { StatusBadge } from "../../orderStatus";
 import LoadMoreButton from "../../components/LoadMoreButton";
+import ProduceForm from "../../components/ProduceForm";
 
 const TABS = [
   { key: "pipeline", label: "Ishlab chiqarish pipeline", icon: Workflow },
   { key: "tasks", label: "Qo'shimcha vazifalar", icon: ClipboardList },
   { key: "capacity", label: "Xodimlar bandligi", icon: Gauge },
+  { key: "stock", label: "Tayyor mahsulot", icon: Hammer },
 ];
 
 const TAB_HINTS = {
   pipeline: "Har buyurtma qabul qilinganda mahsulot retseptidan avtomatik yaratiladigan bosqichlar — barcha bosqich tugasa, buyurtma avtomatik \"Tayyor\" bo'ladi.",
   tasks: "Pipelinega kirmaydigan qo'shimcha ishlar uchun qo'lda yaratiladigan vazifalar (masalan yetkazib berish, maxsus topshiriq).",
   capacity: "Har xodimning hozirgi navbatida qancha soatlik ish borligi — yangi buyurtma/vazifa kimga tayinlashni rejalashtirish uchun.",
+  stock: "Buyurtma kutmasdan, oldindan tayyor mahsulot ishlab chiqarib omborga qo'shish — market buyurtmasi kelganda yetarli bo'lsa, ishlab chiqarishga yubormasdan to'g'ridan-to'g'ri shundan yopiladi.",
 };
 
 export default function FirmaProduction() {
   const { user } = useAuth();
   const isManager = user?.role === "company_owner";
   const [tab, setTab] = useState("pipeline");
+  const shownTabs = TABS.filter((t) => t.key !== "stock" || isManager);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
+        {shownTabs.map((t) => (
           <button
             key={t.key}
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition"
@@ -46,6 +50,7 @@ export default function FirmaProduction() {
       {tab === "pipeline" && <WorkflowPipeline isManager={isManager} />}
       {tab === "tasks" && (isManager ? <ManagerView /> : <EmployeeView />)}
       {tab === "capacity" && <CapacityView />}
+      {tab === "stock" && isManager && <ProduceForm />}
     </div>
   );
 }

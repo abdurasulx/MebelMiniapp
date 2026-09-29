@@ -143,6 +143,7 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name_uz", read_only=True)
     is_liked = serializers.SerializerMethodField()
     model3d = serializers.SerializerMethodField()
+    available_quantity = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -168,12 +169,24 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
             "images",
             "is_liked",
             "model3d",
+            "available_quantity",
             "created_at",
         )
         read_only_fields = ("id", "company", "slug", "created_at")
 
     def get_image_url(self, obj):
         return visible_file_url(obj, "image", self.context.get("request"))
+
+    def get_available_quantity(self, obj):
+        # Variant darajasidagi hisobdan (VariantSerializer.get_available_quantity)
+        # farqli — bu yerda BUTUN mahsulot bo'yicha (variantga bog'lanmagan
+        # ManufacturedUnit'lar ham hisobga olingan holda) tayyor dona soni,
+        # mahsulot ro'yxati kartasida bitta umumiy son ko'rsatish uchun.
+        from apps.inventory.models import ManufacturedUnit
+
+        return ManufacturedUnit.objects.filter(
+            product=obj, status=ManufacturedUnit.Status.IN_STOCK, is_deleted=False
+        ).count()
 
     def get_model3d(self, obj):
         from apps.assets.serializers import Model3DSerializer
