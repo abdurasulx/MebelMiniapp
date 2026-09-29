@@ -638,19 +638,43 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               color: AppColors.deep,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            _selectedVariant!.availableQuantity > 0
-                ? '${_selectedVariant!.availableQuantity} dona omborda mavjud'
-                : 'Omborda yo\'q — buyurtma ishlab chiqarishga yuboriladi',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: _selectedVariant!.availableQuantity > 0
-                  ? Colors.green.shade700
-                  : const Color(0xFF8A7357),
+          const SizedBox(height: 8),
+          if (_selectedVariant!.availableQuantity > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.green.shade600,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.inventory_2_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    '${_selectedVariant!.availableQuantity} dona omborda mavjud',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Text(
+              'Omborda yo\'q — buyurtma ishlab chiqarishga yuboriladi',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF8A7357),
+              ),
             ),
-          ),
         ],
       ),
     );

@@ -176,9 +176,20 @@ struct ProductDetailView: View {
 
                             if let variant = selectedVariant {
                                 let qty = variant.availableQuantity ?? 0
-                                Text(qty > 0 ? "\(qty) dona omborda mavjud" : "Omborda yo'q — buyurtma ishlab chiqarishga yuboriladi")
-                                    .font(.caption).fontWeight(.semibold)
-                                    .foregroundStyle(qty > 0 ? .green : .secondary)
+                                if qty > 0 {
+                                    HStack(spacing: 5) {
+                                        Image(systemName: "shippingbox.fill").font(.caption)
+                                        Text("\(qty) dona omborda mavjud").font(.caption).bold()
+                                    }
+                                    .padding(.horizontal, 11).padding(.vertical, 6)
+                                    .background(Color.green)
+                                    .foregroundStyle(.white)
+                                    .clipShape(Capsule())
+                                } else {
+                                    Text("Omborda yo'q — buyurtma ishlab chiqarishga yuboriladi")
+                                        .font(.caption).fontWeight(.semibold)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
 
                             if let errorMessage {

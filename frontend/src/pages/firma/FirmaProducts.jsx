@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Sofa, ChevronRight } from "lucide-react";
+import { Sofa, ChevronRight, PackageCheck } from "lucide-react";
 import { api } from "../../api";
 import LoadMoreButton from "../../components/LoadMoreButton";
 
@@ -88,6 +88,14 @@ export default function FirmaProducts() {
                 >
                   {p.is_published ? "Sotuvda" : "Yashirin"}
                 </span>
+                {Number(p.available_quantity) > 0 && (
+                  <span
+                    className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-white shadow"
+                    style={{ background: "var(--success)", backdropFilter: "blur(4px)" }}
+                  >
+                    <PackageCheck size={13} /> {p.available_quantity} ta tayyor
+                  </span>
+                )}
               </div>
               <div className="flex flex-1 items-center justify-between gap-2 p-3">
                 <div className="min-w-0">
@@ -95,11 +103,6 @@ export default function FirmaProducts() {
                   <div className="text-xs" style={{ color: "var(--muted)" }}>
                     {p.variants.length} ta variant
                   </div>
-                  {Number(p.available_quantity) > 0 && (
-                    <span className="badge badge-brand mt-1 inline-block" style={{ fontSize: 10.5 }}>
-                      Tayyor: {p.available_quantity} dona
-                    </span>
-                  )}
                 </div>
                 <ChevronRight
                   size={16}

@@ -99,6 +99,47 @@ class ProductCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (product.availableQuantity > 0)
+                    Positioned(
+                      bottom: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade600,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.inventory_2_rounded,
+                              size: 12,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${product.availableQuantity} dona',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -149,19 +190,6 @@ class ProductCard extends StatelessWidget {
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
                         color: AppColors.secondary,
-                      ),
-                    ),
-                  ],
-                  if (product.availableQuantity > 0) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '${product.availableQuantity} dona omborda mavjud',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green.shade700,
                       ),
                     ),
                   ],

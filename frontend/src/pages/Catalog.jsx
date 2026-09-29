@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Box, Camera, Heart, Search, Sofa, ArrowRight, X } from "lucide-react";
+import { ArrowLeft, Box, Camera, Heart, PackageCheck, Search, Sofa, ArrowRight, X } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
@@ -300,20 +300,30 @@ export default function Catalog() {
                 </button>
               )}
             </div>
-            {(p.image_url || p.images?.[0]?.image_url) ? (
-              <img
-                src={p.image_url || p.images[0].image_url}
-                alt={p.name_uz}
-                className="h-44 w-full object-cover transition group-hover:scale-105"
-              />
-            ) : (
-              <div
-                className="flex h-44 w-full items-center justify-center"
-                style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
-              >
-                <Sofa size={36} />
-              </div>
-            )}
+            <div className="relative">
+              {(p.image_url || p.images?.[0]?.image_url) ? (
+                <img
+                  src={p.image_url || p.images[0].image_url}
+                  alt={p.name_uz}
+                  className="h-44 w-full object-cover transition group-hover:scale-105"
+                />
+              ) : (
+                <div
+                  className="flex h-44 w-full items-center justify-center"
+                  style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
+                >
+                  <Sofa size={36} />
+                </div>
+              )}
+              {Number(p.available_quantity) > 0 && (
+                <span
+                  className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-white shadow"
+                  style={{ background: "var(--success)" }}
+                >
+                  <PackageCheck size={13} /> {p.available_quantity}{t("product_stock_available_suffix")}
+                </span>
+              )}
+            </div>
             <div className="flex flex-col gap-1 p-4">
               <span className="font-semibold">{p.name_uz}</span>
               {attributeSummary(p) && (
@@ -323,11 +333,6 @@ export default function Catalog() {
               )}
               <span className="text-xs" style={{ color: "var(--muted)" }}>{p.company_name}</span>
               <PriceTag variant={p.variants[0]} />
-              {Number(p.available_quantity) > 0 && (
-                <span className="text-xs font-medium" style={{ color: "var(--success)" }}>
-                  {p.available_quantity}{t("product_stock_available_suffix")}
-                </span>
-              )}
             </div>
           </Link>
         ))}

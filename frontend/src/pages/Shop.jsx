@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Factory, Sofa, MapPin, Star, AtSign, Send, Link as LinkIcon, Globe } from "lucide-react";
+import { Factory, Sofa, MapPin, Star, AtSign, Send, Link as LinkIcon, Globe, PackageCheck } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
@@ -155,23 +155,28 @@ export default function Shop() {
               key={p.id}
               className="card group overflow-hidden transition hover:-translate-y-1 hover:shadow-lg"
             >
-              {(p.image_url || p.images?.[0]?.image_url) ? (
-                <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="h-40 w-full object-cover transition group-hover:scale-105" />
-              ) : (
-                <div
-                  className="flex h-40 w-full items-center justify-center"
-                  style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
-                >
-                  <Sofa size={28} />
-                </div>
-              )}
-              <div className="p-3">
-                <span className="text-sm font-semibold">{p.name_uz}</span>
-                {Number(p.available_quantity) > 0 && (
-                  <div className="text-xs font-medium" style={{ color: "var(--success)" }}>
-                    {p.available_quantity}{t("product_stock_available_suffix")}
+              <div className="relative">
+                {(p.image_url || p.images?.[0]?.image_url) ? (
+                  <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="h-40 w-full object-cover transition group-hover:scale-105" />
+                ) : (
+                  <div
+                    className="flex h-40 w-full items-center justify-center"
+                    style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
+                  >
+                    <Sofa size={28} />
                   </div>
                 )}
+                {Number(p.available_quantity) > 0 && (
+                  <span
+                    className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-white shadow"
+                    style={{ background: "var(--success)" }}
+                  >
+                    <PackageCheck size={13} /> {p.available_quantity}{t("product_stock_available_suffix")}
+                  </span>
+                )}
+              </div>
+              <div className="p-3">
+                <span className="text-sm font-semibold">{p.name_uz}</span>
               </div>
             </Link>
           ))}

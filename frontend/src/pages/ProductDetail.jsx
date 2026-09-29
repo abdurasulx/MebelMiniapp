@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Heart, Factory, Sofa, Image, Box, ShoppingBasket, ArrowRight } from "lucide-react";
+import { Heart, Factory, Sofa, Image, Box, ShoppingBasket, ArrowRight, PackageCheck } from "lucide-react";
 import { api } from "../api";
 import { addToCart } from "../cart";
 import ModelViewer from "../components/ModelViewer";
@@ -208,11 +208,18 @@ export default function ProductDetail() {
                   </select>
                 </div>
                 {variant && (
-                  <p className="mt-1.5 text-xs" style={{ color: variant.available_quantity > 0 ? "var(--success)" : "var(--muted)" }}>
-                    {variant.available_quantity > 0
-                      ? `${variant.available_quantity}${t("product_stock_available_suffix")}`
-                      : t("product_stock_unavailable")}
-                  </p>
+                  variant.available_quantity > 0 ? (
+                    <span
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-white"
+                      style={{ background: "var(--success)" }}
+                    >
+                      <PackageCheck size={14} /> {variant.available_quantity}{t("product_stock_available_suffix")}
+                    </span>
+                  ) : (
+                    <p className="mt-1.5 text-xs" style={{ color: "var(--muted)" }}>
+                      {t("product_stock_unavailable")}
+                    </p>
+                  )
                 )}
               </div>
               <div>

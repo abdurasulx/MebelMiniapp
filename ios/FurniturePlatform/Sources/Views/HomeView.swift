@@ -444,9 +444,7 @@ struct FeaturedProductCard: View {
                     .foregroundStyle(Color.brandSecondary)
             }
             if let qty = product.availableQuantity, qty > 0 {
-                Text("\(qty) dona omborda mavjud")
-                    .font(.caption2).bold().lineLimit(1)
-                    .foregroundStyle(.green)
+                StockBadge(quantity: qty)
             }
         }
         .frame(width: 160)
@@ -484,13 +482,25 @@ struct FeaturedGridCard: View {
                     .foregroundStyle(Color.brandSecondary)
             }
             if let qty = product.availableQuantity, qty > 0 {
-                Text("\(qty) dona omborda mavjud")
-                    .font(.caption2).bold().lineLimit(1)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.green)
+                StockBadge(quantity: qty)
             }
         }
         .padding(.leading, 4)
+    }
+}
+
+struct StockBadge: View {
+    let quantity: Int
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "shippingbox.fill").font(.caption2)
+            Text("\(quantity) dona").font(.caption2).bold()
+        }
+        .padding(.horizontal, 9).padding(.vertical, 4)
+        .background(Color.green)
+        .foregroundStyle(.white)
+        .clipShape(Capsule())
     }
 }
 
