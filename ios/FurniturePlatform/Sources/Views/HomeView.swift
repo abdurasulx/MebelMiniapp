@@ -443,6 +443,11 @@ struct FeaturedProductCard: View {
                     .font(.caption).bold().lineLimit(1)
                     .foregroundStyle(Color.brandSecondary)
             }
+            if let qty = product.availableQuantity, qty > 0 {
+                Text("\(qty) dona omborda mavjud")
+                    .font(.caption2).bold().lineLimit(1)
+                    .foregroundStyle(.green)
+            }
         }
         .frame(width: 160)
     }
@@ -477,6 +482,12 @@ struct FeaturedGridCard: View {
                     .font(.caption).bold().lineLimit(1)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Color.brandSecondary)
+            }
+            if let qty = product.availableQuantity, qty > 0 {
+                Text("\(qty) dona omborda mavjud")
+                    .font(.caption2).bold().lineLimit(1)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.green)
             }
         }
         .padding(.leading, 4)

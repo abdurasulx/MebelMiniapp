@@ -152,6 +152,19 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (product.availableQuantity > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${product.availableQuantity} dona omborda mavjud',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -638,6 +638,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               color: AppColors.deep,
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            _selectedVariant!.availableQuantity > 0
+                ? '${_selectedVariant!.availableQuantity} dona omborda mavjud'
+                : 'Omborda yo\'q — buyurtma ishlab chiqarishga yuboriladi',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _selectedVariant!.availableQuantity > 0
+                  ? Colors.green.shade700
+                  : const Color(0xFF8A7357),
+            ),
+          ),
         ],
       ),
     );

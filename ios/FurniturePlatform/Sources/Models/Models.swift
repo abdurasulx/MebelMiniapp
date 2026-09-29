@@ -84,6 +84,9 @@ struct Variant: Codable, Identifiable {
     let colorHex: String?
     let textureUrl: String?
     let model3d: Model3D?
+    // Omborda tayyor turgan dona soni (qarang backend VariantSerializer.
+    // get_available_quantity) — mijozga darhol berish mumkinligini bildiradi.
+    let availableQuantity: Int?
 
     var basePriceValue: Double { Double(basePrice) ?? 0 }
     var widthValue: Double { Double(width) ?? 1 }
@@ -201,6 +204,10 @@ struct Product: Codable, Identifiable {
     let model3d: Model3D?
     // Faqat "rasm bilan qidirish" natijalarida keladi.
     let similarityPercent: Double?
+    // Butun mahsulot bo'yicha (variantga bog'lanmaganlar ham) omborda
+    // tayyor turgan dona soni — kartochkada belgisi uchun (qarang backend
+    // ProductSerializer.get_available_quantity).
+    let availableQuantity: Int?
 
     var liked: Bool { isLiked ?? false }
 

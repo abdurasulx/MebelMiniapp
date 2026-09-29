@@ -167,6 +167,11 @@ export default function Shop() {
               )}
               <div className="p-3">
                 <span className="text-sm font-semibold">{p.name_uz}</span>
+                {Number(p.available_quantity) > 0 && (
+                  <div className="text-xs font-medium" style={{ color: "var(--success)" }}>
+                    {p.available_quantity}{t("product_stock_available_suffix")}
+                  </div>
+                )}
               </div>
             </Link>
           ))}

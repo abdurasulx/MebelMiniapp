@@ -323,6 +323,11 @@ export default function Catalog() {
               )}
               <span className="text-xs" style={{ color: "var(--muted)" }}>{p.company_name}</span>
               <PriceTag variant={p.variants[0]} />
+              {Number(p.available_quantity) > 0 && (
+                <span className="text-xs font-medium" style={{ color: "var(--success)" }}>
+                  {p.available_quantity}{t("product_stock_available_suffix")}
+                </span>
+              )}
             </div>
           </Link>
         ))}

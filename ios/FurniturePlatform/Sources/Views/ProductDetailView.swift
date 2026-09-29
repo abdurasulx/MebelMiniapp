@@ -174,6 +174,13 @@ struct ProductDetailView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
 
+                            if let variant = selectedVariant {
+                                let qty = variant.availableQuantity ?? 0
+                                Text(qty > 0 ? "\(qty) dona omborda mavjud" : "Omborda yo'q — buyurtma ishlab chiqarishga yuboriladi")
+                                    .font(.caption).fontWeight(.semibold)
+                                    .foregroundStyle(qty > 0 ? .green : .secondary)
+                            }
+
                             if let errorMessage {
                                 Text(errorMessage).foregroundStyle(.red).font(.caption)
                             }

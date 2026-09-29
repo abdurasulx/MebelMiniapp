@@ -90,6 +90,9 @@ class Variant {
   // o'rniga shu ishlatiladi (qarang product_detail_screen.dart'dagi
   // `_activeModel3d`, web'dagi ProductDetail.jsx bilan bir xil naqsh).
   final Model3D? model3d;
+  // Omborda tayyor turgan dona soni (qarang backend VariantSerializer.
+  // get_available_quantity) — mijozga darhol berish mumkinligini bildiradi.
+  final int availableQuantity;
 
   Variant({
     required this.id,
@@ -101,6 +104,7 @@ class Variant {
     this.colorHex,
     this.textureUrl,
     this.model3d,
+    this.availableQuantity = 0,
   });
 
   double get basePriceValue => double.tryParse(basePrice) ?? 0;
@@ -118,6 +122,7 @@ class Variant {
     colorHex: j['color_hex'],
     textureUrl: j['texture_url'],
     model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
+    availableQuantity: (j['available_quantity'] as num?)?.toInt() ?? 0,
   );
 }
 
@@ -301,6 +306,10 @@ class Product {
   final bool isLiked;
   // Faqat "rasm bilan qidirish" natijalarida keladi (qarang search_service.dart).
   final double? similarityPercent;
+  // Butun mahsulot bo'yicha (variantga bog'lanmaganlar ham) omborda
+  // tayyor turgan dona soni — kartochkada "Tayyor: N dona" belgisi uchun
+  // (qarang backend ProductSerializer.get_available_quantity).
+  final int availableQuantity;
 
   Product({
     required this.id,
@@ -322,6 +331,7 @@ class Product {
     this.model3d,
     this.isLiked = false,
     this.similarityPercent,
+    this.availableQuantity = 0,
   });
 
   /// Kartochkada nomdan keyin ko'rsatiladigan qisqa xususiyat qatori —
@@ -382,6 +392,7 @@ class Product {
     model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
     isLiked: j['is_liked'] ?? false,
     similarityPercent: (j['similarity_percent'] as num?)?.toDouble(),
+    availableQuantity: (j['available_quantity'] as num?)?.toInt() ?? 0,
   );
 }
 
