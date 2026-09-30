@@ -15,6 +15,7 @@ const Map<String, Map<String, String>> _strings = {
     'nav_cart': 'Savat',
     'nav_profile': 'Profil',
     'auth_title': 'Kirish',
+    'auth_subtitle': 'Davom etish uchun tizimga kiring',
     'auth_phone_hint': 'Telefon',
     'auth_select_country': 'Davlat',
     'auth_send_code': 'Kod yuborish',
