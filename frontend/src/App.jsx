@@ -202,7 +202,15 @@ function MarketLayout({ children }) {
     <>
       <header
         className="sticky top-0 z-40 flex items-center justify-between gap-3 px-4 py-3 lg:px-8"
-        style={{ background: "var(--brand-surface)", color: "var(--brand-surface-text)" }}
+        style={{
+          background: "var(--brand-surface)",
+          color: "var(--brand-surface-text)",
+          // iPhone'dagi notch/Dynamic Island zonasini ham shu fon bilan
+          // to'ldiradi — aks holda Safari'da tepada bo'sh/oldingi mazmun
+          // ko'rinib qoladigan tirqish paydo bo'lardi (viewport-fit=cover
+          // bilan birga, qarang index.html).
+          paddingTop: "calc(0.75rem + env(safe-area-inset-top))",
+        }}
       >
         <Link to="/" className="flex items-center gap-2 font-bold">
           <Sofa size={22} /> {BRAND_NAME}
