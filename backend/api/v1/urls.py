@@ -55,6 +55,10 @@ from apps.projects.views import (
     ProjectViewSet,
 )
 from apps.users.views import (
+    AccountDeletionRequestView,
+    AdminAccountDeletionApproveView,
+    AdminAccountDeletionRejectView,
+    AdminAccountDeletionRequestListView,
     AdminStatsView,
     AdminTokenObtainPairView,
     AdminUserListView,
@@ -185,8 +189,24 @@ urlpatterns = [
         TelegramLinkSessionPollView.as_view(),
         name="telegram-link-session-poll",
     ),
+    path("users/me/deletion-request/", AccountDeletionRequestView.as_view(), name="deletion-request"),
     path("admin/stats/", AdminStatsView.as_view(), name="admin-stats"),
     path("admin/users/", AdminUserListView.as_view(), name="admin-users"),
+    path(
+        "admin/deletion-requests/",
+        AdminAccountDeletionRequestListView.as_view(),
+        name="admin-deletion-requests",
+    ),
+    path(
+        "admin/deletion-requests/<uuid:pk>/approve/",
+        AdminAccountDeletionApproveView.as_view(),
+        name="admin-deletion-request-approve",
+    ),
+    path(
+        "admin/deletion-requests/<uuid:pk>/reject/",
+        AdminAccountDeletionRejectView.as_view(),
+        name="admin-deletion-request-reject",
+    ),
     path(
         "admin/users/<uuid:pk>/toggle-active/",
         AdminUserToggleActiveView.as_view(),

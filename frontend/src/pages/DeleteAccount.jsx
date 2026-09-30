@@ -12,10 +12,15 @@ export default function DeleteAccount() {
         <section>
           <h2 className="mb-2 text-lg font-semibold">Qanday so'rov yuboriladi</h2>
           <p className="mb-3 leading-relaxed" style={{ color: "var(--text)" }}>
-            Hisobingizni va unga bog'liq shaxsiy ma'lumotlaringizni o'chirishni
-            so'rash uchun quyidagi Telegram bot orqali murojaat qiling va
-            ro'yxatdan o'tgan telefon raqamingizni ko'rsatib, hisobni
-            o'chirishni so'rang:
+            Eng oson yo'l — ilova/vebsaytga kirib, <strong>Profil</strong>{" "}
+            sahifasidagi "Hisobni o'chirish" bo'limidan sababini ko'rsatib
+            so'rov yuborish. So'rovingiz platforma administratori tomonidan
+            ko'rib chiqiladi va tasdiqlangach amalga oshiriladi.
+          </p>
+          <p className="mb-3 leading-relaxed" style={{ color: "var(--text)" }}>
+            Hisobingizga kira olmasangiz, quyidagi Telegram bot orqali ham
+            murojaat qilishingiz mumkin — ro'yxatdan o'tgan telefon
+            raqamingizni ko'rsatib, hisobni o'chirishni so'rang:
           </p>
           <a
             href={SUPPORT_URL}
@@ -52,7 +57,8 @@ export default function DeleteAccount() {
         <section>
           <h2 className="mb-2 text-lg font-semibold">Qancha vaqt ichida</h2>
           <p className="leading-relaxed" style={{ color: "var(--text)" }}>
-            So'rov tasdiqlangandan so'ng 30 kun ichida amalga oshiriladi.
+            So'rovingiz odatda bir necha kun ichida ko'rib chiqiladi.
+            Administrator tasdiqlashi bilanoq hisobingiz o'chiriladi.
           </p>
         </section>
       </div>

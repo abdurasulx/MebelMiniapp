@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from .models import AccountDeletionRequest
+
 User = get_user_model()
 
 
@@ -92,6 +94,19 @@ class UserSerializer(serializers.ModelSerializer):
     def get_pay_type_display(self, obj):
         emp = self._active_employment(obj)
         return emp.get_pay_type_display() if emp else None
+
+
+class AccountDeletionRequestSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    user_display_name = serializers.CharField(source="user.display_name", read_only=True)
+
+    class Meta:
+        model = AccountDeletionRequest
+        fields = (
+            "id", "reason", "status", "created_at", "reviewed_at",
+            "user_email", "user_display_name",
+        )
+        read_only_fields = ("id", "status", "created_at", "reviewed_at", "user_email", "user_display_name")
 
 
 class GoogleLoginSerializer(serializers.Serializer):

@@ -25,8 +25,9 @@ from apps.products.models import Product
 
 from . import telegram_bot
 from .google_auth import exchange_google_code, verify_google_credential
-from .models import GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession
+from .models import AccountDeletionRequest, GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession
 from .serializers import (
+    AccountDeletionRequestSerializer,
     AdminTokenObtainPairSerializer,
     CareerEntrySerializer,
     CompleteRegistrationSerializer,
@@ -919,3 +920,132 @@ class OTPVerifyView(APIView):
                 "is_new_user": is_new_user,
             }
         )
+
+
+class AccountDeletionRequestView(APIView):
+    """`/users/me/deletion-request/` — profildan hisobni o'chirishni
+    so'rash. GET — hozirgi kutilayotgan so'rovni qaytaradi (yo'q bo'lsa
+    `null`), POST — sababi bilan yangi so'rov yaratadi va barcha platforma
+    adminlariga bildirishnoma yuboradi; darhol o'chirilmaydi, qarang
+    `AdminAccountDeletionApproveView`."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        pending = AccountDeletionRequest.objects.filter(
+            user=request.user, status=AccountDeletionRequest.Status.PENDING
+        ).first()
+        if not pending:
+            return Response(None)
+        return Response(AccountDeletionRequestSerializer(pending).data)
+
+    def post(self, request):
+        if AccountDeletionRequest.objects.filter(
+            user=request.user, status=AccountDeletionRequest.Status.PENDING
+        ).exists():
+            raise ValidationError("Sizda allaqachon ko'rib chiqilayotgan so'rov bor")
+        reason = (request.data.get("reason") or "").strip()
+        if not reason:
+            raise ValidationError("O'chirish sababini kiriting")
+
+        deletion_request = AccountDeletionRequest.objects.create(user=request.user, reason=reason)
+
+        from apps.notifications.services import notify_deletion_requested
+
+        notify_deletion_requested(deletion_request)
+        return Response(AccountDeletionRequestSerializer(deletion_request).data, status=201)
+
+
+class AdminAccountDeletionRequestListView(generics.ListAPIView):
+    """admin.domen.uz: hisob o'chirish so'rovlari ro'yxati (?status=pending
+    default, ?status=all — hammasi)."""
+
+    serializer_class = AccountDeletionRequestSerializer
+    permission_classes = (IsPlatformAdmin,)
+
+    def get_queryset(self):
+        qs = AccountDeletionRequest.objects.select_related("user").filter(is_deleted=False)
+        status_param = self.request.query_params.get("status", AccountDeletionRequest.Status.PENDING)
+        if status_param and status_param != "all":
+            qs = qs.filter(status=status_param)
+        return qs
+
+
+def _anonymize_deleted_user(user):
+    """Hisobni "o'chirish" — haqiqatda shaxsiy ma'lumotni anonimlashtirish.
+
+    `Order.customer` `on_delete=PROTECT` bo'lgani uchun foydalanuvchini
+    haqiqatan bazadan o'chirish buyurtmalari bo'lsa xatoga uchraydi (va
+    moliyaviy yozuvlarni yo'qotgan bo'lardi) — shu bois ism/telefon/email
+    anonimlashtiriladi va hisob bloklanadi, buyurtma tarixi (kompaniya
+    hisoboti uchun) daxlsiz qoladi."""
+    from apps.cart.models import CartItem
+    from apps.likes.models import Like
+    from apps.notifications.models import PushDevice
+
+    GoogleAccount.objects.filter(user=user).delete()
+    TelegramAccount.objects.filter(user=user).delete()
+    Like.objects.filter(user=user).delete()
+    CartItem.objects.filter(user=user).delete()
+    PushDevice.objects.filter(user=user).delete()
+
+    user.email = f"deleted-{user.id}@deleted.vida"
+    user.phone = ""
+    user.first_name = ""
+    user.last_name = ""
+    user.date_of_birth = None
+    user.is_active = False
+    user.set_unusable_password()
+    user.save()
+
+
+class AdminAccountDeletionApproveView(APIView):
+    """`/admin/deletion-requests/<id>/approve/` — so'rovni tasdiqlaydi va
+    foydalanuvchini anonimlashtiradi (qarang `_anonymize_deleted_user`)."""
+
+    permission_classes = (IsPlatformAdmin,)
+
+    def post(self, request, pk):
+        try:
+            deletion_request = AccountDeletionRequest.objects.select_related("user").get(
+                pk=pk, status=AccountDeletionRequest.Status.PENDING
+            )
+        except AccountDeletionRequest.DoesNotExist:
+            raise ValidationError("So'rov topilmadi yoki allaqachon ko'rib chiqilgan")
+
+        deletion_request.status = AccountDeletionRequest.Status.APPROVED
+        deletion_request.reviewed_by = request.user
+        deletion_request.reviewed_at = timezone.now()
+        deletion_request.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+
+        from apps.notifications.services import notify_deletion_reviewed
+
+        # Anonimlashtirishdan OLDIN — aks holda bildirishnoma allaqachon
+        # bloklangan/anonim hisobga "yetib bormay" qolishi mumkin edi.
+        notify_deletion_reviewed(deletion_request)
+        _anonymize_deleted_user(deletion_request.user)
+        return Response(AccountDeletionRequestSerializer(deletion_request).data)
+
+
+class AdminAccountDeletionRejectView(APIView):
+    """`/admin/deletion-requests/<id>/reject/` — so'rovni rad etadi, hisobga tegilmaydi."""
+
+    permission_classes = (IsPlatformAdmin,)
+
+    def post(self, request, pk):
+        try:
+            deletion_request = AccountDeletionRequest.objects.get(
+                pk=pk, status=AccountDeletionRequest.Status.PENDING
+            )
+        except AccountDeletionRequest.DoesNotExist:
+            raise ValidationError("So'rov topilmadi yoki allaqachon ko'rib chiqilgan")
+
+        deletion_request.status = AccountDeletionRequest.Status.REJECTED
+        deletion_request.reviewed_by = request.user
+        deletion_request.reviewed_at = timezone.now()
+        deletion_request.save(update_fields=["status", "reviewed_by", "reviewed_at"])
+
+        from apps.notifications.services import notify_deletion_reviewed
+
+        notify_deletion_reviewed(deletion_request)
+        return Response(AccountDeletionRequestSerializer(deletion_request).data)

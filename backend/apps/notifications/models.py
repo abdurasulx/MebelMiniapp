@@ -17,6 +17,9 @@ class NotificationType(models.TextChoices):
     EMPLOYEE_INVITED = "employee_invited", "Ishga taklif qilindi"
     EMPLOYEE_INVITATION_ACCEPTED = "employee_invitation_accepted", "Taklif qabul qilindi"
     EMPLOYEE_INVITATION_DECLINED = "employee_invitation_declined", "Taklif rad etildi"
+    ACCOUNT_DELETION_REQUESTED = "account_deletion_requested", "Hisobni o'chirish so'rovi"
+    ACCOUNT_DELETION_APPROVED = "account_deletion_approved", "Hisobni o'chirish tasdiqlandi"
+    ACCOUNT_DELETION_REJECTED = "account_deletion_rejected", "Hisobni o'chirish rad etildi"
 
 
 class NotificationQuerySet(models.QuerySet):

@@ -220,3 +220,59 @@ def notify_invitation_declined(invitation):
         data={"type": "employee_invitation_declined", "invitation_id": str(invitation.id)},
     )
     push_unread_count(invitation.company.owner_id)
+
+
+def notify_deletion_requested(deletion_request):
+    """Foydalanuvchi hisobini o'chirishni so'raganda BARCHA platforma
+    adminlariga yuboriladi (qarang apps.users.views.AccountDeletionRequestView)."""
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    title = "Hisobni o'chirish so'rovi"
+    body = f"{deletion_request.user.display_name} hisobini o'chirishni so'radi"
+    admins = list(User.objects.filter(role=User.Role.PLATFORM_ADMIN, is_active=True))
+    Notification.objects.bulk_create(
+        [
+            Notification(
+                recipient=admin,
+                notif_type=NotificationType.ACCOUNT_DELETION_REQUESTED,
+                title=title,
+                body=body,
+            )
+            for admin in admins
+        ]
+    )
+    for admin in admins:
+        send_push(
+            admin, title, body,
+            data={"type": "account_deletion_requested", "request_id": str(deletion_request.id)},
+        )
+        push_unread_count(admin.id)
+
+
+def notify_deletion_reviewed(deletion_request):
+    """Admin so'rovni tasdiqlagan/rad etganda so'rov egasiga yuboriladi
+    (qarang AdminAccountDeletionApproveView/RejectView)."""
+    approved = deletion_request.status == deletion_request.Status.APPROVED
+    title = "Hisobingizni o'chirish so'rovi ko'rib chiqildi"
+    body = (
+        "So'rovingiz tasdiqlandi — hisobingiz o'chirildi."
+        if approved
+        else "So'rovingiz rad etildi. Savol bo'lsa qo'llab-quvvatlash bilan bog'laning."
+    )
+    notif_type = (
+        NotificationType.ACCOUNT_DELETION_APPROVED
+        if approved
+        else NotificationType.ACCOUNT_DELETION_REJECTED
+    )
+    # Diqqat: `approved` holatda user allaqachon anonimlashtirilgan bo'lishi
+    # mumkin — shu bois bu chaqiruv reviewer view'da userni anonimlashtirishdan
+    # OLDIN amalga oshiriladi (qarang AdminAccountDeletionApproveView).
+    Notification.objects.create(
+        recipient_id=deletion_request.user_id,
+        notif_type=notif_type,
+        title=title,
+        body=body,
+    )
+    send_push(deletion_request.user, title, body, data={"type": notif_type})
+    push_unread_count(deletion_request.user_id)

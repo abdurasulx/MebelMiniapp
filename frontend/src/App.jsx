@@ -10,6 +10,7 @@ import { useTheme } from "./theme";
 import AdminCategories from "./pages/admin/AdminCategories";
 import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import AdminFinance from "./pages/admin/AdminFinance";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminTariffPlans from "./pages/admin/AdminTariffPlans";
@@ -67,12 +68,14 @@ import {
   UserCircle,
   Banknote,
   MapPinned,
+  UserX,
 } from "lucide-react";
 
 const ADMIN_MENU = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true, group: "Asosiy" },
   { to: "/companies", icon: Factory, label: "Kompaniyalar", group: "Boshqaruv" },
   { to: "/users", icon: Users, label: "Foydalanuvchilar", group: "Boshqaruv" },
+  { to: "/deletion-requests", icon: UserX, label: "Hisob o'chirish so'rovlari", group: "Boshqaruv" },
   { to: "/categories", icon: FolderTree, label: "Kategoriyalar", group: "Boshqaruv" },
   { to: "/tariff-plans", icon: Banknote, label: "Tarif rejalari", group: "Boshqaruv" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
@@ -310,6 +313,7 @@ export default function App() {
           <Route path="/" element={<AdminDashboard />} />
           <Route path="/companies" element={<AdminCompanies />} />
           <Route path="/users" element={<AdminUsers />} />
+          <Route path="/deletion-requests" element={<AdminDeletionRequests />} />
           <Route path="/categories" element={<AdminCategories />} />
           <Route path="/tariff-plans" element={<AdminTariffPlans />} />
           <Route path="/orders" element={<AdminOrders />} />

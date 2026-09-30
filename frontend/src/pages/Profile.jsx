@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Trash2 } from "lucide-react";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
 import { SUPPORTED_LOCALES } from "../l10n/strings";
@@ -149,6 +149,96 @@ function TelegramLinkRow({ hasTelegram, onLinked }) {
   );
 }
 
+// Hisobni o'chirish — darhol o'chmaydi, sababi bilan so'rov yuboriladi va
+// platforma admini tasdiqlaguncha kutadi (qarang backend
+// AccountDeletionRequestView/AdminAccountDeletionApproveView). Shu bois
+// so'rov yuborilgach "kutilmoqda" holati doimiy ko'rsatiladi — qayta
+// yubormaslik uchun.
+function DeleteAccountSection() {
+  const { t } = useLocale();
+  const [pending, setPending] = useState(undefined); // undefined = hali yuklanmoqda
+  const [showForm, setShowForm] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api("/users/me/deletion-request/")
+      .then(setPending)
+      .catch(() => setPending(null));
+  }, []);
+
+  const submit = async () => {
+    if (!reason.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const created = await api("/users/me/deletion-request/", {
+        method: "POST",
+        body: { reason: reason.trim() },
+      });
+      setPending(created);
+      setShowForm(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (pending === undefined) return null;
+
+  return (
+    <div className="card mt-4 flex flex-col gap-3 p-5" style={{ borderColor: "var(--danger)" }}>
+      <h2 className="flex items-center gap-2 text-base font-semibold" style={{ color: "var(--danger)" }}>
+        <Trash2 size={16} /> {t("profile_delete_account_title")}
+      </h2>
+
+      {pending ? (
+        <p className="text-sm" style={{ color: "var(--muted)" }}>
+          {t("profile_delete_account_pending")}
+        </p>
+      ) : showForm ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            {t("profile_delete_account_desc")}
+          </p>
+          <textarea
+            className="input"
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder={t("profile_delete_account_reason_placeholder")}
+          />
+          {error && <div className="error">{error}</div>}
+          <div className="flex gap-2">
+            <button
+              className="btn"
+              style={{ background: "var(--danger)", color: "#fff" }}
+              onClick={submit}
+              disabled={busy || !reason.trim()}
+            >
+              {busy ? "..." : t("profile_delete_account_submit")}
+            </button>
+            <button className="btn-ghost" onClick={() => setShowForm(false)} disabled={busy}>
+              {t("profile_delete_account_cancel")}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            {t("profile_delete_account_desc")}
+          </p>
+          <button className="btn-ghost shrink-0" style={{ color: "var(--danger)" }} onClick={() => setShowForm(true)}>
+            {t("profile_delete_account_action")}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Profile() {
   const { user, refreshUser } = useAuth();
   const { code, setLocale, t } = useLocale();
@@ -239,6 +329,8 @@ export default function Profile() {
         <GoogleLinkRow hasGoogle={user.has_google} />
         <TelegramLinkRow hasTelegram={user.has_telegram} onLinked={refreshUser} />
       </div>
+
+      <DeleteAccountSection />
 
       {showPhoneVerify && (
         <PhoneVerifyModal

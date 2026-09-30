@@ -2,9 +2,12 @@ import random
 import uuid
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
+
+from common.models import BaseModel
 
 
 class UserManager(BaseUserManager):
@@ -203,3 +206,34 @@ class PhoneOTP(models.Model):
             and self.attempts < self.MAX_ATTEMPTS
             and timezone.now() - self.created_at < timedelta(minutes=5)
         )
+
+
+class AccountDeletionRequest(BaseModel):
+    """Foydalanuvchi hisobini o'chirishni so'rashi (qarang docs/privacy —
+    web/ilova ichidagi "Hisobni o'chirish"). Darhol o'chirilmaydi — platforma
+    admini (`IsPlatformAdmin`) ko'rib chiqib tasdiqlaganidan keyingina
+    `AdminAccountDeletionApproveView` orqali amalga oshiriladi (qarang
+    apps.users.views), chunki buyurtmalar `Order.customer` uchun
+    `on_delete=PROTECT` — moliyaviy yozuvlar buzilmasligi kerak, shuning
+    uchun "o'chirish" aslida shaxsiy ma'lumotlarni anonimlashtirish."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Kutilmoqda"
+        APPROVED = "approved", "Tasdiqlandi"
+        REJECTED = "rejected", "Rad etildi"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="deletion_requests"
+    )
+    reason = models.TextField()
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.user} — {self.get_status_display()}"
