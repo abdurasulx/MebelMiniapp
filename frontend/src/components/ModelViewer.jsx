@@ -327,6 +327,7 @@ const ModelViewer = forwardRef(function ModelViewer(
       poster={poster || undefined}
       camera-controls=""
       auto-rotate=""
+      loading="eager"
       ar=""
       ar-modes="webxr scene-viewer quick-look"
       ar-scale="fixed"

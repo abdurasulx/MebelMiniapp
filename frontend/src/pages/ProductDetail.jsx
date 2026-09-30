@@ -23,7 +23,6 @@ export default function ProductDetail() {
   const [viewMode, setViewMode] = useState("photo");
   const [modelReady, setModelReady] = useState(false);
   const [arSupported, setArSupported] = useState(null); // null = hali noma'lum
-  const [pendingAR, setPendingAR] = useState(false);
   const [arError, setArError] = useState("");
   const viewerRef = useRef(null);
   const [liked, setLiked] = useState(false);
@@ -61,29 +60,24 @@ export default function ProductDetail() {
     setArError("");
   }, [variantId]);
 
-  // "AR'da ko'rish" bosilganda model hali 3D rejimida mavjud bo'lmasa —
-  // avval shu rejimga o'tkaziladi, model TO'LIQ yuklanishini kutadi
-  // (modelReady) va SHUNDAN KEYINGINA AR ishga tushiriladi. Aynan shu
-  // navbat — oldin "ba'zida tanlanmay qolish" xatosining sababi model
-  // hali tayyor bo'lmasdan turib AR chaqirilishi edi.
-  useEffect(() => {
-    if (!pendingAR || !modelReady) return;
-    setPendingAR(false);
-    viewerRef.current?.activateAR();
-  }, [pendingAR, modelReady]);
-
+  // AR tugmasi model TO'LIQ yuklanmaguncha (modelReady) o'chirilgan turadi
+  // (qarang pastdagi <button disabled={!modelReady}>) — shu bois bosilgan
+  // payt activateAR() har doim SHU o'sha click hodisasi ichida, kechiktirmay
+  // chaqiriladi. Bu muhim: Safari'da AR Quick Look (USDZ) faqat haqiqiy
+  // foydalanuvchi bosishining o'zi (sinxron chaqiruv) bilan ochiladi — avval
+  // (effekt/keyinroq) chaqirilsa, Safari buni oddiy sahifa navigatsiyasi deb
+  // qabul qilib, .usdz faylini yuklab (progress-bar bilan) ilova holatini
+  // "buzib" qo'yardi. ModelViewer endi Photo rejimida ham DOMdan olib
+  // tashlanmaydi (faqat CSS bilan yashiriladi — qarang pastdagi JSX), shuning
+  // uchun model fonoda oldindan yuklanib ulguradi va AR tugmasi tezda yoqiladi.
   const startAR = () => {
     setArError("");
     if (arSupported === false) {
       setArError(t("product_ar_unsupported"));
       return;
     }
-    if (viewMode === "3d" && modelReady) {
-      viewerRef.current?.activateAR();
-    } else {
-      setViewMode("3d");
-      setPendingAR(true);
-    }
+    setViewMode("3d");
+    viewerRef.current?.activateAR();
   };
 
   // O'lcham endi mijoz tomonidan kiritilmaydi — variantning o'zida
@@ -171,27 +165,32 @@ export default function ProductDetail() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Rasm / 3D */}
         <div>
-          {viewMode === "3d" && activeModel3d?.glb_url ? (
-            <ModelViewer
-              ref={viewerRef}
-              glb={activeModel3d.glb_url}
-              usdz={activeModel3d.usdz_url}
-              alt={`${p.name_uz} — ${variant.name}`}
-              poster={p.image_url}
-              colorHex={hasOwnModel ? null : variant.color_hex}
-              textureUrl={hasOwnModel ? null : variant.texture_url}
-              onReadyChange={setModelReady}
-              onArSupportedChange={setArSupported}
-            />
-          ) : (p.image_url || p.images?.[0]?.image_url) ? (
-            <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="card w-full object-cover" />
-          ) : (
-            <div
-              className="card flex h-72 w-full items-center justify-center"
-              style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
-            >
-              <Sofa size={48} />
-            </div>
+          <div style={{ display: activeModel3d?.glb_url && viewMode === "3d" ? "block" : "none" }}>
+            {activeModel3d?.glb_url && (
+              <ModelViewer
+                ref={viewerRef}
+                glb={activeModel3d.glb_url}
+                usdz={activeModel3d.usdz_url}
+                alt={`${p.name_uz} — ${variant.name}`}
+                poster={p.image_url}
+                colorHex={hasOwnModel ? null : variant.color_hex}
+                textureUrl={hasOwnModel ? null : variant.texture_url}
+                onReadyChange={setModelReady}
+                onArSupportedChange={setArSupported}
+              />
+            )}
+          </div>
+          {!(activeModel3d?.glb_url && viewMode === "3d") && (
+            (p.image_url || p.images?.[0]?.image_url) ? (
+              <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="card w-full object-cover" />
+            ) : (
+              <div
+                className="card flex h-72 w-full items-center justify-center"
+                style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
+              >
+                <Sofa size={48} />
+              </div>
+            )
           )}
 
           {activeModel3d?.glb_url && (
@@ -204,18 +203,18 @@ export default function ProductDetail() {
               </button>
               <button
                 className={viewMode === "3d" ? "btn btn-brand inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
-                onClick={() => { setPendingAR(false); setViewMode("3d"); }}
+                onClick={() => setViewMode("3d")}
               >
                 <Box size={13} /> 3D
               </button>
               {arSupported !== false && (
                 <button
                   className="btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
-                  disabled={pendingAR && !modelReady}
+                  disabled={!modelReady}
                   onClick={startAR}
                 >
                   <Sparkles size={13} />
-                  {pendingAR && !modelReady ? t("product_ar_loading") : "AR"}
+                  {modelReady ? "AR" : t("product_ar_loading")}
                 </button>
               )}
             </div>
