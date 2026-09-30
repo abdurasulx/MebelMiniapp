@@ -65,6 +65,7 @@ class _AuthScreenState extends State<AuthScreen> {
   String get _fullPhone =>
       '${_country.dialCode}${_phoneController.text.trim()}';
 
+  // ignore: unused_element
   bool get _phoneValid => _country.isValid(_phoneController.text.trim());
 
   void _startCountdown(int seconds) {
@@ -122,6 +123,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (ok && mounted) Navigator.of(context).maybePop();
   }
 
+  // ignore: unused_element
   Future<void> _pickCountry() async {
     final selected = await showModalBottomSheet<CountryInfo>(
       context: context,
@@ -196,6 +198,47 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const SizedBox(height: 12),
+        Text(
+          loc.t('auth_subtitle'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 14.5,
+            color: Color(0xFF8A7357),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 24),
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _loginWithGoogle,
+          icon: Image.asset('assets/icons/google_logo.png', width: 22, height: 22),
+          label: const Text(
+            'Google orqali kirish',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _loginWithTelegram,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF26A5E4),
+            side: const BorderSide(color: Color(0xFF26A5E4)),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          icon: Image.asset('assets/icons/telegram_logo.png', width: 22, height: 22),
+          label: const Text(
+            'Telegram orqali kirish',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+        ),
+        /*
+        // SMS provayder ulanganda ochiladi:
+        const SizedBox(height: 20),
         Text(
           loc.t('auth_select_country'),
           style: const TextStyle(
@@ -253,36 +296,7 @@ class _AuthScreenState extends State<AuthScreen> {
               ? const CircularProgressIndicator()
               : Text(loc.t('auth_send_code')),
         ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            const Expanded(child: Divider()),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text(
-                'yoki',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
-              ),
-            ),
-            const Expanded(child: Divider()),
-          ],
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _loginWithGoogle,
-          icon: Image.asset('assets/icons/google_logo.png', width: 20, height: 20),
-          label: const Text('Google orqali kirish'),
-        ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _loginWithTelegram,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF26A5E4),
-            side: const BorderSide(color: Color(0xFF26A5E4)),
-          ),
-          icon: Image.asset('assets/icons/telegram_logo.png', width: 20, height: 20),
-          label: const Text('Telegram orqali kirish'),
-        ),
+        */
       ],
     );
   }
