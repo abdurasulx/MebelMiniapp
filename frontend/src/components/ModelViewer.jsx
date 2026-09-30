@@ -329,6 +329,7 @@ const ModelViewer = forwardRef(function ModelViewer(
       auto-rotate=""
       ar=""
       ar-modes="webxr scene-viewer quick-look"
+      ar-scale="fixed"
       shadow-intensity="1"
       style={{
         width: "100%",
