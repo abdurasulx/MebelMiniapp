@@ -40,12 +40,9 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         UIBackgroundModes:
           - remote-notification
-        # DIQQAT: paket nomi uz.furnitureplatform.app'dan uz.vida.burchaksoft'ga
-        # o'zgargani uchun bu OAuth client ENDI ESKI (noto'g'ri) — Google Sign-In
-        # ishlashi uchun Google Cloud Console'da YANGI "iOS" turidagi OAuth
-        # client yaratish kerak (Bundle ID: uz.vida.burchaksoft), so'ng shu
-        # ikkala qiymatni (GIDClientID va pastdagi CFBundleURLSchemes) undan
-        # olingan Client ID bilan almashtiring.
+        # Google Cloud Console'da shu client'ning Bundle ID maydoni
+        # uz.vida.burchaksoft'ga bog'lab qo'yilgan (tasdiqlandi — client_...
+        # .plist'da BUNDLE_ID=uz.vida.burchaksoft).
         GIDClientID: "857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa.apps.googleusercontent.com"
         CFBundleURLTypes:
           - CFBundleURLSchemes:

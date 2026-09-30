@@ -83,9 +83,25 @@ private struct ShopStyleCard: View {
     var body: some View {
         VStack(alignment: .center, spacing: 6) {
             AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
-                if let image = phase.image {
+                switch phase {
+                case .success(let image):
                     image.resizable().aspectRatio(contentMode: .fill)
-                } else {
+                case .failure(let error):
+                    // Rasm URL'i mavjud bo'lsa-yu yuklab bo'lmasa (masalan
+                    // tarmoq muammosi) — buni "rasm umuman yo'q" holatidan
+                    // vizual ajratamiz, aks holda sababini bilib bo'lmaydi.
+                    VStack(spacing: 4) {
+                        Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
+                        Text(error.localizedDescription)
+                            .font(.system(size: 8))
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.brandPrimary.opacity(0.15))
+                default:
                     Color.brandPrimary.opacity(0.3)
                 }
             }
