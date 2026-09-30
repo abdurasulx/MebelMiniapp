@@ -47,12 +47,7 @@ struct ProductDetailView: View {
     // (`bbox_*`) olinadi; narx/AR hisob-kitobi esa hamon variant qiymatiga
     // (`width`/`height`/`depth` holat o'zgaruvchilari) asoslanadi — ular
     // shu yerda o'zgartirilmaydi, faqat KO'RSATILADIGAN matn boshqa manbadan.
-    private func displayDim(_ bbox: Double?, fallback: String) -> String {
-        guard let bbox else { return fallback }
-        return String(format: "%.2f", bbox)
-    }
-
-    private var arScaleFactors: SIMD3<Float> {
+private var arScaleFactors: SIMD3<Float> {
         guard let variant = selectedVariant,
               let w = Double(width), let h = Double(height), let d = Double(depth),
               w > 0, h > 0, d > 0 else { return [1, 1, 1] }
@@ -150,15 +145,6 @@ struct ProductDetailView: View {
                                 Text("🧊 \(locale.t("product_3d_ios_note"))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                            }
-
-                            // O'lcham endi tahrirlanmaydi — variantning o'zida
-                            // saqlangan standart o'lcham shunchaki ko'rsatiladi
-                            // (narx shu bilan qat'iy, mijoz o'zgartira olmaydi).
-                            HStack(spacing: 12) {
-                                dimLabel(locale.t("product_dim_width"), displayDim(activeModel3d?.bboxWidthValue, fallback: width))
-                                dimLabel(locale.t("product_dim_height"), displayDim(activeModel3d?.bboxHeightValue, fallback: height))
-                                dimLabel(locale.t("product_dim_depth"), displayDim(activeModel3d?.bboxDepthValue, fallback: depth))
                             }
 
                             Stepper("\(locale.t("product_qty_label")): \(quantity)", value: $quantity, in: 1...50)
@@ -297,18 +283,7 @@ struct ProductDetailView: View {
         }
     }
 
-    private func dimLabel(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-            Text(value)
-                .padding(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-    }
-
-    private func load() async {
+private func load() async {
         do {
             let p: Product = try await APIClient.shared.get("/products/\(productId)/", auth: true)
             product = p
