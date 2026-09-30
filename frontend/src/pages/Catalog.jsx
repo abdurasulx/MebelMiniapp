@@ -225,11 +225,11 @@ export default function Catalog() {
         />
       </div>
 
-      {/* Filtr */}
+      {/* Filtr — mobil ilovadagi kabi bitta qatorda gorizontal skroll */}
       {!isSearching && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
+        <div className="no-scrollbar mb-6 flex items-center gap-2 overflow-x-auto">
           <button
-            className={cat === "" ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
+            className={cat === "" ? "btn btn-brand flex-shrink-0 !px-4 !py-1.5 text-xs" : "btn-ghost flex-shrink-0 !px-4 !py-1.5 text-xs"}
             onClick={() => setCat("")}
           >
             {t("catalog_filter_all")}
@@ -237,7 +237,7 @@ export default function Catalog() {
           {categories.map((c) => (
             <button
               key={c.id}
-              className={cat === c.id ? "btn btn-brand !px-4 !py-1.5 text-xs" : "btn-ghost !px-4 !py-1.5 text-xs"}
+              className={cat === c.id ? "btn btn-brand flex-shrink-0 !px-4 !py-1.5 text-xs" : "btn-ghost flex-shrink-0 !px-4 !py-1.5 text-xs"}
               onClick={() => setCat(c.id)}
             >
               {c.name_uz}

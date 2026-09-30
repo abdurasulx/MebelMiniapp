@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Heart, Factory, Sofa, Image, Box, ShoppingBasket, ArrowRight, PackageCheck } from "lucide-react";
+import { Heart, Factory, Sofa, Image, Box, Sparkles, ShoppingBasket, ArrowRight, PackageCheck } from "lucide-react";
 import { api } from "../api";
 import { addToCart } from "../cart";
 import ModelViewer from "../components/ModelViewer";
@@ -17,7 +17,15 @@ export default function ProductDetail() {
   const [variantId, setVariantId] = useState("");
   const [qty, setQtyState] = useState(1);
   const [added, setAdded] = useState(false);
-  const [show3d, setShow3d] = useState(false);
+  // "photo" | "3d" — AR endi alohida, o'ziga xos boshqariladigan holat
+  // (pastdagi viewerRef/activateAR), "3d" ko'rinishning ichiga
+  // "yashiringan" emas (qarang ModelViewer.jsx — buning sababi).
+  const [viewMode, setViewMode] = useState("photo");
+  const [modelReady, setModelReady] = useState(false);
+  const [arSupported, setArSupported] = useState(null); // null = hali noma'lum
+  const [pendingAR, setPendingAR] = useState(false);
+  const [arError, setArError] = useState("");
+  const viewerRef = useRef(null);
   const [liked, setLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
   const [likeError, setLikeError] = useState("");
@@ -45,10 +53,38 @@ export default function ProductDetail() {
   const hasOwnModel = variant?.model3d?.glb_url && variant.model3d.status === "ready";
   const activeModel3d = hasOwnModel ? variant.model3d : p?.model3d;
 
-  // Variant almashtirilganda AR ko'rinishi mos model mavjud bo'lmasa yopiladi
+  // Variant almashtirilganda 3D ko'rinishi mos model mavjud bo'lmasa yopiladi
   useEffect(() => {
-    if (!activeModel3d?.glb_url) setShow3d(false);
+    if (!activeModel3d?.glb_url) setViewMode("photo");
+    setModelReady(false);
+    setArSupported(null);
+    setArError("");
   }, [variantId]);
+
+  // "AR'da ko'rish" bosilganda model hali 3D rejimida mavjud bo'lmasa —
+  // avval shu rejimga o'tkaziladi, model TO'LIQ yuklanishini kutadi
+  // (modelReady) va SHUNDAN KEYINGINA AR ishga tushiriladi. Aynan shu
+  // navbat — oldin "ba'zida tanlanmay qolish" xatosining sababi model
+  // hali tayyor bo'lmasdan turib AR chaqirilishi edi.
+  useEffect(() => {
+    if (!pendingAR || !modelReady) return;
+    setPendingAR(false);
+    viewerRef.current?.activateAR();
+  }, [pendingAR, modelReady]);
+
+  const startAR = () => {
+    setArError("");
+    if (arSupported === false) {
+      setArError(t("product_ar_unsupported"));
+      return;
+    }
+    if (viewMode === "3d" && modelReady) {
+      viewerRef.current?.activateAR();
+    } else {
+      setViewMode("3d");
+      setPendingAR(true);
+    }
+  };
 
   // O'lcham endi mijoz tomonidan kiritilmaydi — variantning o'zida
   // saqlangan standart o'lcham (odatda 1x1x1) ishlatiladi, narx shu bilan
@@ -135,14 +171,17 @@ export default function ProductDetail() {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Rasm / 3D */}
         <div>
-          {show3d && activeModel3d?.glb_url ? (
+          {viewMode === "3d" && activeModel3d?.glb_url ? (
             <ModelViewer
+              ref={viewerRef}
               glb={activeModel3d.glb_url}
               usdz={activeModel3d.usdz_url}
               alt={`${p.name_uz} — ${variant.name}`}
               poster={p.image_url}
               colorHex={hasOwnModel ? null : variant.color_hex}
               textureUrl={hasOwnModel ? null : variant.texture_url}
+              onReadyChange={setModelReady}
+              onArSupportedChange={setArSupported}
             />
           ) : (p.image_url || p.images?.[0]?.image_url) ? (
             <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="card w-full object-cover" />
@@ -158,19 +197,30 @@ export default function ProductDetail() {
           {activeModel3d?.glb_url && (
             <div className="mt-3 flex flex-wrap gap-2">
               <button
-                className={show3d ? "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn btn-brand inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
-                onClick={() => setShow3d(false)}
+                className={viewMode !== "3d" ? "btn btn-brand inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
+                onClick={() => setViewMode("photo")}
               >
                 <Image size={13} /> {t("product_photo_tab")}
               </button>
               <button
-                className={show3d ? "btn btn-brand inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
-                onClick={() => setShow3d(true)}
+                className={viewMode === "3d" ? "btn btn-brand inline-flex items-center gap-1 !px-3 !py-1.5 text-xs" : "btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"}
+                onClick={() => { setPendingAR(false); setViewMode("3d"); }}
               >
-                <Box size={13} /> {variant.name}{t("product_view_3d_ar_suffix")}
+                <Box size={13} /> 3D
               </button>
+              {arSupported !== false && (
+                <button
+                  className="btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
+                  disabled={pendingAR && !modelReady}
+                  onClick={startAR}
+                >
+                  <Sparkles size={13} />
+                  {pendingAR && !modelReady ? t("product_ar_loading") : "AR"}
+                </button>
+              )}
             </div>
           )}
+          {arError && <div className="error mt-2">{arError}</div>}
 
           {p.images.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">

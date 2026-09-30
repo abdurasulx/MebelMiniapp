@@ -260,3 +260,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .picker-backdrop, .picker-panel, .picker-item { animation: none !important; }
 }
+
+/* Gorizontal skrollanadigan qatorlar (masalan kategoriya filtri) uchun —
+   skroll ishlaydi, lekin skroll-polosasi ko'rinmaydi (mobil ilovadagi kabi). */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
