@@ -1,169 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Play, Pause, RotateCw } from "lucide-react";
+import { Play, Pause } from "lucide-react";
 
 let loaded = false;
-
-const JOYSTICK_RADIUS = 32;
-
-/**
- * Modelni siljitish uchun joystik (iOS ilovadagi `PositionJoystick`ning web
- * ekvivalenti) — bosib turib istalgan tomonga sudrash davomida
- * `onMove(dx, dz)` normallashtirilgan (-1..1) yo'nalishni doim yangilab
- * beradi, qo'yib yuborilganda tugma markazga qaytadi.
- */
-function PositionJoystick({ onMove }) {
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  // `tick`ning o'z-o'ziga qayta chaqiriladigan requestAnimationFrame sikli
-  // birinchi chaqiruvdagi closure'ni "eskirgan holda" saqlab qoladi — shu
-  // sababli offset holati state emas, ref orqali o'qiladi (aks holda
-  // joystik faqat vizual harakat qilib, modelni haqiqatda siljitmasdi).
-  const offsetRef = useRef({ x: 0, y: 0 });
-  const draggingRef = useRef(false);
-  const rafRef = useRef(null);
-
-  const stop = () => {
-    draggingRef.current = false;
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    offsetRef.current = { x: 0, y: 0 };
-    setOffset({ x: 0, y: 0 });
-  };
-
-  const tick = () => {
-    if (!draggingRef.current) return;
-    const { x, y } = offsetRef.current;
-    if (x !== 0 || y !== 0) onMove(x / JOYSTICK_RADIUS, y / JOYSTICK_RADIUS);
-    rafRef.current = requestAnimationFrame(tick);
-  };
-
-  const onPointerDown = (e) => {
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // ba'zi brauzer/holatlarda pointer capture mumkin bo'lmasligi mumkin —
-      // baribir sudrashni boshlayveramiz (onPointerMove baribir ishlaydi).
-    }
-    draggingRef.current = true;
-    const rect = e.currentTarget.getBoundingClientRect();
-    updateFromEvent(e, rect);
-    rafRef.current = requestAnimationFrame(tick);
-  };
-
-  const updateFromEvent = (e, rect) => {
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    let dx = e.clientX - cx;
-    let dy = e.clientY - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > JOYSTICK_RADIUS) {
-      dx = (dx / dist) * JOYSTICK_RADIUS;
-      dy = (dy / dist) * JOYSTICK_RADIUS;
-    }
-    offsetRef.current = { x: dx, y: dy };
-    setOffset({ x: dx, y: dy });
-  };
-
-  const onPointerMove = (e) => {
-    if (!draggingRef.current) return;
-    updateFromEvent(e, e.currentTarget.getBoundingClientRect());
-  };
-
-  useEffect(() => stop, []);
-
-  return (
-    <div
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={stop}
-      onPointerCancel={stop}
-      title="Sudrab modelni siljiting"
-      style={{
-        position: "absolute",
-        right: 12,
-        bottom: 12,
-        width: 76,
-        height: 76,
-        borderRadius: "50%",
-        background: "rgba(0,0,0,.28)",
-        backdropFilter: "blur(2px)",
-        touchAction: "none",
-        cursor: "grab",
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          left: "50%",
-          top: "50%",
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          background: "#fff",
-          boxShadow: "0 2px 6px rgba(0,0,0,.3)",
-          transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
-        }}
-      />
-    </div>
-  );
-}
-
-/**
- * Modelni burish uchun gorizontal chizg'ich (iOS ilovadagi rotatsiya
- * slayderining web ekvivalenti) — chapga/o'ngga sudrash `onRotate(deltaDeg)`
- * chaqiradi, boshlanish nuqtasidan farq har hodisada beriladi.
- */
-function RotateBar({ onRotate }) {
-  const lastXRef = useRef(null);
-
-  const onPointerDown = (e) => {
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // qarang PositionJoystick'dagi izoh
-    }
-    lastXRef.current = e.clientX;
-  };
-  const onPointerMove = (e) => {
-    if (lastXRef.current == null) return;
-    const deltaDeg = (e.clientX - lastXRef.current) * 0.6;
-    lastXRef.current = e.clientX;
-    onRotate(deltaDeg);
-  };
-  const stop = () => {
-    lastXRef.current = null;
-  };
-
-  return (
-    <div
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={stop}
-      onPointerCancel={stop}
-      title="Sudrab modelni bering"
-      style={{
-        position: "absolute",
-        left: "50%",
-        top: 12,
-        transform: "translateX(-50%)",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "7px 16px",
-        borderRadius: 999,
-        background: "rgba(0,0,0,.28)",
-        backdropFilter: "blur(2px)",
-        color: "#fff",
-        fontSize: 12.5,
-        fontWeight: 600,
-        touchAction: "none",
-        cursor: "grab",
-        userSelect: "none",
-      }}
-    >
-      <RotateCw size={14} /> Burish
-    </div>
-  );
-}
 
 function hexToRgba(hex) {
   if (!hex || hex.length < 7) return null;
@@ -183,6 +21,10 @@ function hexToRgba(hex) {
  * material'ning baseColorTexture'i, aks holda oddiy rang tint (baseColorFactor)
  * o'rnatiladi. Xuddi shu yondashuv iOS'da RealityKit material orqali qo'llanadi.
  *
+ * Burish/kattalashtirish `camera-controls` orqali model-viewer'ning o'z
+ * sudrash/pinch harakatlari bilan ishlaydi — qo'shimcha joystik/slayder
+ * UI shart emas (foydalanuvchi talabiga ko'ra olib tashlandi).
+ *
  * AR'ga kirish endi model-viewer'ning o'z (ba'zan hali tayyor bo'lmasa ham
  * bosiladigan, shuning uchun "tanlanmay qoladi" degan xatoga o'xshab
  * ko'rinadigan) ichki tugmasi orqali emas — shu tugma butunlay
@@ -201,7 +43,6 @@ const ModelViewer = forwardRef(function ModelViewer(
   const ref = useRef(null);
   const [hasAnimation, setHasAnimation] = useState(false);
   const [playing, setPlaying] = useState(false);
-  const [ready, setReady] = useState(false);
 
   useImperativeHandle(forwardedRef, () => ({
     activateAR: () => ref.current?.activateAR(),
@@ -257,14 +98,10 @@ const ModelViewer = forwardRef(function ModelViewer(
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    setReady(false);
     onReadyChange?.(false);
     onArSupportedChange?.(false);
 
-    const onLoad = () => {
-      setReady(true);
-      onReadyChange?.(true);
-    };
+    const onLoad = () => onReadyChange?.(true);
     const onArStatus = (e) => {
       // "not-presenting" — AR ishga tayyor (hali boshlanmagan); "failed" —
       // bu qurilma/brauzerda AR umuman ishlamaydi (masalan desktop Chrome).
@@ -289,30 +126,6 @@ const ModelViewer = forwardRef(function ModelViewer(
       el.play({ repetitions: Infinity });
     }
     setPlaying(!playing);
-  };
-
-  // Joystik/burish orqali qo'lda boshqarish boshlanganda avtomatik aylanish
-  // to'xtatiladi — aks holda foydalanuvchi qo'yib yuborgan burchakni
-  // model o'zi darhol "buzib" qo'yardi.
-  const stopAutoRotate = () => ref.current?.removeAttribute("auto-rotate");
-
-  const handleJoystickMove = (dx, dz) => {
-    const el = ref.current;
-    if (!el || typeof el.getCameraTarget !== "function") return;
-    stopAutoRotate();
-    const target = el.getCameraTarget();
-    const speed = 0.01;
-    el.cameraTarget = `${target.x + dx * speed}m ${target.y}m ${target.z + dz * speed}m`;
-  };
-
-  const handleRotate = (deltaDeg) => {
-    const el = ref.current;
-    if (!el || typeof el.getCameraOrbit !== "function") return;
-    stopAutoRotate();
-    const orbit = el.getCameraOrbit();
-    const thetaDeg = (orbit.theta * 180) / Math.PI + deltaDeg;
-    const phiDeg = (orbit.phi * 180) / Math.PI;
-    el.cameraOrbit = `${thetaDeg}deg ${phiDeg}deg ${orbit.radius}m`;
   };
 
   if (!glb && !usdz) return null;
@@ -345,12 +158,6 @@ const ModelViewer = forwardRef(function ModelViewer(
           ko'rish" tugmasi orqali, tayyor bo'lgandagina ishga tushadi. */}
       <button slot="ar-button" style={{ display: "none" }} aria-hidden="true" />
     </model-viewer>
-    {ready && (
-      <>
-        <RotateBar onRotate={handleRotate} />
-        <PositionJoystick onMove={handleJoystickMove} />
-      </>
-    )}
     {hasAnimation && (
       <button
         type="button"

@@ -164,9 +164,22 @@ export default function ProductDetail() {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Rasm / 3D */}
-        <div>
-          <div style={{ display: activeModel3d?.glb_url && viewMode === "3d" ? "block" : "none" }}>
-            {activeModel3d?.glb_url && (
+        <div style={{ position: "relative" }}>
+          {activeModel3d?.glb_url && (
+            // `display:none` bilan yashirish o'lchami 0x0 qilib qo'yadi —
+            // ba'zi mobil brauzerlarda bu model-viewer'ning (o'lchamsiz
+            // canvas'ga) hech qachon to'liq yuklanmay qolishiga sabab bo'ldi
+            // ("AR tayyorlanmoqda" cheksiz turib qolishi). Shuning uchun
+            // o'lchamini (360px balandlik) saqlab, faqat `visibility` bilan
+            // ko'rinmas qilinadi va sahifa oqimidan `position:absolute`
+            // orqali chiqarib qo'yiladi (bo'sh joy qoldirmasligi uchun).
+            <div
+              style={
+                viewMode === "3d"
+                  ? { position: "relative" }
+                  : { position: "absolute", top: 0, left: 0, right: 0, visibility: "hidden", pointerEvents: "none" }
+              }
+            >
               <ModelViewer
                 ref={viewerRef}
                 glb={activeModel3d.glb_url}
@@ -178,8 +191,8 @@ export default function ProductDetail() {
                 onReadyChange={setModelReady}
                 onArSupportedChange={setArSupported}
               />
-            )}
-          </div>
+            </div>
+          )}
           {!(activeModel3d?.glb_url && viewMode === "3d") && (
             (p.image_url || p.images?.[0]?.image_url) ? (
               <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="card w-full object-cover" />
