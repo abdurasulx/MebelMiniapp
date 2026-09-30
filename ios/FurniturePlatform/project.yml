@@ -1,4 +1,4 @@
-name: FurniturePlatform
+name: VidaMarket
 options:
   bundleIdPrefix: uz.vida
   deploymentTarget:
@@ -14,7 +14,7 @@ packages:
     url: https://github.com/firebase/firebase-ios-sdk
     from: 11.0.0
 targets:
-  FurniturePlatform:
+  VidaMarket:
     type: application
     platform: iOS
     sources:
@@ -26,7 +26,7 @@ targets:
       - package: Firebase
         product: FirebaseMessaging
     entitlements:
-      path: Resources/FurniturePlatform.entitlements
+      path: Resources/VidaMarket.entitlements
       properties:
         # Xcode Release/App Store imzolashda buni avtomatik "production"ga almashtiradi.
         aps-environment: development
@@ -57,7 +57,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         DEVELOPMENT_TEAM: "BHMWKLT3YF"
         CODE_SIGN_STYLE: Automatic
-  FurniturePlatformUITests:
+  VidaMarketUITests:
     type: bundle.ui-testing
     platform: iOS
     sources:
@@ -70,13 +70,13 @@ targets:
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
-      - target: FurniturePlatform
+      - target: VidaMarket
 schemes:
-  FurniturePlatform:
+  VidaMarket:
     build:
       targets:
-        FurniturePlatform: all
-        FurniturePlatformUITests: [test]
+        VidaMarket: all
+        VidaMarketUITests: [test]
     test:
       targets:
-        - FurniturePlatformUITests
+        - VidaMarketUITests

@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 }
 
 @main
-struct FurniturePlatformApp: App {
+struct VidaMarketApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var auth = AuthStore()
     @StateObject private var likes = LikesStore()
