@@ -225,24 +225,53 @@ export default function Catalog() {
         />
       </div>
 
-      {/* Filtr — mobil ilovadagi kabi bitta qatorda gorizontal skroll */}
+      {/* Kolleksiyalar — mobil ilovadagi aylana belgili kategoriya qatori
+          bilan bir xil ko'rinish (oldingi tekis pill-tugmalar o'rniga) */}
       {!isSearching && (
-        <div className="no-scrollbar mb-6 flex items-center gap-2 overflow-x-auto">
-          <button
-            className={cat === "" ? "btn btn-brand flex-shrink-0 !px-4 !py-1.5 text-xs" : "btn-ghost flex-shrink-0 !px-4 !py-1.5 text-xs"}
-            onClick={() => setCat("")}
-          >
-            {t("catalog_filter_all")}
-          </button>
-          {categories.map((c) => (
+        <div className="mb-6">
+          <h2 className="mb-0.5 text-lg font-bold">{t("catalog_collections_title")}</h2>
+          <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
+            {t("catalog_collections_subtitle")}
+          </p>
+          <div className="no-scrollbar flex gap-4 overflow-x-auto pb-1">
             <button
-              key={c.id}
-              className={cat === c.id ? "btn btn-brand flex-shrink-0 !px-4 !py-1.5 text-xs" : "btn-ghost flex-shrink-0 !px-4 !py-1.5 text-xs"}
-              onClick={() => setCat(c.id)}
+              className="flex flex-shrink-0 flex-col items-center gap-2"
+              style={{ width: 78 }}
+              onClick={() => setCat("")}
             >
-              {c.name_uz}
+              <span
+                className="flex h-16 w-16 items-center justify-center rounded-full transition"
+                style={
+                  cat === ""
+                    ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
+                    : { background: "color-mix(in srgb, var(--primary) 30%, transparent)", color: "var(--text)" }
+                }
+              >
+                <Sofa size={26} />
+              </span>
+              <span className="text-center text-xs font-semibold leading-tight">{t("catalog_filter_all")}</span>
             </button>
-          ))}
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                className="flex flex-shrink-0 flex-col items-center gap-2"
+                style={{ width: 78 }}
+                onClick={() => setCat(c.id)}
+              >
+                <span
+                  className="flex h-16 w-16 items-center justify-center rounded-full transition"
+                  style={
+                    cat === c.id
+                      ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
+                      : { background: "color-mix(in srgb, var(--primary) 30%, transparent)", color: "var(--text)" }
+                  }
+                >
+                  <Sofa size={26} />
+                </span>
+                <span className="line-clamp-2 text-center text-xs font-semibold leading-tight">{c.name_uz}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
