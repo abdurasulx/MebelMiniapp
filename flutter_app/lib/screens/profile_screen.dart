@@ -438,7 +438,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
                                     style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                   Text(
-                                    '${formatSom(o.totalPrice)} so\'m',
+                                    '${formatSom(o.totalPrice)} ${loc.t('currency_som')}',
                                     style: const TextStyle(fontSize: 13),
                                   ),
                                   const SizedBox(height: 4),
@@ -448,7 +448,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFECC299).withOpacity(0.4),
+                                      color: const Color(0xFFECC299).withValues(alpha: 0.4),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(

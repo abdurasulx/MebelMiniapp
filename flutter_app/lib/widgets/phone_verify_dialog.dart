@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../countries.dart';
+import '../locale_store.dart';
 import '../theme.dart';
 import 'otp_box_input.dart';
 
@@ -165,6 +167,7 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -176,14 +179,14 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Telefon raqamini tasdiqlang',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          Text(
+            loc.t('phone_verify_title'),
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Buyurtma berishdan oldin telefon raqamingizni SMS-kod bilan tasdiqlashingiz kerak.',
-            style: TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+          Text(
+            loc.t('phone_verify_desc'),
+            style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
           ),
           const SizedBox(height: 16),
           if (!_codeSent) ...[
@@ -216,7 +219,7 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
                 LengthLimitingTextInputFormatter(_country.phoneLength),
               ],
               decoration: InputDecoration(
-                labelText: 'Telefon',
+                labelText: loc.t('auth_phone_hint'),
                 prefixText: '${_country.dialCode} ',
                 border: const OutlineInputBorder(),
                 helperText: '${_phoneController.text.length}/${_country.phoneLength}',
@@ -229,14 +232,14 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
             ],
             ElevatedButton(
               onPressed: _busy || !_phoneValid ? null : _requestCode,
-              child: _busy ? const CircularProgressIndicator() : const Text('Kod yuborish'),
+              child: _busy ? const CircularProgressIndicator() : Text(loc.t('auth_send_code')),
             ),
           ] else ...[
             if (_debugCode != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Dev rejim — kod: $_debugCode',
+                  '${loc.t('phone_verify_dev_code')}$_debugCode',
                   style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
                 ),
               ),
@@ -255,12 +258,12 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
               children: [
                 TextButton(
                   onPressed: () => setState(() => _codeSent = false),
-                  child: const Text("Raqamni o'zgartirish"),
+                  child: Text(loc.t('auth_change_number')),
                 ),
                 TextButton(
                   onPressed: _resendSeconds > 0 || _busy ? null : _requestCode,
                   child: Text(
-                    _resendSeconds > 0 ? 'Qayta yuborish (${_resendSeconds}s)' : 'Qayta yuborish',
+                    _resendSeconds > 0 ? '${loc.t('auth_resend')} (${_resendSeconds}s)' : loc.t('auth_resend'),
                   ),
                 ),
               ],

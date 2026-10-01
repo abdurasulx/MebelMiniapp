@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../auth_store.dart';
 import '../countries.dart';
 import '../locale_store.dart';
-import '../theme.dart';
 import '../widgets/otp_box_input.dart';
 
 enum _Step { phone, code, profile }
@@ -212,9 +210,9 @@ class _AuthScreenState extends State<AuthScreen> {
         OutlinedButton.icon(
           onPressed: _busy ? null : _loginWithGoogle,
           icon: Image.asset('assets/icons/google_logo.png', width: 22, height: 22),
-          label: const Text(
-            'Google orqali kirish',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          label: Text(
+            loc.t('auth_google'),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -231,9 +229,9 @@ class _AuthScreenState extends State<AuthScreen> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           icon: Image.asset('assets/icons/telegram_logo.png', width: 22, height: 22),
-          label: const Text(
-            'Telegram orqali kirish',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          label: Text(
+            loc.t('auth_telegram'),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
         ),
         /*

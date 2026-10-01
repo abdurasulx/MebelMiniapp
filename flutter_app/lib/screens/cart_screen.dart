@@ -54,7 +54,7 @@ class _CartScreenState extends State<CartScreen> {
     if (mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Buyurtma qabul qilindi')));
+      ).showSnackBar(SnackBar(content: Text(context.read<LocaleStore>().t('cart_order_placed'))));
       Navigator.of(context).pop();
     }
   }
@@ -199,7 +199,7 @@ class _CartScreenState extends State<CartScreen> {
                 : Container(
                     width: 56,
                     height: 56,
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     child: const Icon(
                       Icons.chair_rounded,
                       color: AppColors.deep,
@@ -288,7 +288,7 @@ class _CartScreenState extends State<CartScreen> {
         width: 24,
         height: 24,
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.35),
+          color: AppColors.primary.withValues(alpha: 0.35),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 14, color: AppColors.deep),

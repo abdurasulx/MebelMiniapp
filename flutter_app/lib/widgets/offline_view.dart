@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../api_client.dart';
+import '../locale_store.dart';
 import '../theme.dart';
 
 /// Server umuman javob bermaganda (internet yo'q, backend o'chiq) ko'rsatiladigan
@@ -17,6 +19,7 @@ class OfflineView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -25,14 +28,14 @@ class OfflineView extends StatelessWidget {
           children: [
             Icon(Icons.wifi_off_rounded, size: 56, color: AppColors.deep.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            const Text(
-              'Internet aloqasi yo\'q',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            Text(
+              loc.t('offline_title'),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
             Text(
-              message ?? 'Serverga ulanib bo\'lmadi. Internetingizni tekshirib, qayta urinib ko\'ring.',
+              message ?? loc.t('offline_message'),
               style: const TextStyle(fontSize: 13.5, color: Color(0xFF8A7357)),
               textAlign: TextAlign.center,
             ),
@@ -41,7 +44,7 @@ class OfflineView extends StatelessWidget {
               onPressed: onRetry,
               style: FilledButton.styleFrom(backgroundColor: AppColors.deep),
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Qayta urinish'),
+              label: Text(loc.t('common_refresh')),
             ),
           ],
         ),

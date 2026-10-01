@@ -299,7 +299,7 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFECC299).withOpacity(0.25),
+        color: const Color(0xFFECC299).withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -319,7 +319,7 @@ class _Header extends StatelessWidget {
                     : Container(
                         width: 60,
                         height: 60,
-                        color: const Color(0xFFECC299).withOpacity(0.5),
+                        color: const Color(0xFFECC299).withValues(alpha: 0.5),
                         child: const Icon(Icons.business),
                       ),
               ),
@@ -347,7 +347,7 @@ class _Header extends StatelessWidget {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: _hexToColor(tier.color).withOpacity(0.2),
+                              color: _hexToColor(tier.color).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(

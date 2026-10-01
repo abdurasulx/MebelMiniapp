@@ -2,21 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../auth_store.dart';
+import '../locale_store.dart';
 import '../models.dart';
 import '../notification_ws.dart';
 import '../widgets/offline_view.dart';
 import 'order_detail_screen.dart';
 import 'worker/worker_orders_screen.dart';
-
-String _timeAgo(String iso) {
-  final date = DateTime.tryParse(iso);
-  if (date == null) return '';
-  final diff = DateTime.now().difference(date);
-  if (diff.inMinutes < 1) return 'hozir';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} daq oldin';
-  if (diff.inHours < 24) return '${diff.inHours} soat oldin';
-  return '${diff.inDays} kun oldin';
-}
 
 /// Bell tugmasi — AppBar `actions`ga qo'yiladi, o'qilmagan sonini
 /// WebSocket orqali real vaqtda oladi (avval 30s'da bir marta HTTP bilan
@@ -62,13 +53,14 @@ class _NotificationBellButtonState extends State<NotificationBellButton> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     return IconButton(
       icon: Badge(
         label: Text('$_count'),
         isLabelVisible: _count > 0,
         child: const Icon(Icons.notifications_outlined),
       ),
-      tooltip: 'Xabarnomalar',
+      tooltip: loc.t('notif_title'),
       onPressed: () async {
         await Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const NotificationsScreen()),
@@ -240,21 +232,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     final hasUnread = _items.any((n) => !n.isRead);
     if (!_loading && OfflineView.isNetworkError(_error) && _items.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Xabarnomalar')),
+        appBar: AppBar(title: Text(loc.t('notif_title'))),
         body: OfflineView(onRetry: _load),
       );
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Xabarnomalar'),
+        title: Text(loc.t('notif_title')),
         actions: [
           if (hasUnread)
             TextButton(
               onPressed: _markAllRead,
-              child: const Text("Hammasini o'qilgan qilish"),
+              child: Text(loc.t('notif_mark_all_read')),
             ),
         ],
       ),
@@ -266,11 +259,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ? Center(child: Text(_error.toString(), style: const TextStyle(color: Colors.red)))
                 : _items.isEmpty
                     ? ListView(
-                        children: const [
+                        children: [
                           Padding(
-                            padding: EdgeInsets.only(top: 60),
+                            padding: const EdgeInsets.only(top: 60),
                             child: Center(
-                              child: Text('Hali xabarnoma yo\'q.', style: TextStyle(color: Colors.black54)),
+                              child: Text(loc.t('notif_empty'), style: const TextStyle(color: Colors.black54)),
                             ),
                           ),
                         ],
@@ -288,7 +281,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               children: [
                                 if (n.body.isNotEmpty) Text(n.body),
                                 const SizedBox(height: 2),
-                                Text(_timeAgo(n.createdAt), style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                                Text(loc.timeAgo(n.createdAt), style: const TextStyle(fontSize: 11, color: Colors.black45)),
                               ],
                             ),
                             trailing: n.isRead ? null : const Icon(Icons.circle, size: 8, color: Colors.red),

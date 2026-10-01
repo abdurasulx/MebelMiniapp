@@ -79,14 +79,19 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
         ChangeNotifierProvider.value(value: _cart),
         ChangeNotifierProvider.value(value: _locale),
       ],
-      child: MaterialApp(
-        title: 'Furniture Platform',
-        debugShowCheckedModeBanner: false,
-        theme: buildAppTheme(),
-        // Push bosilganda tegishli sahifaga BuildContext'siz o'tish uchun
-        // (qarang push_service.dart::_handleMessage).
-        navigatorKey: PushService.navigatorKey,
-        home: _ready ? const _AppGate() : const SplashScreen(),
+      child: Consumer<LocaleStore>(
+        builder: (context, locale, _) {
+          return MaterialApp(
+            title: 'Furniture Platform',
+            debugShowCheckedModeBanner: false,
+            locale: Locale(locale.code),
+            theme: buildAppTheme(),
+            // Push bosilganda tegishli sahifaga BuildContext'siz o'tish uchun
+            // (qarang push_service.dart::_handleMessage).
+            navigatorKey: PushService.navigatorKey,
+            home: _ready ? const _AppGate() : const SplashScreen(),
+          );
+        },
       ),
     );
   }

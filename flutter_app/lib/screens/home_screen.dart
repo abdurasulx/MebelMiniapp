@@ -442,7 +442,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     decoration: BoxDecoration(
                       color: selected
                           ? AppColors.deep
-                          : AppColors.primary.withOpacity(0.4),
+                          : AppColors.primary.withValues(alpha: 0.4),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(

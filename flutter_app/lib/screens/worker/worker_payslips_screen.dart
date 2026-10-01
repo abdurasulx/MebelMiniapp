@@ -1,42 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../api_client.dart';
+import '../../locale_store.dart';
 import '../../models.dart';
 import '../../widgets/offline_view.dart';
 
-const _monthNames = [
-  'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
-  'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr',
-];
-
-String _periodLabel(String period) {
-  final parts = period.split('-');
-  if (parts.length < 2) return period;
-  final m = int.tryParse(parts[1]);
-  if (m == null || m < 1 || m > 12) return period;
-  return '${_monthNames[m - 1]} ${parts[0]}';
-}
-
 /// To'lov turiga mos asosiy summa tavsifi — web'dagi `payBreakdown()`
 /// (FirmaPayroll.jsx) bilan bir xil.
-String _payBreakdown(Payslip p) {
+String _payBreakdown(Payslip p, LocaleStore loc) {
   final baseSalary = double.tryParse(p.baseSalary) ?? 0;
   final commissionSales = double.tryParse(p.commissionSales) ?? 0;
   final commissionAmount = double.tryParse(p.commissionAmount) ?? 0;
   final workedHours = double.tryParse(p.workedHours) ?? 0;
   final hourlyAmount = double.tryParse(p.hourlyAmount) ?? 0;
   final completedTasksAmount = double.tryParse(p.completedTasksAmount) ?? 0;
+  final som = loc.t('currency_som');
   switch (p.payType) {
     case 'fixed':
-      return "${formatSom(baseSalary.toStringAsFixed(0))} so'm/oy";
+      return "${formatSom(baseSalary.toStringAsFixed(0))} ${loc.t('payslip_per_month')}";
     case 'fixed_bonus':
-      return "MAX(${formatSom(baseSalary.toStringAsFixed(0))} oylik, ${formatSom(completedTasksAmount.toStringAsFixed(0))} bajarilgan ish)";
+      return "MAX(${formatSom(baseSalary.toStringAsFixed(0))} ${loc.t('payslip_salary_word')}, ${formatSom(completedTasksAmount.toStringAsFixed(0))} ${loc.t('payslip_completed_work')})";
     case 'commission':
-      return "${formatSom(commissionSales.toStringAsFixed(0))} so'mdan ${formatSom(commissionAmount.toStringAsFixed(0))} so'm";
+      return "${formatSom(commissionSales.toStringAsFixed(0))} $som -> ${formatSom(commissionAmount.toStringAsFixed(0))} $som";
     case 'hourly':
       final perHour = workedHours > 0 ? hourlyAmount / workedHours : 0;
-      return "${formatSom(workedHours.toStringAsFixed(0))} soat × ${formatSom(perHour.toStringAsFixed(0))}";
+      return "${formatSom(workedHours.toStringAsFixed(0))} ${loc.t('payslip_hours')} × ${formatSom(perHour.toStringAsFixed(0))}";
     case 'piecework':
-      return "${formatSom(completedTasksAmount.toStringAsFixed(0))} so'm (bajarilgan ishlar)";
+      return "${formatSom(completedTasksAmount.toStringAsFixed(0))} $som (${loc.t('payslip_completed_work')})";
     default:
       return '—';
   }
@@ -80,14 +70,15 @@ class _WorkerPayslipsScreenState extends State<WorkerPayslipsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     if (!_loading && OfflineView.isNetworkError(_error) && _payslips.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Ish haqim')),
+        appBar: AppBar(title: Text(loc.t('payslip_title'))),
         body: OfflineView(onRetry: _load),
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Ish haqim')),
+      appBar: AppBar(title: Text(loc.t('payslip_title'))),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
@@ -96,11 +87,11 @@ class _WorkerPayslipsScreenState extends State<WorkerPayslipsScreen> {
                 ? Center(child: Text(_error.toString(), style: const TextStyle(color: Colors.red)))
                 : _payslips.isEmpty
                     ? ListView(
-                        children: const [
+                        children: [
                           Padding(
-                            padding: EdgeInsets.only(top: 60),
+                            padding: const EdgeInsets.only(top: 60),
                             child: Center(
-                              child: Text("Hali hisoblangan oylik yo'q.", style: TextStyle(color: Colors.black54)),
+                              child: Text(loc.t('payslip_empty'), style: const TextStyle(color: Colors.black54)),
                             ),
                           ),
                         ],
@@ -152,8 +143,9 @@ class _PayslipTileState extends State<_PayslipTile> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     final p = widget.payslip;
-    final extras = StringBuffer('${p.payTypeDisplay} · ${_payBreakdown(p)}');
+    final extras = StringBuffer('${p.payTypeDisplay} · ${_payBreakdown(p, loc)}');
     final workflowEarnings = double.tryParse(p.workflowEarnings) ?? 0;
     final kpiBonus = double.tryParse(p.kpiBonusAmount) ?? 0;
     if (p.payType == 'commission' && workflowEarnings > 0) {
@@ -180,13 +172,13 @@ class _PayslipTileState extends State<_PayslipTile> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_periodLabel(p.period), style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(loc.periodLabel(p.period), style: const TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         Text(extras.toString(), style: Theme.of(context).textTheme.bodySmall),
                         if (!p.isPaid && paidTotal > 0) ...[
                           const SizedBox(height: 2),
                           Text(
-                            "${formatSom(paidTotal.toStringAsFixed(0))} avans olingan",
+                            "${formatSom(paidTotal.toStringAsFixed(0))}${loc.t('payslip_advance_taken')}",
                             style: const TextStyle(fontSize: 11, color: Colors.black45),
                           ),
                         ],
@@ -197,7 +189,7 @@ class _PayslipTileState extends State<_PayslipTile> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        "${formatSom(p.totalAmount)} so'm",
+                        "${formatSom(p.totalAmount)} ${loc.t('currency_som')}",
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
@@ -208,7 +200,7 @@ class _PayslipTileState extends State<_PayslipTile> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          p.isPaid ? "To'landi" : 'Kutilmoqda',
+                          p.isPaid ? loc.t('payslip_paid') : loc.t('payslip_pending'),
                           style: TextStyle(
                             fontSize: 11,
                             color: p.isPaid ? Colors.green.shade800 : Colors.orange.shade800,
@@ -231,7 +223,7 @@ class _PayslipTileState extends State<_PayslipTile> {
                 else if (_error != null)
                   Text(_error.toString(), style: const TextStyle(color: Colors.red, fontSize: 12))
                 else if ((_payments ?? []).isEmpty)
-                  const Text("Hali to'lov qilinmagan.", style: TextStyle(fontSize: 12, color: Colors.black54))
+                  Text(loc.t('payslip_no_payments'), style: const TextStyle(fontSize: 12, color: Colors.black54))
                 else
                   ..._payments!.map(
                     (pm) => Padding(
@@ -241,7 +233,7 @@ class _PayslipTileState extends State<_PayslipTile> {
                         children: [
                           Expanded(
                             child: Text(
-                              '${pm.kindDisplay} — ${formatSom(pm.amount)} so\'m'
+                              '${pm.kindDisplay} — ${formatSom(pm.amount)} ${loc.t('currency_som')}'
                               '${pm.note.isNotEmpty ? " (${pm.note})" : ""}',
                               style: const TextStyle(fontSize: 12),
                             ),

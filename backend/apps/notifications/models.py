@@ -20,6 +20,7 @@ class NotificationType(models.TextChoices):
     ACCOUNT_DELETION_REQUESTED = "account_deletion_requested", "Hisobni o'chirish so'rovi"
     ACCOUNT_DELETION_APPROVED = "account_deletion_approved", "Hisobni o'chirish tasdiqlandi"
     ACCOUNT_DELETION_REJECTED = "account_deletion_rejected", "Hisobni o'chirish rad etildi"
+    BROADCAST = "broadcast", "Umumiy xabarnoma"
 
 
 class NotificationQuerySet(models.QuerySet):
@@ -118,3 +119,57 @@ class PushDevice(BaseModel):
 
     def __str__(self):
         return f"{self.user} — {self.platform} ({self.device_id or self.token or self.id})"
+
+
+class BroadcastNotification(BaseModel):
+    """Admin paneldan barcha yoki ma'lum toifadagi foydalanuvchilarga
+    bir martalik Push (FCM) va In-app xabarnoma yuborish modeli."""
+
+    class TargetAudience(models.TextChoices):
+        ALL = "all", "Barcha foydalanuvchilar"
+        CUSTOMERS = "customer", "Faqat xaridorlar (mijozlar)"
+        EMPLOYEES = "employee", "Faqat ustalar va ishchilar"
+        COMPANY_OWNERS = "company_owner", "Faqat firma egalari"
+
+    class DeliveryType(models.TextChoices):
+        PUSH_ONLY = "push_only", "Faqat Push bildirishnoma (Ilova ichida ko'rinmaydi)"
+        BOTH = "both", "Push + Ilova ichida (Ikkalasida ham ko'rinadi)"
+        INAPP_ONLY = "inapp_only", "Faqat ilova ichida (Push yuborilmaydi)"
+
+    title = models.CharField(max_length=200, verbose_name="Xabarnoma sarlavhasi")
+    body = models.TextField(verbose_name="Xabar matni")
+    delivery_type = models.CharField(
+        max_length=20,
+        choices=DeliveryType.choices,
+        default=DeliveryType.PUSH_ONLY,
+        verbose_name="Yetkazish usuli",
+        help_text="Faqat Push tanlansa — ilovaning 'Bildirishnomalar' sahifasiga tushmaydi, faqat foydalanuvchining telefoniga Push keladi.",
+    )
+    target_audience = models.CharField(
+        max_length=20,
+        choices=TargetAudience.choices,
+        default=TargetAudience.ALL,
+        verbose_name="Kimlarga yuborilsin",
+    )
+    target_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Aynan bitta foydalanuvchi (ixtiyoriy)",
+        help_text="Faqat bitta foydalanuvchiga yubormoqchi bo'lsangiz tanlang. Bo'sh qolsa, yuqoridagi auditoriyaga yuboriladi.",
+    )
+    is_sent = models.BooleanField(default=False, verbose_name="Yuborilgan", editable=False)
+    sent_at = models.DateTimeField(null=True, blank=True, verbose_name="Yuborilgan vaqti", editable=False)
+    recipients_count = models.PositiveIntegerField(
+        default=0, verbose_name="Qabul qiluvchilar soni", editable=False
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "Xabarnoma yuborish (Broadcast)"
+        verbose_name_plural = "Xabarnoma yuborish (Broadcast)"
+
+    def __str__(self):
+        return f"{self.title} ({self.get_target_audience_display()})"
+

@@ -166,7 +166,10 @@ TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", default="")
 # MUHIM: bu fayl HECH QACHON git'ga commit qilinmasin (.gitignore'da).
 # Nisbiy yo'l berilsa (masalan ".env"dagi standart "firebase-credentials.json"),
 # ishga tushirilgan joydan (CWD) qat'i nazar doim BASE_DIR'ga nisbatan hal qilinadi.
-_firebase_credentials_raw = env("FIREBASE_CREDENTIALS_PATH", default="")
+_firebase_credentials_raw = env(
+    "FIREBASE_CREDENTIALS_PATH",
+    default="firebase-credentials.json" if (BASE_DIR / "firebase-credentials.json").exists() else "",
+)
 FIREBASE_CREDENTIALS_PATH = (
     str(BASE_DIR / _firebase_credentials_raw) if _firebase_credentials_raw else ""
 )

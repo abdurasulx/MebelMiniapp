@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../api_client.dart';
 import '../../auth_store.dart';
+import '../../locale_store.dart';
 import '../../models.dart';
 import '../notifications_screen.dart';
 import '../product_detail_screen.dart';
@@ -57,6 +58,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthStore>().user;
     final company = user?.company;
+    final loc = context.watch<LocaleStore>();
     // Davomat (check-in/check-out) faqat soatbay (pay_type == 'hourly')
     // xodimlar uchun mantiqiy — oylik/komissiya/ishbay xodimning ish haqi
     // ishlagan soatiga bog'liq emas (backend ham mustaqil tekshiradi,
@@ -69,7 +71,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
     final isMaster = user?.positions.contains('usta') ?? false;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Usta paneli'),
+        title: Text(loc.t('worker_panel_tab')),
         // Avval bildirishnoma tugmasi faqat Profil bo'limida bor edi —
         // usta ko'pincha shu yerda ("Usta paneli" tabida) qolgani uchun
         // vazifa/erkin-topshiriq bildirishnomalarini ko'rish uchun Profilga
@@ -79,7 +81,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
           if (isHourly)
             IconButton(
               icon: const Icon(Icons.access_time_filled_outlined),
-              tooltip: 'Davomat',
+              tooltip: loc.t('worker_attendance_tooltip'),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const AttendanceScreen()),
               ),
@@ -87,14 +89,14 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
           if (isMaster)
             IconButton(
               icon: const Icon(Icons.add_business_rounded),
-              tooltip: 'Individual loyiha',
+              tooltip: loc.t('worker_custom_order_tooltip'),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const CreateCustomOrderScreen()),
               ),
             ),
           IconButton(
             icon: const Icon(Icons.warehouse_outlined),
-            tooltip: 'Omborlar',
+            tooltip: loc.t('worker_warehouses_tooltip'),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const WarehousesScreen()),
             ),
@@ -102,7 +104,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         ],
       ),
       body: company == null
-          ? const Center(child: Text('Siz hali biror firmada ishlamayapsiz'))
+          ? Center(child: Text(loc.t('worker_no_company')))
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -112,9 +114,9 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                     company.name,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const Text(
-                    'Faqat shu firma mahsulotlari — uy loyihalashda ishlatiladi.',
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  Text(
+                    loc.t('worker_company_products_note'),
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                   const SizedBox(height: 12),
                   if (_loading)
@@ -122,7 +124,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                   if (_error != null)
                     Text(_error!, style: const TextStyle(color: Colors.red)),
                   if (!_loading && _products.isEmpty)
-                    const Text('Bu firmada hali mahsulot yo\'q'),
+                    Text(loc.t('worker_no_products')),
                   ..._products.map(
                     (p) => Card(
                       child: ListTile(
@@ -130,9 +132,9 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                         subtitle:
                             p.model3d?.usdzUrl != null ||
                                 p.model3d?.glbUrl != null
-                            ? const Text(
-                                '3D mavjud',
-                                style: TextStyle(fontSize: 12),
+                            ? Text(
+                                loc.t('worker_has_3d'),
+                                style: const TextStyle(fontSize: 12),
                               )
                             : null,
                         onTap: () => Navigator.of(context).push(

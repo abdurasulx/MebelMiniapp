@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../locale_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../screens/product_detail_screen.dart';
@@ -12,6 +14,7 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     final hasAr = product.model3d?.glbUrl != null;
     final price = product.variants.isNotEmpty
         ? product.variants.first.basePriceValue
@@ -30,7 +33,7 @@ class ProductCard extends StatelessWidget {
           border: Border.all(color: AppColors.cardBorder),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -50,7 +53,7 @@ class ProductCard extends StatelessWidget {
                             fit: BoxFit.cover,
                           )
                         : Container(
-                            color: AppColors.primary.withOpacity(0.35),
+                            color: AppColors.primary.withValues(alpha: 0.35),
                             child: const Icon(
                               Icons.chair_rounded,
                               size: 42,
@@ -113,7 +116,7 @@ class ProductCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
+                              color: Colors.black.withValues(alpha: 0.15),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -129,7 +132,7 @@ class ProductCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '${product.availableQuantity} dona',
+                              '${product.availableQuantity} ${loc.t('unit_pcs')}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -183,7 +186,7 @@ class ProductCard extends StatelessWidget {
                   if (price != null) ...[
                     const SizedBox(height: 6),
                     Text(
-                      '${formatSom(price.toStringAsFixed(0))} so\'m dan',
+                      '${formatSom(price.toStringAsFixed(0))} ${loc.t('currency_som')}${loc.t('price_from_suffix')}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

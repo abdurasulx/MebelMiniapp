@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../api_client.dart';
+import '../../locale_store.dart';
 import '../../models.dart';
 import '../../widgets/offline_view.dart';
 
@@ -43,14 +45,15 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     if (!_loading && OfflineView.isNetworkError(_error) && _warehouses.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Omborlar')),
+        appBar: AppBar(title: Text(loc.t('warehouses_title'))),
         body: OfflineView(onRetry: _load),
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Omborlar')),
+      appBar: AppBar(title: Text(loc.t('warehouses_title'))),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
@@ -59,10 +62,10 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
                 ? Center(child: Text(_error.toString(), style: const TextStyle(color: Colors.red)))
                 : _warehouses.isEmpty
                     ? ListView(
-                        children: const [
+                        children: [
                           Padding(
-                            padding: EdgeInsets.only(top: 60),
-                            child: Center(child: Text('Hali ombor yo\'q.', style: TextStyle(color: Colors.black54))),
+                            padding: const EdgeInsets.only(top: 60),
+                            child: Center(child: Text(loc.t('warehouses_empty'), style: const TextStyle(color: Colors.black54))),
                           ),
                         ],
                       )
@@ -141,6 +144,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     if (!_loading && OfflineView.isNetworkError(_error)) {
       return Scaffold(
         appBar: AppBar(title: Text(widget.warehouse.name)),
@@ -157,13 +161,13 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
                 ? Center(child: Text(_error.toString(), style: const TextStyle(color: Colors.red)))
                 : !_isRawMaterial
                     ? ListView(
-                        children: const [
+                        children: [
                           Padding(
-                            padding: EdgeInsets.only(top: 60),
+                            padding: const EdgeInsets.only(top: 60),
                             child: Center(
                               child: Text(
-                                'Tayyor mahsulot ombori tafsilotlari veb-portalda ko\'rinadi.',
-                                style: TextStyle(color: Colors.black54),
+                                loc.t('warehouse_ready_goods_note'),
+                                style: const TextStyle(color: Colors.black54),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -173,12 +177,12 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
                     : ListView(
                         padding: const EdgeInsets.all(12),
                         children: [
-                          Text('Qoldiqlar', style: Theme.of(context).textTheme.titleSmall),
+                          Text(loc.t('warehouse_stocks'), style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: 6),
                           if (_stocks.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.only(bottom: 12),
-                              child: Text('Hali qoldiq yo\'q.', style: TextStyle(color: Colors.black54, fontSize: 13)),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(loc.t('warehouse_no_stocks'), style: const TextStyle(color: Colors.black54, fontSize: 13)),
                             ),
                           ..._stocks.map(
                             (s) => Card(
@@ -191,12 +195,12 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          Text('Qoldiqlar (offcut) va varaqlar', style: Theme.of(context).textTheme.titleSmall),
+                          Text(loc.t('warehouse_offcuts_sheets'), style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: 6),
                           if (_remnants.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.only(bottom: 12),
-                              child: Text('Hali bo\'lak/varaq yo\'q.', style: TextStyle(color: Colors.black54, fontSize: 13)),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(loc.t('warehouse_no_offcuts'), style: const TextStyle(color: Colors.black54, fontSize: 13)),
                             ),
                           ..._remnants.map(
                             (r) => Card(

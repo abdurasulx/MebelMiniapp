@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../locale_store.dart';
 import '../theme.dart';
 
 /// Ilova ochilishida ko'rsatiladigan brend ekrani — avval bosh sahifada
@@ -9,6 +11,7 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -28,18 +31,18 @@ class SplashScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'MINIMAL VA FUNKSIONAL',
+                  loc.t('splash_badge'),
                   style: TextStyle(
-                    color: AppColors.primary.withOpacity(0.85),
+                    color: AppColors.primary.withValues(alpha: 0.85),
                     fontSize: 12.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 1.4,
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Uyingizga\nqulaylik va hashamat',
-                  style: TextStyle(
+                Text(
+                  loc.t('splash_title'),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
@@ -48,9 +51,9 @@ class SplashScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'O\'zbekistonning eng yaxshi mebel ustalari. O\'lchamingizga mos dizayn, uyingizga yetkazib berish.',
+                  loc.t('splash_desc'),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 14.5,
                     height: 1.4,
                   ),

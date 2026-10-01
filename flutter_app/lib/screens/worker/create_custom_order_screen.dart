@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../api_client.dart';
 import '../../auth_store.dart';
+import '../../locale_store.dart';
 import '../../models.dart';
 
 /// Joylashuvni olishda muvaffaqiyatsizlik — backend hali chaqirilmagan
@@ -79,18 +80,17 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
     }
   }
 
-  Future<Position?> _currentPosition() async {
+  Future<Position?> _currentPosition(LocaleStore loc) async {
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      throw _LocationException(
-          'Joylashuvga ruxsat berilmagan. Sozlamalardan ruxsat bering.');
+      throw _LocationException(loc.t('geo_permission_denied'));
     }
     if (!await Geolocator.isLocationServiceEnabled()) {
-      throw _LocationException('Joylashuv xizmati o\'chirilgan.');
+      throw _LocationException(loc.t('geo_service_disabled'));
     }
     try {
       return await Geolocator.getCurrentPosition(
@@ -98,11 +98,11 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
             const LocationSettings(accuracy: LocationAccuracy.high),
       );
     } catch (_) {
-      throw _LocationException('Joylashuv aniqlanmadi. Qayta urining.');
+      throw _LocationException(loc.t('geo_detect_failed'));
     }
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit(LocaleStore loc) async {
     setState(() {
       _busy = true;
       _error = null;
@@ -110,7 +110,7 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
     try {
       Position? position;
       try {
-        position = await _currentPosition();
+        position = await _currentPosition(loc);
       } catch (_) {
         position = null;
       }
@@ -161,13 +161,13 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
             auth: true,
           );
         } catch (e) {
-          bazisWarning = 'Buyurtma yaratildi, lekin Bazis fayli yuklanmadi: $e';
+          bazisWarning = '${loc.t('custom_order_created')}, Bazis: $e';
         }
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(bazisWarning ?? 'Buyurtma yaratildi')),
+          SnackBar(content: Text(bazisWarning ?? loc.t('custom_order_created'))),
         );
         Navigator.of(context).pop();
       }
@@ -180,30 +180,30 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Individual loyiha')),
+      appBar: AppBar(title: Text(loc.t('custom_order_title'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           TextField(
             controller: _customerWorkerIdController,
-            decoration: const InputDecoration(
-              labelText: 'Mijoz qidiruvchi ID',
-              helperText:
-                  'Mijoz shu ID orqali o\'z ilovasida buyurtmani kuzatib borishi mumkin bo\'ladi.',
+            decoration: InputDecoration(
+              labelText: loc.t('custom_order_customer_id'),
+              helperText: loc.t('custom_order_customer_id_helper'),
               helperMaxLines: 2,
             ),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _addressController,
-            decoration: const InputDecoration(labelText: 'Manzil (ixtiyoriy)'),
+            decoration: InputDecoration(labelText: loc.t('custom_order_address_opt')),
           ),
           const SizedBox(height: 12),
           for (final item in _items) ...[
             DropdownButtonFormField<String>(
               initialValue: item.productId,
-              decoration: const InputDecoration(labelText: 'Mahsulot'),
+              decoration: InputDecoration(labelText: loc.t('custom_order_product')),
               items: _products
                   .map((p) =>
                       DropdownMenuItem(value: p.id, child: Text(p.nameUz)))
@@ -215,19 +215,19 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
                 Expanded(
                     child: TextField(
                         controller: item.widthController,
-                        decoration: const InputDecoration(labelText: 'Eni'),
+                        decoration: InputDecoration(labelText: loc.t('custom_order_width')),
                         keyboardType: TextInputType.number)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: TextField(
                         controller: item.heightController,
-                        decoration: const InputDecoration(labelText: 'Bo\'yi'),
+                        decoration: InputDecoration(labelText: loc.t('custom_order_height')),
                         keyboardType: TextInputType.number)),
                 const SizedBox(width: 8),
                 Expanded(
                     child: TextField(
                         controller: item.depthController,
-                        decoration: const InputDecoration(labelText: 'Chuquri'),
+                        decoration: InputDecoration(labelText: loc.t('custom_order_depth')),
                         keyboardType: TextInputType.number)),
               ],
             ),
@@ -236,13 +236,13 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
                 Expanded(
                     child: TextField(
                         controller: item.qtyController,
-                        decoration: const InputDecoration(labelText: 'Soni'),
+                        decoration: InputDecoration(labelText: loc.t('custom_order_quantity')),
                         keyboardType: TextInputType.number)),
                 Checkbox(
                     value: item.isCustomSize,
                     onChanged: (v) =>
                         setState(() => item.isCustomSize = v ?? true)),
-                const Text('Narx keyinroq'),
+                Text(loc.t('custom_order_price_later')),
               ],
             ),
             const Divider(),
@@ -250,17 +250,15 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
           TextButton.icon(
             onPressed: () => setState(() => _items.add(_OrderItemDraft())),
             icon: const Icon(Icons.add),
-            label: const Text('Band qo\'shish'),
+            label: Text(loc.t('custom_order_add_item')),
           ),
           const Divider(),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.upload_file),
-            title: Text(_bazisFileName ?? 'Bazis fayl biriktirish (ixtiyoriy)'),
+            title: Text(_bazisFileName ?? loc.t('custom_order_attach_bazis')),
             subtitle: _bazisFileName == null
-                ? const Text(
-                    'CAD dasturidan eksport qilingan .project fayli — detal/teshik'
-                    ' ma\'lumotidan ishlab chiqarish topshiriqlari avtomatik tuziladi.')
+                ? Text(loc.t('custom_order_bazis_desc'))
                 : null,
             trailing: _bazisFileName != null
                 ? IconButton(
@@ -277,8 +275,8 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
             Text(_error!, style: const TextStyle(color: Colors.red)),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: _busy ? null : _submit,
-            child: Text(_busy ? 'Yaratilmoqda…' : 'Buyurtma yaratish'),
+            onPressed: _busy ? null : () => _submit(loc),
+            child: Text(_busy ? loc.t('custom_order_submitting') : loc.t('custom_order_submit')),
           ),
         ],
       ),

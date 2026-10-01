@@ -42,14 +42,14 @@ class OrderDetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${formatSom(order.totalPrice)} so\'m',
+                    '${formatSom(order.totalPrice)} ${loc.t('currency_som')}',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECC299).withOpacity(0.4),
+                      color: const Color(0xFFECC299).withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(order.statusDisplay, style: const TextStyle(fontSize: 12)),
@@ -61,7 +61,7 @@ class OrderDetailScreen extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: (order.progressPercent ?? 0) / 100,
                         minHeight: 8,
-                        backgroundColor: const Color(0xFFECC299).withOpacity(0.25),
+                        backgroundColor: const Color(0xFFECC299).withValues(alpha: 0.25),
                         valueColor: const AlwaysStoppedAnimation(Color(0xFF8A5A2B)),
                       ),
                     ),
@@ -119,7 +119,7 @@ class _StepTile extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
+                    color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(

@@ -26,3 +26,5 @@ logs/
 # Qdrant lokal vektor bazasi (embedded rejim) — CLIP embeddinglar shu yerda
 # saqlanadi, backfill_embeddings orqali qayta generatsiya qilinadi.
 backend/qdrant_data/
+google-services.json
+vida-market-firebase-adminsdk-fbsvc-4f2c655892.json

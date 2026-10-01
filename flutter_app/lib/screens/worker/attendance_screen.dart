@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../attendance_store.dart';
+import '../../locale_store.dart';
 
 /// Xodim uchun "Ishga keldim"/"Ishni tugatdim" — geolokatsiya orqali
 /// backendga yuboriladi, YAKUNIY qarorni (tasdiqlangan/rad etilgan/shubhali)
@@ -34,8 +36,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Davomat')),
+      appBar: AppBar(title: Text(loc.t('attendance_title'))),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -52,14 +55,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   child: Text(_error!, style: const TextStyle(color: Colors.red)),
                 ),
               ),
-            if (_lastResult != null) _ResultBanner(result: _lastResult!),
+            if (_lastResult != null) _ResultBanner(result: _lastResult!, loc: loc),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _busy ? null : () => _run(_store.checkIn),
                 icon: const Icon(Icons.login),
-                label: const Text('Ishga keldim'),
+                label: Text(loc.t('attendance_check_in')),
                 style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
               ),
             ),
@@ -69,7 +72,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               child: OutlinedButton.icon(
                 onPressed: _busy ? null : () => _run(_store.checkOut),
                 icon: const Icon(Icons.logout),
-                label: const Text('Ishni tugatdim'),
+                label: Text(loc.t('attendance_check_out')),
                 style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
               ),
             ),
@@ -82,7 +85,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
 class _ResultBanner extends StatelessWidget {
   final AttendanceResult result;
-  const _ResultBanner({required this.result});
+  final LocaleStore loc;
+  const _ResultBanner({required this.result, required this.loc});
 
   @override
   Widget build(BuildContext context) {
@@ -101,10 +105,14 @@ class _ResultBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 approved
-                    ? (result.action == 'check_in' ? 'Ishga kelish tasdiqlandi' : 'Ishni tugatish tasdiqlandi')
+                    ? (result.action == 'check_in'
+                        ? loc.t('attendance_check_in_approved')
+                        : loc.t('attendance_check_out_approved'))
                     : (result.reason.isNotEmpty
                         ? result.reason
-                        : (result.action == 'check_in' ? 'Ishga kelish tasdiqlanmadi' : 'Ishni tugatish tasdiqlanmadi')),
+                        : (result.action == 'check_in'
+                            ? loc.t('attendance_check_in_rejected')
+                            : loc.t('attendance_check_out_rejected'))),
                 style: TextStyle(color: approved ? Colors.green.shade900 : Colors.red.shade900),
               ),
             ),

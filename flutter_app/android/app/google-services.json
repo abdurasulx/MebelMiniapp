@@ -1,45 +1,43 @@
 {
   "project_info": {
-    "project_number": "175043465723",
-    "project_id": "vida-market-8249b",
-    "storage_bucket": "vida-market-8249b.firebasestorage.app"
+    "project_number": "857603145763",
+    "project_id": "vida-market",
+    "storage_bucket": "vida-market.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:175043465723:android:28d8935447a5df5837bb5e",
-        "android_client_info": {
-          "package_name": "uz.furnitureplatform.furniture_platform_mobile"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyA6BCTGBBK9E1AIlPh7dR7BHFZ8f97KRmY"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:175043465723:android:3902eabcb7b61f5a37bb5e",
+        "mobilesdk_app_id": "1:857603145763:android:081e526667a3096d56b196",
         "android_client_info": {
           "package_name": "uz.vida.burchaksoft"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "857603145763-27ohksib2icfvlstl877bchjo4ti6563.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyA6BCTGBBK9E1AIlPh7dR7BHFZ8f97KRmY"
+          "current_key": "AIzaSyDs8Zl5mE_J-1v3ZquIB4hBwjGHwRMIErI"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "857603145763-27ohksib2icfvlstl877bchjo4ti6563.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "uz.vida.burchaksoft"
+              }
+            }
+          ]
         }
       }
     }
