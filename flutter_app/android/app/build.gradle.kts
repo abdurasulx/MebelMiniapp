@@ -67,12 +67,8 @@ android {
 
     buildTypes {
         release {
-            // `android/key.properties` mavjud bo'lsa (qarang
-            // key.properties.example) — haqiqiy kalit bilan imzolanadi;
-            // bo'lmasa (masalan oddiy lokal sinov uchun) debug kalitga
-            // tushadi, shunda `flutter run --release` baribir ishlayveradi,
-            // lekin BUNDAY .aab Play Console'ga yuklanmaydi.
             signingConfig = if (hasReleaseKeystore) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }

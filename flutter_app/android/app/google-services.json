@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "857603145763-e41b5j5ndvcft7jg86ddtu4s2s5pvbt1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "uz.vida.burchaksoft",
+            "certificate_hash": "e37e078004165984b29e14e4db6a4267de4386e3"
+          }
+        },
+        {
           "client_id": "857603145763-27ohksib2icfvlstl877bchjo4ti6563.apps.googleusercontent.com",
           "client_type": 3
         }

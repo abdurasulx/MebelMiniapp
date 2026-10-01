@@ -25,6 +25,7 @@ class AuthStore extends ChangeNotifier {
   bool isAuthenticated = false;
   bool isNewUser = false;
   String? errorMessage;
+  String? errorDetails;
   AppMode appMode = AppMode.customer;
   // Multi-role xodim qaysi kasb bilan ishlayotgani (web'dagi "active_position"
   // bilan bir xil naqsh) — bitta kasbi bo'lsa avtomatik shu qiymat, bir
@@ -171,6 +172,7 @@ class AuthStore extends ChangeNotifier {
   /// bilan bir xil shaklda (`access`/`refresh`/`is_new_user`) keladi.
   Future<bool> loginWithGoogle() async {
     errorMessage = null;
+    errorDetails = null;
     var ok = false;
     try {
       final account = await _googleSignIn.signIn();
@@ -195,9 +197,11 @@ class AuthStore extends ChangeNotifier {
       await _persist(tokens);
       await _loadMe();
       ok = true;
-    } catch (e) {
-      debugPrint('Google sign in error: $e');
+    } catch (e, stack) {
+      print('=== GOOGLE SIGN IN EXCEPTION ===: $e');
+      print('=== STACK ===: $stack');
       final errStr = e.toString();
+      errorDetails = errStr;
       if (errStr.contains('sign_in_failed') ||
           errStr.contains('ApiException') ||
           errStr.contains('PlatformException')) {
@@ -283,6 +287,7 @@ class AuthStore extends ChangeNotifier {
   /// yangilaydi (`hasGoogle` true bo'lib qoladi).
   Future<bool> linkGoogle() async {
     errorMessage = null;
+    errorDetails = null;
     var ok = false;
     try {
       final account = await _googleSignIn.signIn();
@@ -301,9 +306,11 @@ class AuthStore extends ChangeNotifier {
       );
       user = resp;
       ok = true;
-    } catch (e) {
-      debugPrint('Google link error: $e');
+    } catch (e, stack) {
+      print('=== GOOGLE LINK EXCEPTION ===: $e');
+      print('=== STACK ===: $stack');
       final errStr = e.toString();
+      errorDetails = errStr;
       if (errStr.contains('sign_in_failed') ||
           errStr.contains('ApiException') ||
           errStr.contains('PlatformException')) {

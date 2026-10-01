@@ -208,14 +208,30 @@ class _AuthScreenState extends State<AuthScreen> {
                         color: Color(0xFFC81E1E), size: 20),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        loc.t(auth.errorMessage!),
-                        style: const TextStyle(
-                          color: Color(0xFF9B1C1C),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          height: 1.35,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            loc.t(auth.errorMessage!),
+                            style: const TextStyle(
+                              color: Color(0xFF9B1C1C),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                            ),
+                          ),
+                          if (auth.errorDetails != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              auth.errorDetails!,
+                              style: TextStyle(
+                                color: const Color(0xFF9B1C1C).withValues(alpha: 0.75),
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ],
