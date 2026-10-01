@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../auth_store.dart';
 import '../countries.dart';
 import '../locale_store.dart';
+import '../theme.dart';
 import '../widgets/otp_box_input.dart';
+import 'profile_screen.dart';
 
 enum _Step { phone, code, profile }
 
@@ -18,7 +20,8 @@ enum _BusyAction { otp, verify, google, telegram, profile }
 /// oddiy oqim). Bosqichlar: davlat+raqam → 6-xonali kod (qayta yuborish
 /// countdown bilan) → (agar birinchi marta kirsa) ism/familiya so'raladi.
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  final bool isTab;
+  const AuthScreen({super.key, this.isTab = false});
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
@@ -103,7 +106,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (auth.isNewUser) {
       setState(() => _step = _Step.profile);
     } else {
-      if (mounted) Navigator.of(context).maybePop();
+      if (!widget.isTab && mounted) Navigator.of(context).maybePop();
     }
   }
 
@@ -118,7 +121,7 @@ class _AuthScreenState extends State<AuthScreen> {
           : null,
     );
     setState(() => _busyAction = null);
-    if (ok && mounted) Navigator.of(context).maybePop();
+    if (ok && mounted && !widget.isTab) Navigator.of(context).maybePop();
   }
 
   // ignore: unused_element
@@ -170,9 +173,19 @@ class _AuthScreenState extends State<AuthScreen> {
     final auth = context.watch<AuthStore>();
     final loc = context.watch<LocaleStore>();
     return Scaffold(
-      appBar: AppBar(title: Text(loc.t('auth_title'))),
+      appBar: AppBar(
+        title: Text(widget.isTab ? loc.t('profile_title') : loc.t('auth_title')),
+        automaticallyImplyLeading: !widget.isTab,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.language_rounded, color: AppColors.deep),
+            tooltip: 'Language',
+            onPressed: () => pickLanguage(context),
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -180,10 +193,33 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_step == _Step.code) _codeStep(loc),
             if (_step == _Step.profile) _profileStep(loc),
             if (auth.errorMessage != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                auth.errorMessage!,
-                style: const TextStyle(color: Colors.red),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFDE8E8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF8B4B4)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline_rounded,
+                        color: Color(0xFFC81E1E), size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        loc.t(auth.errorMessage!),
+                        style: const TextStyle(
+                          color: Color(0xFF9B1C1C),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
@@ -196,43 +232,173 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
+        // Branded VIDA Badge / Logo
+        Center(
+          child: Container(
+            width: 68,
+            height: 68,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6A4237), AppColors.deep],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.deep.withValues(alpha: 0.18),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Text(
+                'V',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 34,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          loc.t('auth_welcome_title'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: AppColors.deep,
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(height: 6),
         Text(
           loc.t('auth_subtitle'),
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 14.5,
-            color: Color(0xFF8A7357),
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.deep.withValues(alpha: 0.65),
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 24),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _loginWithGoogle,
-          icon: Image.asset('assets/icons/google_logo.png', width: 22, height: 22),
-          label: Text(
-            loc.t('auth_google'),
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+        const SizedBox(height: 28),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OutlinedButton(
+                onPressed: _busy ? null : _loginWithGoogle,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF3C4043),
+                  side: const BorderSide(color: Color(0xFFDADCE0), width: 1.2),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _busyAction == _BusyAction.google
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.deep,
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset('assets/icons/google_logo.png',
+                              width: 20, height: 20),
+                          const SizedBox(width: 12),
+                          Text(
+                            loc.t('auth_google'),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF3C4043),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _busy ? null : _loginWithTelegram,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF2F9FD),
+                  foregroundColor: const Color(0xFF26A5E4),
+                  side: const BorderSide(color: Color(0xFF26A5E4), width: 1.2),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _busyAction == _BusyAction.telegram
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF26A5E4),
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset('assets/icons/telegram_logo.png',
+                              width: 20, height: 20),
+                          const SizedBox(width: 12),
+                          Text(
+                            loc.t('auth_telegram'),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF26A5E4),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _loginWithTelegram,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF26A5E4),
-            side: const BorderSide(color: Color(0xFF26A5E4)),
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-          icon: Image.asset('assets/icons/telegram_logo.png', width: 22, height: 22),
-          label: Text(
-            loc.t('auth_telegram'),
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-          ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.shield_outlined,
+                size: 15, color: AppColors.deep.withValues(alpha: 0.45)),
+            const SizedBox(width: 6),
+            Text(
+              loc.t('auth_secure_note'),
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.deep.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
         /*
         // SMS provayder ulanganda ochiladi:
@@ -312,7 +478,9 @@ class _AuthScreenState extends State<AuthScreen> {
       _lastNameController.text = auth.user?.lastName ?? '';
       setState(() => _step = _Step.profile);
     } else {
-      Navigator.of(context).maybePop();
+      if (!widget.isTab) {
+        Navigator.of(context).maybePop();
+      }
     }
   }
 
@@ -328,7 +496,9 @@ class _AuthScreenState extends State<AuthScreen> {
       _lastNameController.text = auth.user?.lastName ?? '';
       setState(() => _step = _Step.profile);
     } else {
-      Navigator.of(context).maybePop();
+      if (!widget.isTab) {
+        Navigator.of(context).maybePop();
+      }
     }
   }
 

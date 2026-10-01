@@ -665,6 +665,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         behavior: SnackBarBehavior.floating,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        clipBehavior: Clip.antiAlias,
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 18),
         duration: const Duration(seconds: 4),
         padding: EdgeInsets.zero,

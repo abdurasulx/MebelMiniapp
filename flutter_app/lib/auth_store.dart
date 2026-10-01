@@ -196,7 +196,15 @@ class AuthStore extends ChangeNotifier {
       await _loadMe();
       ok = true;
     } catch (e) {
-      errorMessage = e.toString();
+      debugPrint('Google sign in error: $e');
+      final errStr = e.toString();
+      if (errStr.contains('sign_in_failed') ||
+          errStr.contains('ApiException') ||
+          errStr.contains('PlatformException')) {
+        errorMessage = 'auth_error_google_failed';
+      } else {
+        errorMessage = errStr;
+      }
     }
     notifyListeners();
     return ok;
@@ -294,7 +302,15 @@ class AuthStore extends ChangeNotifier {
       user = resp;
       ok = true;
     } catch (e) {
-      errorMessage = e.toString();
+      debugPrint('Google link error: $e');
+      final errStr = e.toString();
+      if (errStr.contains('sign_in_failed') ||
+          errStr.contains('ApiException') ||
+          errStr.contains('PlatformException')) {
+        errorMessage = 'auth_error_google_failed';
+      } else {
+        errorMessage = errStr;
+      }
     }
     notifyListeners();
     return ok;

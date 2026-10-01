@@ -11,6 +11,7 @@ import '../widgets/phone_verify_dialog.dart';
 import 'auth_screen.dart';
 import 'notifications_screen.dart';
 import 'order_detail_screen.dart';
+import '../theme.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -19,19 +20,22 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthStore>();
     final loc = context.watch<LocaleStore>();
+
+    if (auth.user == null) {
+      return const AuthScreen(isTab: true);
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(loc.t('profile_title')),
-        actions: [if (auth.user != null) const NotificationBellButton()],
+        actions: const [NotificationBellButton()],
       ),
-      body: auth.user == null
-          ? const AuthScreen()
-          : _ProfileBody(user: auth.user!),
+      body: _ProfileBody(user: auth.user!),
     );
   }
 }
 
-Future<void> _pickLanguage(BuildContext context) async {
+Future<void> pickLanguage(BuildContext context) async {
   final loc = context.read<LocaleStore>();
   final selected = await showModalBottomSheet<String>(
     context: context,
@@ -189,26 +193,95 @@ class _ProfileBodyState extends State<_ProfileBody> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user.firstName?.isNotEmpty == true
-                          ? user.firstName!
+                      ([user.firstName, user.lastName]
+                              .where((s) => s != null && s.trim().isNotEmpty)
+                              .join(' '))
+                          .trim()
+                          .isNotEmpty
+                          ? [user.firstName, user.lastName]
+                              .where((s) => s != null && s.trim().isNotEmpty)
+                              .join(' ')
                           : user.email,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 17,
+                        color: AppColors.deep,
+                      ),
                     ),
-                    if (user.workerId != null)
+                    if (user.email.isNotEmpty &&
+                        !user.email.endsWith('@telegram.local')) ...[
+                      const SizedBox(height: 3),
                       Row(
                         children: [
-                          Text(
-                            'ID: ${user.workerId}',
-                            style: Theme.of(context).textTheme.bodySmall,
+                          Icon(
+                            Icons.mail_outline_rounded,
+                            size: 14,
+                            color: AppColors.deep.withValues(alpha: 0.6),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 14),
-                            onPressed: () => Clipboard.setData(
-                              ClipboardData(text: user.workerId!),
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              user.email,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.deep.withValues(alpha: 0.7),
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
+                    ],
+                    if (user.phone != null && user.phone!.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.phone_outlined,
+                            size: 13.5,
+                            color: AppColors.deep.withValues(alpha: 0.6),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            user.phone!,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.deep.withValues(alpha: 0.7),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (user.workerId != null) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Text(
+                            'ID: ${user.workerId}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () {
+                              Clipboard.setData(
+                                ClipboardData(text: user.workerId!),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('ID nusxalandi'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                            child: const Icon(Icons.copy_rounded, size: 13),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -227,6 +300,11 @@ class _ProfileBodyState extends State<_ProfileBody> {
                   _LinkedAccountRow(
                     iconAsset: 'assets/icons/google_logo.png',
                     label: 'Google',
+                    subtitle: user.hasGoogle &&
+                            user.email.isNotEmpty &&
+                            !user.email.endsWith('@telegram.local')
+                        ? user.email
+                        : null,
                     linked: user.hasGoogle,
                     loc: loc,
                     onLink: () async {
@@ -270,7 +348,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
                   );
                 },
               ),
-              onTap: () => _pickLanguage(context),
+              onTap: () => pickLanguage(context),
             ),
           ),
           const SizedBox(height: 20),
@@ -490,12 +568,14 @@ class _ProfileBodyState extends State<_ProfileBody> {
 class _LinkedAccountRow extends StatefulWidget {
   final String iconAsset;
   final String label;
+  final String? subtitle;
   final bool linked;
   final LocaleStore loc;
   final Future<void> Function() onLink;
   const _LinkedAccountRow({
     required this.iconAsset,
     required this.label,
+    this.subtitle,
     required this.linked,
     required this.loc,
     required this.onLink,
@@ -512,16 +592,45 @@ class _LinkedAccountRowState extends State<_LinkedAccountRow> {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Image.asset(widget.iconAsset, width: 20, height: 20),
-        const SizedBox(width: 8),
-        Expanded(child: Text(widget.label)),
+        Image.asset(widget.iconAsset, width: 22, height: 22),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.label,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              if (widget.subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  widget.subtitle!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.deep.withValues(alpha: 0.65),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
         if (widget.linked)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 16),
+              const Icon(Icons.check_circle_rounded, color: Color(0xFF27AE60), size: 16),
               const SizedBox(width: 4),
-              Text(widget.loc.t('profile_linked'), style: const TextStyle(color: Colors.green, fontSize: 12)),
+              Text(
+                widget.loc.t('profile_linked'),
+                style: const TextStyle(
+                  color: Color(0xFF27AE60),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           )
         else

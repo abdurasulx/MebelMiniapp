@@ -42,7 +42,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Product>? _imageResults;
   bool _imageSearching = false;
-  String? _imageError;
 
   @override
   void initState() {
@@ -164,7 +163,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       _imageSearching = true;
-      _imageError = null;
       _imageResults = null;
     });
     _searchCtrl.clear();
@@ -177,17 +175,129 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       setState(() => _imageResults = results);
     } catch (e) {
-      setState(() => _imageError = e.toString());
+      if (mounted) {
+        _showImageSearchErrorModal(context, loc);
+      }
     } finally {
-      setState(() => _imageSearching = false);
+      if (mounted) {
+        setState(() => _imageSearching = false);
+      }
     }
   }
 
   void _clearImageSearch() {
     setState(() {
       _imageResults = null;
-      _imageError = null;
     });
+  }
+
+  void _showImageSearchErrorModal(BuildContext context, LocaleStore loc) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 22),
+            Container(
+              width: 60,
+              height: 60,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFDE8E8),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.image_not_supported_outlined,
+                color: Color(0xFFC81E1E),
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              loc.t('image_search_error_title'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.deep,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              loc.t('image_search_error_desc'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                color: AppColors.deep.withValues(alpha: 0.7),
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      side: const BorderSide(color: AppColors.cardBorder),
+                    ),
+                    child: Text(
+                      loc.t('common_close'),
+                      style: const TextStyle(
+                        color: AppColors.deep,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _pickAndSearchByImage();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.deep,
+                      foregroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      loc.t('auth_resend'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _backToHome() {
@@ -331,18 +441,6 @@ class _HomeScreenState extends State<HomeScreen> {
       return const Padding(
         padding: EdgeInsets.only(top: 30),
         child: Center(child: CircularProgressIndicator(color: AppColors.deep)),
-      );
-    }
-    if (_imageError != null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_imageError!, style: const TextStyle(color: Colors.red)),
-            TextButton(onPressed: _clearImageSearch, child: Text(loc.t('common_close'))),
-          ],
-        ),
       );
     }
 
