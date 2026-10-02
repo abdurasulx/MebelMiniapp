@@ -1,4 +1,5 @@
 import ARKit
+import AVFoundation
 import Combine
 import RealityKit
 import SwiftUI
@@ -92,6 +93,8 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     private let textureURL: URL?
     private let scaleFactors: SIMD3<Float>
     private var arView: ARView!
+    private var sessionConfig: ARConfiguration?
+    private var problemView: UIView?
     private var coachingOverlay: ARCoachingOverlayView!
     private var modelTemplate: ModelEntity?
     private var isLoadingTemplate = false
@@ -145,7 +148,8 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         } else if ARWorldTrackingConfiguration.supportsFrameSemantics(.personSegmentationWithDepth) {
             config.frameSemantics.insert(.personSegmentationWithDepth)
         }
-        arView.session.run(config)
+        sessionConfig = config
+        startSessionWhenCameraAllowed()
 
         coachingOverlay = ARCoachingOverlayView()
         coachingOverlay.session = arView.session
@@ -348,6 +352,88 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         guard let entity = placed else { return }
         let newScale = simd_clamp(entity.transform.scale * factor, [0.3, 0.3, 0.3], [3, 3, 3])
         entity.transform.scale = newScale
+    }
+
+    // MARK: - Kamera ruxsati / sessiya xatolari
+
+    /// Avval kamera ruxsati holati tekshiriladi: rad etilgan bo'lsa ARKit hech
+    /// qanday xato bermay QORA ekran ko'rsatadi (foydalanuvchi sababini
+    /// bilolmaydi) — shuning uchun aniq xabar va "Sozlamalar" tugmasi chiqadi.
+    private func startSessionWhenCameraAllowed() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            runSession()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    if granted { self?.runSession() } else { self?.showProblem(Self.cameraDeniedText, offerSettings: true) }
+                }
+            }
+        default:
+            showProblem(Self.cameraDeniedText, offerSettings: true)
+        }
+    }
+
+    private static let cameraDeniedText = "AR uchun kameraga ruxsat berilmagan.\nSozlamalar → VIDA Market → Kamera'ni yoqing."
+
+    private func runSession() {
+        guard let sessionConfig else { return }
+        hideProblem()
+        arView.session.run(sessionConfig)
+    }
+
+    private func showProblem(_ text: String, offerSettings: Bool) {
+        hideProblem()
+        let container = UIView(frame: view.bounds)
+        container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        container.backgroundColor = UIColor.black.withAlphaComponent(0.85)
+
+        let label = UILabel()
+        label.text = text
+        label.textColor = .white
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+
+        var arranged: [UIView] = [label]
+        if offerSettings {
+            var cfg = UIButton.Configuration.filled()
+            cfg.title = "Sozlamalarni ochish"
+            let button = UIButton(configuration: cfg, primaryAction: UIAction { _ in
+                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+            })
+            arranged.append(button)
+        }
+        let stack = UIStackView(arrangedSubviews: arranged)
+        stack.axis = .vertical
+        stack.spacing = 16
+        stack.alignment = .center
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 32),
+            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -32),
+        ])
+        view.addSubview(container)
+        problemView = container
+    }
+
+    private func hideProblem() {
+        problemView?.removeFromSuperview()
+        problemView = nil
+    }
+
+    func session(_ session: ARSession, didFailWithError error: Error) {
+        showProblem("AR kamerasi ishga tushmadi:\n\(error.localizedDescription)", offerSettings: (error as? ARError)?.code == .cameraUnauthorized)
+    }
+
+    func sessionWasInterrupted(_ session: ARSession) {
+        showProblem("AR vaqtincha to'xtadi (kamera band yoki ilova fonga o'tgan).", offerSettings: false)
+    }
+
+    func sessionInterruptionEnded(_ session: ARSession) {
+        hideProblem()
     }
 
     func coachingOverlayViewDidDeactivate(_ coachingOverlayView: ARCoachingOverlayView) {}
