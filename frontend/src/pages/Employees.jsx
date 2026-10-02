@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { UserPlus, Users, Mail, X } from "lucide-react";
+import { UserPlus, Users, Mail, X, Search, Plus, CheckCircle2, Clock } from "lucide-react";
 import { api } from "../api";
 import { POSITIONS } from "../positions";
 import LoadMoreButton from "../components/LoadMoreButton";
@@ -120,15 +120,25 @@ function initials(name) {
     .join("");
 }
 
+const EMPTY_INVITE_FORM = {
+  positions: [], pay_type: "fixed_bonus",
+  base_salary: "", bonus_per_task: "", commission_percent: "", hourly_rate: "",
+  shift_start: "", shift_end: "", lunch_start: "", lunch_end: "", work_days: [],
+};
+
 export default function Employees() {
   const [list, setList] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({
-    worker_id: "", positions: [], pay_type: "fixed_bonus",
-    base_salary: "", bonus_per_task: "", commission_percent: "", hourly_rate: "",
-    shift_start: "", shift_end: "", lunch_start: "", lunch_end: "", work_days: [],
-  });
+  // Yangi oqim: avval ID bo'yicha qidiriladi (profil ko'rsatiladi), faqat
+  // shundan keyin "+" tugmasi bosilsa lavozim/oylik maydonlari ochiladi —
+  // avvalgi "hammasi bitta katta forma" o'rniga (qarang WorkerLookupView).
+  const [lookupId, setLookupId] = useState("");
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupResult, setLookupResult] = useState(null);
+  const [lookupError, setLookupError] = useState("");
+  const [showInviteDetails, setShowInviteDetails] = useState(false);
+  const [form, setForm] = useState(EMPTY_INVITE_FORM);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [editing, setEditing] = useState(null);
@@ -169,6 +179,31 @@ export default function Employees() {
       return { ...f, positions };
     });
 
+  const lookupWorker = async (e) => {
+    e.preventDefault();
+    setLookupError("");
+    setLookupResult(null);
+    setShowInviteDetails(false);
+    if (!lookupId.trim()) return;
+    setLookupBusy(true);
+    try {
+      const result = await api(`/companies/worker-lookup/?worker_id=${encodeURIComponent(lookupId.trim())}`);
+      setLookupResult(result);
+    } catch (err) {
+      setLookupError(err.message);
+    } finally {
+      setLookupBusy(false);
+    }
+  };
+
+  const resetLookup = () => {
+    setLookupId("");
+    setLookupResult(null);
+    setLookupError("");
+    setShowInviteDetails(false);
+    setForm(EMPTY_INVITE_FORM);
+  };
+
   const invite = async (e) => {
     e.preventDefault();
     setError("");
@@ -181,6 +216,7 @@ export default function Employees() {
         method: "POST",
         body: {
           ...form,
+          worker_id: lookupResult.worker_id,
           base_salary: form.base_salary || 0,
           bonus_per_task: form.bonus_per_task || 0,
           commission_percent: form.commission_percent || 0,
@@ -191,11 +227,7 @@ export default function Employees() {
           lunch_end: form.lunch_end || null,
         },
       });
-      setForm({
-        worker_id: "", positions: [], pay_type: "fixed_bonus",
-        base_salary: "", bonus_per_task: "", commission_percent: "", hourly_rate: "",
-        shift_start: "", shift_end: "", lunch_start: "", lunch_end: "", work_days: [],
-      });
+      resetLookup();
       setMsg("Taklif yuborildi — xodim o'z ilovasida qabul qilishi kerak");
       setTimeout(() => setMsg(""), 4000);
       load();
@@ -228,59 +260,112 @@ export default function Employees() {
 
   return (
     <div className="flex flex-col gap-4">
-      <form className="card flex flex-col gap-4 p-5" onSubmit={invite}>
+      <div className="card flex flex-col gap-4 p-5">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold">
           <UserPlus size={17} /> Ishga taklif qilish
         </h2>
         <p className="text-xs" style={{ color: "var(--muted)" }}>
-          Xodim mobil ilovadagi profilida ko'rsatilgan shaxsiy ID raqamini sizga aytadi — shu ID orqali
-          taklif yuborasiz. Xodim taklifni o'z ilovasida (Flutter/iOS) qabul qilgandan keyingina
-          ro'yxatga qo'shiladi — yangi xodim to'g'ridan-to'g'ri bu yerdan yaratilmaydi.
+          Xodim mobil ilovadagi profilida ko'rsatilgan shaxsiy ID raqamini sizga aytadi. Avval shu ID
+          bo'yicha qidiring — topilgan profilda "+" tugmasi orqali taklif yuborasiz. Xodim taklifni
+          o'z ilovasida (Flutter/iOS) qabul qilgandan keyingina ro'yxatga qo'shiladi.
         </p>
-        <div className="max-w-md">
-          <label className="label">Xodimning ID raqami</label>
-          <input
-            className="input"
-            value={form.worker_id}
-            onChange={(e) => setForm({ ...form, worker_id: e.target.value })}
-            placeholder="masalan 4829173650"
-            required
-          />
-        </div>
-        <div>
-          <label className="label">Kasblari (bir nechtasini tanlash mumkin)</label>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(POSITIONS).map(([key, p]) => {
-              const on = form.positions.includes(key);
-              return (
+
+        <form className="flex max-w-md items-end gap-2" onSubmit={lookupWorker}>
+          <div className="flex-1">
+            <label className="label">Xodimning ID raqami</label>
+            <input
+              className="input"
+              value={lookupId}
+              onChange={(e) => setLookupId(e.target.value)}
+              placeholder="masalan 4829173650"
+              required
+            />
+          </div>
+          <button className="btn inline-flex items-center gap-1.5" type="submit" disabled={lookupBusy}>
+            <Search size={14} /> {lookupBusy ? "Qidirilmoqda…" : "Qidirish"}
+          </button>
+        </form>
+        {lookupError && <div className="error">{lookupError}</div>}
+
+        {lookupResult && (
+          <div className="card flex flex-col gap-3 p-4" style={{ background: "var(--bg)" }}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold"
+                  style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
+                >
+                  {initials(lookupResult.display_name)}
+                </div>
+                <div>
+                  <div className="font-semibold">{lookupResult.display_name}</div>
+                  <div className="font-mono text-xs" style={{ color: "var(--muted)" }}>
+                    {lookupResult.worker_id}
+                  </div>
+                </div>
+              </div>
+
+              {lookupResult.is_employee ? (
+                <span className="badge inline-flex items-center gap-1">
+                  <CheckCircle2 size={12} /> Allaqachon xodim
+                </span>
+              ) : lookupResult.has_pending_invitation ? (
+                <span className="badge badge-off inline-flex items-center gap-1">
+                  <Clock size={12} /> Taklif yuborilgan
+                </span>
+              ) : (
                 <button
                   type="button"
-                  key={key}
-                  onClick={() => togglePosition(key)}
-                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition"
-                  style={
-                    on
-                      ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
-                      : {
-                          background: "transparent",
-                          color: "var(--muted)",
-                          border: "1px solid var(--border)",
-                        }
-                  }
+                  title="Ishga taklif qilish"
+                  onClick={() => setShowInviteDetails((v) => !v)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                  style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
                 >
-                  <p.icon size={13} /> {p.label}
+                  <Plus size={18} />
                 </button>
-              );
-            })}
+              )}
+            </div>
+
+            {showInviteDetails && (
+              <form className="flex flex-col gap-4 border-t pt-4" style={{ borderColor: "var(--border)" }} onSubmit={invite}>
+                <div>
+                  <label className="label">Kasblari (bir nechtasini tanlash mumkin)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {Object.entries(POSITIONS).map(([key, p]) => {
+                      const on = form.positions.includes(key);
+                      return (
+                        <button
+                          type="button"
+                          key={key}
+                          onClick={() => togglePosition(key)}
+                          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition"
+                          style={
+                            on
+                              ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
+                              : {
+                                  background: "transparent",
+                                  color: "var(--muted)",
+                                  border: "1px solid var(--border)",
+                                }
+                          }
+                        >
+                          <p.icon size={13} /> {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <PayTypeFields
+                  payType={form.pay_type}
+                  values={form}
+                  onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+                />
+                <button className="btn self-start" type="submit">Taklif yuborish</button>
+              </form>
+            )}
           </div>
-        </div>
-        <PayTypeFields
-          payType={form.pay_type}
-          values={form}
-          onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
-        />
-        <button className="btn self-start" type="submit">Taklif yuborish</button>
-      </form>
+        )}
+      </div>
 
       {msg && <span className="badge self-start">{msg}</span>}
       {error && <div className="error">{error}</div>}

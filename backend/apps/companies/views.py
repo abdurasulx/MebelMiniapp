@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.notifications.services import (
@@ -9,6 +10,7 @@ from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Company, Employee, EmployeeInvitation, Review, TariffPlan
 from .serializers import (
@@ -18,6 +20,8 @@ from .serializers import (
     ReviewSerializer,
     TariffPlanSerializer,
 )
+
+User = get_user_model()
 
 
 def user_company(user):
@@ -144,6 +148,50 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         instance.is_active = False
         instance.left_at = instance.left_at or timezone.now()
         instance.save(update_fields=["is_deleted", "is_active", "left_at"])
+
+
+class WorkerLookupView(APIView):
+    """`/companies/worker-lookup/?worker_id=...` — firma egasi xodimni ishga
+    taklif qilishdan OLDIN, uning ID'si bo'yicha profilini (ism, allaqachon
+    xodim/taklif yuborilganmi) ko'rish uchun — bu yerda hali hech qanday
+    taklif YARATILMAYDI (qarang EmployeeInvitationViewSet.perform_create),
+    faqat "+" tugmasi ko'rsatiladimi/o'chirilganmi shuni aniqlaydi."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        worker_id = request.query_params.get("worker_id", "").strip()
+        if not worker_id:
+            raise ValidationError("worker_id majburiy")
+
+        company = Company.objects.filter(owner=request.user, is_deleted=False).first()
+        if company is None:
+            raise PermissionDenied("Faqat kompaniya egasi xodim qidira oladi")
+
+        try:
+            user = User.objects.get(worker_id=worker_id)
+        except User.DoesNotExist:
+            raise ValidationError("Bu ID bilan foydalanuvchi topilmadi")
+
+        if user.id == company.owner_id:
+            raise ValidationError("Bu sizning o'z ID'ingiz")
+
+        is_employee = Employee.objects.filter(
+            company=company, user=user, is_active=True, is_deleted=False
+        ).exists()
+        has_pending_invitation = EmployeeInvitation.objects.filter(
+            company=company, invited_user=user, status=EmployeeInvitation.Status.PENDING,
+            is_deleted=False,
+        ).exists()
+
+        return Response(
+            {
+                "worker_id": user.worker_id,
+                "display_name": user.display_name,
+                "is_employee": is_employee,
+                "has_pending_invitation": has_pending_invitation,
+            }
+        )
 
 
 class EmployeeInvitationViewSet(viewsets.ModelViewSet):

@@ -20,6 +20,7 @@ from apps.companies.views import (
     EmployeeViewSet,
     ReviewViewSet,
     TariffPlanViewSet,
+    WorkerLookupView,
 )
 from apps.inventory.views import (
     BillOfMaterialViewSet,
@@ -212,6 +213,7 @@ urlpatterns = [
         AdminUserToggleActiveView.as_view(),
         name="admin-user-toggle-active",
     ),
+    path("companies/worker-lookup/", WorkerLookupView.as_view(), name="worker-lookup"),
     path("products/search-by-image/", ProductSearchByImageView.as_view(), name="product-search-by-image"),
     path("products/<uuid:product_pk>/variants/", variant_list, name="variant-list"),
     path("products/<uuid:product_pk>/variants/<uuid:pk>/", variant_detail, name="variant-detail"),
