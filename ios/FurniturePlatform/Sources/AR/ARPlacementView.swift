@@ -74,7 +74,7 @@ struct ARPlacementView: View {
                     }
                 }
                 .animation(.spring(response: 0.45, dampingFraction: 0.8), value: bridge.hasSelection)
-            } else {
+            } else if !bridge.hasCameraProblem {
                 ARLoadingOverlay(progress: progress, errorMessage: errorMessage)
                     .transition(.scale(scale: 1.5).combined(with: .opacity))
             }

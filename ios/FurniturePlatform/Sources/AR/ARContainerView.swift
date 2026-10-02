@@ -12,6 +12,9 @@ final class ARBridge: ObservableObject {
     /// tuzilgan) bo'lganda `true` bo'ladi, shundan keyingina yuklash overlay'i
     /// yashiriladi.
     @Published var isModelReady = false
+    /// Kamera ruxsati yo'q yoki ARKit sessiyasi xato bergan — yuklanish
+    /// pardasi xato xabarini yopib qo'ymasligi uchun yashiriladi.
+    @Published var hasCameraProblem = false
     weak var controller: ARPlacementViewController?
 
     func nudge(right: Float = 0, forward: Float = 0) {
@@ -67,6 +70,9 @@ struct ARContainerView: UIViewControllerRepresentable {
         controller.onModelReady = { [weak bridge] in
             withAnimation { bridge?.isModelReady = true }
         }
+        controller.onProblemChange = { [weak bridge] has in
+            bridge?.hasCameraProblem = has
+        }
         bridge.controller = controller
         if let modelFileURL {
             controller.setModelFileURL(modelFileURL)
@@ -103,6 +109,7 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     }
 
     var onSelectionChange: ((Bool) -> Void)?
+    var onProblemChange: ((Bool) -> Void)?
     /// 3D model to'liq yuklab olinib, RealityKit shabloni tuzilganda chaqiriladi
     /// (kamera esa bundan mustaqil, ekran ochilishi bilanoq ishlab turadi).
     var onModelReady: (() -> Void)?
@@ -417,11 +424,14 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
         ])
         view.addSubview(container)
         problemView = container
+        onProblemChange?(true)
     }
 
     private func hideProblem() {
+        let had = problemView != nil
         problemView?.removeFromSuperview()
         problemView = nil
+        if had { onProblemChange?(false) }
     }
 
     func session(_ session: ARSession, didFailWithError error: Error) {
