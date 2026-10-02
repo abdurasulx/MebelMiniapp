@@ -59,12 +59,8 @@ function MaterialWarehousePanel({ warehouseId }) {
   const [materials, setMaterials] = useState([]);
   const [error, setError] = useState("");
   const [showMove, setShowMove] = useState(false);
-  const [showNewMaterial, setShowNewMaterial] = useState(false);
-  const [move, setMove] = useState({ material: "", movement_type: "in", quantity: "", note: "" });
-  const [newMaterial, setNewMaterial] = useState({
-    name: "", unit: "dona", unit_cost: "", dimension_type: "none", stock_unit_length: "", min_stock: "",
-  });
-  const [newMaterialImage, setNewMaterialImage] = useState(null);
+  const [showNewMaterialModal, setShowNewMaterialModal] = useState(false);
+  const [move, setMove] = useState({ material: "", quantity: "", note: "" });
   const [remnants, setRemnants] = useState([]);
   const [busy, setBusy] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState(null);
@@ -95,38 +91,6 @@ function MaterialWarehousePanel({ warehouseId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouseId]);
 
-  const createMaterial = async (e) => {
-    e.preventDefault();
-    setError("");
-    setBusy(true);
-    try {
-      if (!newMaterialImage) {
-        setError("Xom ashyo rasmi majburiy");
-        setBusy(false);
-        return;
-      }
-      const fd = new FormData();
-      const body = {
-        ...newMaterial,
-        stock_unit_length: newMaterial.dimension_type === "linear" ? (newMaterial.stock_unit_length || "") : "",
-        min_stock: newMaterial.min_stock || 0,
-        unit_cost: newMaterial.unit_cost || 0,
-      };
-      Object.entries(body).forEach(([k, v]) => { if (v !== "") fd.append(k, v); });
-      fd.append("image", newMaterialImage);
-      const created = await api("/materials/", { method: "POST", body: fd, isForm: true });
-      setNewMaterialImage(null);
-      setNewMaterial({ name: "", unit: "dona", unit_cost: "", dimension_type: "none", stock_unit_length: "", min_stock: "" });
-      setShowNewMaterial(false);
-      setMove((m) => ({ ...m, material: created.id }));
-      load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const submitMove = async (e) => {
     e.preventDefault();
     setError("");
@@ -138,9 +102,12 @@ function MaterialWarehousePanel({ warehouseId }) {
     try {
       await api(`/warehouses/${warehouseId}/material-movements/`, {
         method: "POST",
-        body: { ...move, quantity: move.quantity || 0 },
+        // Chiqim ishlab chiqarish jarayonida avtomatik hisoblanadi — bu yerdan
+        // qo'lda faqat kirim yoziladi (qarang foydalanuvchi talabi: "kirimni
+        // qilsa yetadi, chiqimni o'zi belgilaydi").
+        body: { ...move, movement_type: "in", quantity: move.quantity || 0 },
       });
-      setMove({ material: "", movement_type: "in", quantity: "", note: "" });
+      setMove({ material: "", quantity: "", note: "" });
       setShowMove(false);
       load();
     } catch (err) {
@@ -186,7 +153,12 @@ function MaterialWarehousePanel({ warehouseId }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="card flex flex-col gap-3 p-5">
-        <h2 className="text-base font-semibold">Materiallar</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold">Materiallar</h2>
+          <button className="btn !px-3 !py-1.5 text-xs" onClick={() => setShowNewMaterialModal(true)}>
+            <Plus size={13} className="inline" /> Xom ashyo qo'shish
+          </button>
+        </div>
         {materials.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--muted)" }}>Hali material yaratilmagan.</p>
         ) : (
@@ -262,7 +234,7 @@ function MaterialWarehousePanel({ warehouseId }) {
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">Qoldiqlar</h2>
           <button className="btn !px-3 !py-1.5 text-xs" onClick={() => setShowMove((v) => !v)}>
-            <Plus size={13} className="inline" /> Kirim / Chiqim
+            <Plus size={13} className="inline" /> Kirim qilish
           </button>
         </div>
 
@@ -271,23 +243,11 @@ function MaterialWarehousePanel({ warehouseId }) {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="label">Material</label>
-                <div className="flex gap-2">
-                  <select className="input" value={move.material} onChange={(e) => setMove({ ...move, material: e.target.value })}>
-                    <option value="">Tanlang…</option>
-                    {materials.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name} ({m.unit_display})</option>
-                    ))}
-                  </select>
-                  <button type="button" className="btn-ghost !px-3 !py-1.5 text-xs" onClick={() => setShowNewMaterial((v) => !v)}>
-                    + Yangi
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="label">Turi</label>
-                <select className="input" value={move.movement_type} onChange={(e) => setMove({ ...move, movement_type: e.target.value })}>
-                  <option value="in">Kirim</option>
-                  <option value="out">Chiqim</option>
+                <select className="input" value={move.material} onChange={(e) => setMove({ ...move, material: e.target.value })}>
+                  <option value="">Tanlang…</option>
+                  {materials.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.unit_display})</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -295,76 +255,11 @@ function MaterialWarehousePanel({ warehouseId }) {
                 <input className="input" type="number" step="0.001" min="0" value={move.quantity}
                   onChange={(e) => setMove({ ...move, quantity: e.target.value })} required />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="label">Izoh (ixtiyoriy)</label>
                 <input className="input" value={move.note} onChange={(e) => setMove({ ...move, note: e.target.value })} />
               </div>
             </div>
-
-            {showNewMaterial && (
-              <div className="flex flex-wrap items-end gap-3 rounded-lg p-3" style={{ background: "var(--bg)" }}>
-                <div>
-                  <label className="label">Yangi material nomi</label>
-                  <input className="input" value={newMaterial.name} onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="label">O'lchov birligi</label>
-                  <select className="input" value={newMaterial.unit} onChange={(e) => setNewMaterial({ ...newMaterial, unit: e.target.value })}>
-                    <option value="dona">Dona</option>
-                    <option value="kg">Kilogramm</option>
-                    <option value="m">Metr</option>
-                    <option value="m2">Kvadrat metr</option>
-                    <option value="m3">Kub metr</option>
-                    <option value="litr">Litr</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Birlik narxi (so'm)</label>
-                  <input className="input" type="number" min="0" value={newMaterial.unit_cost}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, unit_cost: e.target.value })} />
-                </div>
-                <div>
-                  <label className="label">Minimal qoldiq (ogohlantirish uchun)</label>
-                  <input className="input" type="number" step="0.001" min="0" placeholder="0 — ogohlantirish o'chiq"
-                    value={newMaterial.min_stock}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, min_stock: e.target.value })} />
-                </div>
-                <div>
-                  <label className="label">Turi</label>
-                  <select className="input" value={newMaterial.dimension_type}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, dimension_type: e.target.value })}>
-                    {DIMENSION_OPTIONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-                  </select>
-                </div>
-                {newMaterial.dimension_type === "linear" && (
-                  <div>
-                    <label className="label">Yaxlit birlik uzunligi (m)</label>
-                    <input className="input" type="number" step="0.001" min="0" placeholder="masalan 1.0"
-                      value={newMaterial.stock_unit_length}
-                      onChange={(e) => setNewMaterial({ ...newMaterial, stock_unit_length: e.target.value })} />
-                    <p className="text-xs" style={{ color: "var(--muted)" }}>
-                      Belgilansa, ishlab chiqarishda kesish-qoldiq (offcut) tizimi ishlaydi.
-                    </p>
-                  </div>
-                )}
-                {newMaterial.dimension_type === "sheet" && (
-                  <p className="text-xs" style={{ color: "var(--muted)" }}>
-                    Standart o'lcham yo'q — har bir partiya "Qoldiqlar" bo'limidagi "Varaq kirim
-                    qilish" orqali o'z eni/bo'yi bilan kiritiladi.
-                  </p>
-                )}
-                <div>
-                  <label className="label">Rasm (majburiy)</label>
-                  <input
-                    className="input" type="file" accept="image/*"
-                    onChange={(e) => setNewMaterialImage(e.target.files?.[0] || null)}
-                  />
-                </div>
-                <button className="btn !px-3 !py-1.5 text-xs" type="button" onClick={createMaterial} disabled={busy || !newMaterial.name || !newMaterialImage}>
-                  Qo'shish
-                </button>
-              </div>
-            )}
 
             {error && <div className="error">{error}</div>}
             <div className="flex gap-2">
@@ -490,6 +385,124 @@ function MaterialWarehousePanel({ warehouseId }) {
       </div>
 
       <MovementHistory movements={movements} qtyLabel="material_name" />
+
+      {showNewMaterialModal && (
+        <NewMaterialModal
+          onClose={() => setShowNewMaterialModal(false)}
+          onCreated={() => {
+            setShowNewMaterialModal(false);
+            load();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function NewMaterialModal({ onClose, onCreated }) {
+  const [form, setForm] = useState({
+    name: "", unit: "dona", unit_cost: "", dimension_type: "none", stock_unit_length: "", min_stock: "",
+  });
+  const [image, setImage] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError("");
+    if (!image) {
+      setError("Xom ashyo rasmi majburiy");
+      return;
+    }
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      const body = {
+        ...form,
+        stock_unit_length: form.dimension_type === "linear" ? (form.stock_unit_length || "") : "",
+        min_stock: form.min_stock || 0,
+        unit_cost: form.unit_cost || 0,
+      };
+      Object.entries(body).forEach(([k, v]) => { if (v !== "") fd.append(k, v); });
+      fd.append("image", image);
+      await api("/materials/", { method: "POST", body: fd, isForm: true });
+      onCreated();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <form
+        className="card flex w-full max-w-md flex-col gap-4 p-6"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+      >
+        <h2 className="text-base font-semibold">Xom ashyo qo'shish</h2>
+        <div>
+          <label className="label">Nomi</label>
+          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">O'lchov birligi</label>
+            <select className="input" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
+              {UNIT_OPTIONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Birlik narxi (so'm)</label>
+            <input className="input" type="number" min="0" value={form.unit_cost}
+              onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Minimal qoldiq</label>
+            <input className="input" type="number" step="0.001" min="0" placeholder="0 — o'chiq"
+              value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Turi</label>
+            <select className="input" value={form.dimension_type}
+              onChange={(e) => setForm({ ...form, dimension_type: e.target.value })}>
+              {DIMENSION_OPTIONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            </select>
+          </div>
+        </div>
+        {form.dimension_type === "linear" && (
+          <div>
+            <label className="label">Yaxlit birlik uzunligi (m)</label>
+            <input className="input" type="number" step="0.001" min="0" placeholder="masalan 1.0"
+              value={form.stock_unit_length}
+              onChange={(e) => setForm({ ...form, stock_unit_length: e.target.value })} />
+            <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+              Belgilansa, ishlab chiqarishda kesish-qoldiq (offcut) tizimi ishlaydi.
+            </p>
+          </div>
+        )}
+        {form.dimension_type === "sheet" && (
+          <p className="text-xs" style={{ color: "var(--muted)" }}>
+            Standart o'lcham yo'q — har bir partiya "Qoldiqlar" bo'limidagi "Varaq kirim qilish"
+            orqali o'z eni/bo'yi bilan kiritiladi.
+          </p>
+        )}
+        <div>
+          <label className="label">Rasm (majburiy)</label>
+          <input
+            className="input" type="file" accept="image/*"
+            onChange={(e) => setImage(e.target.files?.[0] || null)}
+          />
+        </div>
+        {error && <div className="error">{error}</div>}
+        <div className="flex gap-2">
+          <button className="btn" type="submit" disabled={busy || !form.name || !image}>
+            {busy ? "Saqlanmoqda…" : "Qo'shish"}
+          </button>
+          <button className="btn-ghost" type="button" onClick={onClose}>Bekor</button>
+        </div>
+      </form>
     </div>
   );
 }
