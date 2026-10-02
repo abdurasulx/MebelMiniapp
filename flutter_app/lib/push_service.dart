@@ -11,6 +11,7 @@ import 'device_signature.dart';
 import 'models.dart';
 import 'screens/order_detail_screen.dart';
 import 'screens/worker/worker_orders_screen.dart';
+import 'widgets/employee_invitation_sheet.dart';
 
 /// Ilova FON/YOPIQ holatida FCM xabari kelganda chaqiriladi — FlutterFire
 /// talabiga ko'ra top-level (yoki static) va `@pragma('vm:entry-point')`
@@ -177,6 +178,11 @@ class PushService {
     if (navigator == null) return;
 
     switch (type) {
+      case 'employee_invited':
+        // navigator tekshirilgan (null emas) — context ishonchli.
+        // ignore: use_build_context_synchronously
+        await showEmployeeInvitationSheet(navigator.context);
+        break;
       case 'order_status':
         // Bu — mijozning O'Z bozor xaridi haqidagi bildirishnoma
         // (`OrderDetailScreen` faqat shu kontekst uchun, qarang uning

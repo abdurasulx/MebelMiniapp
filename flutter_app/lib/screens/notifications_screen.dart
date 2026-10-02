@@ -5,6 +5,7 @@ import '../auth_store.dart';
 import '../locale_store.dart';
 import '../models.dart';
 import '../notification_ws.dart';
+import '../widgets/employee_invitation_sheet.dart';
 import '../widgets/offline_view.dart';
 import 'order_detail_screen.dart';
 import 'worker/worker_orders_screen.dart';
@@ -155,6 +156,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _open(AppNotification n) async {
     await _markRead(n);
     switch (n.notifType) {
+      case 'employee_invited':
+        if (!mounted) return;
+        await showEmployeeInvitationSheet(context);
+        break;
       case 'order_status':
         if (n.orderId == null) return;
         try {
