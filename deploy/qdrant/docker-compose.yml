@@ -5,7 +5,7 @@
 # backend/.env ga QDRANT_API_KEY yozing.
 services:
   qdrant:
-    image: qdrant/qdrant:v1.15.0
+    image: qdrant/qdrant:v1.19.0
     restart: always
     ports:
       - "127.0.0.1:6333:6333"
