@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Building2, MapPin, AtSign, Send, Link as LinkIcon, Globe, Hammer, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
+import LocationPicker from "../../components/LocationPicker";
 import { POSITIONS } from "../../positions";
 import { TASK_STAGE } from "../../taskStage";
 
@@ -17,7 +18,6 @@ export default function FirmaSettings() {
   const [logo, setLogo] = useState(null);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
-  const [locating, setLocating] = useState(false);
 
   const load = () =>
     api("/users/me/")
@@ -52,36 +52,6 @@ export default function FirmaSettings() {
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const isOwner = user?.role === "company_owner";
-
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      setError("Brauzeringiz joylashuvni aniqlashni qo'llab-quvvatlamaydi");
-      return;
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setForm((f) => ({
-          ...f,
-          latitude: pos.coords.latitude.toFixed(6),
-          longitude: pos.coords.longitude.toFixed(6),
-        }));
-        setLocating(false);
-      },
-      (err) => {
-        // code 1 = PERMISSION_DENIED (foydalanuvchi rad etgan yoki sahifa
-        // iframe/ruxsat siyosati tufayli bloklangan).
-        setError(
-          err.code === 1
-            ? "Brauzer joylashuvga ruxsat bermadi. Manzil satridagi qulf belgisi orqali \"Joylashuv\"ni yoqing " +
-              "(va sahifa boshqa ilova ichida emas, to'g'ridan-to'g'ri brauzerda ochilganini tekshiring) " +
-              "yoki koordinatalarni qo'lda kiriting."
-            : "Joylashuvni aniqlab bo'lmadi: " + err.message
-        );
-        setLocating(false);
-      },
-    );
-  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -163,42 +133,24 @@ export default function FirmaSettings() {
           </div>
         </div>
         <div>
-          <label className="label">Manzil</label>
-          <input className="input" value={form.address} onChange={set("address")} disabled={!isOwner} />
-        </div>
-
-        <div>
           <label className="label inline-flex items-center gap-1.5">
-            <MapPin size={13} /> Xizmat ko'rsatish hududi
+            <MapPin size={13} /> Manzil va xizmat ko'rsatish hududi
           </label>
-          <p className="mb-1.5 text-xs" style={{ color: "var(--muted)" }}>
-            Firma joylashuvi va shu nuqtadan necha km radiusda mijozlarga xizmat qilishingiz —
-            mahsulotlaringiz shu radius ichidagi foydalanuvchilarga ko'rinadi. Bo'sh qoldirilsa, hamma joyda ko'rinadi.
-          </p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <input
-              className="input" type="number" step="0.000001" placeholder="Kenglik (lat)"
-              value={form.latitude} onChange={set("latitude")} disabled={!isOwner}
+          <fieldset disabled={!isOwner} className="m-0 border-0 p-0">
+            <LocationPicker
+              required={false}
+              value={{ address: form.address, latitude: form.latitude, longitude: form.longitude }}
+              onChange={(p) => setForm((f) => ({ ...f, ...p }))}
             />
-            <input
-              className="input" type="number" step="0.000001" placeholder="Uzunlik (lng)"
-              value={form.longitude} onChange={set("longitude")} disabled={!isOwner}
-            />
+            <p className="mb-1.5 mt-3 text-xs" style={{ color: "var(--muted)" }}>
+              Shu nuqtadan necha km radiusda mijozlarga xizmat qilishingiz — mahsulotlaringiz shu radius
+              ichidagi foydalanuvchilarga ko'rinadi. Bo'sh qoldirilsa, hamma joyda ko'rinadi.
+            </p>
             <input
               className="input" type="number" min="1" placeholder="Radius (km)"
-              value={form.service_radius_km} onChange={set("service_radius_km")} disabled={!isOwner}
+              value={form.service_radius_km} onChange={set("service_radius_km")}
             />
-          </div>
-          {isOwner && (
-            <button
-              type="button"
-              className="btn-ghost mt-2 inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
-              onClick={detectLocation}
-              disabled={locating}
-            >
-              <MapPin size={13} /> {locating ? "Aniqlanmoqda…" : "Joriy joylashuvni aniqlash"}
-            </button>
-          )}
+          </fieldset>
         </div>
 
         <div>
