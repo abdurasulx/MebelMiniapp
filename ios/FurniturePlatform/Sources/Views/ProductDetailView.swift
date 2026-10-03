@@ -16,6 +16,10 @@ struct ProductDetailView: View {
     @State private var quantity = 1
     @State private var errorMessage: String?
     @State private var showAR = false
+    // Rasm galereyasi: sahifadagi joriy rasm va to'liq ekranli galereya
+    // bir xil `galleryIndex`ni bo'lishadi (sinxron).
+    @State private var galleryIndex = 0
+    @State private var showGallery = false
     @State private var showOrderSheet = false
 
     private var price: Double? {
@@ -254,33 +258,42 @@ private var arScaleFactors: SIMD3<Float> {
     @ViewBuilder
     private func gallery(_ product: Product) -> some View {
         let urls = product.galleryUrls
-        if urls.count > 1 {
-            TabView {
-                ForEach(urls, id: \.self) { url in
-                    AsyncImage(url: URL(string: url)) { phase in
-                        if let image = phase.image {
-                            image.resizable().aspectRatio(contentMode: .fill)
-                        } else {
-                            Color.brandPrimary.opacity(0.3)
-                        }
+        Group {
+            if urls.count > 1 {
+                TabView(selection: $galleryIndex) {
+                    ForEach(Array(urls.enumerated()), id: \.offset) { i, url in
+                        galleryImage(url).tag(i)
                     }
-                    .clipped()
                 }
+                .tabViewStyle(.page)
+                .frame(height: 240)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            } else {
+                galleryImage(urls.first ?? "")
+                    .frame(height: 240)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
             }
-            .tabViewStyle(.page)
-            .frame(height: 240)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-        } else {
-            AsyncImage(url: URL(string: urls.first ?? "")) { phase in
-                if let image = phase.image {
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    Color.brandPrimary.opacity(0.3)
-                }
-            }
-            .frame(height: 240)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
         }
+        .contentShape(Rectangle())
+        .onTapGesture { if !urls.isEmpty { showGallery = true } }
+        .fullScreenCover(isPresented: $showGallery) {
+            ImageGalleryView(
+                urls: urls, index: $galleryIndex,
+                errorText: locale.t("gallery_image_error"),
+                closeLabel: locale.t("common_close")
+            )
+        }
+    }
+
+    private func galleryImage(_ url: String) -> some View {
+        AsyncImage(url: URL(string: url)) { phase in
+            if let image = phase.image {
+                image.resizable().aspectRatio(contentMode: .fill)
+            } else {
+                Color.brandPrimary.opacity(0.3)
+            }
+        }
+        .clipped()
     }
 
 private func load() async {
