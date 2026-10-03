@@ -231,6 +231,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # `.env`da `REDIS_URL=redis://<host>:6379/0` qo'shish kifoya — kod
 # o'zgarmaydi.
 ASGI_APPLICATION = "config.asgi.application"
+# Rasmli qidiruv uchun alohida Qdrant server (masalan http://127.0.0.1:6333).
+# Bo'sh bo'lsa — lokal "embedded" rejim (qdrant_data/ papkasi, faqat 1 worker).
+QDRANT_URL = env("QDRANT_URL", default="")
+QDRANT_API_KEY = env("QDRANT_API_KEY", default="")
+
 REDIS_URL = env("REDIS_URL", default="")
 if REDIS_URL:
     CHANNEL_LAYERS = {

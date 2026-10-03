@@ -110,6 +110,14 @@ def get_qdrant_client():
             # serverga qarshi poyga qilib qo'ymasligi (fayl locki
             # to'qnashuvi) va har test run'da toza holatdan boshlashi uchun.
             _qdrant = QdrantClient(location=":memory:")
+        elif getattr(settings, "QDRANT_URL", ""):
+            # Alohida Qdrant server (mikroservis): bir nechta gunicorn worker
+            # bir vaqtda ishlay oladi, fayl-lock muammosi yo'q.
+            _qdrant = QdrantClient(
+                url=settings.QDRANT_URL,
+                api_key=getattr(settings, "QDRANT_API_KEY", "") or None,
+                timeout=10,
+            )
         else:
             path = Path(settings.BASE_DIR) / "qdrant_data"
             _qdrant = QdrantClient(path=str(path))
