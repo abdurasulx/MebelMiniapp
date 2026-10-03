@@ -25,8 +25,6 @@ struct OrderCheckoutView: View {
             Form {
                 Section("Mahsulot") {
                     Text(productName)
-                    Text("×\(quantity)")
-                        .font(.caption).foregroundStyle(.secondary)
                     Text("\(String(format: "%.0f", total).formattedSom) so'm").bold()
                 }
                 Section("Yetkazish ma'lumotlari") {
