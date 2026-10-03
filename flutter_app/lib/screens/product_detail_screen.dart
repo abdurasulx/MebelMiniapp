@@ -15,6 +15,7 @@ import '../widgets/like_button.dart';
 import '../widgets/product_card.dart';
 import 'cart_screen.dart';
 import 'company_detail_screen.dart';
+import '../widgets/image_gallery_viewer.dart';
 
 /// Mahsulot tafsiloti — avval rasmlar galereyasi ko'rsatiladi, 3D model
 /// "3D ko'rish" tugmasi orqali talab bo'yicha alohida oynada ochiladi
@@ -372,10 +373,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     controller: _galleryController,
                     itemCount: urls.length,
                     onPageChanged: (i) => setState(() => _galleryIndex = i),
-                    itemBuilder: (_, i) => Image.network(
-                      urls[i],
-                      fit: BoxFit.cover,
-                      width: double.infinity,
+                    itemBuilder: (_, i) => GestureDetector(
+                      onTap: () => showImageGallery(
+                        context,
+                        urls,
+                        initialIndex: i,
+                        onIndexChanged: (idx) {
+                          // Galereyada almashtirilgan rasm sahifadagi
+                          // indikator va PageView bilan sinxron turadi.
+                          if (_galleryController.hasClients) _galleryController.jumpToPage(idx);
+                          setState(() => _galleryIndex = idx);
+                        },
+                      ),
+                      child: Image.network(
+                        urls[i],
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                      ),
                     ),
                   ),
           ),
