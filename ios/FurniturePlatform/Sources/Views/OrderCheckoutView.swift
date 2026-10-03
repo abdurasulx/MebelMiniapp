@@ -25,7 +25,7 @@ struct OrderCheckoutView: View {
             Form {
                 Section("Mahsulot") {
                     Text(productName)
-                    Text("\(width, specifier: "%.2f") × \(height, specifier: "%.2f") × \(depth, specifier: "%.2f") m ×\(quantity)")
+                    Text("×\(quantity)")
                         .font(.caption).foregroundStyle(.secondary)
                     Text("\(String(format: "%.0f", total).formattedSom) so'm").bold()
                 }

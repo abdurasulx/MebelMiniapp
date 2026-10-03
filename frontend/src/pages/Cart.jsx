@@ -145,7 +145,7 @@ export default function Cart() {
                   {i.isCustomSize && <span className="badge badge-off">Narx keyinroq</span>}
                 </div>
                 <div className="text-xs" style={{ color: "var(--muted)" }}>
-                  {i.variantName} · {i.width}×{i.height}×{i.depth} m · {i.companyName}
+                  {i.variantName}{i.isCustomSize && ` · ${i.width}×${i.height}×${i.depth} m`} · {i.companyName}
                 </div>
               </div>
               <input
