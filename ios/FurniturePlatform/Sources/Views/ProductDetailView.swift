@@ -176,7 +176,7 @@ private var arScaleFactors: SIMD3<Float> {
                                     .foregroundStyle(.white)
                                     .clipShape(Capsule())
                                 } else {
-                                    Text("Omborda yo'q — buyurtma ishlab chiqarishga yuboriladi")
+                                    Text(locale.t("product_out_of_stock"))
                                         .font(.caption).fontWeight(.semibold)
                                         .foregroundStyle(.secondary)
                                 }

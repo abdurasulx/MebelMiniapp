@@ -177,7 +177,7 @@ const STRINGS = {
     viewer_access_denied_title: "Kirish mumkin emas",
     viewer_login_link: "Tizimga kirish",
     product_stock_available_suffix: " dona omborda mavjud",
-    product_stock_unavailable: "Omborda yo'q — buyurtma ishlab chiqarishga yuboriladi",
+    product_stock_unavailable: "Tayyori qolmagan. Buyurtma bersangiz, biroz kutishingiz mumkin.",
   },
   en: {
     nav_home: "Home",
@@ -339,7 +339,7 @@ const STRINGS = {
     viewer_access_denied_title: "Access denied",
     viewer_login_link: "Sign in",
     product_stock_available_suffix: " in stock",
-    product_stock_unavailable: "Out of stock — order will be sent to production",
+    product_stock_unavailable: "Not in stock right now. If you order, you may need to wait a little.",
   },
   ru: {
     nav_home: "Главная",
@@ -501,7 +501,7 @@ const STRINGS = {
     viewer_access_denied_title: "Доступ запрещён",
     viewer_login_link: "Войти",
     product_stock_available_suffix: " шт. в наличии",
-    product_stock_unavailable: "Нет в наличии — заказ будет отправлен в производство",
+    product_stock_unavailable: "Готового товара нет в наличии. Если оформите заказ, придётся немного подождать.",
   },
   tg: {
     nav_home: "Саҳифаи асосӣ",
@@ -663,7 +663,7 @@ const STRINGS = {
     viewer_access_denied_title: "Дастрасӣ имконнопазир аст",
     viewer_login_link: "Ворид шудан",
     product_stock_available_suffix: " дона дар анбор мавҷуд",
-    product_stock_unavailable: "Дар анбор нест — фармоиш ба истеҳсолот фиристода мешавад",
+    product_stock_unavailable: "Маҳсули тайёр дар анбор нест. Агар фармоиш диҳед, каме интизор шудан мумкин аст.",
   },
   tr: {
     nav_home: "Ana sayfa",
@@ -825,7 +825,7 @@ const STRINGS = {
     viewer_access_denied_title: "Erişim mümkün değil",
     viewer_login_link: "Giriş yap",
     product_stock_available_suffix: " adet stokta mevcut",
-    product_stock_unavailable: "Stokta yok — sipariş üretime gönderilecek",
+    product_stock_unavailable: "Hazır ürün kalmadı. Sipariş verirseniz biraz beklemeniz gerekebilir.",
   },
   ky: {
     nav_home: "Башкы бет",
@@ -987,7 +987,7 @@ const STRINGS = {
     viewer_access_denied_title: "Кирүү мүмкүн эмес",
     viewer_login_link: "Кирүү",
     product_stock_available_suffix: " даана коомдо бар",
-    product_stock_unavailable: "Коомдо жок — буйрутма өндүрүшкө жиберилет",
+    product_stock_unavailable: "Даяр товар калган жок. Буйрутма берсеңиз, бир аз күтүшүңүз мүмкүн.",
   },
   kk: {
     nav_home: "Басты бет",
@@ -1149,7 +1149,7 @@ const STRINGS = {
     viewer_access_denied_title: "Кіру мүмкін емес",
     viewer_login_link: "Кіру",
     product_stock_available_suffix: " дана қоймада бар",
-    product_stock_unavailable: "Қоймада жоқ — тапсырыс өндіріске жіберіледі",
+    product_stock_unavailable: "Дайын тауар қалмады. Тапсырыс берсеңіз, біраз күтуіңіз мүмкін.",
   },
   de: {
     nav_home: "Start",
@@ -1311,7 +1311,7 @@ const STRINGS = {
     viewer_access_denied_title: "Zugriff nicht möglich",
     viewer_login_link: "Anmelden",
     product_stock_available_suffix: " Stück auf Lager",
-    product_stock_unavailable: "Nicht vorrätig — Bestellung wird zur Produktion weitergeleitet",
+    product_stock_unavailable: "Fertigware ist nicht vorrätig. Wenn Sie bestellen, müssen Sie eventuell etwas warten.",
   },
   az: {
     nav_home: "Ana səhifə",
@@ -1473,7 +1473,7 @@ const STRINGS = {
     viewer_access_denied_title: "Giriş mümkün deyil",
     viewer_login_link: "Daxil ol",
     product_stock_available_suffix: " ədəd anbarda mövcuddur",
-    product_stock_unavailable: "Anbarda yoxdur — sifariş istehsalata göndəriləcək",
+    product_stock_unavailable: "Hazır məhsul qalmayıb. Sifariş versəniz, bir az gözləməli ola bilərsiniz.",
   },
 };
 
