@@ -19,6 +19,15 @@ class ProductsConfig(AppConfig):
         # buyruqlarni ham 80 soniyaga sekinlashtirib qo'ymaslik uchun.
         # `runserver`ning autoreload kuzatuvchi jarayonida (RUN_MAIN hali
         # yo'q) ham ishlamaydi — aks holda ikki marta yuklanardi.
+        # Productionda gunicorn: model fon oqimida yuklanadi (server darrov
+        # so'rov qabul qila boshlaydi, ~80s o'tgach qidiruv tayyor bo'ladi).
+        if "gunicorn" in os.path.basename(sys.argv[0]):
+            import threading
+
+            from . import embedding
+
+            threading.Thread(target=embedding.preload_model, daemon=True).start()
+            return
         if "runserver" not in sys.argv:
             return
         # Autoreload YOQILGAN (standart) holatda Django ikkita jarayon

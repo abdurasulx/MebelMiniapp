@@ -37,6 +37,14 @@ def _load_model():
             _MODEL_NAME, pretrained=_PRETRAINED
         )
         model.eval()
+        try:
+            import os
+
+            import torch
+
+            torch.set_num_threads(max(1, os.cpu_count() or 1))
+        except Exception:
+            pass
         _model = model
         _preprocess = preprocess
     return _model, _preprocess
@@ -66,7 +74,13 @@ def compute_embedding(image_file):
         if hasattr(image_file, "open"):
             image_file.open("rb")
         image_file.seek(0)
-        img = Image.open(image_file).convert("RGB")
+        img = Image.open(image_file)
+        # Telefon rasmlari katta (4000+ px): JPEG'ni dekodlashdayoq kichik
+        # o'lchamda ochamiz (draft) va CLIP baribir 224px ishlatadi —
+        # shuning uchun 512px'dan kattasini kichraytiramiz.
+        img.draft("RGB", (512, 512))
+        img = img.convert("RGB")
+        img.thumbnail((512, 512))
     except Exception:
         logger.exception("Rasmni ochib bo'lmadi (CLIP embedding)")
         return None
