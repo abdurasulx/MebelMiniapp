@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Heart, Factory, Sofa, Image, Box, Sparkles, ShoppingBasket, ArrowRight, PackageCheck } from "lucide-react";
 import { api } from "../api";
 import { addToCart } from "../cart";
+import ImageLightbox from "../components/ImageLightbox";
 import ModelViewer from "../components/ModelViewer";
 import CompanyBadge from "../components/CompanyBadge";
 import { useAuth } from "../auth";
@@ -25,6 +26,11 @@ export default function ProductDetail() {
   const [arSupported, setArSupported] = useState(null); // null = hali noma'lum
   const [arError, setArError] = useState("");
   const viewerRef = useRef(null);
+  // Rasm galereyasi: asosiy rasm + qo'shimcha rasmlar (takrorlarsiz). `imgIdx`
+  // sahifadagi joriy rasm — to'liq ekranli galereya ichida almashtirilsa
+  // shu ham yangilanadi.
+  const [imgIdx, setImgIdx] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeBusy, setLikeBusy] = useState(false);
   const [likeError, setLikeError] = useState("");
@@ -113,6 +119,8 @@ export default function ProductDetail() {
     }
   };
 
+  const gallery = [...new Set([p?.image_url, ...(p?.images || []).map((im) => im.image_url)].filter(Boolean))];
+
   if (error && !p)
     return (
       <div className="mx-auto max-w-6xl px-4 py-8">
@@ -194,8 +202,15 @@ export default function ProductDetail() {
             </div>
           )}
           {!(activeModel3d?.glb_url && viewMode === "3d") && (
-            (p.image_url || p.images?.[0]?.image_url) ? (
-              <img src={p.image_url || p.images[0].image_url} alt={p.name_uz} className="card w-full object-cover" />
+            gallery.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                aria-label={t("gallery_open")}
+                className="block w-full cursor-zoom-in"
+              >
+                <img src={gallery[imgIdx] || gallery[0]} alt={p.name_uz} className="card w-full object-cover" />
+              </button>
             ) : (
               <div
                 className="card flex h-72 w-full items-center justify-center"
@@ -234,12 +249,34 @@ export default function ProductDetail() {
           )}
           {arError && <div className="error mt-2">{arError}</div>}
 
-          {p.images.length > 0 && (
+          {gallery.length > 1 && (
             <div className="mt-3 flex flex-wrap gap-2">
-              {p.images.map((im) => (
-                <img key={im.id} src={im.image_url} alt="" className="h-20 w-20 rounded-xl object-cover" />
+              {gallery.map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  onClick={() => setImgIdx(i)}
+                  aria-label={`${i + 1} / ${gallery.length}`}
+                  className="overflow-hidden rounded-xl transition"
+                  style={{
+                    outline: i === imgIdx ? "2px solid var(--brand-cta-bg)" : "2px solid transparent",
+                    outlineOffset: 2,
+                    opacity: i === imgIdx ? 1 : 0.7,
+                  }}
+                >
+                  <img src={src} alt="" loading="lazy" className="h-20 w-20 object-cover" />
+                </button>
               ))}
             </div>
+          )}
+          {lightboxOpen && gallery.length > 0 && (
+            <ImageLightbox
+              images={gallery}
+              index={Math.min(imgIdx, gallery.length - 1)}
+              onIndexChange={setImgIdx}
+              onClose={() => setLightboxOpen(false)}
+              alt={p.name_uz}
+            />
           )}
         </div>
 
