@@ -364,12 +364,19 @@ class ProductSearchByImageView(APIView):
             return Response([])
 
         score_by_id = {product_id: score for product_id, score in hits}
-        candidates = {
-            str(p.id): p
-            for p in Product.objects.filter(
-                id__in=score_by_id.keys(), is_deleted=False, is_published=True
-            ).select_related("company", "category").prefetch_related("variants", "images")
-        }
+        candidates_qs = Product.objects.filter(
+            id__in=score_by_id.keys(), is_deleted=False, is_published=True
+        ).select_related("company", "category").prefetch_related("variants", "images")
+        # Mahsulotlar ro'yxati bilan bir xil qoida: foydalanuvchi lokatsiyasi
+        # berilsa, firma xizmat radiusidan tashqaridagi mahsulotlar chiqmaydi.
+        try:
+            lat = float(request.data.get("lat"))
+            lng = float(request.data.get("lng"))
+        except (TypeError, ValueError):
+            lat = lng = None
+        if lat is not None and lng is not None:
+            candidates_qs = candidates_qs.filter(company_id__in=_companies_within_radius(lat, lng))
+        candidates = {str(p.id): p for p in candidates_qs}
 
         ordered = [
             (candidates[pid], score)

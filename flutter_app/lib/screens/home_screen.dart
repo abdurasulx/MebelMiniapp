@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../likes_store.dart';
 import '../locale_store.dart';
+import '../location_store.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/offline_view.dart';
@@ -26,7 +27,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<Product> _products = [];
   List<_Category> _categories = [];
   bool _loading = true;
@@ -43,9 +44,14 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Product>? _imageResults;
   bool _imageSearching = false;
 
+  LocationStore? _location;
+  String? _loadedFor; // qaysi koordinata uchun ro'yxat yuklangan
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _location = context.read<LocationStore>()..addListener(_onLocationChanged);
     _load();
     _searchCtrl.addListener(() {
       setState(() => _query = _searchCtrl.text.trim());
@@ -54,11 +60,48 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _location?.removeListener(_onLocationChanged);
     _searchCtrl.dispose();
     super.dispose();
   }
 
+  /// Foydalanuvchi tizim sozlamalaridan joylashuvga ruxsat berib qaytsa —
+  /// qo'lda "Qayta urinish" bosmasdan avtomatik qayta aniqlanadi.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final loc = _location;
+    if (state == AppLifecycleState.resumed &&
+        loc != null &&
+        !loc.hasFix &&
+        loc.status != LocationStatus.loading) {
+      loc.detectFromGps();
+    }
+  }
+
+  /// Joylashuv aniqlanganda (yoki o'zgarganda) ro'yxatni qayta yuklaydi.
+  void _onLocationChanged() {
+    final loc = _location;
+    if (!mounted || loc == null) return;
+    if (loc.hasFix && _loadedFor != '${loc.lat},${loc.lng}') {
+      _load();
+    } else if (!loc.hasFix && _products.isNotEmpty) {
+      setState(() => _products = []);
+      _loadedFor = null;
+    }
+  }
+
   Future<void> _load() async {
+    final location = _location;
+    // Joylashuvsiz mahsulotlar ko'rsatilmaydi (firmalar xizmat radiusi
+    // bor) — GPS aniqlanguncha yoki ruxsat berilmaguncha so'rov yuborilmaydi.
+    if (location == null || !location.hasFix) {
+      setState(() {
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -66,7 +109,10 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final params = <String, String>{
         if (_topOnly) 'ordering': 'top',
+        'lat': location.lat!.toString(),
+        'lng': location.lng!.toString(),
       };
+      _loadedFor = '${location.lat},${location.lng}';
       final query = params.isEmpty
           ? ''
           : '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
@@ -172,6 +218,10 @@ class _HomeScreenState extends State<HomeScreen> {
         (j) => (j as List).map((e) => Product.fromJson(e)).toList(),
         imageFieldName: 'image',
         imagePath: picked.path,
+        fields: {
+          if (_location?.hasFix ?? false) 'lat': _location!.lat!.toString(),
+          if (_location?.hasFix ?? false) 'lng': _location!.lng!.toString(),
+        },
       );
       setState(() => _imageResults = results);
     } catch (e) {
@@ -313,6 +363,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final loc = context.watch<LocaleStore>();
+    final location = context.watch<LocationStore>();
+
+    if (!location.hasFix) {
+      return Scaffold(body: SafeArea(child: _locationGate(loc, location)));
+    }
 
     return Scaffold(
       body: SafeArea(
@@ -349,10 +404,103 @@ class _HomeScreenState extends State<HomeScreen> {
                   _featuredRow(),
                   const SizedBox(height: 24),
                 ],
-                _productsSection(loc),
+                if (!_isFiltering && _products.isEmpty && _error == null)
+                  _stateMessage(
+                    icon: Icons.storefront_outlined,
+                    title: loc.t('loc_no_firms'),
+                    body: loc.t('loc_no_firms_hint'),
+                  )
+                else
+                  _productsSection(loc),
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Joylashuv hali aniqlanmagan / ruxsat yo'q / GPS o'chiq holati.
+  Widget _locationGate(LocaleStore loc, LocationStore location) {
+    final checking = location.status == LocationStatus.idle ||
+        location.status == LocationStatus.loading ||
+        (location.status == LocationStatus.granted && !location.hasFix);
+    if (checking) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.deep));
+    }
+    final gpsOff = location.status == LocationStatus.unavailable;
+    return _stateMessage(
+      icon: Icons.location_off_outlined,
+      title: loc.t(gpsOff ? 'loc_gps_off_title' : 'loc_required_title'),
+      body: loc.t(gpsOff ? 'loc_gps_off_body' : 'loc_required_body'),
+      actionLabel: loc.t(
+        gpsOff || location.permanentlyDenied ? 'loc_open_settings' : 'loc_allow',
+      ),
+      onAction: () async {
+        if (gpsOff || location.permanentlyDenied) {
+          await location.openSettings();
+        } else {
+          await location.detectFromGps();
+        }
+      },
+      secondaryLabel: loc.t('loc_retry'),
+      onSecondary: location.detectFromGps,
+    );
+  }
+
+  Widget _stateMessage({
+    required IconData icon,
+    required String title,
+    required String body,
+    String? actionLabel,
+    VoidCallback? onAction,
+    String? secondaryLabel,
+    VoidCallback? onSecondary,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 34, color: AppColors.deep),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.deep),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13.5, height: 1.45, color: AppColors.deep.withValues(alpha: 0.7)),
+            ),
+            if (actionLabel != null) ...[
+              const SizedBox(height: 22),
+              ElevatedButton(
+                onPressed: onAction,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.deep,
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+                child: Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ],
+            if (secondaryLabel != null)
+              TextButton(onPressed: onSecondary, child: Text(secondaryLabel)),
+          ],
         ),
       ),
     );

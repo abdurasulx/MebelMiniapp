@@ -19,6 +19,7 @@ class LocationStore extends ChangeNotifier {
   double? _lat;
   double? _lng;
   LocationStatus _status = LocationStatus.idle;
+  bool _permanentlyDenied = false;
 
   String? get viloyat => _viloyat;
   // Aniq GPS koordinatasi — mavjud bo'lsa, firma xizmat radiusi bo'yicha
@@ -27,21 +28,27 @@ class LocationStore extends ChangeNotifier {
   double? get lat => _lat;
   double? get lng => _lng;
   LocationStatus get status => _status;
+  bool get permanentlyDenied => _permanentlyDenied;
+  /// Mahsulotlarni ko'rsatish uchun yangi GPS koordinatasi bor.
+  bool get hasFix => _status == LocationStatus.granted && _lat != null && _lng != null;
+
+  /// Ruxsat berilmagan/GPS o'chiq holatda tegishli tizim sozlamasini ochadi.
+  Future<void> openSettings() async {
+    if (_status == LocationStatus.unavailable) {
+      await Geolocator.openLocationSettings();
+    } else {
+      await Geolocator.openAppSettings();
+    }
+  }
   String viloyatLabelText(LocaleStore loc) => viloyatLabel(_viloyat, loc);
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString(_prefKey);
-    final savedLat = prefs.getDouble(_latKey);
-    final savedLng = prefs.getDouble(_lngKey);
-    if (saved != null) {
-      _viloyat = saved;
-      _lat = savedLat;
-      _lng = savedLng;
-      _status = LocationStatus.granted;
-      notifyListeners();
-      return;
-    }
+    // Saqlangan viloyatni (savat/yetkazib berish uchun) tiklaymiz, lekin
+    // KOORDINATANI emas — mahsulotlar ko'rinishi har safar ilova ochilganda
+    // yangi GPS o'lchovi bilan hal qilinadi (eskirgan joy bilan boshqa
+    // shahardagi firma mahsulotlari ko'rinib qolmasligi uchun).
+    _viloyat = prefs.getString(_prefKey);
     await detectFromGps();
   }
 
@@ -49,6 +56,9 @@ class LocationStore extends ChangeNotifier {
     _status = LocationStatus.loading;
     notifyListeners();
     try {
+      _lat = null;
+      _lng = null;
+      _permanentlyDenied = false;
       if (!await Geolocator.isLocationServiceEnabled()) {
         _status = LocationStatus.unavailable;
         notifyListeners();
@@ -60,6 +70,7 @@ class LocationStore extends ChangeNotifier {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
+        _permanentlyDenied = permission == LocationPermission.deniedForever;
         _status = LocationStatus.denied;
         notifyListeners();
         return;

@@ -167,6 +167,21 @@ class DistanceVisibilityTests(APITestCase):
         self.assertIn(str(self.unset_product.id), ids)
         self.assertNotIn(str(self.far_product.id), ids)
 
+    def test_tashkent_firm_hidden_from_andijan_user_within_100km_radius(self):
+        owner = User.objects.create_user(email="t@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        tashkent = Company.objects.create(
+            owner=owner, name="Toshkent firma", slug="toshkent-firma",
+            latitude=41.311081, longitude=69.240562, service_radius_km=100,
+        )
+        product = Product.objects.create(
+            company=tashkent, category=self.category, name_uz="Toshkent stuli", is_published=True,
+        )
+        # Andijon (~270 km) — 100 km radiusdan tashqarida; Toshkent atrofi — ichida.
+        andijan = self.client.get("/api/v1/products/?lat=40.7821&lng=72.3442")
+        self.assertNotIn(str(product.id), {p["id"] for p in andijan.data["results"]})
+        near = self.client.get("/api/v1/products/?lat=41.2995&lng=69.2401")
+        self.assertIn(str(product.id), {p["id"] for p in near.data["results"]})
+
     def test_without_lat_lng_all_are_visible(self):
         resp = self.client.get("/api/v1/products/")
         self.assertEqual(resp.status_code, 200, resp.data)
