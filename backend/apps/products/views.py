@@ -41,6 +41,33 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return Category.objects.filter(is_deleted=False)
 
 
+def _parse_coords(lat, lng):
+    """So'rovdagi `lat`/`lng` satrlarini float'ga o'giradi; yo'q yoki
+    yaroqsiz bo'lsa (None, None) — ya'ni "joylashuv noma'lum"."""
+    try:
+        lat_f, lng_f = float(lat), float(lng)
+    except (TypeError, ValueError):
+        return None, None
+    if not (-90 <= lat_f <= 90 and -180 <= lng_f <= 180):
+        return None, None
+    return lat_f, lng_f
+
+
+def _radius_limited_q(own_company=None, user=None):
+    """Xizmat radiusi (lat+lng+radius) to'liq sozlangan firmalar sharti —
+    joylashuvsiz so'rovda shularning mahsulotlari chiqarib tashlanadi."""
+    q = Q(
+        company__latitude__isnull=False,
+        company__longitude__isnull=False,
+        company__service_radius_km__isnull=False,
+    )
+    if own_company is not None:
+        q &= ~Q(company=own_company)
+    if user is not None and user.is_authenticated:
+        q &= ~Q(company__owner=user)
+    return q
+
+
 def _companies_within_radius(lat, lng):
     """Foydalanuvchi nuqtasidan (`lat`, `lng`) firma o'zi sozlagan xizmat
     radiusi ichida bo'lgan (yoki lokatsiya/radius umuman sozlanmagan —
@@ -197,18 +224,20 @@ class ProductViewSet(viewsets.ModelViewSet):
         # xizmat qilishi mumkin). Lokatsiya/radius sozlanmagan firmalar
         # avvalgidek hammaga ko'rinadi. Eski klientlar uchun `viloyat`
         # parametri hali ham qo'llab-quvvatlanadi (lat/lng bo'lmasa).
-        lat = self.request.query_params.get("lat")
-        lng = self.request.query_params.get("lng")
-        if lat and lng:
-            try:
-                allowed_ids = _companies_within_radius(float(lat), float(lng))
-                qs = qs.filter(company_id__in=allowed_ids)
-            except (TypeError, ValueError):
-                pass
+        lat, lng = _parse_coords(self.request.query_params.get("lat"), self.request.query_params.get("lng"))
+        if lat is not None:
+            qs = qs.filter(company_id__in=_companies_within_radius(lat, lng))
         else:
             viloyat = self.request.query_params.get("viloyat")
             if viloyat:
                 qs = qs.filter(Q(company__viloyat=viloyat) | Q(company__viloyat=""))
+            # Joylashuv yuborilmagan bo'lsa — xizmat radiusi sozlangan firmalar
+            # mahsulotlari qaytarilmaydi (foydalanuvchi o'zining hududida
+            # ekanini bilib bo'lmaydi). Radiussiz firmalar hammaga ochiq;
+            # firma xodimlari o'z firmasi mahsulotini ko'rishda davom etadi.
+            if self.action == "list" and not (user.is_authenticated and user.role == "platform_admin"):
+                own = user_company(user) if user.is_authenticated else None
+                qs = qs.exclude(_radius_limited_q(own, user))
         ordering = self.request.query_params.get("ordering")
         if ordering == "top":
             qs = qs.annotate(like_count=Count("liked_by")).order_by("-like_count", "-created_at")
@@ -369,13 +398,11 @@ class ProductSearchByImageView(APIView):
         ).select_related("company", "category").prefetch_related("variants", "images")
         # Mahsulotlar ro'yxati bilan bir xil qoida: foydalanuvchi lokatsiyasi
         # berilsa, firma xizmat radiusidan tashqaridagi mahsulotlar chiqmaydi.
-        try:
-            lat = float(request.data.get("lat"))
-            lng = float(request.data.get("lng"))
-        except (TypeError, ValueError):
-            lat = lng = None
-        if lat is not None and lng is not None:
+        lat, lng = _parse_coords(request.data.get("lat"), request.data.get("lng"))
+        if lat is not None:
             candidates_qs = candidates_qs.filter(company_id__in=_companies_within_radius(lat, lng))
+        else:
+            candidates_qs = candidates_qs.exclude(_radius_limited_q())
         candidates = {str(p.id): p for p in candidates_qs}
 
         ordered = [

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Box, Camera, Heart, PackageCheck, Search, Sofa, ArrowRight, X } from "lucide-react";
+import { ArrowLeft, Box, Camera, Heart, MapPinOff, PackageCheck, Search, Sofa, Store, ArrowRight, X } from "lucide-react";
 import { api } from "../api";
+import { coordsParams, useGeolocation } from "../location";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
 import PriceTag from "../components/PriceTag";
@@ -38,6 +39,8 @@ export default function Catalog() {
   const [searchResults, setSearchResults] = useState(null);
   const [searching, setSearching] = useState(false);
   const fileInputRef = useRef(null);
+  const geo = useGeolocation();
+  const [productsLoaded, setProductsLoaded] = useState(false);
 
   useEffect(() => {
     const q = search.trim();
@@ -47,13 +50,14 @@ export default function Catalog() {
     }
     setSearching(true);
     const timer = setTimeout(() => {
-      api(`/products/?search=${encodeURIComponent(q)}`)
+      api(`/products/?search=${encodeURIComponent(q)}${coordsParams(geo, "&")}`)
         .then((d) => setSearchResults(d.results || []))
         .catch((e) => setError(e.message))
         .finally(() => setSearching(false));
     }, 350);
     return () => clearTimeout(timer);
-  }, [search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, geo.status, geo.lat, geo.lng]);
 
   const backToHome = () => {
     setSearch("");
@@ -73,6 +77,10 @@ export default function Catalog() {
     try {
       const fd = new FormData();
       fd.append("image", file);
+      if (geo.status === "granted") {
+        fd.append("lat", geo.lat);
+        fd.append("lng", geo.lng);
+      }
       const results = await api("/products/search-by-image/", { method: "POST", body: fd, isForm: true });
       setImageResults(results || []);
     } catch (err) {
@@ -104,30 +112,27 @@ export default function Catalog() {
     }
   };
 
-  const loadProducts = (lat, lng) => {
-    const query = lat != null && lng != null ? `?lat=${lat}&lng=${lng}` : "";
-    api(`/products/${query}`)
-      .then((d) => setProducts(d.results || []))
-      .catch((e) => setError(e.message));
-  };
-
   useEffect(() => {
     api("/categories/")
       .then((d) => setCategories(d.results || []))
       .catch(() => {});
-    // Foydalanuvchi joylashuvi ruxsat berilsa — firma xizmat radiusiga mos
-    // mahsulotlar ko'rsatiladi (qarang backend apps/products/views.py). Rad
-    // etilsa yoki mavjud bo'lmasa, oddiy (filtrsiz) ro'yxat ko'rsatiladi.
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => loadProducts(pos.coords.latitude, pos.coords.longitude),
-        () => loadProducts(),
-        { timeout: 5000 },
-      );
-    } else {
-      loadProducts();
-    }
   }, []);
+
+  // Mahsulotlar joylashuvga bog'liq (firma xizmat radiusi, serverda
+  // filtrlanadi) — joylashuv aniqlanmaguncha yoki ruxsat berilmaguncha
+  // so'rov yuborilmaydi va mahsulotlar ko'rsatilmaydi.
+  useEffect(() => {
+    if (geo.status !== "granted") {
+      setProducts([]);
+      setProductsLoaded(false);
+      return;
+    }
+    setProductsLoaded(false);
+    api(`/products/${coordsParams(geo)}`)
+      .then((d) => setProducts(d.results || []))
+      .catch((e) => setError(e.message))
+      .finally(() => setProductsLoaded(true));
+  }, [geo.status, geo.lat, geo.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isSearching = Boolean(imageResults || searchResults !== null);
   const shown = imageResults ?? searchResults ?? (cat ? products.filter((p) => p.category === cat) : products);
@@ -174,6 +179,17 @@ export default function Catalog() {
         </p>
       </div>
 
+      {geo.status !== "granted" ? (
+        <StateMessage
+          icon={geo.status === "loading" ? null : MapPinOff}
+          title={t(geo.status === "loading" ? "loc_checking" : geo.status === "denied" ? "loc_required_title" : "loc_unavailable_title")}
+          body={geo.status === "loading" ? null : t(geo.status === "denied" ? "loc_required_body" : "loc_unavailable_body")}
+          hint={geo.status === "denied" ? t("loc_browser_hint") : null}
+          actionLabel={geo.status === "loading" ? null : t(geo.status === "denied" ? "loc_allow" : "loc_retry")}
+          onAction={geo.retry}
+        />
+      ) : (
+      <>
       {/* Qidiruv */}
       <div className="mb-4 flex items-center gap-2">
         {isSearching && (
@@ -227,7 +243,7 @@ export default function Catalog() {
 
       {/* Kolleksiyalar — mobil ilovadagi aylana belgili kategoriya qatori
           bilan bir xil ko'rinish (oldingi tekis pill-tugmalar o'rniga) */}
-      {!isSearching && (
+      {!isSearching && !(productsLoaded && products.length === 0) && (
         <div className="mb-6">
           <h2 className="mb-0.5 text-lg font-bold">{t("catalog_collections_title")}</h2>
           <p className="mb-3 text-sm" style={{ color: "var(--muted)" }}>
@@ -295,10 +311,14 @@ export default function Catalog() {
       )}
 
       {error && <div className="error mb-4">{error}</div>}
-      {shown.length === 0 && (
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          {imageResults ? t("catalog_no_similar") : t("catalog_no_products")}
-        </p>
+      {shown.length === 0 && productsLoaded && !isSearching && !cat && products.length === 0 ? (
+        <StateMessage icon={Store} title={t("loc_no_firms")} body={t("loc_no_firms_hint")} />
+      ) : (
+        shown.length === 0 && (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            {imageResults ? t("catalog_no_similar") : t("catalog_no_products")}
+          </p>
+        )
       )}
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -366,6 +386,29 @@ export default function Catalog() {
           </Link>
         ))}
       </div>
+      </>
+      )}
+    </div>
+  );
+}
+
+function StateMessage({ icon: Icon, title, body, hint, actionLabel, onAction }) {
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-center gap-3 px-4 py-16 text-center">
+      <div
+        className="flex h-16 w-16 items-center justify-center rounded-full"
+        style={{ background: "color-mix(in srgb, var(--primary) 35%, transparent)" }}
+      >
+        {Icon ? <Icon size={28} /> : <div className="h-7 w-7 animate-spin rounded-full border-2 border-current border-t-transparent opacity-60" />}
+      </div>
+      <h2 className="text-lg font-bold">{title}</h2>
+      {body && <p className="text-sm" style={{ color: "var(--muted)" }}>{body}</p>}
+      {hint && <p className="text-xs" style={{ color: "var(--muted)" }}>{hint}</p>}
+      {actionLabel && (
+        <button className="btn btn-brand mt-2" onClick={onAction}>
+          {actionLabel}
+        </button>
+      )}
     </div>
   );
 }

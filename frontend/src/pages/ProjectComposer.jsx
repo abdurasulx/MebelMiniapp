@@ -4,6 +4,7 @@ import {
   List, Move3d, RotateCw, Ruler, Trash2, Camera, Link2, Lock, Unlock, Plus, X,
 } from "lucide-react";
 import { api } from "../api";
+import { coordsParams, requestCoords } from "../location";
 import { useLocale } from "../locale";
 import RoomScene from "../components/RoomScene";
 
@@ -246,7 +247,10 @@ function AddItemPanel({ projectId, onClose, onAdded }) {
   const [busyId, setBusyId] = useState(null);
 
   useEffect(() => {
-    api("/products/").then((p) => setProducts(p.results || [])).catch(() => {});
+    requestCoords()
+      .then((c) => api(`/products/${coordsParams(c)}`))
+      .then((p) => setProducts(p.results || []))
+      .catch(() => {});
     api("/detail-assets/").then((p) => setDetails(p.results || [])).catch(() => {});
   }, []);
 

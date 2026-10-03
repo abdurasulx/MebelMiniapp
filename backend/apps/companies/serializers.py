@@ -105,6 +105,26 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
         )
         read_only_fields = ("id", "owner", "slug", "created_at")
 
+    # Firma joylashuvi va xizmat radiusi — ichki ma'lumot: ommaviy API
+    # (anonim yoki boshqa foydalanuvchi) buni ko'rmaydi, faqat firma egasi va
+    # platforma admini (sozlamalar sahifasi uchun). Mahsulotlarni hududga
+    # qarab filtrlash serverning o'zida bajariladi (apps/products/views.py).
+    _SERVICE_AREA_FIELDS = ("latitude", "longitude", "service_radius_km")
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        allowed = bool(
+            user
+            and user.is_authenticated
+            and (user.role == User.Role.PLATFORM_ADMIN or instance.owner_id == user.id)
+        )
+        if not allowed:
+            for field in self._SERVICE_AREA_FIELDS:
+                data.pop(field, None)
+        return data
+
     def validate(self, attrs):
         owner_email = attrs.get("owner_email")
         if owner_email:

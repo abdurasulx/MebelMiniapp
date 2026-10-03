@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Factory, Sofa, MapPin, Star, AtSign, Send, Link as LinkIcon, Globe, PackageCheck } from "lucide-react";
 import { api } from "../api";
+import { coordsParams, requestCoords } from "../location";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
 import CompanyBadge from "../components/CompanyBadge";
@@ -40,7 +41,9 @@ export default function Shop() {
     api(`/companies/${slug}/`)
       .then(setCompany)
       .catch((e) => setError(e.message));
-    api(`/products/?company=${slug}`)
+    // Firma xizmat radiusi serverda joylashuv bo'yicha tekshiriladi.
+    requestCoords()
+      .then((c) => api(`/products/?company=${slug}${coordsParams(c, "&")}`))
       .then((d) => setProducts(d.results || []))
       .catch(() => {});
     api(`/reviews/?company=${slug}`)

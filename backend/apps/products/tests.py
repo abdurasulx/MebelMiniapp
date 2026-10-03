@@ -182,13 +182,58 @@ class DistanceVisibilityTests(APITestCase):
         near = self.client.get("/api/v1/products/?lat=41.2995&lng=69.2401")
         self.assertIn(str(product.id), {p["id"] for p in near.data["results"]})
 
-    def test_without_lat_lng_all_are_visible(self):
+    def test_without_lat_lng_radius_limited_firms_are_hidden(self):
         resp = self.client.get("/api/v1/products/")
         self.assertEqual(resp.status_code, 200, resp.data)
         ids = {p["id"] for p in resp.data["results"]}
-        self.assertIn(str(self.near_product.id), ids)
-        self.assertIn(str(self.far_product.id), ids)
+        # Radiusi sozlangan firmalar joylashuvsiz ko'rinmaydi; sozlanmagani ochiq.
+        self.assertNotIn(str(self.near_product.id), ids)
+        self.assertNotIn(str(self.far_product.id), ids)
         self.assertIn(str(self.unset_product.id), ids)
+
+    def test_invalid_coordinates_are_treated_as_missing(self):
+        resp = self.client.get("/api/v1/products/?lat=abc&lng=999")
+        ids = {p["id"] for p in resp.data["results"]}
+        self.assertNotIn(str(self.near_product.id), ids)
+        self.assertIn(str(self.unset_product.id), ids)
+
+    def test_company_staff_still_sees_own_radius_limited_products(self):
+        self.client.force_authenticate(self.near_company.owner)
+        resp = self.client.get("/api/v1/products/")
+        ids = {p["id"] for p in resp.data["results"]}
+        self.assertIn(str(self.near_product.id), ids)
+
+    def test_product_detail_is_not_location_gated(self):
+        resp = self.client.get(f"/api/v1/products/{self.far_product.id}/")
+        self.assertEqual(resp.status_code, 200, resp.data)
+
+
+class CompanyServiceAreaPrivacyTests(APITestCase):
+    """Firma joylashuvi/radiusi ommaviy API'da ko'rinmaydi."""
+
+    def setUp(self):
+        self.owner = User.objects.create_user(email="o@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        self.other = User.objects.create_user(email="x@shop.uz", password="pass12345", role=User.Role.CUSTOMER)
+        self.company = Company.objects.create(
+            owner=self.owner, name="Maxfiy firma", slug="maxfiy-firma",
+            latitude=41.311081, longitude=69.240562, service_radius_km=100,
+        )
+
+    def _company(self, resp):
+        return next(c for c in resp.data["results"] if c["slug"] == "maxfiy-firma")
+
+    def test_anonymous_and_other_users_do_not_see_service_area(self):
+        for user in (None, self.other):
+            self.client.force_authenticate(user)
+            data = self._company(self.client.get("/api/v1/companies/"))
+            for field in ("latitude", "longitude", "service_radius_km"):
+                self.assertNotIn(field, data)
+
+    def test_owner_sees_service_area(self):
+        self.client.force_authenticate(self.owner)
+        data = self._company(self.client.get("/api/v1/companies/"))
+        self.assertEqual(data["service_radius_km"], 100)
+        self.assertIn("latitude", data)
 
 
 class RankingTests(APITestCase):
