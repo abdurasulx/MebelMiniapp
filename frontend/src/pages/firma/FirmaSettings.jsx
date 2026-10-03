@@ -5,29 +5,12 @@ import { useAuth } from "../../auth";
 import { POSITIONS } from "../../positions";
 import { TASK_STAGE } from "../../taskStage";
 
-const VILOYATLAR = [
-  ["toshkent_shahri", "Toshkent shahri"],
-  ["toshkent_viloyati", "Toshkent viloyati"],
-  ["andijon", "Andijon"],
-  ["buxoro", "Buxoro"],
-  ["fargona", "Farg'ona"],
-  ["jizzax", "Jizzax"],
-  ["xorazm", "Xorazm"],
-  ["namangan", "Namangan"],
-  ["navoiy", "Navoiy"],
-  ["qashqadaryo", "Qashqadaryo"],
-  ["qoraqalpogiston", "Qoraqalpog'iston Respublikasi"],
-  ["samarqand", "Samarqand"],
-  ["sirdaryo", "Sirdaryo"],
-  ["surxondaryo", "Surxondaryo"],
-];
-
 export default function FirmaSettings() {
   const { user } = useAuth();
   const [company, setCompany] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState({
-    name: "", phone: "", address: "", viloyat: "", description: "", employment_contract_template: "",
+    name: "", phone: "", address: "", description: "", employment_contract_template: "",
     latitude: "", longitude: "", service_radius_km: "",
     instagram_url: "", telegram_url: "", facebook_url: "", website_url: "",
   });
@@ -48,7 +31,6 @@ export default function FirmaSettings() {
             name: c.name || "",
             phone: c.phone || "",
             address: c.address || "",
-            viloyat: c.viloyat || "",
             description: c.description || "",
             employment_contract_template: c.employment_contract_template || "",
             latitude: c.latitude ?? "",
@@ -179,13 +161,6 @@ export default function FirmaSettings() {
             <label className="label">Telefon</label>
             <input className="input" value={form.phone} onChange={set("phone")} placeholder="+998…" disabled={!isOwner} />
           </div>
-          <div>
-            <label className="label">Viloyat</label>
-            <select className="input" value={form.viloyat} onChange={set("viloyat")} disabled={!isOwner}>
-              <option value="">Tanlanmagan</option>
-              {VILOYATLAR.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-            </select>
-          </div>
         </div>
         <div>
           <label className="label">Manzil</label>
@@ -198,8 +173,7 @@ export default function FirmaSettings() {
           </label>
           <p className="mb-1.5 text-xs" style={{ color: "var(--muted)" }}>
             Firma joylashuvi va shu nuqtadan necha km radiusda mijozlarga xizmat qilishingiz —
-            mahsulotlaringiz shu radius ichidagi foydalanuvchilarga ko'rinadi (viloyat chegarasidan
-            qat'iy nazar). Bo'sh qoldirilsa, hamma joyda ko'rinadi.
+            mahsulotlaringiz shu radius ichidagi foydalanuvchilarga ko'rinadi. Bo'sh qoldirilsa, hamma joyda ko'rinadi.
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <input
