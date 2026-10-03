@@ -420,6 +420,19 @@ struct Payslip: Codable, Identifiable {
     let kpiBonusAmount: String
     let totalAmount: String
     let isPaid: Bool
+    /// Avans/to'lovlar yig'indisi (backend `Payslip.paid_total`); eski javoblarda bo'lmasligi mumkin.
+    let paidTotal: String?
+}
+
+/// Maosh varaqasi bo'yicha bitta to'lov (avans yoki yakuniy) — `/payslips/<id>/payments/`.
+struct PayslipPayment: Codable, Identifiable {
+    let id: String
+    let kind: String
+    let kindDisplay: String
+    let amount: String
+    let paidAt: String
+    let note: String?
+    let recordedByName: String?
 }
 
 /// Buyurtma statusi bo'yicha kompaniya tomonidan ruxsat etilgan keyingi

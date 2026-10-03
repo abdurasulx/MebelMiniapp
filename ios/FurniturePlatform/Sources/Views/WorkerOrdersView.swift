@@ -330,6 +330,9 @@ private struct StepRowView: View {
     @State private var showSheet = false
     @State private var completing = false
     @State private var starting = false
+    @State private var releasing = false
+    @State private var confirmRelease = false
+    @State private var actionError: String?
 
     // "Yangilash"/"Yakunlash" tugmalari faqat hali yakunlanmagan bosqichda
     // ko'rsatiladi — "Tasdiqlangan"/"Bekor qilindi" allaqachon yakuniy holat.
@@ -343,6 +346,13 @@ private struct StepRowView: View {
     // TaskCard.advance() bilan bir xil naqsh (FirmaProduction.jsx).
     private var canStart: Bool {
         (step.isManual ?? false) && step.status == "pending" && step.isAvailable
+    }
+
+    // Qabul qilingan ("erkin" hovuzdan olingan) yoki jarayondagi bosqichdan
+    // voz kechib, uni yana ustasiz holatga qaytarish mumkin (Flutter
+    // `_releaseTask` bilan bir xil; backend yakunlangan bosqichni rad etadi).
+    private var canRelease: Bool {
+        step.status == "in_progress" || (step.status == "pending" && step.isAvailable)
     }
 
     var body: some View {
@@ -360,6 +370,15 @@ private struct StepRowView: View {
                         .font(.caption).foregroundStyle(.teal)
                 }
                 Text(subtitle).font(.caption2).foregroundStyle(step.isOverdue ? .red : .secondary)
+                if canRelease {
+                    Button(releasing ? "..." : "Topshiriqdan voz kechish", role: .destructive) {
+                        confirmRelease = true
+                    }
+                    .font(.caption2)
+                    .buttonStyle(.borderless)
+                    .disabled(releasing)
+                    .padding(.top, 2)
+                }
             }
             Spacer()
             if canStart {
@@ -375,6 +394,31 @@ private struct StepRowView: View {
         .sheet(isPresented: $showSheet) {
             StepUpdateSheet(step: step, isCompletion: completing, onDone: onChanged)
         }
+        .confirmationDialog(
+            "Bu bosqichdan voz kechasizmi? U boshqa ustalarga qayta ko'rinadi.",
+            isPresented: $confirmRelease, titleVisibility: .visible
+        ) {
+            Button("Voz kechish", role: .destructive) { Task { await release() } }
+            Button("Bekor", role: .cancel) {}
+        }
+        .alert("Xatolik", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(actionError ?? "")
+        }
+    }
+
+    private func release() async {
+        releasing = true
+        do {
+            let _: WorkflowStepInstance = try await APIClient.shared.post(
+                "/workflow-instances/\(step.id)/release/", auth: true
+            )
+            onChanged()
+        } catch {
+            actionError = error.localizedDescription
+        }
+        releasing = false
     }
 
     private func start() async {

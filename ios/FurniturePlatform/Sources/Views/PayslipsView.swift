@@ -90,6 +90,11 @@ struct PayslipsView: View {
 private struct PayslipRow: View {
     let payslip: Payslip
 
+    @State private var expanded = false
+    @State private var payments: [PayslipPayment]?
+    @State private var loading = false
+    @State private var errorMessage: String?
+
     private var extras: String {
         var text = "\(payslip.payTypeDisplay) · \(payBreakdown(payslip))"
         if payslip.payType == "commission", let workflow = Double(payslip.workflowEarnings), workflow > 0 {
@@ -101,25 +106,76 @@ private struct PayslipRow: View {
         return text
     }
 
+    private var paidTotal: Double { Double(payslip.paidTotal ?? "") ?? 0 }
+
     var body: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(periodLabel(payslip.period)).bold()
-                Text(extras).font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(periodLabel(payslip.period)).bold()
+                    Text(extras).font(.caption).foregroundStyle(.secondary)
+                    if !payslip.isPaid && paidTotal > 0 {
+                        Text("\(String(format: "%.0f", paidTotal).formattedSom) avans olingan")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(payslip.totalAmount.formattedSom) so'm").bold()
+                    Text(payslip.isPaid ? "To'landi" : "Kutilmoqda")
+                        .font(.caption2)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(payslip.isPaid ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
+                        .foregroundStyle(payslip.isPaid ? .green : .orange)
+                        .clipShape(Capsule())
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.caption2).foregroundStyle(.tertiary)
+                }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text("\(payslip.totalAmount.formattedSom) so'm").bold()
-                Text(payslip.isPaid ? "To'landi" : "Kutilmoqda")
-                    .font(.caption2)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(payslip.isPaid ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
-                    .foregroundStyle(payslip.isPaid ? .green : .orange)
-                    .clipShape(Capsule())
+            if expanded {
+                Divider().padding(.vertical, 10)
+                if loading {
+                    ProgressView().frame(maxWidth: .infinity)
+                } else if let errorMessage {
+                    Text(errorMessage).font(.caption).foregroundStyle(.red)
+                } else if (payments ?? []).isEmpty {
+                    Text("Hali to'lov qilinmagan.").font(.caption).foregroundStyle(.secondary)
+                } else {
+                    ForEach(payments ?? []) { pm in
+                        HStack(alignment: .top) {
+                            Text("\(pm.kindDisplay) — \(pm.amount.formattedSom) so'm"
+                                + ((pm.note ?? "").isEmpty ? "" : " (\(pm.note ?? ""))"))
+                                .font(.caption)
+                            Spacer()
+                            Text(pm.paidAt).font(.caption2).foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
             }
         }
         .padding()
         .background(Color(.secondarySystemBackground).opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .contentShape(RoundedRectangle(cornerRadius: 14))
+        .onTapGesture { toggle() }
+    }
+
+    private func toggle() {
+        withAnimation(.easeOut(duration: 0.2)) { expanded.toggle() }
+        guard expanded, payments == nil, !loading else { return }
+        loading = true
+        errorMessage = nil
+        Task {
+            do {
+                let list: [PayslipPayment] = try await APIClient.shared.get(
+                    "/payslips/\(payslip.id)/payments/", auth: true
+                )
+                payments = list
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            loading = false
+        }
     }
 }
