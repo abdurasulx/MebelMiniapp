@@ -23,6 +23,12 @@ final class LocationStore: NSObject, ObservableObject, CLLocationManagerDelegate
     @Published private(set) var lng: Double?
     @Published private(set) var status: LocationStatus = .idle
 
+    /// Mahsulotlarni ko'rsatish uchun yangi GPS koordinatasi bor.
+    var hasFix: Bool { status == .granted && lat != nil && lng != nil }
+    /// Foydalanuvchi ruxsatni rad etgan — qayta so'rab bo'lmaydi, faqat
+    /// Sozlamalar orqali yoqiladi.
+    var needsSettings: Bool { status == .denied }
+
     private let manager = CLLocationManager()
 
     var viloyatLabelText: String { viloyatLabel(viloyat) }
@@ -33,20 +39,18 @@ final class LocationStore: NSObject, ObservableObject, CLLocationManagerDelegate
     }
 
     func bootstrap() {
-        if let saved = UserDefaults.standard.string(forKey: Self.prefKey) {
-            viloyat = saved
-            if UserDefaults.standard.object(forKey: Self.latKey) != nil {
-                lat = UserDefaults.standard.double(forKey: Self.latKey)
-                lng = UserDefaults.standard.double(forKey: Self.lngKey)
-            }
-            status = .granted
-            return
-        }
+        // Saqlangan viloyat (savat/yetkazib berish uchun) tiklanadi, lekin
+        // KOORDINATA emas — mahsulotlar ko'rinishi har safar ilova ochilganda
+        // yangi GPS o'lchovi bilan hal qilinadi (eskirgan joy bilan boshqa
+        // shahardagi firma mahsulotlari ko'rinib qolmasligi uchun).
+        viloyat = UserDefaults.standard.string(forKey: Self.prefKey)
         detectFromGps()
     }
 
     func detectFromGps() {
         status = .loading
+        lat = nil
+        lng = nil
         let authStatus = manager.authorizationStatus
         switch authStatus {
         case .notDetermined:

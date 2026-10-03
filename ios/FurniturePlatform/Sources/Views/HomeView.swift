@@ -38,6 +38,8 @@ enum SortOption: String, CaseIterable, Identifiable {
 struct HomeView: View {
     @EnvironmentObject private var likes: LikesStore
     @EnvironmentObject private var locale: LocaleStore
+    @EnvironmentObject private var location: LocationStore
+    @Environment(\.scenePhase) private var scenePhase
     @State private var products: [Product] = []
     @State private var categories: [Category] = []
     @State private var isLoading = true
@@ -96,7 +98,10 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            if isOffline && products.isEmpty && !isLoading {
+            if !location.hasFix {
+                locationGate
+                    .navigationBarHidden(true)
+            } else if isOffline && products.isEmpty && !isLoading {
                 OfflineView(onRetry: { Task { await load() } })
                     .navigationBarHidden(true)
             } else {
@@ -118,6 +123,12 @@ struct HomeView: View {
 
                         if isLoading {
                             ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+                        } else if !isFiltering && products.isEmpty && errorMessage == nil {
+                            stateMessage(
+                                icon: "storefront",
+                                title: locale.t("loc_no_firms"),
+                                body: locale.t("loc_no_firms_hint")
+                            )
                         } else {
                             if !isFiltering {
                                 if !categories.isEmpty {
@@ -138,9 +149,7 @@ struct HomeView: View {
                 }
                 .navigationTitle("")
                 .navigationBarHidden(true)
-                .task {
-                    guard !didLoadOnce else { return }
-                    didLoadOnce = true
+                .task(id: location.hasFix ? "\(location.lat ?? 0),\(location.lng ?? 0)" : "") {
                     await load()
                 }
                 .refreshable { await load() }
@@ -148,6 +157,76 @@ struct HomeView: View {
                 .sheet(isPresented: $showFilters) { filterSheet }
             }
         }
+    }
+
+    // MARK: - Joylashuv
+
+    /// Joylashuv aniqlanmagan / ruxsat yo'q / GPS o'chiq holati — mahsulotlar
+    /// firma xizmat radiusiga bog'liq bo'lgani uchun joylashuvsiz ko'rsatilmaydi.
+    private var locationGate: some View {
+        Group {
+            switch location.status {
+            case .idle, .loading:
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .granted:
+                // Ruxsat bor, koordinata hali kelmayapti.
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .denied, .unavailable:
+                let gpsOff = location.status == .unavailable
+                stateMessage(
+                    icon: "location.slash",
+                    title: locale.t(gpsOff ? "loc_gps_off_title" : "loc_required_title"),
+                    body: locale.t(gpsOff ? "loc_gps_off_body" : "loc_required_body"),
+                    actionTitle: locale.t(location.needsSettings || gpsOff ? "loc_open_settings" : "loc_allow"),
+                    action: {
+                        if location.needsSettings || gpsOff,
+                           let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        } else {
+                            location.detectFromGps()
+                        }
+                    },
+                    secondaryTitle: locale.t("loc_retry"),
+                    secondary: { location.detectFromGps() }
+                )
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Tizim sozlamalaridan ruxsat berib qaytsa — avtomatik qayta aniqlanadi.
+            if phase == .active, !location.hasFix, location.status != .loading {
+                location.detectFromGps()
+            }
+        }
+    }
+
+    private func stateMessage(
+        icon: String, title: String, body: String,
+        actionTitle: String? = nil, action: (() -> Void)? = nil,
+        secondaryTitle: String? = nil, secondary: (() -> Void)? = nil
+    ) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 34))
+                .foregroundStyle(Color.brandDeep)
+                .frame(width: 72, height: 72)
+                .background(Color.brandPrimary.opacity(0.4))
+                .clipShape(Circle())
+            Text(title).font(.title3).bold().multilineTextAlignment(.center)
+            Text(body).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            if let actionTitle, let action {
+                Button(action: action) {
+                    Text(actionTitle).bold().padding(.horizontal, 24).padding(.vertical, 6)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.brandDeep)
+                .padding(.top, 8)
+            }
+            if let secondaryTitle, let secondary {
+                Button(secondaryTitle, action: secondary)
+            }
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Qidiruv / filtrlar
@@ -249,9 +328,15 @@ struct HomeView: View {
         imageResults = nil
         query = ""
         do {
+            var fields: [String: String] = [:]
+            if let lat = location.lat, let lng = location.lng {
+                fields["lat"] = String(lat)
+                fields["lng"] = String(lng)
+            }
             let results: [Product] = try await APIClient.shared.postMultipartImage(
                 "/products/search-by-image/",
-                imageData: data
+                imageData: data,
+                fields: fields
             )
             imageResults = results
         } catch {
@@ -395,7 +480,11 @@ struct HomeView: View {
         isLoading = true
         errorMessage = nil
         isOffline = false
-        var params: [String] = []
+        guard location.hasFix, let lat = location.lat, let lng = location.lng else {
+            isLoading = false
+            return
+        }
+        var params: [String] = ["lat=\(lat)", "lng=\(lng)"]
         if sort == .top {
             params.append("ordering=top")
         }
