@@ -103,6 +103,23 @@ export default function AdminAppVersions() {
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  const [links, setLinks] = useState({ android: "", ios: "", web: "" });
+  const [linkMsg, setLinkMsg] = useState("");
+
+  useEffect(() => {
+    api("/admin/app-versions/links/").then(setLinks).catch(() => {});
+  }, []);
+
+  const saveLinks = async () => {
+    setLinkMsg("");
+    try {
+      setLinks(await api("/admin/app-versions/links/", { method: "PUT", body: links }));
+      setLinkMsg("Saqlandi");
+    } catch (err) {
+      setLinkMsg(err.message);
+    }
+  };
+
   const load = () =>
     api("/admin/app-versions/")
       .then((d) => {
@@ -218,6 +235,30 @@ export default function AdminAppVersions() {
           bo'lmagan versiya: eng yangisidan katta bo'lsa ruxsat, eng eski ruxsat etilganidan kichik bo'lsa
           Blocked, oralig'ida bo'lsa o'zidan pastroq eng yaqin yozuv holatini oladi.
         </p>
+      </div>
+
+      <div className="card flex flex-col gap-2 p-5">
+        <h3 className="text-sm font-semibold">Yuklab olish havolalari (har platforma uchun bitta)</h3>
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
+          Yangilash ekranida foydalanuvchi shu havola orqali ilovani yuklab oladi. Versiyalar uchun alohida URL kerak emas.
+        </p>
+        {PLATFORM_KEYS.map((p) => (
+          <div key={p} className="flex items-center gap-2">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: "color-mix(in srgb, var(--text) 6%, transparent)" }}>
+              <PlatformIcon platform={p} size={18} />
+            </span>
+            <input
+              className="input" type="url"
+              placeholder={{ android: "https://play.google.com/store/apps/details?id=...", ios: "https://apps.apple.com/app/id...", web: "https://qrbite.uz" }[p]}
+              value={links[p] || ""}
+              onChange={(e) => setLinks({ ...links, [p]: e.target.value })}
+            />
+          </div>
+        ))}
+        <div className="flex items-center gap-3">
+          <button className="btn" type="button" onClick={saveLinks}>Saqlash</button>
+          {linkMsg && <span className="text-xs" style={{ color: "var(--muted)" }}>{linkMsg}</span>}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">

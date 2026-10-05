@@ -297,3 +297,24 @@ class OrdersRestrictionTests(TestCase):
     def test_policy_exposes_flag(self):
         r = self.client.get(URL, HTTP_X_APP_VERSION="1.0.0", HTTP_X_APP_PLATFORM="android")
         self.assertIs(r.json()["orders_enabled"], False)
+
+
+class PlatformLinkTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.admin = User.objects.create_user(email="c@v.uz", password="x12345678", role="platform_admin")
+        self.client = APIClient()
+        self.client.force_authenticate(self.admin)
+        make("1.0.0", url="")
+
+    def test_link_used_in_policy(self):
+        r = self.client.put("/api/v1/admin/app-versions/links/", {"android": "https://play.google.com/x"}, format="json")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["android"], "https://play.google.com/x")
+        self.assertEqual(r.json()["ios"], "")
+        p = APIClient().get(URL, HTTP_X_APP_VERSION="1.0.0", HTTP_X_APP_PLATFORM="android")
+        self.assertEqual(p.json()["store_url"], "https://play.google.com/x")
+
+    def test_invalid_url_rejected(self):
+        r = self.client.put("/api/v1/admin/app-versions/links/", {"ios": "nope"}, format="json")
+        self.assertEqual(r.status_code, 400)

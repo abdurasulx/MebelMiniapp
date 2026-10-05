@@ -8,7 +8,7 @@ from django.core.cache import cache
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import AppVersion
+from .models import AppVersion, PlatformLink
 
 _LOOSE_RE = re.compile(r"^\d+(\.\d+){0,2}$")
 _STRICT_RE = re.compile(r"^\d+\.\d+\.\d+$")
@@ -93,9 +93,20 @@ def _load_records(platform):
     return records
 
 
+def _platform_link(platform):
+    key = f"app-platform-link:{platform}"
+    url = cache.get(key)
+    if url is None:
+        link = PlatformLink.objects.filter(platform=platform).first()
+        url = link.store_url if link else ""
+        cache.set(key, url, CACHE_TTL)
+    return url
+
+
 def invalidate_cache(platform=None):
     for p in ([platform] if platform else PLATFORMS):
         cache.delete(CACHE_KEY.format(platform=p))
+        cache.delete(f"app-platform-link:{p}")
 
 
 def resolve(platform, current):
@@ -109,7 +120,7 @@ def resolve(platform, current):
     records = _load_records(platform)
     cur_str = format_version(current)
     if not records:
-        return Policy(platform, cur_str, cur_str, "", ACTIVE, False, False, "", "")
+        return Policy(platform, cur_str, cur_str, "", ACTIVE, False, False, _platform_link(platform), "")
 
     latest = records[-1]
     supported = [r for r in records if r["status"] != AppVersion.STATUS_BLOCKED]
@@ -142,7 +153,7 @@ def resolve(platform, current):
     else:
         force = False
 
-    store_url = latest["store_url"] or (base["store_url"] if base else "") or next(
+    store_url = _platform_link(platform) or latest["store_url"] or (base["store_url"] if base else "") or next(
         (r["store_url"] for r in reversed(records) if r["store_url"]), ""
     )
     if status == BLOCKED:

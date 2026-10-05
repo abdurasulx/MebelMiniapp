@@ -1,3 +1,5 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import transaction
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
@@ -5,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import versioning
-from .models import AppVersion
+from .models import AppVersion, PlatformLink
 from .serializers import AppVersionSerializer
 
 
@@ -39,7 +41,7 @@ class AppVersionViewSet(viewsets.ModelViewSet):
 
     serializer_class = AppVersionSerializer
     permission_classes = (IsPlatformAdmin,)
-    http_method_names = ("get", "post", "patch", "head", "options")
+    http_method_names = ("get", "post", "put", "patch", "head", "options")
     pagination_class = None
     queryset = AppVersion.objects.all()
 
@@ -64,6 +66,28 @@ class AppVersionViewSet(viewsets.ModelViewSet):
             "results": AppVersionSerializer(rows, many=True).data,
             "latest": latest,
         })
+
+    @action(detail=False, methods=["get", "put"], url_path="links")
+    def links(self, request):
+        """Har platforma uchun bitta yuklab olish havolasi:
+        GET -> {android, ios, web}; PUT {android: url, ...} -> saqlaydi."""
+        if request.method == "PUT":
+            validator = URLValidator(schemes=("http", "https"))
+            clean = {}
+            for p in versioning.PLATFORMS:
+                if p in request.data:
+                    url = (request.data.get(p) or "").strip()
+                    if url:
+                        try:
+                            validator(url)
+                        except ValidationError:
+                            return Response({p: ["To'g'ri URL kiriting"]}, status=400)
+                    clean[p] = url
+            for p, url in clean.items():
+                PlatformLink.objects.update_or_create(platform=p, defaults={"store_url": url})
+        data = {p: "" for p in versioning.PLATFORMS}
+        data.update({l.platform: l.store_url for l in PlatformLink.objects.all()})
+        return Response(data)
 
     @action(detail=False, methods=["post"], url_path="bulk")
     def bulk(self, request):
