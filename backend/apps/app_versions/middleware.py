@@ -15,6 +15,9 @@ VERSION_HEADER = "X-App-Version"
 MOBILE_MARKER_HEADER = "X-Device-Id"  # mavjud mobil-mijoz belgisi (security.py)
 
 #: Hech qachon bloklanmaydigan yo'llar (yakuniy qismi bo'yicha).
+#: Buyurtma yaratadigan endpointlar (POST) — versiyada orders_enabled=False bo'lsa yopiladi.
+ORDER_CREATE_PATHS = ("/api/v1/orders", "/api/v1/custom-orders/create")
+
 EXEMPT_SUFFIXES = ("/app/version", "/health", "/healthcheck")
 
 
@@ -54,4 +57,13 @@ class AppVersionMiddleware:
                 ):
                     body = {"code": "APP_UPDATE_REQUIRED", **policy.as_dict()}
                     return JsonResponse(body, status=426)
+                if (
+                    not policy.orders_enabled
+                    and request.method == "POST"
+                    and request.path.rstrip("/") in ORDER_CREATE_PATHS
+                ):
+                    return JsonResponse(
+                        {"code": "ORDERS_RESTRICTED", "detail": versioning.MSG_ORDERS_RESTRICTED},
+                        status=403,
+                    )
         return self.get_response(request)

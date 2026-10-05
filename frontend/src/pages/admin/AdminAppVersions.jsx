@@ -9,15 +9,10 @@ const STATUS = {
   blocked: { label: "Blocked", color: "var(--danger)" },
 };
 
-const STORE_HINT = {
-  android: "https://play.google.com/store/apps/details?id=…",
-  ios: "https://apps.apple.com/app/id…",
-  web: "https://qrbite.uz",
-};
 
 const EMPTY = {
-  id: null, version: "", platforms: [], status: "active", force_update: false,
-  store_urls: {}, update_message: "", release_date: "",
+  id: null, version: "", platforms: [], status: "active", force_update: false, orders_enabled: true,
+  update_message: "", release_date: "",
 };
 
 const toLocalInput = (iso) => {
@@ -136,14 +131,14 @@ export default function AdminAppVersions() {
   const openEdit = (r) => {
     setError("");
     setForm({
-      ...EMPTY, id: r.id, version: r.version, platforms: [r.platform], status: r.status,
-      force_update: r.force_update, store_urls: { [r.platform]: r.store_url },
+      ...EMPTY, id: r.id, version: r.version, platform: r.platform, platforms: [r.platform], status: r.status,
+      force_update: r.force_update, orders_enabled: r.orders_enabled !== false,
       update_message: r.update_message, release_date: toLocalInput(r.release_date),
     });
   };
 
   const togglePlatform = (p) =>
-    setForm((f) => ({
+    form.id && p === form.platform ? null : setForm((f) => ({
       ...f,
       platforms: f.platforms.includes(p) ? f.platforms.filter((x) => x !== p) : [...f.platforms, p],
     }));
@@ -160,23 +155,33 @@ export default function AdminAppVersions() {
       version: form.version.trim(),
       status: form.status,
       force_update: form.status === "blocked" ? true : form.force_update,
+      orders_enabled: form.orders_enabled,
       update_message: form.update_message,
       release_date: form.release_date ? new Date(form.release_date).toISOString() : null,
     };
     try {
       if (form.id) {
-        const platform = form.platforms[0];
-        await api(`/admin/app-versions/${form.id}/`, {
-          method: "PATCH",
-          body: { ...common, store_url: (form.store_urls[platform] || "").trim() },
-        });
+        // Tanlangan har bir platforma uchun: bor bo'lsa yangilanadi, yo'q bo'lsa yaratiladi
+        const errs = [];
+        for (const platform of form.platforms) {
+          const existing = platform === form.platform
+            ? { id: form.id }
+            : rows.find((r) => r.platform === platform && r.version === common.version);
+          try {
+            if (existing) {
+              await api(`/admin/app-versions/${existing.id}/`, { method: "PATCH", body: common });
+            } else {
+              await api("/admin/app-versions/", { method: "POST", body: { ...common, platform } });
+            }
+          } catch (err) {
+            errs.push(`${PLATFORMS[platform]?.label || platform}: ${err.message}`);
+          }
+        }
+        if (errs.length) throw new Error(errs.join(" · "));
       } else {
-        const store_urls = Object.fromEntries(
-          form.platforms.map((p) => [p, (form.store_urls[p] || "").trim()]),
-        );
         await api("/admin/app-versions/bulk/", {
           method: "POST",
-          body: { ...common, platforms: form.platforms, store_urls },
+          body: { ...common, platforms: form.platforms },
         });
       }
       setForm(null);
@@ -273,6 +278,7 @@ export default function AdminAppVersions() {
                     }}
                   >
                     {STATUS[r.status].label}
+                    {r.orders_enabled === false && " · buyurtma yopiq"}
                   </span>
                 </td>
                 <td className="p-3">{r.force_update ? "Ha" : "Yo'q"}</td>
@@ -305,7 +311,7 @@ export default function AdminAppVersions() {
 
             <div>
               <label className="label">
-                {form.id ? "Platforma" : "Platformalar (bir nechtasini tanlash mumkin)"}
+                Platformalar (bir nechtasini tanlash mumkin)
               </label>
               <div className="flex flex-wrap gap-3">
                 {PLATFORM_KEYS.map((p) => (
@@ -313,7 +319,6 @@ export default function AdminAppVersions() {
                     key={p}
                     platform={p}
                     active={form.platforms.includes(p)}
-                    disabled={!!form.id}
                     onClick={() => togglePlatform(p)}
                   />
                 ))}
@@ -353,23 +358,14 @@ export default function AdminAppVersions() {
               Majburiy yangilash (force update){form.status === "blocked" && " — Blocked uchun doim yoqiq"}
             </label>
 
-            {form.platforms.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <label className="label">Store URL</label>
-                {form.platforms.map((p) => (
-                  <div key={p} className="flex items-center gap-2">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: "color-mix(in srgb, var(--text) 6%, transparent)" }}>
-                      <PlatformIcon platform={p} size={18} />
-                    </span>
-                    <input
-                      className="input" type="url" placeholder={STORE_HINT[p]}
-                      value={form.store_urls[p] || ""}
-                      onChange={(e) => setForm({ ...form, store_urls: { ...form.store_urls, [p]: e.target.value } })}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={!form.orders_enabled}
+                onChange={(e) => setForm({ ...form, orders_enabled: !e.target.checked })}
+              />
+              Buyurtma berishni cheklash (bu versiyada buyurtma yaratib bo'lmaydi)
+            </label>
 
             <div>
               <label className="label">Yangilash xabari</label>
@@ -382,7 +378,7 @@ export default function AdminAppVersions() {
             {error && <div className="error">{error}</div>}
             <div className="flex gap-2">
               <button className="btn" type="submit" disabled={saving}>
-                {saving ? "Saqlanmoqda…" : form.id ? "Saqlash" : `Yaratish${form.platforms.length > 1 ? ` (${form.platforms.length} platforma)` : ""}`}
+                {saving ? "Saqlanmoqda…" : `${form.id ? "Saqlash" : "Yaratish"}${form.platforms.length > 1 ? ` (${form.platforms.length} platforma)` : ""}`}
               </button>
               <button className="btn-ghost" type="button" onClick={() => setForm(null)}>Bekor</button>
             </div>

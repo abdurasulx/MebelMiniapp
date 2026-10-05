@@ -12,7 +12,7 @@ class AppVersionSerializer(serializers.ModelSerializer):
         model = AppVersion
         fields = (
             "id", "version", "platform", "platform_display", "status", "status_display",
-            "force_update", "store_url", "update_message", "release_date",
+            "force_update", "orders_enabled", "store_url", "update_message", "release_date",
             "created_at", "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")

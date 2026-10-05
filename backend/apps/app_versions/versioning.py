@@ -21,6 +21,7 @@ PLATFORMS = ("android", "ios", "web")
 
 MSG_AVAILABLE = "Yangi versiya mavjud."
 MSG_UPDATE = "Ilovani yangilang."
+MSG_ORDERS_RESTRICTED = "Hozircha ushbu ilova versiyasida buyurtma berish cheklangan."
 MSG_BLOCKED = "Ushbu ilova versiyasi qo‘llab-quvvatlanmaydi. Ilovani yangilang."
 
 
@@ -63,6 +64,7 @@ class Policy:
     force_update: bool
     store_url: str
     message: str
+    orders_enabled: bool = True
 
     def as_dict(self):
         return self.__dict__.copy()
@@ -84,7 +86,7 @@ def _load_records(platform):
             continue
         records.append({
             "t": t, "status": r.status, "force_update": r.force_update,
-            "store_url": r.store_url, "update_message": r.update_message,
+            "orders_enabled": r.orders_enabled, "store_url": r.store_url, "update_message": r.update_message,
         })
     records.sort(key=lambda r: r["t"])
     cache.set(key, records, CACHE_TTL)
@@ -131,6 +133,7 @@ def resolve(platform, current):
             AppVersion.STATUS_BLOCKED: BLOCKED,
         }[base["status"]]
 
+    orders_enabled = bool(base["orders_enabled"]) if base else True
     update_available = current < latest["t"]
     if status == BLOCKED:
         force = True
@@ -161,4 +164,5 @@ def resolve(platform, current):
         force_update=force,
         store_url=store_url,
         message=message,
+        orders_enabled=orders_enabled,
     )

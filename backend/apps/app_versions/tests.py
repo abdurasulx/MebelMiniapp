@@ -267,3 +267,33 @@ class WebPlatformAndBulkTests(TestCase):
         allowed = r.headers.get("Access-Control-Allow-Headers", "").lower()
         self.assertIn("x-app-version", allowed)
         self.assertIn("x-app-platform", allowed)
+
+
+class OrdersRestrictionTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        make("1.0.0")
+        AppVersion.objects.filter(version="1.0.0").update(orders_enabled=False)
+        make("1.1.0")
+        cache.clear()
+
+    def post(self, version, path="/api/v1/orders/"):
+        return self.client.post(
+            path, {}, format="json", HTTP_X_APP_VERSION=version, HTTP_X_APP_PLATFORM="android",
+        )
+
+    def test_orders_blocked_for_restricted_version(self):
+        for path in ("/api/v1/orders/", "/api/v1/custom-orders/create/"):
+            r = self.post("1.0.0", path)
+            self.assertEqual(r.status_code, 403)
+            self.assertEqual(r.json()["code"], "ORDERS_RESTRICTED")
+
+    def test_other_requests_and_versions_unaffected(self):
+        self.assertNotEqual(self.post("1.1.0").json().get("code"), "ORDERS_RESTRICTED")
+        r = self.client.get("/api/v1/products/", HTTP_X_APP_VERSION="1.0.0", HTTP_X_APP_PLATFORM="android")
+        self.assertEqual(r.status_code, 200)
+
+    def test_policy_exposes_flag(self):
+        r = self.client.get(URL, HTTP_X_APP_VERSION="1.0.0", HTTP_X_APP_PLATFORM="android")
+        self.assertIs(r.json()["orders_enabled"], False)

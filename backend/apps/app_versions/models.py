@@ -25,6 +25,7 @@ class AppVersion(models.Model):
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
     force_update = models.BooleanField(default=False)
     store_url = models.URLField(blank=True)
+    orders_enabled = models.BooleanField(default=True)
     update_message = models.TextField(blank=True)
     release_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -77,7 +77,7 @@ class AppVersionViewSet(viewsets.ModelViewSet):
         urls = request.data.get("store_urls") or {}
         common = {
             k: request.data.get(k)
-            for k in ("version", "status", "force_update", "update_message", "release_date")
+            for k in ("version", "status", "force_update", "orders_enabled", "update_message", "release_date")
             if request.data.get(k) is not None
         }
         serializers_, errors = [], {}
