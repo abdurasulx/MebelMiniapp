@@ -17,6 +17,7 @@ CACHE_KEY = "app-version-policy:{platform}"
 CACHE_TTL = 60
 
 ACTIVE, UPDATE_REQUIRED, BLOCKED = "ACTIVE", "UPDATE_REQUIRED", "BLOCKED"
+PLATFORMS = ("android", "ios", "web")
 
 MSG_AVAILABLE = "Yangi versiya mavjud."
 MSG_UPDATE = "Ilovani yangilang."
@@ -91,7 +92,7 @@ def _load_records(platform):
 
 
 def invalidate_cache(platform=None):
-    for p in ([platform] if platform else [AppVersion.PLATFORM_ANDROID, AppVersion.PLATFORM_IOS]):
+    for p in ([platform] if platform else PLATFORMS):
         cache.delete(CACHE_KEY.format(platform=p))
 
 

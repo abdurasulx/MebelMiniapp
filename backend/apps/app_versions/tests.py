@@ -217,3 +217,53 @@ class AdminApiTests(TestCase):
         self.assertEqual(c.get(URL, **h).json()["latest_version"], "1.0.0")
         self.client.post("/api/v1/admin/app-versions/", {"version": "1.1.0", "platform": "ios"}, format="json")
         self.assertEqual(c.get(URL, **h).json()["latest_version"], "1.1.0")
+
+
+class WebPlatformAndBulkTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client = APIClient()
+        self.admin = User.objects.create_user(email="b@v.uz", password="x12345678", role="platform_admin")
+        self.client.force_authenticate(self.admin)
+
+    def test_web_platform_resolves(self):
+        make("1.0.0", "web", url="https://qrbite.uz")
+        make("1.1.0", "web", url="https://qrbite.uz")
+        r = APIClient().get(URL, HTTP_X_APP_VERSION="1.0.0", HTTP_X_APP_PLATFORM="web")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["latest_version"], "1.1.0")
+
+    def test_bulk_creates_one_record_per_platform_with_own_url(self):
+        r = self.client.post("/api/v1/admin/app-versions/bulk/", {
+            "platforms": ["android", "ios", "web"], "version": "1.0.0", "status": "active",
+            "store_urls": {"android": "https://play.google.com/x", "ios": "https://apps.apple.com/y"},
+        }, format="json")
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(AppVersion.objects.filter(version="1.0.0").count(), 3)
+        self.assertEqual(AppVersion.objects.get(platform="ios", version="1.0.0").store_url, "https://apps.apple.com/y")
+        self.assertEqual(AppVersion.objects.get(platform="web", version="1.0.0").store_url, "")
+
+    def test_bulk_is_all_or_nothing(self):
+        make("1.0.0", "ios")
+        r = self.client.post("/api/v1/admin/app-versions/bulk/", {
+            "platforms": ["android", "ios"], "version": "1.0.0",
+        }, format="json")
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("ios", r.json()["platform_errors"])
+        self.assertFalse(AppVersion.objects.filter(platform="android").exists())
+
+    def test_bulk_requires_platforms_and_admin(self):
+        self.assertEqual(self.client.post("/api/v1/admin/app-versions/bulk/", {"version": "1.0.0"}, format="json").status_code, 400)
+        owner = User.objects.create_user(email="o2@v.uz", password="x12345678", role="company_owner")
+        c = APIClient(); c.force_authenticate(owner)
+        self.assertEqual(c.post("/api/v1/admin/app-versions/bulk/", {"platforms": ["ios"], "version": "1.0.0"}, format="json").status_code, 403)
+
+    def test_cors_preflight_allows_version_headers(self):
+        r = APIClient().options(
+            "/api/v1/products/", HTTP_ORIGIN="https://qrbite.uz",
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD="GET",
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS="x-app-version,x-app-platform",
+        )
+        allowed = r.headers.get("Access-Control-Allow-Headers", "").lower()
+        self.assertIn("x-app-version", allowed)
+        self.assertIn("x-app-platform", allowed)

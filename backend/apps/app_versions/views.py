@@ -1,4 +1,6 @@
+from django.db import transaction
 from rest_framework import permissions, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -21,7 +23,7 @@ class AppVersionCheckView(APIView):
         if not platform or not raw:
             return Response({"code": "MISSING_APP_VERSION_HEADERS"}, status=400)
         current = versioning.parse_version(raw)
-        if platform not in ("android", "ios") or current is None:
+        if platform not in versioning.PLATFORMS or current is None:
             return Response({"code": "INVALID_APP_VERSION_HEADERS"}, status=400)
         return Response(versioning.resolve(platform, current).as_dict())
 
@@ -54,7 +56,7 @@ class AppVersionViewSet(viewsets.ModelViewSet):
             qs = qs.filter(version__icontains=search)
         rows = sorted(qs, key=lambda r: versioning.parse_version(r.version) or (0, 0, 0), reverse=True)
         latest = {}
-        for p in ("android", "ios"):
+        for p in versioning.PLATFORMS:
             records = [r for r in AppVersion.objects.filter(platform=p) if versioning.parse_version(r.version)]
             records.sort(key=lambda r: versioning.parse_version(r.version))
             latest[p] = records[-1].version if records else None
@@ -62,3 +64,31 @@ class AppVersionViewSet(viewsets.ModelViewSet):
             "results": AppVersionSerializer(rows, many=True).data,
             "latest": latest,
         })
+
+    @action(detail=False, methods=["post"], url_path="bulk")
+    def bulk(self, request):
+        """Bitta versiyani bir nechta platforma uchun BIRDA yaratadi
+        (Android + iOS + Web ni alohida-alohida kiritib o'tirmaslik uchun).
+        Har platforma o'z store_url'iga ega. Biror platformada xato bo'lsa
+        (masalan versiya allaqachon bor) hech narsa yaratilmaydi."""
+        platforms = request.data.get("platforms") or []
+        if not isinstance(platforms, list) or not platforms:
+            return Response({"platforms": ["Kamida bitta platforma tanlang"]}, status=400)
+        urls = request.data.get("store_urls") or {}
+        common = {
+            k: request.data.get(k)
+            for k in ("version", "status", "force_update", "update_message", "release_date")
+            if request.data.get(k) is not None
+        }
+        serializers_, errors = [], {}
+        for platform in dict.fromkeys(platforms):
+            ser = AppVersionSerializer(data={**common, "platform": platform, "store_url": urls.get(platform, "")})
+            if ser.is_valid():
+                serializers_.append(ser)
+            else:
+                errors[platform] = ser.errors
+        if errors:
+            return Response({"platform_errors": errors}, status=400)
+        with transaction.atomic():
+            created = [ser.save() for ser in serializers_]
+        return Response({"results": AppVersionSerializer(created, many=True).data}, status=201)

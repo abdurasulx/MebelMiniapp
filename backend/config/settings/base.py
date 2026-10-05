@@ -259,3 +259,10 @@ else:
 # majburiymi. Eski o'rnatilgan ilovalar yopilib qolmasligi uchun default
 # False; barcha mijozlar headerni yuboradigan bo'lgach env orqali yoqing.
 APP_VERSION_REQUIRE_HEADERS = env.bool("APP_VERSION_REQUIRE_HEADERS", default=False)
+
+# Veb frontend ham X-App-Version/X-App-Platform yuboradi — brauzer preflight
+# (CORS) shu headerlarni aniq ruxsat etilganlar ro'yxatida ko'rishi shart,
+# aks holda barcha veb API so'rovlari bloklanadi.
+from corsheaders.defaults import default_headers  # noqa: E402
+
+CORS_ALLOW_HEADERS = list(default_headers) + ["x-app-version", "x-app-platform", "x-app-build"]

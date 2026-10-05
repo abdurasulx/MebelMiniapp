@@ -45,7 +45,7 @@ class AppVersionMiddleware:
                     logger.warning("Mobil so'rov versiya headerlarisiz: %s", request.path)
             else:
                 current = versioning.parse_version(raw_version)
-                if platform not in ("android", "ios") or current is None:
+                if platform not in versioning.PLATFORMS or current is None:
                     return JsonResponse({"code": "INVALID_APP_VERSION_HEADERS"}, status=400)
                 policy = versioning.resolve(platform, current)
                 request.app_version_policy = policy
