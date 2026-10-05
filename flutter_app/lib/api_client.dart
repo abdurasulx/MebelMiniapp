@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
+import 'app_version.dart';
 import 'device_signature.dart';
 import 'models.dart';
 
@@ -67,6 +70,63 @@ class ApiClient {
 
   String? _accessToken;
   String? _refreshToken;
+
+  // --- Ilova versiyasi nazorati (backend apps/app_versions) ---
+  String _appVersion = '0.0.0';
+  String _appPlatform = 'android';
+  String _appBuild = '';
+  String get appVersion => _appVersion;
+
+  /// Backend 426 `APP_UPDATE_REQUIRED` qaytarganda siyosat shu yerga
+  /// yoziladi — `AppVersionStore` tinglab, majburiy yangilash ekranini
+  /// darhol ochadi.
+  final ValueNotifier<AppVersionPolicy?> updateRequired = ValueNotifier(null);
+
+  /// `main()`da `runApp`dan oldin bir marta chaqiriladi; keyin har bir
+  /// so'rovga `X-App-Version`/`X-App-Platform` avtomatik qo'shiladi.
+  Future<void> initAppInfo() async {
+    try {
+      _appPlatform = Platform.isIOS ? 'ios' : 'android';
+    } catch (_) {}
+    try {
+      final info = await PackageInfo.fromPlatform();
+      // `x.y.z+build` bo'lsa build qismi tashlanadi.
+      _appVersion = info.version.split('+').first;
+      _appBuild = info.buildNumber;
+    } catch (_) {}
+  }
+
+  Map<String, String> get _appHeaders => {
+        'X-App-Version': _appVersion,
+        'X-App-Platform': _appPlatform,
+        if (_appBuild.isNotEmpty) 'X-App-Build': _appBuild,
+      };
+
+  /// 426 + `APP_UPDATE_REQUIRED` bo'lsa siyosatni e'lon qiladi.
+  void _checkUpdateRequired(http.Response resp) {
+    if (resp.statusCode != 426) return;
+    try {
+      final decoded = jsonDecode(resp.body);
+      if (decoded is Map && decoded['code'] == 'APP_UPDATE_REQUIRED') {
+        updateRequired.value = AppVersionPolicy.fromJson(decoded);
+      }
+    } catch (_) {}
+  }
+
+  /// `GET /app/version/` — autentifikatsiyasiz. 200 yoki 426 javobini
+  /// siyosatga aylantiradi; boshqa holatda (5xx, JSON emas, tarmoq)
+  /// istisno tashlaydi (chaqiruvchi keshga tushadi).
+  Future<AppVersionPolicy> fetchAppVersionPolicy() async {
+    final resp = await http
+        .get(Uri.parse('${ApiConfig.baseUrl}/app/version/'),
+            headers: _appHeaders)
+        .timeout(const Duration(seconds: 5));
+    if (resp.statusCode == 200 || resp.statusCode == 426) {
+      return AppVersionPolicy.fromJson(jsonDecode(resp.body));
+    }
+    throw ApiException('Versiya tekshiruvi: ${resp.statusCode}',
+        statusCode: resp.statusCode);
+  }
   // WebSocket ulanishi (notification_ws.dart) joriy access token'ni shu
   // orqali o'qiydi — qayta ulanishda har doim ENG YANGI qiymatni olish
   // uchun (token yangilanib qolgan bo'lishi mumkin).
@@ -135,9 +195,11 @@ class ApiClient {
   /// yoziladi.
   Future<void> probeConnectivity() async {
     try {
-      await http
-          .get(Uri.parse('${ApiConfig.baseUrl}/categories/'))
+      final resp = await http
+          .get(Uri.parse('${ApiConfig.baseUrl}/categories/'),
+              headers: _appHeaders)
           .timeout(const Duration(seconds: 2, milliseconds: 500));
+      _checkUpdateRequired(resp);
       isOffline.value = false;
     } catch (_) {
       isOffline.value = true;
@@ -196,6 +258,7 @@ class ApiClient {
       request.headers['Authorization'] = 'Bearer $_accessToken';
     }
     request.headers.addAll(DeviceSignature.instance.buildHeaders());
+    request.headers.addAll(_appHeaders);
     if (imageFieldName != null && imagePath != null) {
       request.files.add(
         await http.MultipartFile.fromPath(imageFieldName, imagePath),
@@ -205,6 +268,7 @@ class ApiClient {
       () => request.send().timeout(const Duration(seconds: 20)),
     );
     final resp = await http.Response.fromStream(streamed);
+    _checkUpdateRequired(resp);
     if (request.headers.containsKey('X-Device-Id')) {
       // Rad javobi bo'lsa mahalliy holatni yangilamaymiz — aks holda server
       // bilan sinxronlik butunlay uzilib qolar edi (qarang `_send`dagi
@@ -265,6 +329,7 @@ class ApiClient {
     // Qo'shimcha so'rov-imzosi (HMAC) — qarang device_signature.dart /
     // apps/notifications/security.py (nwupdate.md).
     headers.addAll(DeviceSignature.instance.buildHeaders());
+    headers.addAll(_appHeaders);
 
     late http.Response resp;
     final encoded = body != null ? jsonEncode(body) : null;
@@ -291,6 +356,8 @@ class ApiClient {
           throw ApiException('Noma\'lum HTTP metod: $method');
       }
     });
+
+    _checkUpdateRequired(resp);
 
     if (headers.containsKey('X-Device-Id')) {
       if (_isDeviceSignatureRejection(resp.body)) {
@@ -398,11 +465,12 @@ class ApiClient {
         () => http
             .post(
               uri,
-              headers: {'Content-Type': 'application/json'},
+              headers: {'Content-Type': 'application/json', ..._appHeaders},
               body: jsonEncode({'refresh': _refreshToken}),
             )
             .timeout(const Duration(seconds: 6)),
       );
+      _checkUpdateRequired(resp);
       if (resp.statusCode != 200) return false;
       final decoded = jsonDecode(resp.body);
       _accessToken = decoded['access'];

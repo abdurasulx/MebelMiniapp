@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'api_client.dart';
+import 'app_version.dart';
 import 'auth_store.dart';
 import 'cart_store.dart';
 import 'device_signature.dart';
@@ -11,6 +12,7 @@ import 'location_store.dart';
 import 'push_service.dart';
 import 'screens/root_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/update_screen.dart';
 import 'theme.dart';
 import 'widgets/offline_view.dart';
 
@@ -19,6 +21,8 @@ void main() async {
   // Har bir API so'roviga qo'shiladigan HMAC imzo qatlami (nwupdate.md) —
   // `_auth.bootstrap()` (pastda) birinchi so'rovni yuborishidan OLDIN
   // tayyor bo'lishi shart, shuning uchun `runApp`dan avval kutiladi.
+  // Barcha so'rovlarga X-App-Version/X-App-Platform qo'shish uchun (versiya nazorati).
+  await ApiClient.instance.initAppInfo();
   await DeviceSignature.instance.init();
   // Push (FCM) — `google-services.json` orqali avtomatik konfiguratsiya
   // qilinadi (Android'da alohida `FirebaseOptions` kerak emas). Xatoga
@@ -43,7 +47,14 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
   final _location = LocationStore();
   final _cart = CartStore();
   final _locale = LocaleStore();
+  final _version = AppVersionStore(
+    fetcher: ApiClient.instance.fetchAppVersionPolicy,
+    runningVersion: () => ApiClient.instance.appVersion,
+    forcedSource: ApiClient.instance.updateRequired,
+  );
   bool _ready = false;
+  bool _authDone = false;
+  bool _versionDone = false;
 
   @override
   void initState() {
@@ -54,8 +65,14 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
     // ulanish tekshiruvi bilan PARALLEL yuboriladi: qaysi biri OLDIN
     // tugasa, splash o'shanda yopiladi (ikkalasi ham bir marta
     // `setState`ni ishga tushiradi, keyingisi shunchaki e'tiborsiz qoladi).
-    _auth.bootstrap().then((_) => _finishSplash());
-    ApiClient.instance.probeConnectivity().then((_) => _finishSplash());
+    _auth.bootstrap().then((_) => _authFinished());
+    ApiClient.instance.probeConnectivity().then((_) => _authFinished());
+    // Versiya tekshiruvi asosiy UI ochilishidan OLDIN tugashi shart (o'zining
+    // 5s timeout'i bor va hech qachon istisno tashlamaydi — splash osilmaydi).
+    _version.checkOnStartup().then((_) {
+      _versionDone = true;
+      _finishSplash();
+    });
     _auth.addListener(() {
       if (!_auth.isAuthenticated) _likes.clear();
       PushService.instance.onAuthChanged(_auth);
@@ -65,8 +82,15 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
     _locale.init();
   }
 
+  void _authFinished() {
+    _authDone = true;
+    _finishSplash();
+  }
+
   void _finishSplash() {
-    if (!_ready && mounted) setState(() => _ready = true);
+    if (!_ready && _authDone && _versionDone && mounted) {
+      setState(() => _ready = true);
+    }
   }
 
   @override
@@ -78,6 +102,7 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
         ChangeNotifierProvider.value(value: _location),
         ChangeNotifierProvider.value(value: _cart),
         ChangeNotifierProvider.value(value: _locale),
+        ChangeNotifierProvider.value(value: _version),
       ],
       child: Consumer<LocaleStore>(
         builder: (context, locale, _) {
@@ -104,11 +129,43 @@ class _FurniturePlatformAppState extends State<FurniturePlatformApp> {
 /// kabi) barcha tablarning keshlangan holati yo'qolib, ulanish tiklanganda
 /// hammasi qaytadan "Loading..." holatidan boshlanardi (bitta tabning
 /// birgina sekin so'rovi butun ilovani qayta tug'ilishga majburlardi).
-class _AppGate extends StatelessWidget {
+class _AppGate extends StatefulWidget {
   const _AppGate();
 
   @override
+  State<_AppGate> createState() => _AppGateState();
+}
+
+class _AppGateState extends State<_AppGate> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<AppVersionStore>().addListener(_maybeShowOptional);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowOptional());
+  }
+
+  @override
+  void dispose() {
+    context.read<AppVersionStore>().removeListener(_maybeShowOptional);
+    super.dispose();
+  }
+
+  // Ixtiyoriy yangilanish dialogi — har ishga tushirishda ko'pi bilan bir marta.
+  void _maybeShowOptional() {
+    if (!mounted) return;
+    final store = context.read<AppVersionStore>();
+    final policy = store.policy;
+    if (!store.shouldShowOptional || policy == null) return;
+    store.markOptionalHandled();
+    showOptionalUpdateDialog(context, policy, context.read<LocaleStore>());
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Majburiy yangilash: butun ilova o'rniga yopib bo'lmaydigan ekran.
+    if (context.watch<AppVersionStore>().isForced) {
+      return const UpdateScreen();
+    }
     return Stack(
       children: [
         const RootScreen(),
