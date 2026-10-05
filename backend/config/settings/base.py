@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "apps.ar_collections",
     "apps.attendance",
     "apps.custom_orders",
+    "apps.app_versions",
 ]
 
 MIDDLEWARE = [
@@ -66,6 +67,9 @@ MIDDLEWARE = [
     # Mobil ilova so'rovlari uchun qo'shimcha HMAC imzo qatlami (nwupdate.md) —
     # faqat `X-Device-Id` headeri bor so'rovlarga qo'llanadi, veb frontend'ga
     # tegmaydi (qarang apps/notifications/security.py).
+    # Ilova versiyasi majburlash qatlami (apps/app_versions) — imzo
+    # qatlamidan OLDIN: bloklangan versiya hech narsaga yetib bormasin.
+    "apps.app_versions.middleware.AppVersionMiddleware",
     "apps.notifications.security.DeviceSignatureMiddleware",
 ]
 
@@ -250,3 +254,8 @@ else:
             "BACKEND": "channels.layers.InMemoryChannelLayer",
         },
     }
+
+# Mobil (X-Device-Id bor) so'rovda X-App-Version/X-App-Platform headerlari
+# majburiymi. Eski o'rnatilgan ilovalar yopilib qolmasligi uchun default
+# False; barcha mijozlar headerni yuboradigan bo'lgach env orqali yoqing.
+APP_VERSION_REQUIRE_HEADERS = env.bool("APP_VERSION_REQUIRE_HEADERS", default=False)

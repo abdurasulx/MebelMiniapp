@@ -4,6 +4,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.ar_collections.views import ARCollectionItemViewSet, ARCollectionViewSet
 from apps.attendance.views import AttendanceRecordViewSet, WorkplaceViewSet
+from apps.app_versions.views import AppVersionCheckView, AppVersionViewSet
 from apps.custom_orders.views import (
     BazisPreviewView,
     CustomOrderCreateView,
@@ -120,6 +121,7 @@ router.register("suppliers", SupplierViewSet, basename="supplier")
 router.register("purchase-orders", PurchaseOrderViewSet, basename="purchase-order")
 router.register("attendance/workplaces", WorkplaceViewSet, basename="workplace")
 router.register("attendance/records", AttendanceRecordViewSet, basename="attendance-record")
+router.register("admin/app-versions", AppVersionViewSet, basename="app-version")
 router.register("designs", DesignViewSet, basename="design")
 router.register("design-versions", DesignVersionViewSet, basename="design-version")
 router.register("order-item-cost", OrderItemCostViewSet, basename="order-item-cost")
@@ -263,6 +265,7 @@ urlpatterns = [
         ar_collection_item_detail,
         name="ar-collection-item-detail",
     ),
+    path("app/version/", AppVersionCheckView.as_view(), name="app-version-check"),
     path("custom-orders/create/", CustomOrderCreateView.as_view(), name="custom-order-create"),
     path("custom-orders/parse-bazis/", BazisPreviewView.as_view(), name="custom-order-parse-bazis"),
     path(
