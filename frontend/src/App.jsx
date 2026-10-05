@@ -15,6 +15,7 @@ import AdminFinance from "./pages/admin/AdminFinance";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminTariffPlans from "./pages/admin/AdminTariffPlans";
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminAppVersions from "./pages/admin/AdminAppVersions";
 import Cart from "./pages/Cart";
 import Catalog from "./pages/Catalog";
 import CompleteRegistration from "./pages/CompleteRegistration";
@@ -67,6 +68,7 @@ import {
   Truck,
   UserCircle,
   Banknote,
+  Smartphone,
   MapPinned,
   UserX,
 } from "lucide-react";
@@ -78,6 +80,7 @@ const ADMIN_MENU = [
   { to: "/deletion-requests", icon: UserX, label: "Hisob o'chirish so'rovlari", group: "Boshqaruv" },
   { to: "/categories", icon: FolderTree, label: "Kategoriyalar", group: "Boshqaruv" },
   { to: "/tariff-plans", icon: Banknote, label: "Tarif rejalari", group: "Boshqaruv" },
+  { to: "/app-versions", icon: Smartphone, label: "Versiya nazorati", group: "Boshqaruv" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
   { to: "/finance", icon: Wallet, label: "Moliya", group: "Savdo" },
 ];
@@ -316,6 +319,7 @@ export default function App() {
           <Route path="/deletion-requests" element={<AdminDeletionRequests />} />
           <Route path="/categories" element={<AdminCategories />} />
           <Route path="/tariff-plans" element={<AdminTariffPlans />} />
+          <Route path="/app-versions" element={<AdminAppVersions />} />
           <Route path="/orders" element={<AdminOrders />} />
           <Route path="/finance" element={<AdminFinance />} />
         </Route>
