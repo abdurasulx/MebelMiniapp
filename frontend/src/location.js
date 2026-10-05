@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // Foydalanuvchi joylashuvi — mahsulotlar firma xizmat radiusiga qarab
 // serverda filtrlanadi (backend apps/products/views.py), shuning uchun
@@ -53,22 +53,41 @@ export function useGeolocation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Brauzer sozlamalaridan ruxsat berilsa — avtomatik qayta aniqlanadi.
+  // Ruxsat allaqachon berilgan bo'lsa (yoki keyin berilsa) — foydalanuvchi
+  // hech narsa bosmasdan avtomatik qayta aniqlanadi.
+  const status = state.status;
+  const autoTried = useRef(false);
   useEffect(() => {
     let perm;
+    let alive = true;
+    const recheck = () => {
+      if (alive && status !== "granted" && status !== "loading") retry();
+    };
     navigator.permissions
       ?.query({ name: "geolocation" })
       .then((p) => {
+        if (!alive) return;
         perm = p;
+        if (p.state === "granted" && status !== "granted" && status !== "loading" && !autoTried.current) {
+          autoTried.current = true; // cheksiz qayta urinishning oldini oladi
+          retry();
+        }
         p.onchange = () => {
           if (p.state === "granted") retry();
         };
       })
       .catch(() => {});
+    // Sozlamalardan qaytganda (tab/oyna fokusi) qayta urinib ko'ramiz.
+    const onVisible = () => document.visibilityState === "visible" && recheck();
+    window.addEventListener("focus", recheck);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
+      alive = false;
       if (perm) perm.onchange = null;
+      window.removeEventListener("focus", recheck);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [retry]);
+  }, [retry, status]);
 
   return { ...state, retry };
 }
