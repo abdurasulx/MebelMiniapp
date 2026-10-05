@@ -388,7 +388,6 @@ class AuthStore extends ChangeNotifier {
   Future<bool> completeProfile({
     required String firstName,
     required String lastName,
-    String? dateOfBirth,
   }) async {
     errorMessage = null;
     try {
@@ -402,16 +401,6 @@ class AuthStore extends ChangeNotifier {
         );
         me = AppUser.fromJson(resp);
         _needsRoleCompletion = false;
-        // `/complete-registration/` tug'ilgan kunni qabul qilmaydi (rol/profil
-        // uchun mo'ljallangan) — kerak bo'lsa alohida PATCH bilan qo'shamiz.
-        if (dateOfBirth != null) {
-          me = await ApiClient.instance.patch(
-            '/users/me/',
-            (j) => AppUser.fromJson(j),
-            body: {'date_of_birth': dateOfBirth},
-            auth: true,
-          );
-        }
       } else {
         me = await ApiClient.instance.patch(
           '/users/me/',
@@ -419,7 +408,6 @@ class AuthStore extends ChangeNotifier {
           body: {
             'first_name': firstName,
             'last_name': lastName,
-            if (dateOfBirth != null) 'date_of_birth': dateOfBirth,
           },
           auth: true,
         );

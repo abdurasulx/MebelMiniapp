@@ -34,7 +34,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _codeController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  DateTime? _dob;
   String? _debugCode;
   _Step _step = _Step.phone;
   _BusyAction? _busyAction;
@@ -116,9 +115,6 @@ class _AuthScreenState extends State<AuthScreen> {
     final ok = await auth.completeProfile(
       firstName: _firstNameController.text.trim(),
       lastName: _lastNameController.text.trim(),
-      dateOfBirth: _dob != null
-          ? '${_dob!.year.toString().padLeft(4, '0')}-${_dob!.month.toString().padLeft(2, '0')}-${_dob!.day.toString().padLeft(2, '0')}'
-          : null,
     );
     setState(() => _busyAction = null);
     if (ok && mounted && !widget.isTab) Navigator.of(context).maybePop();
@@ -155,17 +151,6 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
     });
-  }
-
-  Future<void> _pickDob() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(now.year - 20),
-      firstDate: DateTime(now.year - 100),
-      lastDate: now,
-    );
-    if (picked != null) setState(() => _dob = picked);
   }
 
   @override
@@ -583,22 +568,6 @@ class _AuthScreenState extends State<AuthScreen> {
           decoration: InputDecoration(
             labelText: loc.t('auth_last_name'),
             border: const OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        InkWell(
-          onTap: _pickDob,
-          borderRadius: BorderRadius.circular(12),
-          child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: loc.t('auth_dob'),
-              border: const OutlineInputBorder(),
-            ),
-            child: Text(
-              _dob != null
-                  ? '${_dob!.year}-${_dob!.month.toString().padLeft(2, '0')}-${_dob!.day.toString().padLeft(2, '0')}'
-                  : '',
-            ),
           ),
         ),
         const SizedBox(height: 16),
