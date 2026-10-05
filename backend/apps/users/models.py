@@ -53,7 +53,6 @@ class User(AbstractUser):
     # foydalanuvchi buyurtma bera olmaydi, avval `/users/me/phone/verify-
     # otp/` orqali raqamini tasdiqlashi kerak (qarang OrderViewSet.perform_create).
     phone_verified = models.BooleanField(default=True)
-    date_of_birth = models.DateField(null=True, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.CUSTOMER)
     # Doimiy, kompaniyalararo qidiruvchi ID (kamida 10 raqam) — firma egasi xodimni
     # ishga shu ID orqali taklif qiladi (roadmap: "Worker ID" — profilda ko'rsatiladi).

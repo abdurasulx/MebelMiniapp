@@ -993,7 +993,6 @@ def _anonymize_deleted_user(user):
     user.phone = ""
     user.first_name = ""
     user.last_name = ""
-    user.date_of_birth = None
     user.is_active = False
     user.set_unusable_password()
     user.save()
