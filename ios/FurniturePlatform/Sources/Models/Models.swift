@@ -20,7 +20,6 @@ struct User: Codable {
     let firstName: String?
     let lastName: String?
     let phone: String?
-    let dateOfBirth: String?
     let role: String
     // Doimiy, kompaniyalararo qidiruvchi ID — firma egasi shu orqali ishga taklif
     // qiladi (profilda ko'rsatiladi, boshqa kompaniyaga ham amal qiladi).

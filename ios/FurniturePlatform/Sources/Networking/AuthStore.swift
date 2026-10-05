@@ -327,7 +327,7 @@ final class AuthStore: ObservableObject {
     /// (rol bilan — mobil ilovada doim "customer"), OTP orqali yaratilgan
     /// hisob uchun oddiy `/users/me/` PATCH (qarang `needsRoleCompletion`).
     @discardableResult
-    func completeProfile(firstName: String, lastName: String, dateOfBirth: String?) async -> Bool {
+    func completeProfile(firstName: String, lastName: String) async -> Bool {
         errorMessage = nil
         do {
             var me: User
@@ -339,20 +339,10 @@ final class AuthStore: ObservableObject {
                     auth: true
                 )
                 needsRoleCompletion = false
-                // `/complete-registration/` tug'ilgan kunni qabul qilmaydi (rol/profil
-                // uchun mo'ljallangan) — kerak bo'lsa alohida PATCH bilan qo'shamiz.
-                if let dateOfBirth {
-                    struct DobBody: Encodable { let dateOfBirth: String }
-                    me = try await APIClient.shared.patch(
-                        "/users/me/", body: DobBody(dateOfBirth: dateOfBirth), auth: true
-                    )
-                }
             } else {
-                struct Body: Encodable {
-                    let firstName: String; let lastName: String; let dateOfBirth: String?
-                }
+                struct Body: Encodable { let firstName: String; let lastName: String }
                 me = try await APIClient.shared.patch(
-                    "/users/me/", body: Body(firstName: firstName, lastName: lastName, dateOfBirth: dateOfBirth), auth: true
+                    "/users/me/", body: Body(firstName: firstName, lastName: lastName), auth: true
                 )
             }
             user = me

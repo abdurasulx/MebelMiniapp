@@ -351,8 +351,6 @@ private struct AuthFormView: View {
     @State private var otpCode = ""
     @State private var firstName = ""
     @State private var lastName = ""
-    @State private var dob: Date?
-    @State private var showDobPicker = false
     @State private var debugCode: String?
     @State private var step: Step = .phone
     // Har bir tugma faqat O'ZI bosilganda spinner ko'rsatishi uchun —
@@ -493,35 +491,6 @@ private struct AuthFormView: View {
         Section(locale.t("auth_profile_title")) {
             TextField(locale.t("auth_first_name"), text: $firstName)
             TextField(locale.t("auth_last_name"), text: $lastName)
-            Button {
-                showDobPicker = true
-            } label: {
-                HStack {
-                    Text(locale.t("auth_dob"))
-                    Spacer()
-                    if let dob {
-                        Text(dob.formatted(date: .numeric, time: .omitted)).foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .foregroundStyle(.primary)
-            .sheet(isPresented: $showDobPicker) {
-                NavigationStack {
-                    DatePicker(
-                        locale.t("auth_dob"), selection: Binding(get: { dob ?? Date() }, set: { dob = $0 }),
-                        displayedComponents: .date
-                    )
-                    .datePickerStyle(.wheel)
-                    .navigationTitle(locale.t("auth_dob"))
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("OK") { showDobPicker = false }
-                        }
-                    }
-                }
-                .presentationDetents([.medium])
-            }
         }
         Section {
             Button(action: saveProfile) {
@@ -604,16 +573,10 @@ private struct AuthFormView: View {
 
     private func saveProfile() {
         busyAction = .profile
-        let dobString: String? = dob.map {
-            let f = DateFormatter()
-            f.dateFormat = "yyyy-MM-dd"
-            return f.string(from: $0)
-        }
         Task {
             await auth.completeProfile(
                 firstName: firstName.trimmingCharacters(in: .whitespaces),
-                lastName: lastName.trimmingCharacters(in: .whitespaces),
-                dateOfBirth: dobString
+                lastName: lastName.trimmingCharacters(in: .whitespaces)
             )
             busyAction = nil
         }
