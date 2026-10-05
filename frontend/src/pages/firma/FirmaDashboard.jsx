@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Sofa, Palette, HardHat, Package, Factory, ArrowRight, AlertTriangle, PackageX, Hammer,
+  Sofa, Palette, HardHat, Package, Factory, ArrowRight, AlertTriangle, PackageX,
   ShoppingCart, Banknote, TrendingUp, Boxes, Percent, Warehouse,
 } from "lucide-react";
 import { useAuth } from "../../auth";
@@ -73,9 +73,6 @@ function EmployeeDashboard() {
       <div className="flex flex-wrap gap-3">
         <Link to="/orders" className="btn inline-flex items-center gap-1.5">
           <Package size={15} /> Buyurtmalarim
-        </Link>
-        <Link to="/production" className="btn inline-flex items-center gap-1.5">
-          <Hammer size={15} /> Ishlab chiqarish
         </Link>
       </div>
     </div>
