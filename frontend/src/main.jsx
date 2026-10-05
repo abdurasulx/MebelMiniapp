@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./auth";
 import { LocaleProvider } from "./locale";
+import UpdateGate from "./components/UpdateGate";
 import { setTokens } from "./api";
 import "./index.css";
 
@@ -25,9 +26,11 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
       <LocaleProvider>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
+        <UpdateGate>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </UpdateGate>
       </LocaleProvider>
     </BrowserRouter>
   </StrictMode>

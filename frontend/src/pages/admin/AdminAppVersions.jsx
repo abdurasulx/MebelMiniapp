@@ -1,119 +1,244 @@
 import { useEffect, useState } from "react";
-import { Pencil, Plus, Smartphone } from "lucide-react";
+import { Check, Pencil, Plus, Smartphone, X } from "lucide-react";
 import { api } from "../../api";
+import PlatformIcon, { PLATFORMS, PLATFORM_KEYS } from "../../components/PlatformIcon";
 
 const STATUS = {
   active: { label: "Active", color: "var(--success)" },
   update_required: { label: "Update Required", color: "#f39c12" },
   blocked: { label: "Blocked", color: "var(--danger)" },
 };
-const PLATFORM = { android: "Android", ios: "iOS" };
 
-const EMPTY = {
-  version: "", platform: "android", status: "active", force_update: false,
-  store_url: "", update_message: "", release_date: "",
+const STORE_HINT = {
+  android: "https://play.google.com/store/apps/details?id=…",
+  ios: "https://apps.apple.com/app/id…",
+  web: "https://qrbite.uz",
 };
 
-// <input type="datetime-local"> qiymati (yyyy-MM-ddTHH:mm) <-> ISO
-const toLocalInput = (iso) => (iso ? new Date(iso).toISOString().slice(0, 16) : "");
+const EMPTY = {
+  id: null, version: "", platforms: [], status: "active", force_update: false,
+  store_urls: {}, update_message: "", release_date: "",
+};
+
+const toLocalInput = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/// Platforma tugmasi: logotip + nom. Tanlangan (active) — rangli ramka, tick
+/// va to'liq yorug'lik; tanlanmagan (inactive) — xira va kulrang.
+function PlatformToggle({ platform, active, onClick, caption, disabled }) {
+  const p = PLATFORMS[platform];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className="relative flex min-w-[8.5rem] flex-1 items-center gap-3 rounded-2xl p-3 text-left transition"
+      style={{
+        border: `2px solid ${active ? "var(--brand-cta-bg)" : "var(--border)"}`,
+        background: active ? "color-mix(in srgb, var(--brand-cta-bg) 8%, var(--card))" : "var(--card)",
+        opacity: active ? 1 : 0.6,
+        filter: active ? "none" : "grayscale(1)",
+        cursor: disabled ? "default" : "pointer",
+      }}
+    >
+      <span
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+        style={{ background: "color-mix(in srgb, var(--text) 6%, transparent)" }}
+      >
+        <PlatformIcon platform={platform} size={22} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{p.label}</span>
+        {caption && <span className="block truncate text-xs" style={{ color: "var(--muted)" }}>{caption}</span>}
+      </span>
+      {active && (
+        <span
+          className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full"
+          style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
+        >
+          <Check size={12} strokeWidth={3} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+function StatusButtons({ value, onChange, allowAll }) {
+  const items = allowAll ? [["", { label: "Barchasi", color: "var(--muted)" }], ...Object.entries(STATUS)] : Object.entries(STATUS);
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map(([k, v]) => {
+        const on = value === k;
+        return (
+          <button
+            key={k || "all"}
+            type="button"
+            onClick={() => onChange(k)}
+            aria-pressed={on}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition"
+            style={
+              on
+                ? { background: `color-mix(in srgb, ${v.color} 16%, transparent)`, color: v.color, border: `1.5px solid ${v.color}` }
+                : { border: "1.5px solid var(--border)", color: "var(--muted)", background: "var(--card)" }
+            }
+          >
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: v.color }} />
+            {v.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /// SuperAdmin → Versiya nazorati. Eski versiyalar o'chirilmaydi (tarix) —
-/// faqat yaratish, tahrirlash va ko'rish (backend DELETE'ga 405 qaytaradi).
+/// backend DELETE'ga 405 qaytaradi.
 export default function AdminAppVersions() {
   const [rows, setRows] = useState([]);
   const [latest, setLatest] = useState({});
   const [error, setError] = useState("");
-  const [filters, setFilters] = useState({ platform: "", status: "", version: "" });
-  const [form, setForm] = useState(null); // null = yopiq, {id?...} = ochiq
+  const [platformFilter, setPlatformFilter] = useState([]); // bo'sh = hammasi
+  const [statusFilter, setStatusFilter] = useState("");
+  const [versionFilter, setVersionFilter] = useState("");
+  const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const load = () => {
-    const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v)).toString();
-    return api(`/admin/app-versions/${qs ? `?${qs}` : ""}`)
+  const load = () =>
+    api("/admin/app-versions/")
       .then((d) => {
         setRows(d.results || []);
         setLatest(d.latest || {});
       })
       .catch((e) => setError(e.message));
-  };
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, []);
+
+  const shown = rows.filter(
+    (r) =>
+      (platformFilter.length === 0 || platformFilter.includes(r.platform)) &&
+      (!statusFilter || r.status === statusFilter) &&
+      (!versionFilter || r.version.includes(versionFilter.trim())),
+  );
+
+  const countFor = (platform, status) => rows.filter((r) => r.platform === platform && r.status === status).length;
+
+  const togglePlatformFilter = (p) =>
+    setPlatformFilter((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
+
+  const openCreate = () => { setError(""); setForm({ ...EMPTY }); };
+  const openEdit = (r) => {
+    setError("");
+    setForm({
+      ...EMPTY, id: r.id, version: r.version, platforms: [r.platform], status: r.status,
+      force_update: r.force_update, store_urls: { [r.platform]: r.store_url },
+      update_message: r.update_message, release_date: toLocalInput(r.release_date),
+    });
+  };
+
+  const togglePlatform = (p) =>
+    setForm((f) => ({
+      ...f,
+      platforms: f.platforms.includes(p) ? f.platforms.filter((x) => x !== p) : [...f.platforms, p],
+    }));
 
   const save = async (e) => {
     e.preventDefault();
     setError("");
+    if (form.platforms.length === 0) {
+      setError("Kamida bitta platformani tanlang");
+      return;
+    }
     setSaving(true);
+    const common = {
+      version: form.version.trim(),
+      status: form.status,
+      force_update: form.status === "blocked" ? true : form.force_update,
+      update_message: form.update_message,
+      release_date: form.release_date ? new Date(form.release_date).toISOString() : null,
+    };
     try {
-      const body = {
-        version: form.version.trim(),
-        platform: form.platform,
-        status: form.status,
-        force_update: form.status === "blocked" ? true : form.force_update,
-        store_url: form.store_url.trim(),
-        update_message: form.update_message,
-        release_date: form.release_date ? new Date(form.release_date).toISOString() : null,
-      };
-      if (form.id) await api(`/admin/app-versions/${form.id}/`, { method: "PATCH", body });
-      else await api("/admin/app-versions/", { method: "POST", body });
+      if (form.id) {
+        const platform = form.platforms[0];
+        await api(`/admin/app-versions/${form.id}/`, {
+          method: "PATCH",
+          body: { ...common, store_url: (form.store_urls[platform] || "").trim() },
+        });
+      } else {
+        const store_urls = Object.fromEntries(
+          form.platforms.map((p) => [p, (form.store_urls[p] || "").trim()]),
+        );
+        await api("/admin/app-versions/bulk/", {
+          method: "POST",
+          body: { ...common, platforms: form.platforms, store_urls },
+        });
+      }
       setForm(null);
       await load();
     } catch (err) {
-      setError(err.message);
+      const pe = err.body?.platform_errors;
+      if (pe) {
+        setError(
+          Object.entries(pe)
+            .map(([p, errs]) => `${PLATFORMS[p]?.label || p}: ${Object.values(errs).flat().join(", ")}`)
+            .join(" · "),
+        );
+      } else {
+        setError(err.message);
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  const edit = (r) => {
-    setError("");
-    setForm({ ...r, release_date: toLocalInput(r.release_date) });
-  };
-
-  const set = (k) => (e) =>
-    setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
-
-  const blocked = rows.filter((r) => r.status === "blocked").length;
-  const updateRequired = rows.filter((r) => r.status === "update_required").length;
-
   return (
     <div className="flex flex-col gap-4">
       <div className="card p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
           <h2 className="inline-flex items-center gap-2 text-base font-semibold">
             <Smartphone size={17} /> Versiya nazorati
           </h2>
-          <button className="btn inline-flex items-center gap-1" onClick={() => { setError(""); setForm({ ...EMPTY }); }}>
+          <button className="btn inline-flex items-center gap-1" onClick={openCreate}>
             <Plus size={15} /> Yangi versiya
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-          <div><div className="text-xs" style={{ color: "var(--muted)" }}>Android — oxirgi</div><b>{latest.android || "—"}</b></div>
-          <div><div className="text-xs" style={{ color: "var(--muted)" }}>iOS — oxirgi</div><b>{latest.ios || "—"}</b></div>
-          <div><div className="text-xs" style={{ color: "var(--muted)" }}>Blocked</div><b>{blocked}</b></div>
-          <div><div className="text-xs" style={{ color: "var(--muted)" }}>Update Required</div><b>{updateRequired}</b></div>
-        </div>
-        <p className="mt-3 text-xs" style={{ color: "var(--muted)" }}>
-          Android va iOS alohida boshqariladi. Eski versiyalar o'chirilmaydi — tarix saqlanadi. Ro'yxatda
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
+          Platformani bosib ro'yxatni filtrlang. Eski versiyalar o'chirilmaydi — tarix saqlanadi. Ro'yxatda
           bo'lmagan versiya: eng yangisidan katta bo'lsa ruxsat, eng eski ruxsat etilganidan kichik bo'lsa
           Blocked, oralig'ida bo'lsa o'zidan pastroq eng yaqin yozuv holatini oladi.
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <select className="input !w-auto" value={filters.platform} onChange={(e) => setFilters({ ...filters, platform: e.target.value })}>
-          <option value="">Barcha platformalar</option>
-          <option value="android">Android</option>
-          <option value="ios">iOS</option>
-        </select>
-        <select className="input !w-auto" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
-          <option value="">Barcha holatlar</option>
-          {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-        </select>
-        <input className="input !w-40" placeholder="Versiya (2.4)" value={filters.version}
-          onChange={(e) => setFilters({ ...filters, version: e.target.value })} />
+      <div className="flex flex-wrap gap-3">
+        {PLATFORM_KEYS.map((p) => (
+          <PlatformToggle
+            key={p}
+            platform={p}
+            active={platformFilter.length === 0 || platformFilter.includes(p)}
+            onClick={() => togglePlatformFilter(p)}
+            caption={
+              latest[p]
+                ? `oxirgi ${latest[p]} · ${countFor(p, "blocked")} blocked · ${countFor(p, "update_required")} update`
+                : "versiya yo'q"
+            }
+          />
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <StatusButtons allowAll value={statusFilter} onChange={setStatusFilter} />
+        <input
+          className="input !w-40"
+          placeholder="Versiya (2.4)"
+          value={versionFilter}
+          onChange={(e) => setVersionFilter(e.target.value)}
+        />
       </div>
 
       {error && !form && <div className="error">{error}</div>}
@@ -123,20 +248,30 @@ export default function AdminAppVersions() {
           <thead>
             <tr className="text-left text-xs" style={{ color: "var(--muted)" }}>
               <th className="p-3">Versiya</th><th className="p-3">Platforma</th><th className="p-3">Holat</th>
-              <th className="p-3">Force update</th><th className="p-3">Release date</th><th className="p-3">Updated</th><th className="p-3" />
+              <th className="p-3">Force update</th><th className="p-3">Release date</th>
+              <th className="p-3">Updated</th><th className="p-3" />
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={7} className="p-4" style={{ color: "var(--muted)" }}>Hali versiya yo'q.</td></tr>
+            {shown.length === 0 && (
+              <tr><td colSpan={7} className="p-4" style={{ color: "var(--muted)" }}>Versiya topilmadi.</td></tr>
             )}
-            {rows.map((r) => (
+            {shown.map((r) => (
               <tr key={r.id} className="border-t" style={{ borderColor: "var(--border)" }}>
                 <td className="p-3 font-semibold">{r.version}</td>
-                <td className="p-3">{PLATFORM[r.platform]}</td>
                 <td className="p-3">
-                  <span className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                    style={{ background: `color-mix(in srgb, ${STATUS[r.status].color} 16%, transparent)`, color: STATUS[r.status].color }}>
+                  <span className="inline-flex items-center gap-2">
+                    <PlatformIcon platform={r.platform} size={18} /> {PLATFORMS[r.platform]?.label}
+                  </span>
+                </td>
+                <td className="p-3">
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    style={{
+                      background: `color-mix(in srgb, ${STATUS[r.status].color} 16%, transparent)`,
+                      color: STATUS[r.status].color,
+                    }}
+                  >
                     {STATUS[r.status].label}
                   </span>
                 </td>
@@ -144,7 +279,9 @@ export default function AdminAppVersions() {
                 <td className="p-3">{r.release_date ? new Date(r.release_date).toLocaleDateString("uz-UZ") : "—"}</td>
                 <td className="p-3">{new Date(r.updated_at).toLocaleString("uz-UZ")}</td>
                 <td className="p-3 text-right">
-                  <button className="btn-ghost !px-2 !py-1.5" title="Tahrirlash" onClick={() => edit(r)}><Pencil size={14} /></button>
+                  <button className="btn-ghost !px-2 !py-1.5" title="Tahrirlash" onClick={() => openEdit(r)}>
+                    <Pencil size={14} />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -154,48 +291,99 @@ export default function AdminAppVersions() {
 
       {form && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setForm(null)}>
-          <form className="card flex w-full max-w-lg flex-col gap-3 p-6" onClick={(e) => e.stopPropagation()} onSubmit={save}>
-            <h3 className="text-base font-semibold">{form.id ? "Versiyani tahrirlash" : "Yangi versiya"}</h3>
-            <div className="grid grid-cols-2 gap-3">
+          <form
+            className="card flex max-h-[92vh] w-full max-w-xl flex-col gap-4 overflow-y-auto p-6"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={save}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold">{form.id ? "Versiyani tahrirlash" : "Yangi versiya"}</h3>
+              <button type="button" className="btn-ghost !p-1.5" onClick={() => setForm(null)} aria-label="Yopish">
+                <X size={16} />
+              </button>
+            </div>
+
+            <div>
+              <label className="label">
+                {form.id ? "Platforma" : "Platformalar (bir nechtasini tanlash mumkin)"}
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {PLATFORM_KEYS.map((p) => (
+                  <PlatformToggle
+                    key={p}
+                    platform={p}
+                    active={form.platforms.includes(p)}
+                    disabled={!!form.id}
+                    onClick={() => togglePlatform(p)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label className="label">Versiya *</label>
-                <input className="input" placeholder="2.4.0" value={form.version} onChange={set("version")} required pattern="\d+\.\d+\.\d+" title="major.minor.patch, masalan 2.4.0" />
+                <input
+                  className="input" placeholder="2.4.0" required pattern="\d+\.\d+\.\d+"
+                  title="major.minor.patch, masalan 2.4.0"
+                  value={form.version} onChange={(e) => setForm({ ...form, version: e.target.value })}
+                />
               </div>
               <div>
-                <label className="label">Platforma *</label>
-                <select className="input" value={form.platform} onChange={set("platform")}>
-                  <option value="android">Android</option>
-                  <option value="ios">iOS</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Holat</label>
-                <select className="input" value={form.status} onChange={set("status")}>
-                  {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Release date</label>
-                <input className="input" type="datetime-local" value={form.release_date} onChange={set("release_date")} />
+                <label className="label">Release date (ixtiyoriy)</label>
+                <input
+                  className="input" type="datetime-local"
+                  value={form.release_date} onChange={(e) => setForm({ ...form, release_date: e.target.value })}
+                />
               </div>
             </div>
+
+            <div>
+              <label className="label">Holat</label>
+              <StatusButtons value={form.status} onChange={(s) => setForm({ ...form, status: s })} />
+            </div>
+
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.status === "blocked" ? true : form.force_update}
-                disabled={form.status === "blocked"} onChange={set("force_update")} />
+              <input
+                type="checkbox"
+                checked={form.status === "blocked" ? true : form.force_update}
+                disabled={form.status === "blocked"}
+                onChange={(e) => setForm({ ...form, force_update: e.target.checked })}
+              />
               Majburiy yangilash (force update){form.status === "blocked" && " — Blocked uchun doim yoqiq"}
             </label>
-            <div>
-              <label className="label">Store URL ({form.platform === "ios" ? "App Store" : "Google Play"})</label>
-              <input className="input" type="url" placeholder={form.platform === "ios" ? "https://apps.apple.com/app/id…" : "https://play.google.com/store/apps/details?id=…"}
-                value={form.store_url} onChange={set("store_url")} />
-            </div>
+
+            {form.platforms.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <label className="label">Store URL</label>
+                {form.platforms.map((p) => (
+                  <div key={p} className="flex items-center gap-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: "color-mix(in srgb, var(--text) 6%, transparent)" }}>
+                      <PlatformIcon platform={p} size={18} />
+                    </span>
+                    <input
+                      className="input" type="url" placeholder={STORE_HINT[p]}
+                      value={form.store_urls[p] || ""}
+                      onChange={(e) => setForm({ ...form, store_urls: { ...form.store_urls, [p]: e.target.value } })}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div>
               <label className="label">Yangilash xabari</label>
-              <textarea className="input" rows={3} value={form.update_message} onChange={set("update_message")} />
+              <textarea
+                className="input" rows={3}
+                value={form.update_message} onChange={(e) => setForm({ ...form, update_message: e.target.value })}
+              />
             </div>
+
             {error && <div className="error">{error}</div>}
             <div className="flex gap-2">
-              <button className="btn" type="submit" disabled={saving}>{saving ? "Saqlanmoqda…" : "Saqlash"}</button>
+              <button className="btn" type="submit" disabled={saving}>
+                {saving ? "Saqlanmoqda…" : form.id ? "Saqlash" : `Yaratish${form.platforms.length > 1 ? ` (${form.platforms.length} platforma)` : ""}`}
+              </button>
               <button className="btn-ghost" type="button" onClick={() => setForm(null)}>Bekor</button>
             </div>
           </form>

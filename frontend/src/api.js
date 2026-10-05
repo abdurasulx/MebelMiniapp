@@ -1,4 +1,28 @@
+import { PORTAL } from "./portal";
+
 const BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
+
+// Ilova versiyasi nazorati (apps/app_versions): faqat mijozlar saytida
+// (market) yuboriladi — admin/firma portallari hech qachon bloklanmasin
+// (aks holda SuperAdmin xato "Blocked" belgini o'zi qaytara olmay qolardi).
+export const APP_VERSION = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "0.0.0";
+export const sendsVersionHeaders = PORTAL === "market";
+function versionHeaders() {
+  return sendsVersionHeaders ? { "X-App-Version": APP_VERSION, "X-App-Platform": "web" } : {};
+}
+
+/** Versiya siyosatini so'raydi (loginsiz). Xatoda/portal market bo'lmasa null. */
+export async function fetchAppPolicy() {
+  if (!sendsVersionHeaders) return null;
+  try {
+    const res = await fetch(`${BASE}/app/version/`, { headers: versionHeaders() });
+    if (res.status === 426) return await res.json();
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 export function getTokens() {
   try {
@@ -18,7 +42,7 @@ export async function refreshAccess() {
   if (!tokens?.refresh) return null;
   const res = await fetch(`${BASE}/auth/token/refresh/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...versionHeaders() },
     body: JSON.stringify({ refresh: tokens.refresh }),
   });
   if (!res.ok) {
@@ -45,7 +69,7 @@ export async function api(path, { method = "GET", body, isForm = false } = {}) {
   // faqat path hali to'liq URL bo'lmagan holatdagina qo'shiladi.
   const url = /^https?:\/\//.test(path) ? path : `${BASE}${path}`;
   const doFetch = async (access) => {
-    const headers = {};
+    const headers = { ...versionHeaders() };
     if (access) headers.Authorization = `Bearer ${access}`;
     if (body && !isForm) headers["Content-Type"] = "application/json";
     return fetch(url, {
@@ -62,6 +86,9 @@ export async function api(path, { method = "GET", body, isForm = false } = {}) {
   }
   if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
+  if (res.status === 426 && data?.code === "APP_UPDATE_REQUIRED") {
+    window.dispatchEvent(new CustomEvent("app:update-required", { detail: data }));
+  }
   if (!res.ok) {
     // DRF qo'lda `ValidationError("xabar")` ko'tarilganda javob tanasi
     // to'g'ridan-to'g'ri `["xabar"]` bo'ladi ("detail" kaliti YO'Q — DRF
