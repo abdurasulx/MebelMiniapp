@@ -9,6 +9,7 @@ struct RootView: View {
     @EnvironmentObject private var cart: CartStore
     @EnvironmentObject private var connectivity: ConnectivityStore
     @EnvironmentObject private var locale: LocaleStore
+    @EnvironmentObject private var appVersion: AppVersionStore
     @State private var showSplash = true
 
     var body: some View {
@@ -16,7 +17,11 @@ struct RootView: View {
             if showSplash {
                 SplashScreenView()
                     .task {
+                        // Versiya tekshiruvi splash bilan parallel; asosiy UI
+                        // undan oldin ochilmaydi (xato bo'lsa bloklamaydi).
+                        async let check: Void = appVersion.checkOnStartup()
                         try? await Task.sleep(nanoseconds: 1_300_000_000)
+                        await check
                         withAnimation { showSplash = false }
                     }
             } else {
@@ -35,6 +40,21 @@ struct RootView: View {
                     }
                 }
             }
+        }
+        .overlay {
+            if appVersion.forcedPolicy != nil {
+                ForceUpdateView().transition(.opacity)
+            }
+        }
+        .alert(
+            locale.t("update_available_title") + (appVersion.optionalUpdateVersion.map { ": \($0)" } ?? ""),
+            isPresented: Binding(
+                get: { appVersion.optionalUpdateVersion != nil },
+                set: { if !$0 { appVersion.optionalUpdateVersion = nil } }
+            )
+        ) {
+            Button(locale.t("update_later"), role: .cancel) {}
+            Button(locale.t("update_button")) { _ = appVersion.openStore() }
         }
     }
 

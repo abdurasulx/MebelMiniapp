@@ -21,6 +21,7 @@ let defaultLocaleCode = "uz"
 
 private let stringsTable: [String: [String: String]] = [
     "uz": [
+        "update_title": "Ilovani yangilang", "update_forced_message": "Ushbu versiya endi qo‘llab-quvvatlanmaydi. Davom etish uchun VIDA Market ilovasini yangilang.", "update_available_title": "Yangi versiya mavjud", "update_button": "Yangilash", "update_later": "Keyinroq", "update_retry": "Qayta urinish", "update_recheck": "Qayta tekshirish", "update_latest_version": "Oxirgi versiya", "update_store_error": "Do‘kon havolasi ochilmadi",
         "nav_home": "Bosh sahifa", "nav_catalog": "Katalog", "nav_likes": "Sevimlilar",
         "nav_cart": "Savat", "nav_profile": "Profil",
         "auth_title": "Kirish", "auth_phone_hint": "Telefon", "auth_select_country": "Davlat",
@@ -86,6 +87,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Faqat shu firmadan yakunlangan buyurtmangiz bo'lsa baho qoldira olasiz.",
     ],
     "en": [
+        "update_title": "Update the app", "update_forced_message": "This version is no longer supported. Please update VIDA Market to continue.", "update_available_title": "New version available", "update_button": "Update", "update_later": "Later", "update_retry": "Retry", "update_recheck": "Check again", "update_latest_version": "Latest version", "update_store_error": "Could not open the store link",
         "nav_home": "Home", "nav_catalog": "Catalog", "nav_likes": "Favorites",
         "nav_cart": "Cart", "nav_profile": "Profile",
         "auth_title": "Sign in", "auth_phone_hint": "Phone", "auth_select_country": "Country",
@@ -151,6 +153,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "You can leave a review only after completing an order with this company.",
     ],
     "ru": [
+        "update_title": "Обновите приложение", "update_forced_message": "Эта версия больше не поддерживается. Обновите VIDA Market, чтобы продолжить.", "update_available_title": "Доступна новая версия", "update_button": "Обновить", "update_later": "Позже", "update_retry": "Повторить", "update_recheck": "Проверить снова", "update_latest_version": "Последняя версия", "update_store_error": "Не удалось открыть ссылку магазина",
         "nav_home": "Главная", "nav_catalog": "Каталог", "nav_likes": "Избранное",
         "nav_cart": "Корзина", "nav_profile": "Профиль",
         "auth_title": "Вход", "auth_phone_hint": "Телефон", "auth_select_country": "Страна",
@@ -216,6 +219,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Оставить отзыв можно только после завершённого заказа у этой компании.",
     ],
     "tg": [
+        "update_title": "Барномаро нав кунед", "update_forced_message": "Ин нусха дигар дастгирӣ намешавад. Барои идома VIDA Market-ро нав кунед.", "update_available_title": "Версияи нав мавҷуд аст", "update_button": "Нав кардан", "update_later": "Баъдтар", "update_retry": "Такрор", "update_recheck": "Аз нав санҷидан", "update_latest_version": "Версияи охирин", "update_store_error": "Пайванди мағоза кушода нашуд",
         "nav_home": "Саҳифаи асосӣ", "nav_catalog": "Каталог", "nav_likes": "Дӯстдоштаҳо",
         "nav_cart": "Сабад", "nav_profile": "Профил",
         "auth_title": "Воридшавӣ", "auth_phone_hint": "Телефон", "auth_select_country": "Кишвар",
@@ -281,6 +285,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Шумо танҳо пас аз фармоиши анҷомёфта аз ин ширкат метавонед баҳо гузоред.",
     ],
     "tr": [
+        "update_title": "Uygulamayı güncelleyin", "update_forced_message": "Bu sürüm artık desteklenmiyor. Devam etmek için VIDA Market'i güncelleyin.", "update_available_title": "Yeni sürüm mevcut", "update_button": "Güncelle", "update_later": "Sonra", "update_retry": "Tekrar dene", "update_recheck": "Tekrar kontrol et", "update_latest_version": "Son sürüm", "update_store_error": "Mağaza bağlantısı açılamadı",
         "nav_home": "Ana sayfa", "nav_catalog": "Katalog", "nav_likes": "Favoriler",
         "nav_cart": "Sepet", "nav_profile": "Profil",
         "auth_title": "Giriş yap", "auth_phone_hint": "Telefon", "auth_select_country": "Ülke",
@@ -346,6 +351,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Yalnızca bu firmadan tamamlanmış bir siparişiniz varsa yorum bırakabilirsiniz.",
     ],
     "ky": [
+        "update_title": "Колдонмону жаңыртыңыз", "update_forced_message": "Бул версия мындан ары колдоого алынбайт. Улантуу үчүн VIDA Market колдонмосун жаңыртыңыз.", "update_available_title": "Жаңы версия бар", "update_button": "Жаңыртуу", "update_later": "Кийинчерээк", "update_retry": "Кайра аракет", "update_recheck": "Кайра текшерүү", "update_latest_version": "Акыркы версия", "update_store_error": "Дүкөндүн шилтемеси ачылган жок",
         "nav_home": "Башкы бет", "nav_catalog": "Каталог", "nav_likes": "Тандалмалар",
         "nav_cart": "Себет", "nav_profile": "Профиль",
         "auth_title": "Кирүү", "auth_phone_hint": "Телефон", "auth_select_country": "Мамлекет",
@@ -411,6 +417,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Бул компаниядан аяктаган буйрутмаңыз болсо гана баа калтыра аласыз.",
     ],
     "kk": [
+        "update_title": "Қолданбаны жаңартыңыз", "update_forced_message": "Бұл нұсқа енді қолдау көрсетілмейді. Жалғастыру үшін VIDA Market қолданбасын жаңартыңыз.", "update_available_title": "Жаңа нұсқа қолжетімді", "update_button": "Жаңарту", "update_later": "Кейінірек", "update_retry": "Қайталау", "update_recheck": "Қайта тексеру", "update_latest_version": "Соңғы нұсқа", "update_store_error": "Дүкен сілтемесін ашу мүмкін болмады",
         "nav_home": "Басты бет", "nav_catalog": "Каталог", "nav_likes": "Таңдаулылар",
         "nav_cart": "Себет", "nav_profile": "Профиль",
         "auth_title": "Кіру", "auth_phone_hint": "Телефон", "auth_select_country": "Мемлекет",
@@ -476,6 +483,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Бұл компаниядан аяқталған тапсырысыңыз болса ғана пікір қалдыра аласыз.",
     ],
     "de": [
+        "update_title": "App aktualisieren", "update_forced_message": "Diese Version wird nicht mehr unterstützt. Bitte aktualisieren Sie VIDA Market, um fortzufahren.", "update_available_title": "Neue Version verfügbar", "update_button": "Aktualisieren", "update_later": "Später", "update_retry": "Erneut versuchen", "update_recheck": "Erneut prüfen", "update_latest_version": "Neueste Version", "update_store_error": "Store-Link konnte nicht geöffnet werden",
         "nav_home": "Start", "nav_catalog": "Katalog", "nav_likes": "Favoriten",
         "nav_cart": "Warenkorb", "nav_profile": "Profil",
         "auth_title": "Anmelden", "auth_phone_hint": "Telefon", "auth_select_country": "Land",
@@ -541,6 +549,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Sie können erst nach einer abgeschlossenen Bestellung bei dieser Firma eine Bewertung abgeben.",
     ],
     "az": [
+        "update_title": "Tətbiqi yeniləyin", "update_forced_message": "Bu versiya artıq dəstəklənmir. Davam etmək üçün VIDA Market tətbiqini yeniləyin.", "update_available_title": "Yeni versiya mövcuddur", "update_button": "Yenilə", "update_later": "Sonra", "update_retry": "Yenidən cəhd et", "update_recheck": "Yenidən yoxla", "update_latest_version": "Son versiya", "update_store_error": "Mağaza linki açılmadı",
         "nav_home": "Ana səhifə", "nav_catalog": "Kataloq", "nav_likes": "Sevimlilər",
         "nav_cart": "Səbət", "nav_profile": "Profil",
         "auth_title": "Giriş", "auth_phone_hint": "Telefon", "auth_select_country": "Ölkə",

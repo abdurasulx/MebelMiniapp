@@ -123,6 +123,7 @@ actor APIClient {
         request.httpMethod = "POST"
         request.timeoutInterval = 20
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        Self.applyAppHeaders(&request)
         if auth, let accessToken {
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
@@ -146,6 +147,7 @@ actor APIClient {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.server("Server bilan bog'lanib bo'lmadi", statusCode: 0)
         }
+        handleUpdateRequired(data, status: http.statusCode)
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil
             throw APIError.server(message ?? "Xatolik (\(http.statusCode))", statusCode: http.statusCode)
@@ -190,6 +192,35 @@ actor APIClient {
         }
     }
 
+    /// Barcha so'rovlarga ilova versiyasi/platformasi headerlari (versiya nazorati).
+    private static func applyAppHeaders(_ request: inout URLRequest) {
+        request.setValue(AppVersionInfo.current, forHTTPHeaderField: "X-App-Version")
+        request.setValue("ios", forHTTPHeaderField: "X-App-Platform")
+    }
+
+    /// 426 APP_UPDATE_REQUIRED bo'lsa siyosatni e'lon qiladi.
+    private func handleUpdateRequired(_ data: Data, status: Int) {
+        guard status == 426,
+              let policy = try? decoder.decode(AppVersionPolicy.self, from: data) else { return }
+        NotificationCenter.default.post(name: .appUpdateRequired, object: policy)
+    }
+
+    func fetchAppVersionPolicy() async throws -> AppVersionPolicy {
+        var request = URLRequest(url: APIConfig.url(for: "/app/version/"))
+        request.timeoutInterval = 5
+        Self.applyAppHeaders(&request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw APIError.decoding }
+        if http.statusCode == 426 {
+            if let policy = try? decoder.decode(AppVersionPolicy.self, from: data) { return policy }
+            throw APIError.decoding
+        }
+        guard http.statusCode == 200 else {
+            throw APIError.server("Xatolik (\(http.statusCode))", statusCode: http.statusCode)
+        }
+        do { return try decoder.decode(AppVersionPolicy.self, from: data) } catch { throw APIError.decoding }
+    }
+
     // MARK: - Core
 
     private func send<T: Decodable>(path: String, method: String, body: Data?, auth: Bool) async throws -> T {
@@ -229,6 +260,7 @@ actor APIClient {
         // noto'g'ri aniqlanardi (endi zararsiz bo'lsa ham — RootView'ni
         // yo'q qilmaydi — keraksiz to'liq ekranli uzilishlarni oldini olamiz).
         request.timeoutInterval = 6
+        Self.applyAppHeaders(&request)
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -298,6 +330,7 @@ actor APIClient {
             // pastda asl 401 javobi bo'yicha APIError.server tashlanadi.
         }
 
+        handleUpdateRequired(data, status: http.statusCode)
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil
             throw APIError.server(message ?? "Xatolik (\(http.statusCode))", statusCode: http.statusCode)

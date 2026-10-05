@@ -24,6 +24,7 @@ struct VidaMarketApp: App {
     @StateObject private var cart = CartStore()
     @StateObject private var locale = LocaleStore()
     @StateObject private var connectivity = ConnectivityStore()
+    @StateObject private var appVersion = AppVersionStore()
 
     var body: some Scene {
         WindowGroup {
@@ -34,6 +35,7 @@ struct VidaMarketApp: App {
                 .environmentObject(cart)
                 .environmentObject(locale)
                 .environmentObject(connectivity)
+                .environmentObject(appVersion)
                 .task {
                     location.bootstrap()
                     cart.load()
