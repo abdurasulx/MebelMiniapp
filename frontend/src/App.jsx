@@ -26,6 +26,7 @@ import FirmaDashboard from "./pages/firma/FirmaDashboard";
 import FirmaOrders from "./pages/firma/FirmaOrders";
 import FirmaOrderDetail from "./pages/firma/FirmaOrderDetail";
 import FirmaPayroll from "./pages/firma/FirmaPayroll";
+import FirmaProduction from "./pages/firma/FirmaProduction";
 import FirmaProductDetail from "./pages/firma/FirmaProductDetail";
 import FirmaProducts from "./pages/firma/FirmaProducts";
 import FirmaSettings from "./pages/firma/FirmaSettings";
@@ -54,6 +55,7 @@ import {
   Package,
   Wallet,
   Sofa,
+  Hammer,
   HardHat,
   Settings,
   Construction,
@@ -85,6 +87,7 @@ const FIRMA_MENU = [
   { to: "/products", icon: Sofa, label: "Mahsulotlar", group: "Katalog" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
   { to: "/site-surveys", icon: MapPinned, label: "Joy o'rganish", group: "Ishlab chiqarish" },
+  { to: "/production", icon: Hammer, label: "Ishlab chiqarish", group: "Ishlab chiqarish" },
   { to: "/warehouses", icon: Warehouse, label: "Omborlar", group: "Ishlab chiqarish" },
   { to: "/suppliers", icon: Truck, label: "Ta'minot", group: "Ishlab chiqarish" },
   { to: "/employees", icon: HardHat, label: "Xodimlar", group: "Xodimlar" },
@@ -99,7 +102,7 @@ const FIRMA_MENU = [
 // ko'rsatilmasligi kerak (backend'da ham shunga mos cheklov qo'yilgan,
 // qarang apps/companies/views.py::EmployeeViewSet.get_queryset).
 const EMPLOYEE_FIRMA_MENU = FIRMA_MENU.filter((m) =>
-  ["/", "/orders", "/site-surveys"].includes(m.to)
+  ["/", "/orders", "/site-surveys", "/production"].includes(m.to)
 );
 
 // Firma egasi darajasidagi bo'limlar (xodimlar/maosh/moliya/sozlamalar/
@@ -338,6 +341,7 @@ export default function App() {
           <Route path="/orders" element={<FirmaOrders />} />
           <Route path="/orders/:id" element={<FirmaOrderDetail />} />
           <Route path="/site-surveys" element={<FirmaSiteSurveys />} />
+          <Route path="/production" element={<FirmaProduction />} />
           <Route path="/warehouses" element={<OwnerOnly><FirmaWarehouses /></OwnerOnly>} />
           <Route path="/warehouses/:id" element={<OwnerOnly><FirmaWarehouseDetail /></OwnerOnly>} />
           <Route path="/suppliers" element={<OwnerOnly><FirmaSuppliers /></OwnerOnly>} />
