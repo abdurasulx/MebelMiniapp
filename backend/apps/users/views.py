@@ -41,6 +41,15 @@ from .serializers import (
 User = get_user_model()
 
 
+def _inactive_account_error(user):
+    """Faol bo'lmagan hisobga kirishga urinilganda xato: foydalanuvchi o'zi
+    o'chirgan hisob (qarang `_anonymize_deleted_user`) uchun alohida xabar,
+    boshqa holatda — administrator bloklagan."""
+    if (user.email or "").startswith("deleted-"):
+        return ValidationError("Bu hisobga kirib bo'lmaydi")
+    return ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+
+
 class AdminTokenObtainPairView(TokenObtainPairView):
     """Email+parol bilan kirish — faqat platforma admini uchun (qarang
     AdminTokenObtainPairSerializer). Boshqa rollar Google/Telegram orqali kiradi."""
@@ -244,7 +253,7 @@ def _resolve_google_user(claims: dict) -> tuple:
     if link is not None:
         user = link.user
         if not user.is_active:
-            raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+            raise _inactive_account_error(user)
         if user.role == "platform_admin":
             raise ValidationError(
                 "Platforma admini uchun Google orqali kirish o'chirilgan. Email va parol bilan kiring."
@@ -254,7 +263,7 @@ def _resolve_google_user(claims: dict) -> tuple:
     existing = User.objects.filter(email__iexact=email).first() if email else None
     if existing is not None:
         if not existing.is_active:
-            raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+            raise _inactive_account_error(existing)
         # XAVFSIZLIK: platforma admini hech qachon Google orqali O'Z HISOBIGA
         # kira olmasligi kerak (faqat email+parol, qarang AdminLogin) — aks
         # holda, agar adminning email manzili biror Google hisobiga tegishli
@@ -704,7 +713,7 @@ class TelegramSessionPollView(APIView):
         if link is not None:
             user = link.user
             if not user.is_active:
-                raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+                raise _inactive_account_error(user)
             # XAVFSIZLIK: platforma admini uchun Google bilan bir xil
             # cheklov — faqat email+parol (qarang AdminLogin).
             if user.role == "platform_admin":
@@ -910,7 +919,7 @@ class OTPVerifyView(APIView):
             user.set_unusable_password()
             user.save()
         elif not user.is_active:
-            raise ValidationError("Hisobingiz bloklangan. Administrator bilan bog'laning")
+            raise _inactive_account_error(user)
 
         refresh = RefreshToken.for_user(user)
         return Response(
@@ -983,14 +992,15 @@ def _anonymize_deleted_user(user):
     from apps.likes.models import Like
     from apps.notifications.models import PushDevice
 
-    GoogleAccount.objects.filter(user=user).delete()
-    TelegramAccount.objects.filter(user=user).delete()
+    # GoogleAccount/TelegramAccount bog'lanishi va telefon raqami BLOKLASH uchun
+    # saqlanadi: o'chirilgan hisob bilan qayta kirishga/ro'yxatdan o'tishga
+    # urinilsa, yangi hisob ochilmasdan "Bu hisobga kirib bo'lmaydi" xatosi
+    # chiqadi (qarang `_inactive_account_error`).
     Like.objects.filter(user=user).delete()
     CartItem.objects.filter(user=user).delete()
     PushDevice.objects.filter(user=user).delete()
 
     user.email = f"deleted-{user.id}@deleted.vida"
-    user.phone = ""
     user.first_name = ""
     user.last_name = ""
     user.is_active = False

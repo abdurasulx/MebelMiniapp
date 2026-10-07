@@ -896,3 +896,35 @@ class AccountDeletionFlowTests(TestCase):
         self.user.refresh_from_db()
         self.assertFalse(self.user.is_active)
         self.assertTrue(self.user.email.startswith("deleted-"))
+
+    def test_deleted_account_cannot_log_in_or_be_recreated(self):
+        self.user.phone = "+998901234567"
+        self.user.save(update_fields=["phone"])
+        GoogleAccount.objects.create(user=self.user, google_sub="sub-123")
+
+        self.client.force_authenticate(self.user)
+        self.client.post("/api/v1/users/me/deletion-request/", {"reason": "x"}, format="json")
+        self.client.force_authenticate(self.admin)
+        request_id = (self.client.get("/api/v1/admin/deletion-requests/").json().get("results"))[0]["id"]
+        self.client.post(f"/api/v1/admin/deletion-requests/{request_id}/approve/")
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+
+        self.client.force_authenticate(None)
+        users_before = User.objects.count()
+        with patch("apps.users.views._consume_otp"):
+            resp = self.client.post(
+                "/api/v1/auth/otp/verify/", {"phone": "+998901234567", "code": "123456"}, format="json"
+            )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Bu hisobga kirib bo'lmaydi", str(resp.json()))
+        self.assertEqual(User.objects.count(), users_before)  # yangi hisob yaratilmadi
+
+        from rest_framework.exceptions import ValidationError
+
+        from apps.users.views import _resolve_google_user
+
+        with self.assertRaises(ValidationError) as ctx:
+            _resolve_google_user({"sub": "sub-123", "email": "yangi@example.com"})
+        self.assertIn("Bu hisobga kirib bo'lmaydi", str(ctx.exception.detail))

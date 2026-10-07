@@ -36,8 +36,7 @@ export default function DeleteAccount() {
         <section>
           <h2 className="mb-2 text-lg font-semibold">Nima o'chiriladi</h2>
           <ul className="list-disc space-y-1 pl-5 leading-relaxed" style={{ color: "var(--text)" }}>
-            <li>Profil ma'lumotlari (ism, telefon raqami, email).</li>
-            <li>Google/Telegram orqali bog'langan hisob ma'lumotlari.</li>
+            <li>Profil ma'lumotlari (ism, email).</li>
             <li>Sevimlilar ro'yxati va savatdagi mahsulotlar.</li>
             <li>Saqlangan manzillar va geolokatsiya ma'lumotlari.</li>
             <li>Push-bildirishnoma uchun saqlangan qurilma tokeni.</li>
@@ -49,8 +48,10 @@ export default function DeleteAccount() {
           <p className="leading-relaxed" style={{ color: "var(--text)" }}>
             Qonunchilik (buxgalteriya hisobi, soliq hisoboti) talabiga ko'ra,
             yakunlangan buyurtmalarga oid moliyaviy yozuvlar shaxsni
-            aniqlab bo'lmaydigan holatda saqlanishi mumkin. Boshqa barcha
-            shaxsiy ma'lumotlar to'liq o'chiriladi.
+            aniqlab bo'lmaydigan holatda saqlanishi mumkin. Shuningdek, o'chirilgan hisob
+            qayta ochilib ketmasligi uchun telefon raqami va Google/Telegram
+            identifikatori faqat bloklash maqsadida saqlanadi — bu hisob bilan
+            qayta kirib bo'lmaydi. Boshqa barcha shaxsiy ma'lumotlar o'chiriladi.
           </p>
         </section>
 
