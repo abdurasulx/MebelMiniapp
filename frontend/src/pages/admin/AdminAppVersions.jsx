@@ -139,6 +139,21 @@ export default function AdminAppVersions() {
       (!versionFilter || r.version.includes(versionFilter.trim())),
   );
 
+  // Bir xil versiya/holat/sozlamali qatorlar (masalan 1.0.0 — web, iOS, Android)
+  // bitta guruhga birlashtiriladi; tahrirlash esa baribir platforma bo'yicha.
+  const groups = [];
+  const byKey = new Map();
+  shown.forEach((r) => {
+    const key = [r.version, r.status, r.force_update, r.orders_enabled !== false, r.release_date, r.update_message].join("|");
+    let g = byKey.get(key);
+    if (!g) {
+      g = { key, rows: [], first: r };
+      byKey.set(key, g);
+      groups.push(g);
+    }
+    g.rows.push(r);
+  });
+
   const countFor = (platform, status) => rows.filter((r) => r.platform === platform && r.status === status).length;
 
   const togglePlatformFilter = (p) =>
@@ -299,15 +314,19 @@ export default function AdminAppVersions() {
             </tr>
           </thead>
           <tbody>
-            {shown.length === 0 && (
+            {groups.length === 0 && (
               <tr><td colSpan={7} className="p-4" style={{ color: "var(--muted)" }}>Versiya topilmadi.</td></tr>
             )}
-            {shown.map((r) => (
-              <tr key={r.id} className="border-t" style={{ borderColor: "var(--border)" }}>
+            {groups.map(({ key, rows: gRows, first: r }) => (
+              <tr key={key} className="border-t" style={{ borderColor: "var(--border)" }}>
                 <td className="p-3 font-semibold">{r.version}</td>
                 <td className="p-3">
-                  <span className="inline-flex items-center gap-2">
-                    <PlatformIcon platform={r.platform} size={18} /> {PLATFORMS[r.platform]?.label}
+                  <span className="inline-flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {gRows.map((x) => (
+                      <span key={x.id} className="inline-flex items-center gap-2">
+                        <PlatformIcon platform={x.platform} size={18} /> {PLATFORMS[x.platform]?.label}
+                      </span>
+                    ))}
                   </span>
                 </td>
                 <td className="p-3">
@@ -324,11 +343,20 @@ export default function AdminAppVersions() {
                 </td>
                 <td className="p-3">{r.force_update ? "Ha" : "Yo'q"}</td>
                 <td className="p-3">{r.release_date ? new Date(r.release_date).toLocaleDateString("uz-UZ") : "—"}</td>
-                <td className="p-3">{new Date(r.updated_at).toLocaleString("uz-UZ")}</td>
+                <td className="p-3">
+                  {new Date(Math.max(...gRows.map((x) => new Date(x.updated_at).getTime()))).toLocaleString("uz-UZ")}
+                </td>
                 <td className="p-3 text-right">
-                  <button className="btn-ghost !px-2 !py-1.5" title="Tahrirlash" onClick={() => openEdit(r)}>
-                    <Pencil size={14} />
-                  </button>
+                  <span className="inline-flex gap-1">
+                    {gRows.map((x) => (
+                      <button
+                        key={x.id} className="btn-ghost inline-flex items-center gap-1 !px-2 !py-1.5"
+                        title={`Tahrirlash — ${PLATFORMS[x.platform]?.label}`} onClick={() => openEdit(x)}
+                      >
+                        <PlatformIcon platform={x.platform} size={12} /> <Pencil size={12} />
+                      </button>
+                    ))}
+                  </span>
                 </td>
               </tr>
             ))}
