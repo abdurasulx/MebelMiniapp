@@ -160,17 +160,20 @@ export default function AdminAppVersions() {
     setPlatformFilter((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
 
   const openCreate = () => { setError(""); setForm({ ...EMPTY }); };
-  const openEdit = (r) => {
+  // `group` — bir xil versiya/sozlamali qatorlar; bitta tahrirlash hammasiga tegadi.
+  const openEdit = (group) => {
+    const r = group[0];
     setError("");
     setForm({
-      ...EMPTY, id: r.id, version: r.version, platform: r.platform, platforms: [r.platform], status: r.status,
+      ...EMPTY, id: r.id, version: r.version, platform: r.platform, platforms: group.map((x) => x.platform),
+      groupIds: Object.fromEntries(group.map((x) => [x.platform, x.id])), status: r.status,
       force_update: r.force_update, orders_enabled: r.orders_enabled !== false,
       update_message: r.update_message, release_date: toLocalInput(r.release_date),
     });
   };
 
   const togglePlatform = (p) =>
-    form.id && p === form.platform ? null : setForm((f) => ({
+    setForm((f) => ({
       ...f,
       platforms: f.platforms.includes(p) ? f.platforms.filter((x) => x !== p) : [...f.platforms, p],
     }));
@@ -196,8 +199,8 @@ export default function AdminAppVersions() {
         // Tanlangan har bir platforma uchun: bor bo'lsa yangilanadi, yo'q bo'lsa yaratiladi
         const errs = [];
         for (const platform of form.platforms) {
-          const existing = platform === form.platform
-            ? { id: form.id }
+          const existing = form.groupIds?.[platform]
+            ? { id: form.groupIds[platform] }
             : rows.find((r) => r.platform === platform && r.version === common.version);
           try {
             if (existing) {
@@ -347,16 +350,9 @@ export default function AdminAppVersions() {
                   {new Date(Math.max(...gRows.map((x) => new Date(x.updated_at).getTime()))).toLocaleString("uz-UZ")}
                 </td>
                 <td className="p-3 text-right">
-                  <span className="inline-flex gap-1">
-                    {gRows.map((x) => (
-                      <button
-                        key={x.id} className="btn-ghost inline-flex items-center gap-1 !px-2 !py-1.5"
-                        title={`Tahrirlash — ${PLATFORMS[x.platform]?.label}`} onClick={() => openEdit(x)}
-                      >
-                        <PlatformIcon platform={x.platform} size={12} /> <Pencil size={12} />
-                      </button>
-                    ))}
-                  </span>
+                  <button className="btn-ghost !px-2 !py-1.5" title="Tahrirlash" onClick={() => openEdit(gRows)}>
+                    <Pencil size={14} />
+                  </button>
                 </td>
               </tr>
             ))}
