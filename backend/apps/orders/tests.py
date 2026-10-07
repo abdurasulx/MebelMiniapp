@@ -234,3 +234,12 @@ class FinanceSummaryTests(APITestCase):
         self.client.force_authenticate(self.customer)
         resp = self.client.get("/api/v1/finance/summary/")
         self.assertEqual(resp.status_code, 403)
+
+
+class CoordinatePrecisionTests(APITestCase):
+    def test_gps_coordinates_with_many_decimals_are_rounded(self):
+        from common.fields import CoordinateField
+
+        f = CoordinateField()
+        self.assertEqual(str(f.run_validation(41.31108123456)), "41.311081")
+        self.assertEqual(str(f.run_validation("69.2405629999")), "69.240563")

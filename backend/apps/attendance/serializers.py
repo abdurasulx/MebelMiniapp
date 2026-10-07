@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from common.fields import CoordinateField
+
 from .models import AttendanceEditLog, AttendanceRecord, Workplace
 
 
@@ -25,8 +27,8 @@ class AttendanceRecordSerializer(serializers.ModelSerializer):
 
 
 class AttendanceCheckInSerializer(serializers.Serializer):
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
+    latitude = CoordinateField()
+    longitude = CoordinateField()
     accuracy = serializers.DecimalField(max_digits=8, decimal_places=2, required=False, allow_null=True)
     device_timestamp = serializers.DateTimeField(required=False, allow_null=True)
     is_mock = serializers.BooleanField(default=False)

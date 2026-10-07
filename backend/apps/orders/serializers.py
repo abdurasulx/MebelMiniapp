@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from common.fields import CoordinateField
+
 from apps.products.models import Variant
 from apps.workflow.serializers import WorkflowStepInstanceSerializer
 from apps.workflow.services import create_workflow_instances
@@ -130,8 +132,8 @@ class OrderCreateSerializer(serializers.Serializer):
     foydalanuvchi buyurtma bera olmaydi (qarang OrderViewSet.perform_create)
     — shu bilan telefon har doim ishonchli manbadan kelishi kafolatlanadi."""
 
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
+    latitude = CoordinateField(required=False, allow_null=True, default=None)
+    longitude = CoordinateField(required=False, allow_null=True, default=None)
     items = OrderItemInputSerializer(many=True, allow_empty=False)
 
     def validate(self, data):

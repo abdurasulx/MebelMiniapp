@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from common.fields import CoordinateField
+
 from common.serializers import visible_file_url
 
 from .models import Design, DesignVersion
@@ -88,8 +90,8 @@ class CreateCustomOrderOnSiteSerializer(serializers.Serializer):
     # Faqat mijoz tizimda topilmay, yangi (vaqtincha) hisob ochilganda ishlatiladi.
     customer_name = serializers.CharField(required=False, allow_blank=True, default="", max_length=150)
     address = serializers.CharField(required=False, allow_blank=True, default="")
-    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
-    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, allow_null=True, default=None)
+    latitude = CoordinateField(required=False, allow_null=True, default=None)
+    longitude = CoordinateField(required=False, allow_null=True, default=None)
     accuracy = serializers.FloatField(required=False, allow_null=True, default=None)
     is_mock = serializers.BooleanField(required=False, default=False)
     device_timestamp = serializers.DateTimeField(required=False, allow_null=True, default=None)
