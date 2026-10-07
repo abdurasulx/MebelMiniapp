@@ -170,6 +170,16 @@ class EmployeeInvitationNotificationTests(APITestCase):
             Notification.objects.filter(recipient=self.worker, notif_type=NotificationType.EMPLOYEE_INVITED).count(), 2
         )
 
+    def test_responding_marks_invitation_notifications_read(self):
+        from apps.notifications.models import Notification, NotificationType
+
+        invitation_id = self._invite().data["id"]
+        qs = Notification.objects.filter(recipient=self.worker, notif_type=NotificationType.EMPLOYEE_INVITED)
+        self.assertTrue(qs.filter(is_read=False).exists())
+        self.client.force_authenticate(self.worker)
+        self.client.post(f"/api/v1/employee-invitations/{invitation_id}/accept/")
+        self.assertFalse(qs.filter(is_read=False).exists())
+
     def test_accept_notifies_owner(self):
         from apps.notifications.models import Notification, NotificationType
 

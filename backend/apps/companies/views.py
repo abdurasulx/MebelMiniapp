@@ -194,6 +194,20 @@ class WorkerLookupView(APIView):
         )
 
 
+def _mark_invitation_notifications_read(user):
+    """Taklifga javob berilgach (qabul/rad) foydalanuvchining "ishga taklif"
+    bildirishnomalari o'qilgan bo'ladi — javob push yoki profildagi "Ish
+    takliflari" orqali berilsa ham ular "o'qilmagan" bo'lib qolmasligi uchun."""
+    from apps.notifications.models import Notification, NotificationType
+    from apps.notifications.ws import push_unread_count
+
+    updated = Notification.objects.filter(
+        recipient=user, notif_type=NotificationType.EMPLOYEE_INVITED, is_read=False
+    ).update(is_read=True)
+    if updated:
+        push_unread_count(user.id)
+
+
 class EmployeeInvitationViewSet(viewsets.ModelViewSet):
     """Firma xodimni `worker_id` orqali ishga taklif qiladi; foydalanuvchi
     qabul/rad qiladi (docs: ish tarixi/karyera oqimi)."""
@@ -280,6 +294,7 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         invitation.responded_at = timezone.now()
         invitation.save(update_fields=["status", "responded_at"])
         notify_invitation_accepted(invitation)
+        _mark_invitation_notifications_read(request.user)
         return Response(EmployeeInvitationSerializer(invitation, context={"request": request}).data)
 
     @action(detail=True, methods=["post"])
@@ -293,6 +308,7 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         invitation.responded_at = timezone.now()
         invitation.save(update_fields=["status", "responded_at"])
         notify_invitation_declined(invitation)
+        _mark_invitation_notifications_read(request.user)
         return Response(EmployeeInvitationSerializer(invitation, context={"request": request}).data)
 
     def perform_destroy(self, instance):
