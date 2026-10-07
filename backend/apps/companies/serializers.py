@@ -265,9 +265,14 @@ class EmployeeInvitationSerializer(serializers.ModelSerializer):
         company = validated_data["company"]
         if self._invited_user.id == company.owner_id:
             raise serializers.ValidationError("Kompaniya egasini taklif qilib bo'lmaydi")
+        # Bekor qilingan (soft-delete) taklif "mavjud" hisoblanmaydi — aks holda
+        # qayta taklif qilinganda ko'rinmas (o'chirilgan) yozuv qaytib, foydalanuvchi
+        # bildirishnomani oladi-yu, ro'yxatda taklifni ko'ra olmasdi.
         existing = EmployeeInvitation.objects.filter(
-            company=company, invited_user=self._invited_user, status=EmployeeInvitation.Status.PENDING
+            company=company, invited_user=self._invited_user,
+            status=EmployeeInvitation.Status.PENDING, is_deleted=False,
         ).first()
+        self.created_new = existing is None
         if existing:
             return existing
         return EmployeeInvitation.objects.create(invited_user=self._invited_user, **validated_data)

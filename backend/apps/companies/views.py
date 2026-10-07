@@ -225,7 +225,9 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         if company is None:
             raise PermissionDenied("Faqat kompaniya egasi xodim taklif qila oladi")
         invitation = serializer.save(company=company)
-        notify_employee_invited(invitation)
+        # Allaqachon kutilayotgan taklif qaytgan bo'lsa, qayta bildirishnoma yubormaymiz.
+        if getattr(serializer, "created_new", True):
+            notify_employee_invited(invitation)
 
     @action(detail=True, methods=["post"])
     def accept(self, request, pk=None):

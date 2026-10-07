@@ -147,6 +147,29 @@ class EmployeeInvitationNotificationTests(APITestCase):
         data = self.client.get("/api/v1/employee-invitations/").json()
         self.assertEqual(len(data.get("results", data)), 1)
 
+    def test_reinviting_after_cancel_creates_visible_invitation(self):
+        from apps.companies.models import EmployeeInvitation
+        from apps.notifications.models import Notification, NotificationType
+
+        first = self._invite().data["id"]
+        # Egasi taklifni bekor qiladi (soft-delete), keyin qayta taklif qiladi
+        self.assertEqual(self.client.delete(f"/api/v1/employee-invitations/{first}/").status_code, 204)
+        second = self._invite()
+        self.assertEqual(second.status_code, 201, second.data)
+        self.assertNotEqual(second.data["id"], first)
+
+        self.client.force_authenticate(self.worker)
+        data = self.client.get("/api/v1/employee-invitations/?received=1").json()
+        results = data.get("results", data)
+        self.assertEqual([i["id"] for i in results], [second.data["id"]])
+        self.assertEqual(EmployeeInvitation.objects.filter(is_deleted=False).count(), 1)
+
+        # Ikki marta ketma-ket taklif qilinsa, ikkinchisi dublikat bildirishnoma yubormaydi
+        self._invite()
+        self.assertEqual(
+            Notification.objects.filter(recipient=self.worker, notif_type=NotificationType.EMPLOYEE_INVITED).count(), 2
+        )
+
     def test_accept_notifies_owner(self):
         from apps.notifications.models import Notification, NotificationType
 
