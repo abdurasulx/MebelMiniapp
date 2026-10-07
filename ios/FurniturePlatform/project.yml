@@ -20,6 +20,7 @@ targets:
     sources:
       - path: Sources
       - path: Resources/Assets.xcassets
+      - path: Resources/GoogleService-Info.plist
     dependencies:
       - package: GoogleSignIn
         product: GoogleSignIn
