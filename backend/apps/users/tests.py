@@ -860,3 +860,39 @@ class PhoneVerifyTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         user.refresh_from_db()
         self.assertFalse(user.phone_verified)
+
+
+class AccountDeletionFlowTests(TestCase):
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        self.client = APIClient()
+        self.user = User.objects.create_user(email="mijoz@example.com", password="x12345678", first_name="Ali")
+        self.admin = User.objects.create_user(
+            email="admin@example.com", password="x12345678", role=User.Role.PLATFORM_ADMIN
+        )
+
+    def test_request_notifies_admin_and_approval_anonymizes_user(self):
+        from apps.notifications.models import Notification
+
+        self.client.force_authenticate(self.user)
+        # Sabab majburiy
+        self.assertEqual(self.client.post("/api/v1/users/me/deletion-request/", {}, format="json").status_code, 400)
+        resp = self.client.post("/api/v1/users/me/deletion-request/", {"reason": "Kerak emas"}, format="json")
+        self.assertEqual(resp.status_code, 201)
+        # Ikkinchi so'rov rad etiladi
+        self.assertEqual(
+            self.client.post("/api/v1/users/me/deletion-request/", {"reason": "yana"}, format="json").status_code, 400
+        )
+        self.assertTrue(Notification.objects.filter(recipient=self.admin, title__icontains="o'chirish").exists())
+
+        self.client.force_authenticate(self.admin)
+        listing = self.client.get("/api/v1/admin/deletion-requests/")
+        self.assertEqual(listing.status_code, 200)
+        request_id = (listing.json().get("results") or listing.json())[0]["id"]
+        approve = self.client.post(f"/api/v1/admin/deletion-requests/{request_id}/approve/")
+        self.assertEqual(approve.status_code, 200)
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_active)
+        self.assertTrue(self.user.email.startswith("deleted-"))
