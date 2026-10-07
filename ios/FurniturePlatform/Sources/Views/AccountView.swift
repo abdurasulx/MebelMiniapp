@@ -312,7 +312,7 @@ private struct ProfileView: View {
         isLoading = true
         defer { isLoading = false }
         async let ordersPage: Paginated<OrderSummary>? = try? APIClient.shared.get("/orders/", auth: true)
-        async let invitationsPage: Paginated<EmployeeInvitation>? = try? APIClient.shared.get("/employee-invitations/", auth: true)
+        async let invitationsPage: Paginated<EmployeeInvitation>? = try? APIClient.shared.get("/employee-invitations/?received=1", auth: true)
         async let careerPage: Paginated<CareerEntry>? = try? APIClient.shared.get("/users/me/career/", auth: true)
         orders = await ordersPage?.results ?? []
         invitations = await invitationsPage?.results ?? []

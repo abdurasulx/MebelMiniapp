@@ -207,8 +207,16 @@ class EmployeeInvitationViewSet(viewsets.ModelViewSet):
         qs = EmployeeInvitation.objects.filter(is_deleted=False).select_related(
             "company", "invited_user"
         )
+        # `?received=1` — foydalanuvchining O'ZIGA kelgan takliflari (har qanday
+        # firmadan). Firma egasi/xodimi bo'lsa ham o'ziga kelgan taklifni
+        # ko'ra olishi kerak — aks holda "ishga taklif" varag'i bo'sh chiqardi.
+        if self.request.query_params.get("received"):
+            return qs.filter(invited_user=user)
         company = user_company(user)
-        if company:
+        # Firma tomonidagi ro'yxat (yuborilgan takliflar) faqat egasi uchun;
+        # oddiy xodim uchun bu ro'yxat o'ziga kelgan takliflardir (eski
+        # ilovalar `received` parametrini yubormaydi).
+        if company and is_company_owner(user, company):
             return qs.filter(company=company)
         return qs.filter(invited_user=user)
 

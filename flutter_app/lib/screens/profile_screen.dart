@@ -86,7 +86,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
     setState(() => _loading = true);
     try {
       final invPage = await ApiClient.instance.get(
-        '/employee-invitations/',
+        '/employee-invitations/?received=1',
         (j) => Paginated<EmployeeInvitation>.fromJson(
           j,
           EmployeeInvitation.fromJson,

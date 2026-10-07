@@ -44,7 +44,7 @@ class _InvitationSheetState extends State<_InvitationSheet> {
     });
     try {
       final page = await ApiClient.instance.get(
-        '/employee-invitations/',
+        '/employee-invitations/?received=1',
         (j) => Paginated<EmployeeInvitation>.fromJson(j, EmployeeInvitation.fromJson),
         auth: true,
       );

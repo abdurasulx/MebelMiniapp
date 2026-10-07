@@ -124,6 +124,29 @@ class EmployeeInvitationNotificationTests(APITestCase):
         notif = Notification.objects.get(recipient=self.worker, notif_type=NotificationType.EMPLOYEE_INVITED)
         self.assertIn(self.company.name, notif.body)
 
+    def test_employee_of_another_company_still_sees_received_invitations(self):
+        from apps.companies.models import Employee
+
+        # Ishchi allaqachon boshqa firmada faol xodim — unga yangi taklif kelsa ham
+        # o'zining takliflar ro'yxatida ko'rinishi kerak (eskiden firma ro'yxati chiqardi).
+        other_owner = User.objects.create_user(
+            email="other-owner@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER
+        )
+        other = Company.objects.create(owner=other_owner, name="Other Shop", slug="other-shop")
+        Employee.objects.create(company=other, user=self.worker, positions=["usta"], is_active=True)
+
+        self.assertEqual(self._invite().status_code, 201)
+        self.client.force_authenticate(self.worker)
+        for url in ("/api/v1/employee-invitations/", "/api/v1/employee-invitations/?received=1"):
+            data = self.client.get(url).json()
+            results = data.get("results", data)
+            self.assertEqual([i["status"] for i in results], ["pending"], url)
+
+        # Egasi esa o'z yuborgan takliflarini ko'radi
+        self.client.force_authenticate(self.owner)
+        data = self.client.get("/api/v1/employee-invitations/").json()
+        self.assertEqual(len(data.get("results", data)), 1)
+
     def test_accept_notifies_owner(self):
         from apps.notifications.models import Notification, NotificationType
 
