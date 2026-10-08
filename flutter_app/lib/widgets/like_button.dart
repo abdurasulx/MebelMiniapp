@@ -16,8 +16,10 @@ class LikeButton extends StatelessWidget {
   // (server so'rovisiz Sevimlilar ekranida ko'rinishi uchun).
   final Product? product;
   final void Function(bool liked)? onToggled;
+  final double size;
   const LikeButton({
     super.key,
+    this.size = 32,
     required this.productId,
     this.product,
     this.onToggled,
@@ -40,16 +42,17 @@ class LikeButton extends StatelessWidget {
         onToggled?.call(context.read<LikesStore>().isLiked(productId));
       },
       child: Container(
-        width: 30,
-        height: 30,
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: AppColors.card,
           shape: BoxShape.circle,
+          border: Border.all(color: AppColors.border),
         ),
         child: Icon(
           liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-          size: 16,
-          color: liked ? AppColors.error : AppColors.textDisabled,
+          size: size * 0.52,
+          color: liked ? AppColors.error : AppColors.textSecondary,
         ),
       ),
     );

@@ -31,7 +31,8 @@ class _NotificationBellButtonState extends State<NotificationBellButton> {
     _loadCount();
     _socket = NotificationSocket(onCount: (c) {
       if (mounted) setState(() => _count = c);
-    })..start();
+    })
+      ..start();
   }
 
   @override
@@ -112,7 +113,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Future<void> _markRead(AppNotification n) async {
     if (n.isRead) return;
     try {
-      await ApiClient.instance.post('/notifications/${n.id}/mark_read/', (j) => j, auth: true);
+      await ApiClient.instance
+          .post('/notifications/${n.id}/mark_read/', (j) => j, auth: true);
       setState(() {
         _items = [
           for (final item in _items)
@@ -144,7 +146,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   /// ko'rinmasa (404), demak eskirgan.
   Future<bool> _stillOpen(AppNotification n) async {
     try {
-      await ApiClient.instance.get('/notifications/${n.id}/', (j) => j, auth: true);
+      await ApiClient.instance
+          .get('/notifications/${n.id}/', (j) => j, auth: true);
       return true;
     } on ApiException catch (e) {
       if (e.statusCode == 404) return false;
@@ -189,7 +192,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           final stillOpen = await _stillOpen(n);
           if (!stillOpen) {
             if (mounted) {
-              setState(() => _items = _items.where((x) => x.id != n.id).toList());
+              setState(
+                  () => _items = _items.where((x) => x.id != n.id).toList());
             }
             return;
           }
@@ -215,21 +219,164 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         final auth = context.read<AuthStore>();
         final positions = auth.user?.positions ?? const [];
         if (positions.isNotEmpty) {
-          final position = auth.activePosition != null && positions.contains(auth.activePosition)
+          final position = auth.activePosition != null &&
+                  positions.contains(auth.activePosition)
               ? auth.activePosition!
               : positions.first;
           auth.enterWorkerMode(position);
         }
         Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => WorkerOrdersScreen(openOrderId: orderId)),
+          MaterialPageRoute(
+              builder: (_) => WorkerOrdersScreen(openOrderId: orderId)),
         );
         break;
     }
   }
 
+  /// Bo'sh/xato holat: RefreshIndicator ishlashi uchun scrollable ichida markazda.
+  Widget _centered({
+    required IconData icon,
+    required String title,
+    Color iconColor = AppColors.brand,
+    Widget? action,
+  }) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        Padding(
+          padding:
+              const EdgeInsets.fromLTRB(AppSpacing.xl, 80, AppSpacing.xl, 0),
+          child: Column(
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: const BoxDecoration(
+                  color: AppColors.backgroundAlt,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 38, color: iconColor),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 15, color: AppColors.textSecondary, height: 1.4),
+              ),
+              if (action != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                action
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Bildirishnoma turiga mos ikonka (faqat backend bergan turlar; noma'lum tur — umumiy qo'ng'iroq).
+  IconData _iconFor(String type) {
+    switch (type) {
+      case 'order_status':
+        return Icons.inventory_2_outlined;
+      case 'task_assigned':
+      case 'task_available':
+      case 'task_pool_open':
+        return Icons.assignment_outlined;
+      case 'employee_invited':
+        return Icons.work_outline_rounded;
+      default:
+        return Icons.notifications_none_rounded;
+    }
+  }
+
+  Widget _tile(AppNotification n, LocaleStore loc) {
+    final unread = !n.isRead;
+    return Material(
+      color: unread ? AppColors.card : AppColors.background,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: () => _open(n),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(
+                color: unread
+                    ? AppColors.brandSecondary.withValues(alpha: 0.35)
+                    : AppColors.border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: unread
+                      ? AppColors.backgroundAlt
+                      : AppColors.disabledBackground,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _iconFor(n.notifType),
+                  size: 20,
+                  color: unread ? AppColors.brand : AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      n.title,
+                      style: TextStyle(
+                        fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
+                        fontSize: 14.5,
+                        height: 1.25,
+                        color: unread
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                    if (n.body.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        n.body,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                            height: 1.35),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
+                    Text(loc.timeAgo(n.createdAt),
+                        style: AppText.caption
+                            .copyWith(color: AppColors.textDisabled)),
+                  ],
+                ),
+              ),
+              if (unread)
+                const Padding(
+                  padding: EdgeInsets.only(left: AppSpacing.sm, top: 4),
+                  child: Icon(Icons.circle, size: 9, color: AppColors.error),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _markAllRead() async {
     try {
-      await ApiClient.instance.post('/notifications/mark_all_read/', (j) => j, auth: true);
+      await ApiClient.instance
+          .post('/notifications/mark_all_read/', (j) => j, auth: true);
       await _load();
     } catch (_) {
       // jim o'tkazamiz
@@ -262,37 +409,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null && !OfflineView.isNetworkError(_error)
-                ? Center(child: Text(_error.toString(), style: const TextStyle(color: AppColors.error)))
+                ? _centered(
+                    icon: Icons.error_outline_rounded,
+                    iconColor: AppColors.error,
+                    title: _error.toString(),
+                    action: OutlinedButton(
+                      onPressed: _load,
+                      child: Text(loc.t('loc_retry')),
+                    ),
+                  )
                 : _items.isEmpty
-                    ? ListView(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 60),
-                            child: Center(
-                              child: Text(loc.t('notif_empty'), style: const TextStyle(color: AppColors.textSecondary)),
-                            ),
-                          ),
-                        ],
+                    ? _centered(
+                        icon: Icons.notifications_none_rounded,
+                        title: loc.t('notif_empty'),
                       )
-                    : ListView.builder(
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
                         itemCount: _items.length,
-                        itemBuilder: (context, i) {
-                          final n = _items[i];
-                          return ListTile(
-                            onTap: () => _open(n),
-                            tileColor: n.isRead ? null : Theme.of(context).colorScheme.primary.withValues(alpha: 0.06),
-                            title: Text(n.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (n.body.isNotEmpty) Text(n.body),
-                                const SizedBox(height: 2),
-                                Text(loc.timeAgo(n.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.textDisabled)),
-                              ],
-                            ),
-                            trailing: n.isRead ? null : const Icon(Icons.circle, size: 8, color: AppColors.error),
-                          );
-                        },
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: AppSpacing.sm),
+                        itemBuilder: (context, i) => _tile(_items[i], loc),
                       ),
       ),
     );

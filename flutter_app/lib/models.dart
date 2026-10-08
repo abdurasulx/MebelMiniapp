@@ -113,6 +113,11 @@ class Variant {
   });
 
   double get basePriceValue => double.tryParse(basePrice) ?? 0;
+  /// Haqiqiy to'lanadigan narx: chegirma faol bo'lsa `effective_base_price`
+  /// (backend buyurtmani shu bo'yicha hisoblaydi), aks holda asosiy narx.
+  double get effectivePriceValue => discountActive && effectiveBasePrice != null
+      ? (double.tryParse(effectiveBasePrice!) ?? basePriceValue)
+      : basePriceValue;
   double get widthValue => double.tryParse(width) ?? 1;
   double get heightValue => double.tryParse(height) ?? 1;
   double get depthValue => double.tryParse(depth) ?? 1;

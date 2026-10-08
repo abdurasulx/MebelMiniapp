@@ -6,6 +6,7 @@ import '../likes_store.dart';
 import '../locale_store.dart';
 import '../location_store.dart';
 import '../models.dart';
+import '../category_icons.dart';
 import '../theme.dart';
 import '../widgets/offline_view.dart';
 import '../widgets/product_card.dart';
@@ -448,27 +449,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   /// Kategoriya nomi/slug'idagi kalit so'zga qarab ikonka (backend'da ikonka
   /// maydoni yo'q); topilmasa — umumiy mebel ikonkasi.
-  static const _categoryIcons = <(List<String>, IconData)>[
-    (['kitob', 'javon', 'polka', 'shelf'], Icons.shelves),
-    (['divan', 'sofa', 'yumshoq', 'mehmon', 'zal'], Icons.weekend_rounded),
-    (['karavat', 'krovat', 'yotoq', 'bed', 'matras'], Icons.bed_rounded),
-    (['shkaf', 'garderob', 'jovon', 'komod'], Icons.door_sliding_rounded),
-    (['stol', 'table', 'jurnal'], Icons.table_restaurant_rounded),
-    (['oshxona', 'kuxn', 'kitchen'], Icons.kitchen_rounded),
-    (['bolalar', 'bola', 'kids', 'child'], Icons.child_care_rounded),
-    (['bog', 'tashqi', 'garden', 'outdoor'], Icons.deck_rounded),
-    (['ofis', 'office'], Icons.desk_rounded),
-    (['yoritgich', 'chiroq', 'lamp'], Icons.light_rounded),
-    (['kreslo', 'stul', 'chair'], Icons.chair_alt_rounded),
-  ];
-
-  IconData _categoryIcon(_Category c) {
-    final k = '${c.slug} ${c.nameUz}'.toLowerCase();
-    for (final (words, icon) in _categoryIcons) {
-      if (words.any(k.contains)) return icon;
-    }
-    return Icons.chair_rounded;
-  }
+  IconData _categoryIcon(_Category c) =>
+      categoryIcon(slug: c.slug, name: c.nameUz);
 
   /// Joylashuv hali aniqlanmagan / ruxsat yo'q / GPS o'chiq holati.
   Widget _locationGate(LocaleStore loc, LocationStore location) {
@@ -655,35 +637,51 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final items = _imageResults ?? _filtered;
 
     if (_imageSearching) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 30),
-        child: Center(child: CircularProgressIndicator(color: AppColors.deep)),
-      );
+      return const _HomeSkeleton(showCategories: false);
     }
 
     final isImageSearch = _imageResults != null;
+
+    // Qidiruv natijalari sarlavhasi: nima qidirilgani + natijalar soni.
+    String? categoryName;
+    if (_selectedCategorySlug != null) {
+      for (final c in _categories) {
+        if (c.slug == _selectedCategorySlug) categoryName = c.nameUz;
+      }
+    }
+    final resultsTitle = isImageSearch
+        ? '${items.length}${loc.t('home_similar_suffix')}'
+        : (_query.isNotEmpty ? '“$_query”' : (categoryName ?? ''));
+    final resultsCount = '${items.length}${loc.t('home_results_suffix')}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_isFiltering)
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 16, 12),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.sm, 0, AppSpacing.lg, AppSpacing.md),
             child: Row(
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back_rounded,
-                      color: AppColors.deep),
+                      color: AppColors.brand),
                   onPressed: _backToHome,
                   tooltip: loc.t('home_back_tooltip'),
                 ),
                 Expanded(
-                  child: Text(
-                    isImageSearch
-                        ? '${items.length}${loc.t('home_similar_suffix')}'
-                        : '${items.length}${loc.t('home_results_suffix')}',
-                    style: const TextStyle(
-                        fontSize: 12.5, color: AppColors.textSecondary),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        resultsTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.sectionTitle.copyWith(fontSize: 16),
+                      ),
+                      if (!isImageSearch)
+                        Text(resultsCount, style: AppText.caption),
+                    ],
                   ),
                 ),
               ],
@@ -694,9 +692,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               '${items.length}${loc.t('home_products_suffix')}'),
         if (items.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(loc.t('home_nothing_found'),
-                style: const TextStyle(color: AppColors.textSecondary)),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xl, vertical: AppSpacing.xxl),
+            child: Column(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: AppColors.backgroundAlt,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.search_off_rounded,
+                      size: 34, color: AppColors.brand),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  loc.t('home_nothing_found'),
+                  textAlign: TextAlign.center,
+                  style: AppText.sectionTitle.copyWith(fontSize: 16),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextButton(
+                  onPressed: _backToHome,
+                  child: Text(loc.t('home_back_tooltip')),
+                ),
+              ],
+            ),
           )
         else
           Padding(
@@ -823,7 +845,8 @@ class _Category {
 /// Yuklanish paytidagi skelet: kategoriya doiralari va mahsulot kartalari o'rnida
 /// yumshoq, "nafas oluvchi" bloklar (bo'sh ekran va aylanuvchi indikator o'rniga).
 class _HomeSkeleton extends StatefulWidget {
-  const _HomeSkeleton();
+  final bool showCategories;
+  const _HomeSkeleton({this.showCategories = true});
 
   @override
   State<_HomeSkeleton> createState() => _HomeSkeletonState();
@@ -867,25 +890,27 @@ class _HomeSkeletonState extends State<_HomeSkeleton>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _box(width: 140, height: 18),
-            const SizedBox(height: AppSpacing.md),
-            SizedBox(
-              height: 84,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: 5,
-                separatorBuilder: (_, __) => const SizedBox(width: 14),
-                itemBuilder: (_, __) => Column(
-                  children: [
-                    _box(width: 64, height: 64, shape: BoxShape.circle),
-                    const SizedBox(height: 6),
-                    _box(width: 48, height: 8),
-                  ],
+            if (widget.showCategories) ...[
+              _box(width: 140, height: 18),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: 84,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: 5,
+                  separatorBuilder: (_, __) => const SizedBox(width: 14),
+                  itemBuilder: (_, __) => Column(
+                    children: [
+                      _box(width: 64, height: 64, shape: BoxShape.circle),
+                      const SizedBox(height: 6),
+                      _box(width: 48, height: 8),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.xl),
+            ],
             _box(width: 160, height: 18),
             const SizedBox(height: AppSpacing.md),
             GridView.count(

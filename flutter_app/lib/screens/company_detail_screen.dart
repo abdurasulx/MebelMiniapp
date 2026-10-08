@@ -7,6 +7,7 @@ import '../locale_store.dart';
 import '../models.dart';
 import 'product_detail_screen.dart';
 import '../theme.dart';
+import '../widgets/product_card.dart';
 
 /// Firma do'kon sahifasi (marketplace uslubida) — mahsulot sahifasidan firma
 /// nomiga bosilganda ochiladi: tavsif, ishonch darajasi, boshqa mahsulotlari
@@ -82,7 +83,8 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
         },
         auth: true,
       );
-      setState(() => _submitMessage = context.read<LocaleStore>().t('shop_review_thanks'));
+      setState(() =>
+          _submitMessage = context.read<LocaleStore>().t('shop_review_thanks'));
       _commentController.clear();
       await _load();
     } catch (e) {
@@ -92,198 +94,232 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
     }
   }
 
+  Widget _stars(int rating, {double size = 15}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        5,
+        (i) => Icon(
+          i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
+          size: size,
+          color: i < rating ? AppColors.accent : AppColors.border,
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String text) =>
+      Text(text, style: AppText.sectionTitle.copyWith(fontSize: 16));
+
   @override
   Widget build(BuildContext context) {
     final isAuthenticated = context.watch<AuthStore>().isAuthenticated;
     final loc = context.watch<LocaleStore>();
     final company = _company;
     return Scaffold(
-      appBar: AppBar(title: Text(company?.name ?? loc.t('shop_title_fallback'))),
+      appBar:
+          AppBar(title: Text(company?.name ?? loc.t('shop_title_fallback'))),
       body: company == null
           ? Center(
               child: _error != null
-                  ? Text(_error!, style: const TextStyle(color: AppColors.error))
+                  ? Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline_rounded,
+                              size: 40, color: AppColors.error),
+                          const SizedBox(height: AppSpacing.md),
+                          Text(_error!,
+                              textAlign: TextAlign.center,
+                              style:
+                                  const TextStyle(color: AppColors.errorDark)),
+                          const SizedBox(height: AppSpacing.md),
+                          OutlinedButton(
+                            onPressed: () {
+                              setState(() => _error = null);
+                              _load();
+                            },
+                            child: Text(loc.t('loc_retry')),
+                          ),
+                        ],
+                      ),
+                    )
                   : const CircularProgressIndicator(),
             )
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               children: [
                 _Header(company: company),
-                const SizedBox(height: 20),
-                Text(
-                  loc.t('shop_products'),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.xl),
+                _sectionTitle(loc.t('shop_products')),
+                const SizedBox(height: AppSpacing.md),
                 if (_products.isEmpty)
-                  Text(
-                    loc.t('shop_no_products'),
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  )
+                  _emptyBlock(
+                      Icons.inventory_2_outlined, loc.t('shop_no_products'))
                 else
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                          childAspectRatio: 0.9,
-                        ),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 14,
+                      crossAxisSpacing: 14,
+                      childAspectRatio: 0.62,
+                    ),
                     itemCount: _products.length,
-                    itemBuilder: (context, i) {
-                      final p = _products[i];
-                      return InkWell(
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ProductDetailScreen(productId: p.id),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: p.cardImageUrl != null
-                                    ? Image.network(
-                                        p.cardImageUrl!,
-                                        fit: BoxFit.cover,
-                                        width: double.infinity,
-                                      )
-                                    : Container(
-                                        color: Colors.brown.shade50,
-                                        child: const Icon(Icons.chair),
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              p.nameUz,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                    itemBuilder: (context, i) =>
+                        ProductCard(product: _products[i]),
                   ),
-                const SizedBox(height: 24),
-                Text(
+                const SizedBox(height: AppSpacing.xl),
+                _sectionTitle(
                   '${loc.t('shop_reviews_prefix')}${_reviews.length}${loc.t('shop_reviews_suffix')}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.md),
                 if (_reviews.isEmpty)
-                  Text(
-                    loc.t('shop_no_reviews'),
-                    style: const TextStyle(color: AppColors.textSecondary),
-                  )
+                  _emptyBlock(
+                      Icons.rate_review_outlined, loc.t('shop_no_reviews'))
                 else
                   ..._reviews.map(
-                    (r) => Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
+                    (r) => Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          border: Border.all(color: AppColors.border),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  r.customerName?.isNotEmpty == true
-                                      ? r.customerName!
-                                      : loc.t('shop_anonymous_customer'),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
+                                Expanded(
+                                  child: Text(
+                                    r.customerName?.isNotEmpty == true
+                                        ? r.customerName!
+                                        : loc.t('shop_anonymous_customer'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14),
                                   ),
                                 ),
-                                Text('⭐' * r.rating),
+                                _stars(r.rating),
                               ],
                             ),
-                            if (r.comment?.isNotEmpty == true)
+                            if (r.comment?.isNotEmpty == true) ...[
+                              const SizedBox(height: 6),
                               Text(
                                 r.comment!,
-                                style: Theme.of(context).textTheme.bodySmall,
+                                style: const TextStyle(
+                                    fontSize: 13.5,
+                                    color: AppColors.textSecondary,
+                                    height: 1.4),
                               ),
+                            ],
                           ],
                         ),
                       ),
                     ),
                   ),
                 if (isAuthenticated && company.canReview) ...[
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.xl),
                   _reviewForm(loc),
                 ] else if (isAuthenticated) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    loc.t('shop_review_locked'),
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(loc.t('shop_review_locked'), style: AppText.caption),
                 ],
+                const SizedBox(height: AppSpacing.lg),
               ],
             ),
     );
   }
 
+  Widget _emptyBlock(IconData icon, String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.xl, horizontal: AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 32, color: AppColors.textDisabled),
+          const SizedBox(height: AppSpacing.sm),
+          Text(text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+
   Widget _reviewForm(LocaleStore loc) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              loc.t('shop_leave_review'),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            DropdownButton<int>(
-              value: _rating,
-              items: [5, 4, 3, 2, 1]
-                  .map(
-                    (n) => DropdownMenuItem(
-                      value: n,
-                      child: Text('${'⭐' * n} ($n)'),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => _rating = v ?? 5),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _commentController,
-              decoration: InputDecoration(
-                labelText: loc.t('shop_comment_label'),
-                border: const OutlineInputBorder(),
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(loc.t('shop_leave_review'),
+              style: AppText.sectionTitle.copyWith(fontSize: 16)),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: List.generate(
+              5,
+              (i) => GestureDetector(
+                onTap: () => setState(() => _rating = i + 1),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Icon(
+                    i < _rating
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    size: 34,
+                    color: i < _rating ? AppColors.accent : AppColors.border,
+                  ),
+                ),
               ),
-              maxLines: 3,
             ),
-            const SizedBox(height: 10),
-            if (_submitMessage != null) ...[
-              Text(
-                _submitMessage!,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 8),
-            ],
-            ElevatedButton(
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _commentController,
+            decoration: InputDecoration(labelText: loc.t('shop_comment_label')),
+            maxLines: 3,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (_submitMessage != null) ...[
+            Text(_submitMessage!, style: AppText.caption),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
               onPressed: _submitBusy ? null : _submitReview,
               child: _submitBusy
-                  ? const CircularProgressIndicator()
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: AppColors.textDisabled),
+                    )
                   : Text(loc.t('shop_leave_review')),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -298,10 +334,11 @@ class _Header extends StatelessWidget {
     final tier = company.tier;
     final loc = context.watch<LocaleStore>();
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.backgroundAlt.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,17 +348,25 @@ class _Header extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: company.logoUrl != null
-                    ? Image.network(
-                        company.logoUrl!,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
+                    ? Container(
+                        width: 64,
+                        height: 64,
+                        color: AppColors.card,
+                        padding: const EdgeInsets.all(4),
+                        child: Image.network(
+                          company.logoUrl!,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.storefront_rounded,
+                              color: AppColors.textDisabled),
+                        ),
                       )
                     : Container(
-                        width: 60,
-                        height: 60,
-                        color: AppColors.backgroundAlt.withValues(alpha: 0.5),
-                        child: const Icon(Icons.business),
+                        width: 64,
+                        height: 64,
+                        color: AppColors.backgroundAlt,
+                        child: const Icon(Icons.storefront_rounded,
+                            color: AppColors.brand),
                       ),
               ),
               const SizedBox(width: 12),
@@ -333,7 +378,7 @@ class _Header extends StatelessWidget {
                       company.name,
                       style: const TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                     if (tier != null) ...[
@@ -348,7 +393,8 @@ class _Header extends StatelessWidget {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: _hexToColor(tier.color).withValues(alpha: 0.2),
+                              color: _hexToColor(tier.color)
+                                  .withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -361,12 +407,21 @@ class _Header extends StatelessWidget {
                             ),
                           ),
                           if (tier.rating != null)
-                            Text(
-                              '⭐ ${tier.rating!.toStringAsFixed(1)} (${tier.reviewCount})',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star_rounded,
+                                    size: 15, color: AppColors.accent),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${tier.rating!.toStringAsFixed(1)} (${tier.reviewCount})',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
                         ],
                       ),
@@ -383,24 +438,31 @@ class _Header extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
-          if (company.address?.isNotEmpty == true || company.mapUrl != null) ...[
+          if (company.address?.isNotEmpty == true ||
+              company.mapUrl != null) ...[
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.location_on, size: 14, color: AppColors.textSecondary),
+                const Icon(Icons.location_on,
+                    size: 14, color: AppColors.textSecondary),
                 const SizedBox(width: 4),
                 if (company.address?.isNotEmpty == true)
                   Text(
                     company.address!,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary),
                   ),
                 if (company.mapUrl != null) ...[
                   const SizedBox(width: 6),
                   GestureDetector(
-                    onTap: () => launchUrl(Uri.parse(company.mapUrl!), mode: LaunchMode.externalApplication),
+                    onTap: () => launchUrl(Uri.parse(company.mapUrl!),
+                        mode: LaunchMode.externalApplication),
                     child: Text(
                       loc.t('shop_view_on_map'),
-                      style: const TextStyle(fontSize: 12, color: AppColors.info, decoration: TextDecoration.underline),
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.info,
+                          decoration: TextDecoration.underline),
                     ),
                   ),
                 ],
@@ -454,11 +516,12 @@ class _SocialLinksRow extends StatelessWidget {
                 child: Container(
                   width: 30,
                   height: 30,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.06),
+                  decoration: const BoxDecoration(
+                    color: AppColors.backgroundAlt,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(_socialIcons[e.key] ?? Icons.link_rounded, size: 15, color: Colors.black87),
+                  child: Icon(_socialIcons[e.key] ?? Icons.link_rounded,
+                      size: 15, color: AppColors.brand),
                 ),
               ),
             ),

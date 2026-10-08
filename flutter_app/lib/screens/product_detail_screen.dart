@@ -12,6 +12,7 @@ import '../model_cache.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/like_button.dart';
+import '../widgets/price_block.dart';
 import '../widgets/product_card.dart';
 import 'cart_screen.dart';
 import 'company_detail_screen.dart';
@@ -35,17 +36,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   String? _error;
   int _galleryIndex = 0;
   final _galleryController = PageController();
-  late final TabController _tabController;
   late final AnimationController _cartBtnAnimController;
   late final Animation<double> _cartBtnScale;
   bool _justAddedToCart = false;
+  int _qty = 1;
+  bool _descExpanded = false;
   Timer? _addedResetTimer;
   List<Product> _recommended = [];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _cartBtnAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 140),
@@ -63,7 +64,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   @override
   void dispose() {
     _galleryController.dispose();
-    _tabController.dispose();
     _cartBtnAnimController.dispose();
     _addedResetTimer?.cancel();
     super.dispose();
@@ -124,149 +124,165 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         appBar: AppBar(title: Text(loc.t('product_title'))),
         body: Center(
           child: _error != null
-              ? Text(_error!, style: const TextStyle(color: AppColors.error))
-              : const CircularProgressIndicator(color: AppColors.deep),
+              ? Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xl),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          size: 40, color: AppColors.error),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: AppColors.errorDark),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      OutlinedButton(
+                        onPressed: () {
+                          setState(() => _error = null);
+                          _load();
+                        },
+                        child: Text(loc.t('loc_retry')),
+                      ),
+                    ],
+                  ),
+                )
+              : const CircularProgressIndicator(),
         ),
       );
     }
+    final v = _selectedVariant;
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: SafeArea(
+        bottom: false,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             _gallery(p, loc),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     p.nameUz,
                     style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25),
                   ),
-                  const SizedBox(height: 10),
-                  _companyLink(context, p),
-                  if (p.companyAddress?.isNotEmpty == true ||
-                      p.companyViloyatDisplay != null) ...[
-                    const SizedBox(height: 8),
-                    _locationRow(p),
+                  if (v != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _priceSection(v, loc),
                   ],
-                  const SizedBox(height: 20),
-                  if (p.variants.isNotEmpty) ...[
-                    Text(
-                      loc.t('product_variant_label'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11.5,
-                        letterSpacing: 0.6,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: p.variants.map((v) {
-                        final selected = _selectedVariant?.id == v.id;
-                        return ChoiceChip(
-                          label: Text(
-                            v.name,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: selected
-                                  ? AppColors.backgroundAlt
-                                  : AppColors.brand,
-                            ),
-                          ),
-                          selected: selected,
-                          onSelected: (_) {
-                            setState(() => _selectedVariant = v);
-                            if (_activeModel3d?.glbUrl != null) {
-                              Model3DCacheManager.instance.prefetch(_activeModel3d!.glbUrl);
-                            }
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 18),
-                    if (_selectedVariant != null) _priceCard(loc),
-                    if (_selectedVariant != null) ...[
-                      const SizedBox(height: 12),
-                      _addToCartButton(p, loc),
-                    ],
+                  const SizedBox(height: AppSpacing.lg),
+                  _companyCard(context, p),
+                  if (p.variants.length > 1) ...[
+                    const SizedBox(height: AppSpacing.xl),
+                    _sectionTitle(loc.t('product_variant_label')),
+                    const SizedBox(height: AppSpacing.sm),
+                    _variantChips(p),
                   ],
-                  const SizedBox(height: 28),
-                  _sectionTabs(loc),
-                  const SizedBox(height: 14),
-                  AnimatedBuilder(
-                    animation: _tabController,
-                    builder: (context, _) => _tabController.index == 0
-                        ? _descriptionTab(p, loc)
-                        : _characteristicsTab(p, loc),
-                  ),
+                  _specsSection(p, loc),
+                  _descriptionSection(p, loc),
                 ],
               ),
             ),
             if (_recommended.isNotEmpty) _recommendedSection(loc),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.xl),
           ],
         ),
       ),
+      bottomNavigationBar: v == null ? null : _purchaseBar(p, v, loc),
     );
   }
 
-  /// "Tavsif" / "Xususiyatlar" — marketplace ilovalaridagi (Uzum va h.k.)
-  /// odatiy naqsh. `TabBarView` o'rniga oddiy shart bilan almashtirilishi
-  /// sababi: ekran butun sahifa `ListView` ichida (cheksiz balandlik),
-  /// `TabBarView` esa chegaralangan balandlik talab qiladi.
-  Widget _sectionTabs(LocaleStore loc) {
-    return SizedBox(
-      width: double.infinity,
-      child: TabBar(
-        controller: _tabController,
-        labelColor: AppColors.deep,
-        unselectedLabelColor: AppColors.textSecondary,
-        indicatorColor: AppColors.deep,
-        dividerColor: AppColors.cardBorder,
-        labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-        tabs: [
-          Tab(text: loc.t('product_tab_description')),
-          Tab(text: loc.t('product_tab_characteristics')),
-        ],
-      ),
+  Widget _sectionTitle(String text) =>
+      Text(text, style: AppText.sectionTitle.copyWith(fontSize: 16));
+
+  Widget _variantChips(Product p) {
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: p.variants.map((v) {
+        final selected = _selectedVariant?.id == v.id;
+        return ChoiceChip(
+          label: Text(v.name),
+          selected: selected,
+          showCheckmark: false,
+          labelStyle: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13.5,
+            color: selected ? AppColors.onBrand : AppColors.textPrimary,
+          ),
+          onSelected: (_) {
+            setState(() => _selectedVariant = v);
+            if (_activeModel3d?.glbUrl != null) {
+              Model3DCacheManager.instance.prefetch(_activeModel3d!.glbUrl);
+            }
+          },
+        );
+      }).toList(),
     );
   }
 
-  Widget _descriptionTab(Product p, LocaleStore loc) {
-    if (p.description?.isNotEmpty != true) {
-      return Text(
-        loc.t('product_no_description'),
-        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-      );
-    }
-    return Text(
-      p.description!,
-      style: const TextStyle(fontSize: 13.5, color: Color(0xFF6B5A48), height: 1.5),
+  /// Narx + mavjudlik. Chegirma bo'lsa `PriceBlock` eski narxni ham ko'rsatadi,
+  /// bo'lmasa faqat joriy narx (bo'sh joy qoldirmaydi).
+  Widget _priceSection(Variant v, LocaleStore loc) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PriceBlock(variant: v, large: true),
+        const SizedBox(height: AppSpacing.sm),
+        if (v.availableQuantity > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle_rounded,
+                    size: 15, color: AppColors.success),
+                const SizedBox(width: 5),
+                Text(
+                  '${v.availableQuantity}${loc.t('product_in_stock_suffix')}',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.success,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Text(
+            loc.t('product_out_of_stock_production'),
+            style: const TextStyle(
+                fontSize: 13, color: AppColors.textSecondary, height: 1.35),
+          ),
+      ],
     );
   }
 
-  Widget _characteristicsTab(Product p, LocaleStore loc) {
+  /// Texnik xususiyatlar — faqat backend bergan maydonlar (bo'shlari ko'rsatilmaydi).
+  Widget _specsSection(Product p, LocaleStore loc) {
     final v = _selectedVariant;
-    // O'lcham endi variantda qo'lda kiritiladigan (va hozir doim standart
-    // 1x1x1 bo'lib qolgan) maydondan emas — 3D model faylining o'zidan
-    // (geometriyadan) avtomatik hisoblangan haqiqiy o'lchamdan (`bbox_*`)
-    // olinadi, shunda ko'rsatilgan raqam har doim ko'rinayotgan modelga
-    // mos keladi. Model hali tayyor bo'lmasa (yuklanmagan/processing),
-    // variantning o'z qiymatiga tushamiz.
+    // O'lcham 3D model faylidan (geometriya) hisoblangan haqiqiy qiymat
+    // (`bbox_*`); model tayyor bo'lmasa variantning o'z qiymati.
     final model = _activeModel3d;
     final w = model?.bboxWidthValue ?? v?.widthValue;
     final h = model?.bboxHeightValue ?? v?.heightValue;
     final d = model?.bboxDepthValue ?? v?.depthValue;
     final rows = <(String, String)>[
-      if (p.categoryName != null) (loc.t('product_char_category'), p.categoryName!),
+      if (p.categoryName != null)
+        (loc.t('product_char_category'), p.categoryName!),
       (loc.t('product_char_company'), p.companyName),
       if (v != null) (loc.t('product_char_material'), v.name),
       if (w != null && h != null && d != null)
@@ -274,40 +290,97 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           loc.t('product_char_size'),
           '${(w * 100).round()}×${(h * 100).round()}×${(d * 100).round()} sm',
         ),
-      if (p.colorTag?.isNotEmpty == true) (loc.t('product_char_color'), p.colorTag!),
+      if (p.colorTag?.isNotEmpty == true)
+        (loc.t('product_char_color'), p.colorTag!),
     ];
-    if (rows.isEmpty) {
-      return Text(
-        loc.t('product_no_characteristics'),
-        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-      );
-    }
-    return Column(
-      children: rows
-          .map(
-            (r) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 130,
-                    child: Text(
-                      r.$1,
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      r.$2,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(loc.t('product_tab_characteristics')),
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < rows.length; i++) ...[
+                  if (i > 0) const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md, vertical: 11),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 4,
+                          child: Text(
+                            rows[i].$1,
+                            style: const TextStyle(
+                                fontSize: 13, color: AppColors.textSecondary),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 6,
+                          child: Text(
+                            rows[i].$2,
+                            textAlign: TextAlign.end,
+                            style: const TextStyle(
+                                fontSize: 13.5, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Tavsif: uzun bo'lsa 4 qatorda qisqartirilib, "Ko'proq o'qish" bilan ochiladi.
+  /// Tavsif bo'lmasa bo'lim umuman ko'rsatilmaydi.
+  Widget _descriptionSection(Product p, LocaleStore loc) {
+    final text = p.description?.trim() ?? '';
+    if (text.isEmpty) return const SizedBox.shrink();
+    final long = text.length > 220;
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle(loc.t('product_tab_description')),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            text,
+            maxLines: long && !_descExpanded ? 4 : null,
+            overflow: long && !_descExpanded
+                ? TextOverflow.ellipsis
+                : TextOverflow.visible,
+            style: const TextStyle(
+                fontSize: 14, color: AppColors.textSecondary, height: 1.55),
+          ),
+          if (long)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero, minimumSize: const Size(48, 40)),
+                onPressed: () => setState(() => _descExpanded = !_descExpanded),
+                child: Text(loc.t(
+                    _descExpanded ? 'product_read_less' : 'product_read_more')),
               ),
             ),
-          )
-          .toList(),
+        ],
+      ),
     );
   }
 
@@ -315,23 +388,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   /// gorizontal ro'yxatda (qarang `_loadRecommended`).
   Widget _recommendedSection(LocaleStore loc) {
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
+      padding: const EdgeInsets.only(top: AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            loc.t('product_recommended'),
-            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: _sectionTitle(loc.t('product_recommended')),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           SizedBox(
-            height: 210,
+            height: 268,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               itemCount: _recommended.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.md),
               itemBuilder: (_, i) => SizedBox(
-                width: 150,
+                width: 168,
                 child: ProductCard(product: _recommended[i]),
               ),
             ),
@@ -343,122 +417,161 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
   Widget _gallery(Product p, LocaleStore loc) {
     final urls = p.galleryUrls;
-    // Marketplace ilovalaridagi (Uzum va h.k.) kabi — avval qattiq 320px,
-    // keyin kvadrat (1:1) edi, ikkalasi ham tor-uzun ekranda (masalan S20
-    // Ultra) hali ham katta ko'rinardi. Endi kenglikning ~0.62 qismi —
-    // 4:3ga yaqin nisbat, mazmun uchun ko'proq joy qoladi.
-    final galleryHeight = MediaQuery.of(context).size.width * 0.62;
+    final width = MediaQuery.of(context).size.width;
+    // Rasm hech qachon kesilmaydi/cho'zilmaydi (`contain`): butun mebel ko'rinadi.
+    final height = (width * 0.92).clamp(280.0, 440.0);
     return Stack(
       children: [
-        ClipRRect(
-          borderRadius: const BorderRadius.only(
-            bottomLeft: Radius.circular(24),
-            bottomRight: Radius.circular(24),
-          ),
-          child: SizedBox(
-            height: galleryHeight,
-            width: double.infinity,
-            child: urls.isEmpty
-                ? Container(
-                    color: AppColors.primary.withValues(alpha: 0.25),
-                    child: const Center(
-                      child: Icon(
-                        Icons.chair_rounded,
-                        size: 64,
-                        color: AppColors.deep,
-                      ),
+        Container(
+          height: height,
+          width: double.infinity,
+          color: AppColors.card,
+          child: urls.isEmpty
+              ? const Center(
+                  child: Icon(Icons.chair_rounded,
+                      size: 64, color: AppColors.textDisabled),
+                )
+              : PageView.builder(
+                  controller: _galleryController,
+                  itemCount: urls.length,
+                  onPageChanged: (i) => setState(() => _galleryIndex = i),
+                  itemBuilder: (_, i) => GestureDetector(
+                    onTap: () => showImageGallery(
+                      context,
+                      urls,
+                      initialIndex: i,
+                      onIndexChanged: (idx) {
+                        // Galereyada almashtirilgan rasm sahifadagi
+                        // indikator va PageView bilan sinxron turadi.
+                        if (_galleryController.hasClients) {
+                          _galleryController.jumpToPage(idx);
+                        }
+                        setState(() => _galleryIndex = idx);
+                      },
                     ),
-                  )
-                : PageView.builder(
-                    controller: _galleryController,
-                    itemCount: urls.length,
-                    onPageChanged: (i) => setState(() => _galleryIndex = i),
-                    itemBuilder: (_, i) => GestureDetector(
-                      onTap: () => showImageGallery(
-                        context,
-                        urls,
-                        initialIndex: i,
-                        onIndexChanged: (idx) {
-                          // Galereyada almashtirilgan rasm sahifadagi
-                          // indikator va PageView bilan sinxron turadi.
-                          if (_galleryController.hasClients) _galleryController.jumpToPage(idx);
-                          setState(() => _galleryIndex = idx);
-                        },
-                      ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg, 60, AppSpacing.lg, 36),
                       child: Image.network(
                         urls[i],
-                        fit: BoxFit.cover,
-                        width: double.infinity,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (_, child, progress) => progress == null
+                            ? child
+                            : const Center(
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(Icons.broken_image_outlined,
+                              size: 48, color: AppColors.textDisabled),
+                        ),
                       ),
                     ),
                   ),
-          ),
+                ),
         ),
         Positioned(
-          top: 8,
-          left: 8,
+          top: AppSpacing.sm,
+          left: AppSpacing.sm,
           child: _circleButton(
             icon: Icons.arrow_back_rounded,
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             onTap: () => Navigator.of(context).maybePop(),
           ),
         ),
         Positioned(
-          top: 8,
-          right: 8,
+          top: AppSpacing.sm,
+          right: AppSpacing.sm,
           child: Row(
             children: [
               _cartCircleButton(context),
-              const SizedBox(width: 8),
-              LikeButton(productId: p.id, product: p),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.sm),
+              LikeButton(productId: p.id, product: p, size: 40),
+              const SizedBox(width: AppSpacing.sm),
               _circleButton(
                 icon: Icons.ios_share_rounded,
+                tooltip: loc.t('product_share_suffix').trim(),
                 onTap: () => _share(p, loc),
               ),
             ],
           ),
         ),
-        if (urls.length > 1)
+        if (urls.length > 1) ...[
           Positioned(
-            bottom: 12,
+            bottom: AppSpacing.md,
+            left: AppSpacing.md,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.backgroundAlt,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: Text(
+                '${_galleryIndex + 1} / ${urls.length}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: AppSpacing.md + 9,
             left: 0,
             right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                urls.length,
-                (i) => AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: i == _galleryIndex ? 18 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == _galleryIndex
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(3),
+            child: IgnorePointer(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  urls.length,
+                  (i) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: i == _galleryIndex ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i == _galleryIndex
+                          ? AppColors.brand
+                          : AppColors.border,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
                   ),
                 ),
               ),
             ),
           ),
+        ],
         if (_activeModel3d?.glbUrl != null)
-          Positioned(bottom: 12, right: 12, child: _view3dButton(p, loc)),
+          Positioned(
+              bottom: AppSpacing.md,
+              right: AppSpacing.md,
+              child: _view3dButton(p, loc)),
       ],
     );
   }
 
-  Widget _circleButton({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
+  Widget _circleButton(
+      {required IconData icon, required VoidCallback onTap, String? tooltip}) {
+    return Tooltip(
+      message: tooltip ?? '',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Icon(icon, size: 20, color: AppColors.brand),
         ),
-        child: Icon(icon, size: 18, color: AppColors.deep),
       ),
     );
   }
@@ -467,27 +580,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     return GestureDetector(
       onTap: () => _open3d(p, loc),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: AppColors.deep,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: AppColors.brand,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.view_in_ar_rounded, size: 16, color: AppColors.primary),
+            const Icon(Icons.view_in_ar_rounded,
+                size: 16, color: AppColors.onBrand),
             const SizedBox(width: 6),
             Text(
               loc.t('product_view_3d'),
               style: const TextStyle(
-                color: AppColors.primary,
+                color: AppColors.onBrand,
                 fontWeight: FontWeight.w700,
                 fontSize: 12.5,
               ),
@@ -529,74 +636,89 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _locationRow(Product p) {
-    final text = [
-      if (p.companyViloyatDisplay != null) p.companyViloyatDisplay!,
+  /// Kelajakda tasdiqlangan firma nishoni kabi belgilar shu ro'yxatga qo'shiladi;
+  /// hozir backend bunday maydon bermaydi — ro'yxat bo'sh va hech narsa ko'rinmaydi.
+  List<Widget> _companyBadges(Product p) => const <Widget>[];
+
+  Widget _companyCard(BuildContext context, Product p) {
+    final location = [
+      if (p.companyViloyatDisplay?.isNotEmpty == true) p.companyViloyatDisplay!,
       if (p.companyAddress?.isNotEmpty == true) p.companyAddress!,
     ].join(', ');
-    if (text.isEmpty) return const SizedBox.shrink();
-    return Row(
-      children: [
-        const Icon(
-          Icons.location_on_rounded,
-          size: 15,
-          color: AppColors.textSecondary,
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+    final badges = _companyBadges(p);
+    final card = Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.backgroundAlt,
+              borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+            ),
+            child: const Icon(Icons.storefront_rounded,
+                size: 22, color: AppColors.brand),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _companyLink(BuildContext context, Product p) {
-    final content = Row(
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: const Icon(
-            Icons.storefront_rounded,
-            size: 16,
-            color: AppColors.deep,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            p.companyName,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13.5,
-              color: AppColors.secondary,
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p.companyName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14.5),
+                ),
+                if (location.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined,
+                            size: 14, color: AppColors.textSecondary),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppText.caption,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (badges.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Wrap(spacing: 6, runSpacing: 4, children: badges),
+                  ),
+              ],
             ),
           ),
-        ),
-        if (p.companySlug != null)
-          const Icon(
-            Icons.chevron_right_rounded,
-            size: 18,
-            color: AppColors.secondary,
-          ),
-      ],
+          if (p.companySlug != null)
+            const Icon(Icons.chevron_right_rounded,
+                size: 22, color: AppColors.textSecondary),
+        ],
+      ),
     );
-    if (p.companySlug == null) return content;
+    if (p.companySlug == null) return card;
     return InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => CompanyDetailScreen(companySlug: p.companySlug!),
         ),
       ),
-      child: content,
+      child: card,
     );
   }
 
@@ -610,36 +732,35 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: 34,
-            height: 34,
-            decoration: const BoxDecoration(
-              color: Colors.white,
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.card,
               shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border),
             ),
-            child: const Icon(
-              Icons.shopping_bag_outlined,
-              size: 18,
-              color: AppColors.deep,
-            ),
+            child: const Icon(Icons.shopping_bag_outlined,
+                size: 20, color: AppColors.brand),
           ),
           if (cartCount > 0)
             Positioned(
-              top: -3,
-              right: -3,
+              top: -4,
+              right: -4,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
                 decoration: BoxDecoration(
-                  color: AppColors.deep,
+                  color: AppColors.error,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white, width: 1.5),
+                  border: Border.all(color: AppColors.card, width: 1.5),
                 ),
-                constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                 child: Text(
                   cartCount > 99 ? '99+' : '$cartCount',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 9.5,
+                    color: Colors.white,
+                    fontSize: 10,
                     fontWeight: FontWeight.w800,
                     height: 1,
                   ),
@@ -657,7 +778,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       if (mounted) _cartBtnAnimController.reverse();
     });
 
-    context.read<CartStore>().addProduct(p, _selectedVariant!);
+    context.read<CartStore>().addProduct(p, _selectedVariant!, qty: _qty);
 
     _addedResetTimer?.cancel();
     setState(() => _justAddedToCart = true);
@@ -800,7 +921,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [AppColors.backgroundAlt, AppColors.backgroundAlt],
+                      colors: [
+                        AppColors.backgroundAlt,
+                        AppColors.backgroundAlt
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
@@ -839,180 +963,130 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _addToCartButton(Product p, LocaleStore loc) {
-    return ScaleTransition(
-      scale: _cartBtnScale,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        width: double.infinity,
-        height: 52,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: _justAddedToCart
-              ? const LinearGradient(
-                  colors: [AppColors.success, AppColors.success],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : const LinearGradient(
-                  colors: [AppColors.deep, Color(0xFF331C16)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-          boxShadow: [
-            BoxShadow(
-              color: (_justAddedToCart
-                      ? AppColors.success
-                      : AppColors.deep)
-                  .withValues(alpha: 0.28),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () => _onAddToCart(p, loc),
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                transitionBuilder: (child, anim) => ScaleTransition(
-                  scale: anim,
-                  child: FadeTransition(opacity: anim, child: child),
-                ),
-                child: _justAddedToCart
-                    ? Row(
-                        key: const ValueKey('added'),
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.check,
-                              color: AppColors.success,
-                              size: 14,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            loc.t('cart_added_title'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Row(
-                        key: const ValueKey('add'),
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.add_shopping_cart_rounded,
-                            size: 19,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            loc.t('product_add_to_cart'),
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
+  /// Pastki qat'iy xarid paneli: miqdor, jami summa va asosiy harakat. Foydalanuvchi
+  /// nimani, qancha narxda, necha dona olayotganini doim ko'radi.
+  Widget _purchaseBar(Product p, Variant v, LocaleStore loc) {
+    final total = v.effectivePriceValue * _qty;
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.card,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.md),
+          child: Row(
+            children: [
+              _qtyStepper(),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(child: _addToCartButton(p, loc, total)),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _priceCard(LocaleStore loc) {
+  Widget _qtyStepper() {
+    Widget btn(IconData icon, bool enabled, VoidCallback onTap, String tip) {
+      return IconButton(
+        onPressed: enabled ? onTap : null,
+        tooltip: tip,
+        icon: Icon(icon, size: 20),
+        color: AppColors.brand,
+        disabledColor: AppColors.textDisabled,
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 48),
+        padding: EdgeInsets.zero,
+      );
+    }
+
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primary.withValues(alpha: 0.55),
-            AppColors.primary.withValues(alpha: 0.25),
-          ],
-        ),
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            loc.t('product_price_label'),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-              color: AppColors.textSecondary,
+          btn(Icons.remove_rounded, _qty > 1, () => setState(() => _qty--),
+              '−'),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '$_qty',
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            '${formatSom(_selectedVariant!.basePriceValue.toStringAsFixed(0))} ${loc.t('currency_som')}',
-            style: const TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: AppColors.deep,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (_selectedVariant!.availableQuantity > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.success,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.inventory_2_rounded,
-                    size: 14,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    '${_selectedVariant!.availableQuantity}${loc.t('product_in_stock_suffix')}',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Text(
-              loc.t('product_out_of_stock_production'),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
+          btn(Icons.add_rounded, _qty < 99, () => setState(() => _qty++), '+'),
         ],
+      ),
+    );
+  }
+
+  Widget _addToCartButton(Product p, LocaleStore loc, double total) {
+    return ScaleTransition(
+      scale: _cartBtnScale,
+      child: SizedBox(
+        height: 52,
+        child: ElevatedButton(
+          onPressed: () => _onAddToCart(p, loc),
+          style: ElevatedButton.styleFrom(
+            backgroundColor:
+                _justAddedToCart ? AppColors.success : AppColors.brand,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _justAddedToCart
+                ? Row(
+                    key: const ValueKey('added'),
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.check_rounded, size: 20),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          loc.t('cart_added_title'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 15),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
+                    key: const ValueKey('add'),
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        loc.t('product_add_to_cart'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14.5,
+                            height: 1.15),
+                      ),
+                      Text(
+                        '${formatSom(total.toStringAsFixed(0))} ${loc.t('currency_som')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            height: 1.15),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -1062,7 +1136,8 @@ class _Model3DViewerSheetState extends State<_Model3DViewerSheet>
 
   Future<void> _initModel() async {
     // 1. Keshda bormi? (1ms ichida diskdan tekshiradi)
-    final cached = await Model3DCacheManager.instance.getCachedFile(widget.glbUrl);
+    final cached =
+        await Model3DCacheManager.instance.getCachedFile(widget.glbUrl);
     if (cached != null && mounted) {
       setState(() => _cachedFile = cached);
       return;
@@ -1201,9 +1276,8 @@ class _Model3DViewerSheetState extends State<_Model3DViewerSheet>
   @override
   Widget build(BuildContext context) {
     final loadingText = widget.loc.t('product_loading_3d');
-    final String src = _cachedFile != null
-        ? 'file://${_cachedFile!.path}'
-        : widget.glbUrl;
+    final String src =
+        _cachedFile != null ? 'file://${_cachedFile!.path}' : widget.glbUrl;
 
     return Container(
       decoration: const BoxDecoration(

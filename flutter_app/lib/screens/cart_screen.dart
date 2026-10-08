@@ -26,14 +26,17 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _placeOrders(CartStore cart) async {
     final location = context.read<LocationStore>();
     if (location.lat == null) await location.detectFromGps();
-    for (final group in cart.byCompany.values) {
+    // Backend qoidasi: bitta buyurtmada bitta firma. Har firma muvaffaqiyatli
+    // yuborilgach savatdan olinadi — keyingi firmada xato bo'lsa, qayta urinishda
+    // allaqachon yaratilgan buyurtma ikkinchi marta yuborilmaydi.
+    for (final entry in cart.byCompany.entries.toList()) {
       await ApiClient.instance.post(
         '/orders/',
         (j) => j,
         body: {
           'latitude': location.lat,
           'longitude': location.lng,
-          'items': group
+          'items': entry.value
               .map(
                 (i) => {
                   'variant': i.variantId,
@@ -46,16 +49,43 @@ class _CartScreenState extends State<CartScreen> {
               .toList(),
         },
       );
+      cart.removeCompany(entry.key);
     }
-    cart.clear();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.read<LocaleStore>().t('cart_order_placed')),
+    if (mounted) await _showOrderPlaced();
+  }
+
+  /// Faqat backend barcha buyurtmalarni tasdiqlagandan KEYIN ko'rsatiladi.
+  Future<void> _showOrderPlaced() async {
+    final loc = context.read<LocaleStore>();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.success.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.check_rounded,
+              size: 32, color: AppColors.success),
         ),
-      );
-      Navigator.of(context).maybePop();
-    }
+        title: Text(loc.t('cart_order_placed'), textAlign: TextAlign.center),
+        content: Text(
+          loc.t('cart_order_placed_hint'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.textSecondary, height: 1.4),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(loc.t('cart_order_placed_action')),
+          ),
+        ],
+      ),
+    );
+    if (mounted) Navigator.of(context).maybePop();
   }
 
   Future<void> _checkout(CartStore cart) async {
@@ -230,8 +260,10 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
         ),
-        for (int i = 0; i < cart.items.length; i++) _cartTile(cart, i, loc),
-        const SizedBox(height: 16),
+        ..._groupedTiles(cart, loc),
+        const SizedBox(height: 4),
+        _contactCard(loc),
+        const SizedBox(height: 12),
         _orderSummary(cart, loc),
         if (_error != null) ...[
           const SizedBox(height: 14),
@@ -261,6 +293,173 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  /// Mahsulotlar firma bo'yicha guruhlanadi (har firma uchun alohida buyurtma
+  /// yaratiladi — foydalanuvchi buni oldindan ko'radi).
+  List<Widget> _groupedTiles(CartStore cart, LocaleStore loc) {
+    final groups = <String, List<int>>{};
+    for (var i = 0; i < cart.items.length; i++) {
+      (groups[cart.items[i].companyId] ??= []).add(i);
+    }
+    final multi = groups.length > 1;
+    return [
+      if (multi)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline_rounded,
+                  size: 16, color: AppColors.info),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  loc.t('cart_multi_company_note'),
+                  style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.textSecondary,
+                      height: 1.35),
+                ),
+              ),
+            ],
+          ),
+        ),
+      for (final entry in groups.entries) ...[
+        _companyHeader(cart, entry.value),
+        for (final idx in entry.value) _cartTile(cart, idx, loc),
+      ],
+    ];
+  }
+
+  Widget _companyHeader(CartStore cart, List<int> indices) {
+    final first = cart.items[indices.first];
+    final subtotal =
+        indices.fold<double>(0, (sum, i) => sum + cart.items[i].subtotal);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 4, 2, 8),
+      child: Row(
+        children: [
+          const Icon(Icons.storefront_rounded,
+              size: 18, color: AppColors.brand),
+          const SizedBox(width: 6),
+          Expanded(
+            flex: 3,
+            child: Text(
+              first.companyName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            flex: 2,
+            child: Text(
+              "${formatSom(subtotal.toStringAsFixed(0))} so'm",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppColors.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Buyurtma qaysi raqam/joylashuv bilan yuborilishini oldindan ko'rsatadi
+  /// (backend telefonni tasdiqlashni talab qiladi — avvalgidek checkout paytida
+  /// ham tekshiriladi, bu yerda esa foydalanuvchi oldindan tasdiqlay oladi).
+  Widget _contactCard(LocaleStore loc) {
+    final auth = context.watch<AuthStore>();
+    if (!auth.isAuthenticated) {
+      return Row(
+        children: [
+          const Icon(Icons.lock_outline_rounded,
+              size: 16, color: AppColors.textSecondary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              loc.t('cart_login_hint'),
+              style: const TextStyle(
+                  fontSize: 12.5, color: AppColors.textSecondary),
+            ),
+          ),
+        ],
+      );
+    }
+    final user = auth.user;
+    final phone = user?.phone ?? '';
+    final verified = (user?.phoneVerified ?? true) && phone.isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border:
+            Border.all(color: verified ? AppColors.border : AppColors.warning),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(loc.t('cart_contact_title'), style: AppText.label),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                verified ? Icons.check_circle_rounded : Icons.phone_outlined,
+                size: 20,
+                color: verified ? AppColors.success : AppColors.warning,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  phone.isEmpty ? loc.t('cart_phone_unverified') : phone,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+              ),
+              if (!verified)
+                TextButton(
+                  onPressed: () async {
+                    final ok = await showPhoneVerifyDialog(context,
+                        initialPhone: phone);
+                    if (ok == true && mounted) await auth.refreshUser();
+                  },
+                  child: Text(loc.t('cart_phone_verify')),
+                ),
+            ],
+          ),
+          if (!verified && phone.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                loc.t('cart_phone_unverified'),
+                style:
+                    const TextStyle(fontSize: 12.5, color: AppColors.warning),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined,
+                  size: 16, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                  child: Text(loc.t('cart_location_note'),
+                      style: AppText.caption)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -359,8 +558,13 @@ class _CartScreenState extends State<CartScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Tor ekranda narx va miqdor tugmalari sig'masa, ikkinchisi pastki
+                // qatorga tushadi (Wrap) — overflow bo'lmaydi.
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
                   children: [
                     Text(
                       '${formatSom(i.subtotal.toStringAsFixed(0))} so\'m',
@@ -448,11 +652,14 @@ class _CartScreenState extends State<CartScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '${loc.t('cart_total')} (${cart.items.length} ${loc.t('cart_items_count')}):',
-                style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 13.5),
+              Flexible(
+                child: Text(
+                  '${loc.t('cart_total')} (${cart.items.length} ${loc.t('cart_items_count')}):',
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 13.5),
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '${formatSom(cart.total.toStringAsFixed(0))} so\'m',
                 style:
@@ -463,25 +670,20 @@ class _CartScreenState extends State<CartScreen> {
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 loc.t('cart_delivery'),
                 style: const TextStyle(
                     color: AppColors.textSecondary, fontSize: 13.5),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(6),
-                ),
+              const SizedBox(width: 12),
+              Flexible(
                 child: Text(
-                  loc.t('cart_delivery_free'),
+                  loc.t('cart_delivery_note'),
+                  textAlign: TextAlign.end,
                   style: const TextStyle(
-                    color: AppColors.success,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
+                      fontSize: 13.5, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -501,12 +703,19 @@ class _CartScreenState extends State<CartScreen> {
                   color: AppColors.deep,
                 ),
               ),
-              Text(
-                '${formatSom(cart.total.toStringAsFixed(0))} so\'m',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16.5,
-                  color: AppColors.deep,
+              const SizedBox(width: 12),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${formatSom(cart.total.toStringAsFixed(0))} so\'m',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16.5,
+                      color: AppColors.deep,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -537,31 +746,40 @@ class _CartScreenState extends State<CartScreen> {
       ),
       child: Row(
         children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                loc.t('cart_total'),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.42,
+            ),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    loc.t('cart_total'),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${formatSom(cart.total.toStringAsFixed(0))} so\'m',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.deep,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                '${formatSom(cart.total.toStringAsFixed(0))} so\'m',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.deep,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 12),
           Expanded(
             child: ElevatedButton(
               onPressed: _busy ? null : () => _checkout(cart),
@@ -586,11 +804,15 @@ class _CartScreenState extends State<CartScreen> {
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          loc.t('cart_submit'),
-                          style: const TextStyle(
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w700,
+                        Flexible(
+                          child: Text(
+                            loc.t('cart_submit'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),

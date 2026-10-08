@@ -45,36 +45,36 @@ class CartItem {
   double get subtotal => unitM3Price * width * height * depth * qty;
 
   Map<String, dynamic> toJson() => {
-    'product_id': productId,
-    'product_name': productName,
-    'image_url': imageUrl,
-    'company_id': companyId,
-    'company_name': companyName,
-    'variant_id': variantId,
-    'variant_name': variantName,
-    'width': width,
-    'height': height,
-    'depth': depth,
-    'unit_m3_price': unitM3Price,
-    'qty': qty,
-    'server_id': serverId,
-  };
+        'product_id': productId,
+        'product_name': productName,
+        'image_url': imageUrl,
+        'company_id': companyId,
+        'company_name': companyName,
+        'variant_id': variantId,
+        'variant_name': variantName,
+        'width': width,
+        'height': height,
+        'depth': depth,
+        'unit_m3_price': unitM3Price,
+        'qty': qty,
+        'server_id': serverId,
+      };
 
   factory CartItem.fromJson(Map<String, dynamic> j) => CartItem(
-    productId: j['product_id'],
-    productName: j['product_name'],
-    imageUrl: j['image_url'],
-    companyId: j['company_id'],
-    companyName: j['company_name'],
-    variantId: j['variant_id'],
-    variantName: j['variant_name'],
-    width: (j['width'] as num).toDouble(),
-    height: (j['height'] as num).toDouble(),
-    depth: (j['depth'] as num).toDouble(),
-    unitM3Price: (j['unit_m3_price'] as num).toDouble(),
-    qty: j['qty'] ?? 1,
-    serverId: j['server_id'],
-  );
+        productId: j['product_id'],
+        productName: j['product_name'],
+        imageUrl: j['image_url'],
+        companyId: j['company_id'],
+        companyName: j['company_name'],
+        variantId: j['variant_id'],
+        variantName: j['variant_name'],
+        width: (j['width'] as num).toDouble(),
+        height: (j['height'] as num).toDouble(),
+        depth: (j['depth'] as num).toDouble(),
+        unitM3Price: (j['unit_m3_price'] as num).toDouble(),
+        qty: j['qty'] ?? 1,
+        serverId: j['server_id'],
+      );
 }
 
 /// Savat — qurilmada saqlanadi (`shared_preferences`), buyurtma
@@ -139,7 +139,7 @@ class CartStore extends ChangeNotifier {
         width: variant.widthValue,
         height: variant.heightValue,
         depth: variant.depthValue,
-        unitM3Price: variant.basePriceValue,
+        unitM3Price: variant.effectivePriceValue,
         qty: qty,
       );
       _items.add(item);
@@ -197,6 +197,23 @@ class CartStore extends ChangeNotifier {
       ApiClient.instance
           .delete('/cart-items/${item.serverId}/', (j) => null)
           .catchError((_) {});
+    }
+  }
+
+  /// Bir firma buyurtmasi muvaffaqiyatli yuborilgach, faqat shu firma
+  /// mahsulotlari savatdan olib tashlanadi (qolgan firmalar xato bo'lsa, savatda
+  /// qoladi va qayta urinishda ikki marta buyurtma yaratilmaydi).
+  void removeCompany(String companyId) {
+    final removed = _items.where((i) => i.companyId == companyId).toList();
+    _items = _items.where((i) => i.companyId != companyId).toList();
+    notifyListeners();
+    _persist();
+    for (final item in removed) {
+      if (item.serverId != null) {
+        ApiClient.instance
+            .delete('/cart-items/${item.serverId}/', (j) => null)
+            .catchError((_) {});
+      }
     }
   }
 
