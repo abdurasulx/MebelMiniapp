@@ -31,7 +31,6 @@ import FirmaProduction from "./pages/firma/FirmaProduction";
 import FirmaProductDetail from "./pages/firma/FirmaProductDetail";
 import FirmaProducts from "./pages/firma/FirmaProducts";
 import FirmaSettings from "./pages/firma/FirmaSettings";
-import FirmaSiteSurveys from "./pages/firma/FirmaSiteSurveys";
 import FirmaSuppliers from "./pages/firma/FirmaSuppliers";
 import FirmaWarehouses from "./pages/firma/FirmaWarehouses";
 import FirmaWarehouseDetail from "./pages/firma/FirmaWarehouseDetail";
@@ -69,7 +68,6 @@ import {
   UserCircle,
   Banknote,
   Smartphone,
-  MapPinned,
   UserX,
 } from "lucide-react";
 
@@ -89,7 +87,6 @@ const FIRMA_MENU = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", end: true, group: "Asosiy" },
   { to: "/products", icon: Sofa, label: "Mahsulotlar", group: "Katalog" },
   { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
-  { to: "/site-surveys", icon: MapPinned, label: "Joy o'rganish", group: "Ishlab chiqarish" },
   { to: "/production", icon: Hammer, label: "Ishlab chiqarish", group: "Ishlab chiqarish" },
   { to: "/warehouses", icon: Warehouse, label: "Omborlar", group: "Ishlab chiqarish" },
   { to: "/suppliers", icon: Truck, label: "Ta'minot", group: "Ishlab chiqarish" },
@@ -99,13 +96,15 @@ const FIRMA_MENU = [
   { to: "/settings", icon: Settings, label: "Sozlamalar", group: "Tizim" },
 ];
 
-// Xodim (usta) uchun — faqat o'z ishiga tegishli bo'limlar. Xodimlar/Ish
+// Xodim (usta) uchun — faqat o'z ishiga tegishli bo'limlar (Dashboard, Buyurtmalar).
+// Ishlab chiqarish ham firma egasi/menejer bo'limi: usta o'z topshiriqlari bilan
+// mobil ilovada ishlaydi. Xodimlar/Ish
 // haqi/Moliya/Sozlamalar/Omborlar/Ta'minot firma egasi darajasidagi
 // boshqaruv bo'limlari (maosh, moliya, kompaniya sozlamalari) — xodimga
 // ko'rsatilmasligi kerak (backend'da ham shunga mos cheklov qo'yilgan,
 // qarang apps/companies/views.py::EmployeeViewSet.get_queryset).
 const EMPLOYEE_FIRMA_MENU = FIRMA_MENU.filter((m) =>
-  ["/", "/orders", "/site-surveys", "/production"].includes(m.to)
+  ["/", "/orders"].includes(m.to)
 );
 
 // Firma egasi darajasidagi bo'limlar (xodimlar/maosh/moliya/sozlamalar/
@@ -344,8 +343,7 @@ export default function App() {
           <Route path="/employees" element={<OwnerOnly><Employees /></OwnerOnly>} />
           <Route path="/orders" element={<FirmaOrders />} />
           <Route path="/orders/:id" element={<FirmaOrderDetail />} />
-          <Route path="/site-surveys" element={<FirmaSiteSurveys />} />
-          <Route path="/production" element={<FirmaProduction />} />
+          <Route path="/production" element={<OwnerOnly><FirmaProduction /></OwnerOnly>} />
           <Route path="/warehouses" element={<OwnerOnly><FirmaWarehouses /></OwnerOnly>} />
           <Route path="/warehouses/:id" element={<OwnerOnly><FirmaWarehouseDetail /></OwnerOnly>} />
           <Route path="/suppliers" element={<OwnerOnly><FirmaSuppliers /></OwnerOnly>} />
