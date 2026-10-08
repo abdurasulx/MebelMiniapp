@@ -48,8 +48,10 @@ def _login() -> str:
         )
         token = resp.json().get("data", {}).get("token")
     except (requests.RequestException, ValueError) as exc:
+        logger.warning("Eskiz login xatosi: %s", exc)
         raise SMSError(f"Eskiz login xatosi: {exc}") from exc
     if not token:
+        logger.warning("Eskiz login rad etildi: %s %s", resp.status_code, resp.text[:200])
         raise SMSError("Eskiz login rad etildi")
     cache.set(TOKEN_CACHE_KEY, token, TOKEN_TTL)
     return token
@@ -74,6 +76,7 @@ def send_sms(phone: str, text: str) -> None:
         if resp.status_code == 401:
             resp = _post_sms(_login(), number, text)
     except requests.RequestException as exc:
+        logger.warning("Eskiz so'rovi xatosi: %s", exc)
         raise SMSError(f"Eskiz so'rovi xatosi: {exc}") from exc
     if resp.status_code >= 400:
         logger.warning("Eskiz SMS rad etildi: %s %s", resp.status_code, resp.text[:200])
