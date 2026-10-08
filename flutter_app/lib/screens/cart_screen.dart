@@ -282,8 +282,12 @@ class _CartScreenState extends State<CartScreen> {
             child: SizedBox(
               width: 80,
               height: 80,
-              child: ColoredBox(
-                color: AppColors.background,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+                ),
                 child: i.imageUrl != null
                     ? Padding(
                         padding: const EdgeInsets.all(AppSpacing.xs),

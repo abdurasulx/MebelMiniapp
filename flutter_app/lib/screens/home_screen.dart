@@ -449,7 +449,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// Kategoriya nomi/slug'idagi kalit so'zga qarab ikonka (backend'da ikonka
   /// maydoni yo'q); topilmasa — umumiy mebel ikonkasi.
   static const _categoryIcons = <(List<String>, IconData)>[
-    (['divan', 'sofa', 'yumshoq'], Icons.weekend_rounded),
+    (['kitob', 'javon', 'polka', 'shelf'], Icons.shelves),
+    (['divan', 'sofa', 'yumshoq', 'mehmon', 'zal'], Icons.weekend_rounded),
     (['karavat', 'krovat', 'yotoq', 'bed', 'matras'], Icons.bed_rounded),
     (['shkaf', 'garderob', 'jovon', 'komod'], Icons.door_sliding_rounded),
     (['stol', 'table', 'jurnal'], Icons.table_restaurant_rounded),

@@ -44,7 +44,7 @@ class ProductCard extends StatelessWidget {
                   // yumshoq fon ustida toza turadi.
                   Positioned.fill(
                     child: ColoredBox(
-                      color: AppColors.background,
+                      color: AppColors.card,
                       child: product.cardImageUrl != null
                           ? Padding(
                               padding: const EdgeInsets.all(AppSpacing.sm),
