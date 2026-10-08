@@ -40,10 +40,11 @@ struct LikeButton: View {
             }
         } label: {
             Image(systemName: liked ? "heart.fill" : "heart")
-                .foregroundStyle(liked ? Color.red : (compact ? .white : .secondary))
+                .foregroundStyle(liked ? Color.appError : Color.textSecondary)
                 .font(compact ? .callout : .title3)
                 .padding(compact ? 6 : 8)
-                .background(.ultraThinMaterial, in: Circle())
+                .background(Color.appCard, in: Circle())
+                .overlay(Circle().stroke(Color.appBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .opacity(auth.isAuthenticated ? 1 : 0.5)

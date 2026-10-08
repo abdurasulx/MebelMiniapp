@@ -27,13 +27,13 @@ struct LoyihalarimView: View {
             } else if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).padding()
+                Text(errorMessage).foregroundStyle(Color.appError).padding()
             } else if collections.isEmpty {
                 VStack(spacing: 8) {
-                    Image(systemName: "arkit").font(.largeTitle).foregroundStyle(.secondary)
-                    Text("Hali loyiha yo'q").foregroundStyle(.secondary)
+                    Image(systemName: "arkit").font(.largeTitle).foregroundStyle(Color.textSecondary)
+                    Text("Hali loyiha yo'q").foregroundStyle(Color.textSecondary)
                     Text("Mahsulotlarni AR'da ko'rsatish uchun avval loyiha yarating.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.caption).foregroundStyle(Color.textSecondary)
                         .multilineTextAlignment(.center).padding(.horizontal, 40)
                 }
             } else {
@@ -45,7 +45,7 @@ struct LoyihalarimView: View {
                     ) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(collection.name).bold()
-                            Text("\(collection.itemCount) ta mahsulot").font(.caption).foregroundStyle(.secondary)
+                            Text("\(collection.itemCount) ta mahsulot").font(.caption).foregroundStyle(Color.textSecondary)
                         }
                     }
                 }

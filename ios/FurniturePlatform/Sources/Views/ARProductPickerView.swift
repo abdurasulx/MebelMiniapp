@@ -25,9 +25,9 @@ struct ARProductPickerView: View {
                 if isLoading {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red).padding()
+                    Text(errorMessage).foregroundStyle(Color.appError).padding()
                 } else if arReadyProducts.isEmpty {
-                    Text("3D modeli tayyor mahsulot yo'q").foregroundStyle(.secondary)
+                    Text("3D modeli tayyor mahsulot yo'q").foregroundStyle(Color.textSecondary)
                 } else {
                     ScrollView {
                         // .adaptive — kenglik qancha bo'lsa shuncha ustun

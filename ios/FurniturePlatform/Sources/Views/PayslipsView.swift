@@ -53,9 +53,9 @@ struct PayslipsView: View {
             } else if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).padding()
+                Text(errorMessage).foregroundStyle(Color.appError).padding()
             } else if payslips.isEmpty {
-                Text("Hali hisoblangan oylik yo'q.").foregroundStyle(.secondary)
+                Text("Hali hisoblangan oylik yo'q.").foregroundStyle(Color.textSecondary)
             } else {
                 List(payslips) { p in
                     PayslipRow(payslip: p)
@@ -113,10 +113,10 @@ private struct PayslipRow: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(periodLabel(payslip.period)).bold()
-                    Text(extras).font(.caption).foregroundStyle(.secondary)
+                    Text(extras).font(.caption).foregroundStyle(Color.textSecondary)
                     if !payslip.isPaid && paidTotal > 0 {
                         Text("\(String(format: "%.0f", paidTotal).formattedSom) avans olingan")
-                            .font(.caption2).foregroundStyle(.tertiary)
+                            .font(.caption2).foregroundStyle(Color.textDisabled)
                     }
                 }
                 Spacer()
@@ -125,11 +125,11 @@ private struct PayslipRow: View {
                     Text(payslip.isPaid ? "To'landi" : "Kutilmoqda")
                         .font(.caption2)
                         .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(payslip.isPaid ? Color.green.opacity(0.15) : Color.orange.opacity(0.15))
+                        .background(payslip.isPaid ? Color.appSuccess.opacity(0.15) : Color.appWarning.opacity(0.15))
                         .foregroundStyle(payslip.isPaid ? .green : .orange)
                         .clipShape(Capsule())
                     Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .font(.caption2).foregroundStyle(.tertiary)
+                        .font(.caption2).foregroundStyle(Color.textDisabled)
                 }
             }
             if expanded {
@@ -137,9 +137,9 @@ private struct PayslipRow: View {
                 if loading {
                     ProgressView().frame(maxWidth: .infinity)
                 } else if let errorMessage {
-                    Text(errorMessage).font(.caption).foregroundStyle(.red)
+                    Text(errorMessage).font(.caption).foregroundStyle(Color.appError)
                 } else if (payments ?? []).isEmpty {
-                    Text("Hali to'lov qilinmagan.").font(.caption).foregroundStyle(.secondary)
+                    Text("Hali to'lov qilinmagan.").font(.caption).foregroundStyle(Color.textSecondary)
                 } else {
                     ForEach(payments ?? []) { pm in
                         HStack(alignment: .top) {
@@ -147,7 +147,7 @@ private struct PayslipRow: View {
                                 + ((pm.note ?? "").isEmpty ? "" : " (\(pm.note ?? ""))"))
                                 .font(.caption)
                             Spacer()
-                            Text(pm.paidAt).font(.caption2).foregroundStyle(.tertiary)
+                            Text(pm.paidAt).font(.caption2).foregroundStyle(Color.textDisabled)
                         }
                         .padding(.vertical, 2)
                     }

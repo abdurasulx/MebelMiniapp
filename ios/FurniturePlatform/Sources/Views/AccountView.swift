@@ -79,10 +79,10 @@ private struct ProfileView: View {
                     .disabled(user.phoneVerified ?? true)
                     VStack(alignment: .leading) {
                         Text(user.firstName?.isEmpty == false ? user.firstName! : user.email).bold()
-                        Text(user.email).font(.caption).foregroundStyle(.secondary)
+                        Text(user.email).font(.caption).foregroundStyle(Color.textSecondary)
                         if let workerId = user.workerId {
                             HStack(spacing: 4) {
-                                Text("ID: \(workerId)").font(.caption).foregroundStyle(.secondary)
+                                Text("ID: \(workerId)").font(.caption).foregroundStyle(Color.textSecondary)
                                 Button {
                                     UIPasteboard.general.string = workerId
                                 } label: {
@@ -107,7 +107,7 @@ private struct ProfileView: View {
                     if user.hasGoogle ?? false {
                         Label("Bog'langan", systemImage: "checkmark.circle.fill")
                             .labelStyle(.titleAndIcon)
-                            .font(.caption).foregroundStyle(.green)
+                            .font(.caption).foregroundStyle(Color.appSuccess)
                     } else if linkingGoogle {
                         ProgressView()
                     } else {
@@ -128,7 +128,7 @@ private struct ProfileView: View {
                     if user.hasTelegram ?? false {
                         Label("Bog'langan", systemImage: "checkmark.circle.fill")
                             .labelStyle(.titleAndIcon)
-                            .font(.caption).foregroundStyle(.green)
+                            .font(.caption).foregroundStyle(Color.appSuccess)
                     } else if linkingTelegram {
                         ProgressView()
                     } else {
@@ -143,7 +143,7 @@ private struct ProfileView: View {
                     }
                 }
                 if let error = auth.errorMessage {
-                    Text(error).font(.caption).foregroundStyle(.red)
+                    Text(error).font(.caption).foregroundStyle(Color.appError)
                 }
             }
 
@@ -158,7 +158,7 @@ private struct ProfileView: View {
                             let current = appLocales.first { $0.code == locale.code }
                             return current.map { "\($0.flag) \($0.nativeName)" } ?? ""
                         }())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.textSecondary)
                     }
                 }
                 .foregroundStyle(.primary)
@@ -203,7 +203,7 @@ private struct ProfileView: View {
                     .pickerStyle(.segmented)
                     if auth.appMode == .worker, let active = auth.activePosition {
                         Text("Hozir: \(positionInfo(active).label)")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .font(.caption).foregroundStyle(Color.textSecondary)
                     }
                 }
                 .sheet(isPresented: $showRolePicker) {
@@ -220,7 +220,7 @@ private struct ProfileView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(inv.companyName).bold()
                             Text(inv.positions.joined(separator: ", "))
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.caption).foregroundStyle(Color.textSecondary)
                             if inv.status == "pending" {
                                 HStack {
                                     Button("Qabul qilish") { respond(inv, accept: true) }
@@ -249,11 +249,11 @@ private struct ProfileView: View {
                             HStack {
                                 Text(entry.companyName).bold()
                                 if entry.isActive {
-                                    Text("hozir").font(.caption2).foregroundStyle(.green)
+                                    Text("hozir").font(.caption2).foregroundStyle(Color.appSuccess)
                                 }
                             }
                             Text(entry.positions.joined(separator: ", "))
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.caption).foregroundStyle(Color.textSecondary)
                         }
                     }
                 }
@@ -269,7 +269,7 @@ private struct ProfileView: View {
                 if isLoading {
                     ProgressView()
                 } else if orders.isEmpty {
-                    Text("Hali buyurtma yo'q").foregroundStyle(.secondary)
+                    Text("Hali buyurtma yo'q").foregroundStyle(Color.textSecondary)
                 } else {
                     // Ro'yxat cheklanadi: ega uchun kompaniyaning barcha buyurtmalari
                     // ko'p bo'lishi mumkin — bu yerda faqat so'nggilari ko'rsatiladi.
@@ -290,7 +290,7 @@ private struct ProfileView: View {
                     if orders.count > 5 {
                         Text("va yana \(orders.count - 5) ta buyurtma")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.textSecondary)
                     }
                 }
             }
@@ -378,7 +378,7 @@ private struct AuthFormView: View {
             }
 
             if let error = auth.errorMessage {
-                Section { Text(error).foregroundStyle(.red) }
+                Section { Text(error).foregroundStyle(Color.appError) }
             }
         }
         .confirmationDialog(locale.t("auth_select_country"), isPresented: $showCountryPicker) {
@@ -407,7 +407,7 @@ private struct AuthFormView: View {
             .foregroundStyle(.primary)
 
             HStack {
-                Text(country.dialCode).foregroundStyle(.secondary)
+                Text(country.dialCode).foregroundStyle(Color.textSecondary)
                 TextField(locale.t("auth_phone_hint"), text: $phone)
                     .keyboardType(.numberPad)
                     .accessibilityIdentifier("authPhoneField")
@@ -417,7 +417,7 @@ private struct AuthFormView: View {
                     }
             }
             if !phone.isEmpty && !phoneValid {
-                Text(locale.t("auth_phone_invalid")).font(.caption).foregroundStyle(.red)
+                Text(locale.t("auth_phone_invalid")).font(.caption).foregroundStyle(Color.appError)
             }
         }
         Section {
@@ -464,7 +464,7 @@ private struct AuthFormView: View {
         Section {
             // SMS provayder hali ulanmagan — dev rejimda kod shu yerda ko'rsatiladi.
             Text(debugCode != nil ? "\(locale.t("auth_sms_sent")) (\(debugCode!))" : locale.t("auth_sms_sent"))
-                .font(.caption).foregroundStyle(.secondary)
+                .font(.caption).foregroundStyle(Color.textSecondary)
                 .accessibilityIdentifier("authDebugCodeLabel")
             OtpBoxInput(code: $otpCode, length: Self.otpLength) { code in
                 if !busy { verifyOTP(code) }
@@ -620,7 +620,7 @@ struct CustomerOrderDetailView: View {
                     .clipShape(Capsule())
                 if let percent = order.progressPercent {
                     ProgressView(value: Double(percent), total: 100)
-                    Text("Ishlab chiqarish: \(percent)%").font(.caption).foregroundStyle(.secondary)
+                    Text("Ishlab chiqarish: \(percent)%").font(.caption).foregroundStyle(Color.textSecondary)
                 }
             }
 
@@ -638,11 +638,11 @@ struct CustomerOrderDetailView: View {
                             }
                             if let employeeName = step.employeeName, !employeeName.isEmpty {
                                 Text("Ijrochi: \(employeeName)")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .font(.caption).foregroundStyle(Color.textSecondary)
                             }
                             if let updates = step.updates, !updates.isEmpty {
                                 Text("\(updates.count) ta yangilanish")
-                                    .font(.caption2).foregroundStyle(.secondary)
+                                    .font(.caption2).foregroundStyle(Color.textSecondary)
                                 // Web'dagi WorkflowPanel bilan bir xil — faqat
                                 // oxirgisi emas, bosqichning BARCHA yangilanishlari
                                 // ko'rsatiladi, chunki mijoz to'liq jarayonni
@@ -697,12 +697,12 @@ private struct ProgressUpdateRow: View {
                 if update.isCompletion == true {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption2)
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Color.appSuccess)
                 }
                 if let employeeName = update.employeeName, !employeeName.isEmpty {
                     Text(employeeName).font(.caption2).bold()
                 }
-                Text(formattedTime).font(.caption2).foregroundStyle(.secondary)
+                Text(formattedTime).font(.caption2).foregroundStyle(Color.textSecondary)
             }
             if let comment = update.comment, !comment.isEmpty {
                 Text(comment).font(.caption)

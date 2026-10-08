@@ -24,7 +24,7 @@ struct DeleteAccountSection: View {
             if pending == true {
                 Label(locale.t("profile_delete_account_pending"), systemImage: "hourglass")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.textSecondary)
             } else {
                 Button(role: .destructive) {
                     showForm = true
@@ -65,7 +65,7 @@ private struct DeleteAccountForm: View {
                 Section {
                     Text(locale.t("profile_delete_account_desc"))
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.textSecondary)
                 }
                 Section {
                     TextField(
@@ -75,7 +75,7 @@ private struct DeleteAccountForm: View {
                     .lineLimit(3...6)
                 }
                 if let errorMessage {
-                    Section { Text(errorMessage).foregroundStyle(.red).font(.footnote) }
+                    Section { Text(errorMessage).foregroundStyle(Color.appError).font(.footnote) }
                 }
                 Section {
                     Button(role: .destructive) {

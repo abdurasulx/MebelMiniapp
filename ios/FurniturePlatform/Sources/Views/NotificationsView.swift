@@ -39,7 +39,7 @@ struct NotificationBellButton: View {
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(.white)
                         .padding(3)
-                        .background(Color.red)
+                        .background(Color.appError)
                         .clipShape(Circle())
                         .offset(x: 8, y: -8)
                 }
@@ -82,9 +82,9 @@ struct NotificationsView: View {
                 } else if isLoading {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red).padding()
+                    Text(errorMessage).foregroundStyle(Color.appError).padding()
                 } else if items.isEmpty {
-                    Text("Hali xabarnoma yo'q.").foregroundStyle(.secondary)
+                    Text("Hali xabarnoma yo'q.").foregroundStyle(Color.textSecondary)
                 } else {
                     List(items) { n in
                         NotificationRow(notification: n, onTap: { Task { await markRead(n) } })
@@ -153,13 +153,13 @@ private struct NotificationRow: View {
                     Text(notification.title).font(.subheadline).bold().foregroundStyle(.primary)
                     Spacer()
                     if !notification.isRead {
-                        Circle().fill(Color.red).frame(width: 7, height: 7)
+                        Circle().fill(Color.appError).frame(width: 7, height: 7)
                     }
                 }
                 if !notification.body.isEmpty {
-                    Text(notification.body).font(.caption).foregroundStyle(.secondary)
+                    Text(notification.body).font(.caption).foregroundStyle(Color.textSecondary)
                 }
-                Text(timeAgo(notification.createdAt)).font(.caption2).foregroundStyle(.secondary)
+                Text(timeAgo(notification.createdAt)).font(.caption2).foregroundStyle(Color.textSecondary)
             }
         }
         .listRowBackground(notification.isRead ? Color.clear : Color.brandPrimary.opacity(0.06))

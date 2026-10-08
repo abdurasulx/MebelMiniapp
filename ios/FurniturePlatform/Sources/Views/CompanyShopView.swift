@@ -30,14 +30,14 @@ struct CompanyShopView: View {
                         } else {
                             Text(locale.t("shop_review_locked"))
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.textSecondary)
                                 .padding(.horizontal)
                         }
                     }
                 }
                 .padding(.bottom, 24)
             } else if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).padding()
+                Text(errorMessage).foregroundStyle(Color.appError).padding()
             } else {
                 ProgressView().padding(.top, 60)
             }
@@ -68,14 +68,14 @@ struct CompanyShopView: View {
                 }
             }
             if let description = company.description, !description.isEmpty {
-                Text(description).font(.subheadline).foregroundStyle(.secondary)
+                Text(description).font(.subheadline).foregroundStyle(Color.textSecondary)
             }
             if (company.address?.isEmpty == false) || company.mapURL != nil {
                 HStack(spacing: 4) {
                     if let address = company.address, !address.isEmpty {
-                        Label(address, systemImage: "mappin.and.ellipse").font(.caption).foregroundStyle(.secondary)
+                        Label(address, systemImage: "mappin.and.ellipse").font(.caption).foregroundStyle(Color.textSecondary)
                     } else {
-                        Image(systemName: "mappin.and.ellipse").font(.caption).foregroundStyle(.secondary)
+                        Image(systemName: "mappin.and.ellipse").font(.caption).foregroundStyle(Color.textSecondary)
                     }
                     if let mapURL = company.mapURL {
                         Link(locale.t("shop_view_on_map"), destination: mapURL)
@@ -96,7 +96,7 @@ struct CompanyShopView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(locale.t("shop_products")).font(.headline).padding(.horizontal)
             if products.isEmpty {
-                Text(locale.t("shop_no_products")).font(.caption).foregroundStyle(.secondary).padding(.horizontal)
+                Text(locale.t("shop_no_products")).font(.caption).foregroundStyle(Color.textSecondary).padding(.horizontal)
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
                     ForEach(products) { product in
@@ -128,7 +128,7 @@ struct CompanyShopView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("\(locale.t("shop_reviews_prefix"))\(reviews.count)\(locale.t("shop_reviews_suffix"))").font(.headline).padding(.horizontal)
             if reviews.isEmpty {
-                Text(locale.t("shop_no_reviews")).font(.caption).foregroundStyle(.secondary).padding(.horizontal)
+                Text(locale.t("shop_no_reviews")).font(.caption).foregroundStyle(Color.textSecondary).padding(.horizontal)
             } else {
                 VStack(spacing: 8) {
                     ForEach(reviews) { r in
@@ -139,7 +139,7 @@ struct CompanyShopView: View {
                                 Text(String(repeating: "⭐", count: r.rating)).font(.caption)
                             }
                             if let comment = r.comment, !comment.isEmpty {
-                                Text(comment).font(.caption).foregroundStyle(.secondary)
+                                Text(comment).font(.caption).foregroundStyle(Color.textSecondary)
                             }
                         }
                         .padding()
@@ -166,7 +166,7 @@ struct CompanyShopView: View {
                 .lineLimit(3, reservesSpace: true)
                 .textFieldStyle(.roundedBorder)
             if let submitMessage {
-                Text(submitMessage).font(.caption).foregroundStyle(.secondary)
+                Text(submitMessage).font(.caption).foregroundStyle(Color.textSecondary)
             }
             Button {
                 Task { await submitReview(company) }
@@ -180,7 +180,7 @@ struct CompanyShopView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .disabled(submitBusy)
             Text(locale.t("shop_review_locked"))
-                .font(.caption2).foregroundStyle(.secondary)
+                .font(.caption2).foregroundStyle(Color.textSecondary)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -234,7 +234,7 @@ private struct TierBadge: View {
                 .clipShape(Capsule())
             if let rating = tier.rating {
                 Text("⭐ \(String(format: "%.1f", rating)) (\(tier.reviewCount))")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(Color.textSecondary)
             }
         }
     }

@@ -68,7 +68,7 @@ struct CreateCustomOrderView: View {
                 TextField("Mijoz qidiruvchi ID", text: $customerWorkerId)
                     .keyboardType(.numberPad)
                 Text("Mijoz shu ID orqali o'z ilovasida buyurtmani kuzatib borishi mumkin bo'ladi.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(Color.textSecondary)
             }
             ForEach($items) { $item in
                 Section {
@@ -96,7 +96,7 @@ struct CreateCustomOrderView: View {
             }
 
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red)
+                Text(errorMessage).foregroundStyle(Color.appError)
             }
 
             Button {

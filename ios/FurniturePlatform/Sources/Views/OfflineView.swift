@@ -22,7 +22,7 @@ struct OfflineView: View {
                 .font(.headline)
             Text(message ?? "Serverga ulanib bo'lmadi. Internetingizni tekshirib, qayta urinib ko'ring.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button(action: onRetry) {

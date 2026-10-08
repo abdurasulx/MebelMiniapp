@@ -48,9 +48,9 @@ struct AttendanceView: View {
             }
             if let errorMessage {
                 Text(errorMessage)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(Color.appError)
                     .padding()
-                    .background(Color.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                    .background(Color.appError.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
             }
             if let result {
                 ResultBanner(result: result)
@@ -127,7 +127,7 @@ private struct ResultBanner: View {
                 .foregroundStyle(result.isApproved ? .green : .red)
         }
         .padding()
-        .background((result.isApproved ? Color.green : Color.red).opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .background((result.isApproved ? Color.appSuccess : Color.appError).opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private var bannerText: String {

@@ -32,9 +32,9 @@ struct CartView: View {
 
     private var empty: some View {
         VStack(spacing: 8) {
-            Image(systemName: "cart").font(.largeTitle).foregroundStyle(.secondary)
+            Image(systemName: "cart").font(.largeTitle).foregroundStyle(Color.textSecondary)
             Text(locale.t("cart_empty_title")).font(.headline)
-            Text(locale.t("cart_empty_subtitle")).font(.caption).foregroundStyle(.secondary)
+            Text(locale.t("cart_empty_subtitle")).font(.caption).foregroundStyle(Color.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -54,7 +54,7 @@ struct CartView: View {
                 }
             }
             if let errorMessage {
-                Section { Text(errorMessage).foregroundStyle(.red) }
+                Section { Text(errorMessage).foregroundStyle(Color.appError) }
             }
             Section {
                 Button(action: checkout) {
@@ -91,7 +91,7 @@ struct CartView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.productName).font(.subheadline).bold().lineLimit(1)
                 Text("\(item.variantName) · \(item.companyName)")
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    .font(.caption2).foregroundStyle(Color.textSecondary).lineLimit(1)
                 Text("\(String(format: "%.0f", item.subtotal).formattedSom) so'm")
                     .font(.caption).bold()
             }
@@ -108,7 +108,7 @@ struct CartView: View {
             Button {
                 cart.remove(item)
             } label: {
-                Image(systemName: "trash").foregroundStyle(.red)
+                Image(systemName: "trash").foregroundStyle(Color.appError)
             }
         }
     }

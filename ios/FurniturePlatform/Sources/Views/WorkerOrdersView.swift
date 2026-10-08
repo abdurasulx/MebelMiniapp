@@ -42,9 +42,9 @@ struct WorkerOrdersView: View {
                     if isLoading {
                         ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if let errorMessage {
-                        Text(errorMessage).foregroundStyle(.red).padding()
+                        Text(errorMessage).foregroundStyle(Color.appError).padding()
                     } else if activeOrders.isEmpty && manualTasks.isEmpty && openTasks.isEmpty {
-                        Text("Hozircha vazifa yo'q").foregroundStyle(.secondary)
+                        Text("Hozircha vazifa yo'q").foregroundStyle(Color.textSecondary)
                     } else {
                         List {
                             if !openTasks.isEmpty {
@@ -119,11 +119,11 @@ private struct OrderCardView: View {
                 Spacer()
                 Text(order.statusDisplay).font(.caption)
             }
-            Text(order.address).font(.caption).foregroundStyle(.secondary)
+            Text(order.address).font(.caption).foregroundStyle(Color.textSecondary)
             Text("\(order.totalPrice.formattedSom) so'm").bold()
 
             if let errorMessage {
-                Text(errorMessage).font(.caption).foregroundStyle(.red)
+                Text(errorMessage).font(.caption).foregroundStyle(Color.appError)
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -135,7 +135,7 @@ private struct OrderCardView: View {
                             Text(orderStatusLabel[s] ?? s)
                                 .font(.caption)
                                 .padding(.horizontal, 12).padding(.vertical, 6)
-                                .background(s == "cancelled" ? Color.red.opacity(0.12) : Color(.secondarySystemBackground))
+                                .background(s == "cancelled" ? Color.appError.opacity(0.12) : Color(.secondarySystemBackground))
                                 .foregroundStyle(s == "cancelled" ? .red : .primary)
                                 .clipShape(Capsule())
                         }
@@ -218,7 +218,7 @@ private struct OpenTaskRowView: View {
                     [step.orderDisplay.map { "Buyurtma \($0)" }, step.roleDisplay]
                         .compactMap { $0 }.joined(separator: " · ")
                 )
-                .font(.caption2).foregroundStyle(.secondary)
+                .font(.caption2).foregroundStyle(Color.textSecondary)
             }
             Spacer()
             if step.myApplicationStatus == "pending" {
@@ -228,7 +228,7 @@ private struct OpenTaskRowView: View {
                     .background(Color(.secondarySystemBackground))
                     .clipShape(Capsule())
             } else {
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(Color.textDisabled)
             }
         }
         .padding(.vertical, 4)
@@ -263,10 +263,10 @@ private struct OpenTaskDetailView: View {
                 [step.orderDisplay.map { "Buyurtma \($0)" }, step.roleDisplay]
                     .compactMap { $0 }.joined(separator: " · ")
             )
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.textSecondary)
             Spacer()
             if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).font(.caption)
+                Text(errorMessage).foregroundStyle(Color.appError).font(.caption)
             }
             // Zayavka allaqachon yuborilgan bo'lsa — bekor qilish/qayta
             // yuborish uchun backend'da endpoint yo'q, shuning uchun faqat
@@ -361,7 +361,7 @@ private struct StepRowView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(step.name).font(.subheadline)
                 if let description = step.description, !description.isEmpty {
-                    Text(description).font(.caption).foregroundStyle(.secondary)
+                    Text(description).font(.caption).foregroundStyle(Color.textSecondary)
                 }
                 if let cuttingInstruction = step.cuttingInstruction {
                     Text(cuttingInstruction).font(.caption).fontWeight(.semibold).foregroundStyle(.teal)
@@ -494,7 +494,7 @@ private struct StepUpdateSheet: View {
                     if commentMissing {
                         Text("Bu bosqichni yakunlash uchun izoh majburiy")
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(Color.appError)
                     }
                 }
                 Section {
@@ -510,7 +510,7 @@ private struct StepUpdateSheet: View {
                     if photoMissing { Text("Bu bosqichni yakunlash uchun rasm majburiy") }
                 }
                 if let errorMessage {
-                    Section { Text(errorMessage).foregroundStyle(.red) }
+                    Section { Text(errorMessage).foregroundStyle(Color.appError) }
                 }
             }
             .navigationTitle(step.name)

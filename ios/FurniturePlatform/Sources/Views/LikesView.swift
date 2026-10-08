@@ -37,7 +37,7 @@ struct LikesView: View {
                 } else {
                     ScrollView {
                         if let errorMessage {
-                            Text(errorMessage).foregroundStyle(.red).padding()
+                            Text(errorMessage).foregroundStyle(Color.appError).padding()
                         }
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
                             ForEach(likes.likedProducts) { product in
@@ -64,6 +64,7 @@ struct LikesView: View {
                     }
                 }
             }
+            .background(Color.appBackground)
             .navigationTitle(locale.t("likes_title"))
             .task {
                 isLoading = true
@@ -81,49 +82,7 @@ private struct ShopStyleCard: View {
     let product: Product
 
     var body: some View {
-        VStack(alignment: .center, spacing: 6) {
-            AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().aspectRatio(contentMode: .fill)
-                case .failure(let error):
-                    // Rasm URL'i mavjud bo'lsa-yu yuklab bo'lmasa (masalan
-                    // tarmoq muammosi) — buni "rasm umuman yo'q" holatidan
-                    // vizual ajratamiz, aks holda sababini bilib bo'lmaydi.
-                    VStack(spacing: 4) {
-                        Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
-                        Text(error.localizedDescription)
-                            .font(.system(size: 8))
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 4)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.brandPrimary.opacity(0.15))
-                default:
-                    Color.brandPrimary.opacity(0.3)
-                }
-            }
-            .frame(height: 130)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            Text(product.nameUz).font(.subheadline).bold().lineLimit(1).multilineTextAlignment(.center)
-            if let attributeSummary = product.attributeSummary {
-                Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
-                    .multilineTextAlignment(.center)
-            }
-            Text(product.companyName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                .multilineTextAlignment(.center)
-            if let first = product.variants.first {
-                Text("\(first.basePrice.formattedSom) so'm dan")
-                    .font(.caption).bold().lineLimit(1)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(Color.brandSecondary)
-            }
-        }
-        .padding(.leading, 4)
+        ProductCardView(product: product)
     }
 }
 
@@ -135,11 +94,11 @@ struct ContentUnavailableCompat: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 40)).foregroundStyle(.secondary)
+            Image(systemName: icon).font(.system(size: 40)).foregroundStyle(Color.textSecondary)
             Text(title).font(.headline)
             Text(message)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
         }

@@ -52,7 +52,7 @@ struct PhoneVerifySheet: View {
             Form {
                 Section {
                     Text("Buyurtma berishdan oldin telefon raqamingizni SMS-kod bilan tasdiqlashingiz kerak.")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                        .font(.subheadline).foregroundStyle(Color.textSecondary)
                 }
                 if !codeSent {
                     Section {
@@ -68,7 +68,7 @@ struct PhoneVerifySheet: View {
                         .foregroundStyle(.primary)
 
                         HStack {
-                            Text(country.dialCode).foregroundStyle(.secondary)
+                            Text(country.dialCode).foregroundStyle(Color.textSecondary)
                             TextField("Telefon", text: $phone)
                                 .keyboardType(.numberPad)
                                 .onChange(of: phone) { _, newValue in
@@ -77,14 +77,14 @@ struct PhoneVerifySheet: View {
                                 }
                         }
                         if !phone.isEmpty && !phoneValid {
-                            Text("Telefon raqami noto'g'ri").font(.caption).foregroundStyle(.red)
+                            Text("Telefon raqami noto'g'ri").font(.caption).foregroundStyle(Color.appError)
                         }
                     }
                 } else {
                     Section {
                         if let debugCode {
                             Text("Dev rejim — kod: \(debugCode)")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .font(.caption).foregroundStyle(Color.textSecondary)
                         }
                         OtpBoxInput(code: $code, length: Self.otpLength) { code in
                             if !busy { confirmCode(code) }
@@ -108,7 +108,7 @@ struct PhoneVerifySheet: View {
                     }
                 }
                 if let errorMessage {
-                    Section { Text(errorMessage).foregroundStyle(.red) }
+                    Section { Text(errorMessage).foregroundStyle(Color.appError) }
                 }
                 if !codeSent {
                     Section {

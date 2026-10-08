@@ -19,15 +19,15 @@ struct WarehousesView: View {
             } else if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).padding()
+                Text(errorMessage).foregroundStyle(Color.appError).padding()
             } else if warehouses.isEmpty {
-                Text("Hali ombor yo'q.").foregroundStyle(.secondary)
+                Text("Hali ombor yo'q.").foregroundStyle(Color.textSecondary)
             } else {
                 List(warehouses) { w in
                     NavigationLink(destination: WarehouseDetailView(warehouse: w)) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(w.name).bold()
-                            Text("\(w.kindDisplay) · \(w.address)").font(.caption).foregroundStyle(.secondary)
+                            Text("\(w.kindDisplay) · \(w.address)").font(.caption).foregroundStyle(Color.textSecondary)
                         }
                     }
                 }
@@ -75,27 +75,27 @@ struct WarehouseDetailView: View {
             } else if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).padding()
+                Text(errorMessage).foregroundStyle(Color.appError).padding()
             } else if !isRawMaterial {
                 Text("Tayyor mahsulot ombori tafsilotlari veb-portalda ko'rinadi.")
-                    .foregroundStyle(.secondary).multilineTextAlignment(.center).padding()
+                    .foregroundStyle(Color.textSecondary).multilineTextAlignment(.center).padding()
             } else {
                 List {
                     Section("Qoldiqlar") {
                         if stocks.isEmpty {
-                            Text("Hali qoldiq yo'q.").font(.caption).foregroundStyle(.secondary)
+                            Text("Hali qoldiq yo'q.").font(.caption).foregroundStyle(Color.textSecondary)
                         }
                         ForEach(stocks) { s in
                             HStack {
                                 Text(s.materialName)
                                 Spacer()
-                                Text("\(s.quantity.formattedSom) \(s.materialUnit)").foregroundStyle(.secondary)
+                                Text("\(s.quantity.formattedSom) \(s.materialUnit)").foregroundStyle(Color.textSecondary)
                             }
                         }
                     }
                     Section("Qoldiqlar (offcut) va varaqlar") {
                         if remnants.isEmpty {
-                            Text("Hali bo'lak/varaq yo'q.").font(.caption).foregroundStyle(.secondary)
+                            Text("Hali bo'lak/varaq yo'q.").font(.caption).foregroundStyle(Color.textSecondary)
                         }
                         ForEach(remnants) { r in
                             HStack {
@@ -103,14 +103,14 @@ struct WarehouseDetailView: View {
                                     Text(r.materialName)
                                     if let width = r.width {
                                         Text("\(width.formattedSom) x \(r.length.formattedSom) \(r.materialUnit)")
-                                            .font(.caption2).foregroundStyle(.secondary)
+                                            .font(.caption2).foregroundStyle(Color.textSecondary)
                                     } else {
                                         Text("\(r.length.formattedSom) \(r.materialUnit)")
-                                            .font(.caption2).foregroundStyle(.secondary)
+                                            .font(.caption2).foregroundStyle(Color.textSecondary)
                                     }
                                 }
                                 Spacer()
-                                Text("x\(r.quantity)").foregroundStyle(.secondary)
+                                Text("x\(r.quantity)").foregroundStyle(Color.textSecondary)
                             }
                         }
                     }

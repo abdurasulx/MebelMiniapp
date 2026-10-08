@@ -20,7 +20,7 @@ struct RolePickerSheet: View {
                             .overlay(Image(systemName: info.systemImage).foregroundStyle(Color.brandDeep))
                         VStack(alignment: .leading) {
                             Text(info.label).bold()
-                            Text(info.desc).font(.caption).foregroundStyle(.secondary)
+                            Text(info.desc).font(.caption).foregroundStyle(Color.textSecondary)
                         }
                         Spacer()
                     }

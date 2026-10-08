@@ -56,16 +56,16 @@ struct WorkerHomeView: View {
             Section {
                 Text(companyName).font(.headline)
                 Text("Faqat shu firma mahsulotlari — uy loyihalashda ishlatiladi.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(Color.textSecondary)
             }
 
             Section("Mahsulotlar") {
                 if isLoading {
                     ProgressView()
                 } else if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red)
+                    Text(errorMessage).foregroundStyle(Color.appError)
                 } else if products.isEmpty {
-                    Text("Bu firmada hali mahsulot yo'q").foregroundStyle(.secondary)
+                    Text("Bu firmada hali mahsulot yo'q").foregroundStyle(Color.textSecondary)
                 } else {
                     ForEach(products) { product in
                         NavigationLink {
@@ -76,7 +76,7 @@ struct WorkerHomeView: View {
                                     Text(product.nameUz).bold()
                                     if product.model3d?.usdzUrl != nil {
                                         Label("AR mavjud", systemImage: "arkit")
-                                            .font(.caption2).foregroundStyle(.secondary)
+                                            .font(.caption2).foregroundStyle(Color.textSecondary)
                                     }
                                 }
                                 Spacer()
@@ -108,8 +108,8 @@ struct WorkerHomeView: View {
 private struct ContentUnavailableFallback: View {
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: "building.2").font(.largeTitle).foregroundStyle(.secondary)
-            Text("Siz hali biror firmada ishlamayapsiz").foregroundStyle(.secondary)
+            Image(systemName: "building.2").font(.largeTitle).foregroundStyle(Color.textSecondary)
+            Text("Siz hali biror firmada ishlamayapsiz").foregroundStyle(Color.textSecondary)
         }
     }
 }

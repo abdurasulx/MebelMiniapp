@@ -62,6 +62,7 @@ struct RootView: View {
         TabView {
             if auth.appMode == .worker, let slug = auth.user?.company?.slug {
                 WorkerHomeView()
+                    .appScreenBackground()
                     .tabItem { Label("Usta paneli", systemImage: "hammer.fill") }
 
                 NavigationStack {
@@ -70,23 +71,30 @@ struct RootView: View {
                 .tabItem { Label("Loyihalar", systemImage: "arkit") }
 
                 WorkerOrdersView()
+                    .appScreenBackground()
                     .tabItem { Label("Buyurtmalar", systemImage: "list.bullet.clipboard.fill") }
             } else {
                 HomeView()
+                    .appScreenBackground()
                     .tabItem { Label(locale.t("nav_home"), systemImage: "house.fill") }
 
                 LikesView()
+                    .appScreenBackground()
                     .tabItem { Label(locale.t("nav_likes"), systemImage: "heart.fill") }
 
                 CartView()
+                    .appScreenBackground()
                     .tabItem { Label(locale.t("nav_cart"), systemImage: "cart.fill") }
                     .badge(cart.count)
             }
 
             AccountView()
+                .appScreenBackground()
                 .tabItem { Label(locale.t("nav_profile"), systemImage: "person.circle") }
         }
-        .tint(Color.brandDeep)
+        .tint(Color.brand)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarBackground(Color.appCard, for: .tabBar)
         .onChange(of: auth.isAuthenticated) { _, isAuthenticated in
             if !isAuthenticated { likes.clear() }
         }

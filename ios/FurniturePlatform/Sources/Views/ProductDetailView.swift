@@ -91,10 +91,10 @@ private var arScaleFactors: SIMD3<Float> {
                                     Text("🏭 \(product.companyName)")
                                     Image(systemName: "chevron.right").font(.caption2)
                                 }
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.textSecondary)
                             }
                         } else {
-                            Text("🏭 \(product.companyName)").foregroundStyle(.secondary)
+                            Text("🏭 \(product.companyName)").foregroundStyle(Color.textSecondary)
                         }
                         if product.companyViloyatDisplay != nil || (product.companyAddress?.isEmpty == false) {
                             HStack(spacing: 4) {
@@ -107,7 +107,7 @@ private var arScaleFactors: SIMD3<Float> {
                                 )
                                 .font(.caption)
                             }
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.textSecondary)
                         }
                         if let description = product.description, !description.isEmpty {
                             Text(description).font(.subheadline).padding(.top, 4)
@@ -118,7 +118,7 @@ private var arScaleFactors: SIMD3<Float> {
                     if !product.variants.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             // 1) Avval variant (rang/material) tanlanadi
-                            Text(locale.t("product_variant_field_label")).font(.caption).foregroundStyle(.secondary)
+                            Text(locale.t("product_variant_field_label")).font(.caption).foregroundStyle(Color.textSecondary)
                             Picker("Variant", selection: $selectedVariant) {
                                 ForEach(product.variants) { v in
                                     Text(v.name)
@@ -148,14 +148,14 @@ private var arScaleFactors: SIMD3<Float> {
                             } else if activeModel3d?.glbUrl != nil {
                                 Text("🧊 \(locale.t("product_3d_ios_note"))")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(Color.textSecondary)
                             }
 
                             Stepper("\(locale.t("product_qty_label")): \(quantity)", value: $quantity, in: 1...50)
 
                             if let price {
                                 VStack(alignment: .leading) {
-                                    Text(locale.t("product_approx_price")).font(.caption).foregroundStyle(.secondary)
+                                    Text(locale.t("product_approx_price")).font(.caption).foregroundStyle(Color.textSecondary)
                                     Text("\(String(format: "%.0f", price).formattedSom) so'm").font(.title3).bold()
                                 }
                                 .padding()
@@ -172,18 +172,18 @@ private var arScaleFactors: SIMD3<Float> {
                                         Text("\(qty) dona omborda mavjud").font(.caption).bold()
                                     }
                                     .padding(.horizontal, 11).padding(.vertical, 6)
-                                    .background(Color.green)
+                                    .background(Color.appSuccess)
                                     .foregroundStyle(.white)
                                     .clipShape(Capsule())
                                 } else {
                                     Text(locale.t("product_out_of_stock"))
                                         .font(.caption).fontWeight(.semibold)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(Color.textSecondary)
                                 }
                             }
 
                             if let errorMessage {
-                                Text(errorMessage).foregroundStyle(.red).font(.caption)
+                                Text(errorMessage).foregroundStyle(Color.appError).font(.caption)
                             }
 
                             Button {

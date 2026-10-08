@@ -460,11 +460,11 @@ private struct GlassIconButton: View {
             .frame(width: 44, height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(tint == .red ? Color.red.opacity(0.16) : .white.opacity(0.08))
+                    .fill(tint == .red ? Color.appError.opacity(0.16) : .white.opacity(0.08))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(tint == .red ? Color.red.opacity(0.45) : .white.opacity(0.15), lineWidth: 1)
+                    .stroke(tint == .red ? Color.appError.opacity(0.45) : .white.opacity(0.15), lineWidth: 1)
             )
             .onTapGesture { onTap?() }
             .gesture(

@@ -55,11 +55,11 @@ struct ARCollectionDetailView: View {
             } else if isLoading {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).padding()
+                Text(errorMessage).foregroundStyle(Color.appError).padding()
             } else if items.isEmpty {
                 VStack(spacing: 10) {
-                    Image(systemName: "shippingbox").font(.largeTitle).foregroundStyle(.secondary)
-                    Text("Hali mahsulot qo'shilmagan").foregroundStyle(.secondary)
+                    Image(systemName: "shippingbox").font(.largeTitle).foregroundStyle(Color.textSecondary)
+                    Text("Hali mahsulot qo'shilmagan").foregroundStyle(Color.textSecondary)
                     Button("+ Mahsulot qo'shish") { showPicker = true }
                         .buttonStyle(.borderedProminent)
                 }
@@ -181,11 +181,11 @@ private struct ARCollectionItemCard: View {
                     if let hex = variant.colorHex, !hex.isEmpty, let color = UIColor(hex: hex) {
                         Circle().fill(Color(color)).frame(width: 10, height: 10)
                     }
-                    Text(variant.name).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Text(variant.name).font(.caption2).foregroundStyle(Color.textSecondary).lineLimit(1)
                 }
             } else if item.product.variants.count > 1 {
                 Text("Rang: joylashtirishda tanlanadi")
-                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    .font(.caption2).foregroundStyle(Color.textSecondary).lineLimit(1)
             }
         }
         .padding(8)

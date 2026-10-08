@@ -33,7 +33,7 @@ struct OrderCheckoutView: View {
                     TextField("Izoh (ixtiyoriy)", text: $note)
                 }
                 if let errorMessage {
-                    Section { Text(errorMessage).foregroundStyle(.red) }
+                    Section { Text(errorMessage).foregroundStyle(Color.appError) }
                 }
                 Section {
                     Button(action: submit) {

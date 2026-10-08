@@ -111,11 +111,11 @@ struct HomeView: View {
                         toolbarRow
 
                         if let errorMessage {
-                            Text(errorMessage).foregroundStyle(.red).padding(.horizontal)
+                            Text(errorMessage).foregroundStyle(Color.appError).padding(.horizontal)
                         }
                         if let imageSearchError {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(imageSearchError).foregroundStyle(.red)
+                                Text(imageSearchError).foregroundStyle(Color.appError)
                                 Button(locale.t("common_close")) { self.imageSearchError = nil }
                             }
                             .padding(.horizontal)
@@ -147,6 +147,7 @@ struct HomeView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 32)
                 }
+                .background(Color.appBackground)
                 .navigationTitle("")
                 .navigationBarHidden(true)
                 .task(id: location.hasFix ? "\(location.lat ?? 0),\(location.lng ?? 0)" : "") {
@@ -212,7 +213,7 @@ struct HomeView: View {
                 .background(Color.brandPrimary.opacity(0.4))
                 .clipShape(Circle())
             Text(title).font(.title3).bold().multilineTextAlignment(.center)
-            Text(body).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text(body).font(.subheadline).foregroundStyle(Color.textSecondary).multilineTextAlignment(.center)
             if let actionTitle, let action {
                 Button(action: action) {
                     Text(actionTitle).bold().padding(.horizontal, 24).padding(.vertical, 6)
@@ -234,7 +235,7 @@ struct HomeView: View {
     private var searchBar: some View {
         HStack(spacing: 8) {
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                Image(systemName: "magnifyingglass").foregroundStyle(Color.textSecondary)
                 TextField(locale.t("catalog_search_hint"), text: $query)
                     .textInputAutocapitalization(.never)
                     .onChange(of: query) { _, newValue in
@@ -242,14 +243,15 @@ struct HomeView: View {
                     }
                 if !query.isEmpty {
                     Button { query = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(Color.textSecondary)
                     }
                     .accessibilityIdentifier("clearSearchButton")
                 }
             }
             .padding(12)
-            .background(Color(.secondarySystemBackground))
+            .background(Color.appCard)
             .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.appBorder, lineWidth: 1))
 
             ImageSearchButton { data in
                 Task { await searchByImage(data) }
@@ -349,11 +351,31 @@ struct HomeView: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.title3).bold()
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                Text(subtitle).font(.caption).foregroundStyle(Color.textSecondary)
             }
             Spacer()
         }
         .padding(.horizontal)
+    }
+
+    /// Kategoriya nomi/slug'idagi kalit so'zga qarab SF Symbol (backend'da ikonka maydoni yo'q).
+    private func categorySymbol(_ cat: Category) -> String {
+        let key = "\(cat.slug) \(cat.nameUz)".lowercased()
+        let table: [([String], String)] = [
+            (["kitob", "javon", "polka", "shelf"], "books.vertical.fill"),
+            (["divan", "sofa", "yumshoq", "mehmon", "zal"], "sofa.fill"),
+            (["karavat", "krovat", "yotoq", "bed", "matras"], "bed.double.fill"),
+            (["shkaf", "garderob", "jovon", "komod"], "cabinet.fill"),
+            (["stol", "table", "jurnal"], "table.furniture.fill"),
+            (["oshxona", "kuxn", "kitchen"], "refrigerator.fill"),
+            (["bolalar", "bola", "kids", "child"], "figure.and.child.holdinghands"),
+            (["bog", "tashqi", "garden", "outdoor"], "tree.fill"),
+            (["ofis", "office"], "desktopcomputer"),
+            (["yoritgich", "chiroq", "lamp"], "lamp.desk.fill"),
+            (["kreslo", "stul", "chair"], "chair.lounge.fill"),
+        ]
+        for (words, symbol) in table where words.contains(where: key.contains) { return symbol }
+        return "sofa.fill"
     }
 
     private var collectionsRow: some View {
@@ -367,9 +389,9 @@ struct HomeView: View {
                         VStack(spacing: 8) {
                             ZStack {
                                 Circle()
-                                    .fill(isSelected ? Color.brandDeep : Color.brandPrimary.opacity(0.28))
+                                    .fill(isSelected ? Color.brand : Color.appBackgroundAlt)
                                     .frame(width: 76, height: 76)
-                                Image(systemName: "sofa.fill")
+                                Image(systemName: categorySymbol(cat))
                                     .font(.system(size: 26))
                                     .foregroundStyle(isSelected ? Color.brandPrimary : Color.brandDeep)
                             }
@@ -429,7 +451,7 @@ struct HomeView: View {
                         : "\(filtered.count)\(locale.t("home_results_suffix"))"
                 )
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.textSecondary)
                 Spacer()
             }
             .padding(.horizontal)
@@ -443,8 +465,8 @@ struct HomeView: View {
     private var productsGridContent: some View {
         if filtered.isEmpty {
             VStack(spacing: 8) {
-                Image(systemName: "tray").font(.largeTitle).foregroundStyle(.secondary)
-                Text(locale.t("home_nothing_found")).foregroundStyle(.secondary)
+                Image(systemName: "tray").font(.largeTitle).foregroundStyle(Color.textSecondary)
+                Text(locale.t("home_nothing_found")).foregroundStyle(Color.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 60)
@@ -511,70 +533,17 @@ struct FeaturedProductCard: View {
     let product: Product
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
-                if let image = phase.image {
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    Color.brandPrimary.opacity(0.3)
-                }
-            }
-            .frame(width: 160, height: 130)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-
-            Text(product.nameUz).font(.subheadline).bold().lineLimit(1)
-            if let attributeSummary = product.attributeSummary {
-                Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
-            }
-            if let first = product.variants.first {
-                Text("\(first.basePrice.formattedSom) so'm dan")
-                    .font(.caption).bold().lineLimit(1)
-                    .foregroundStyle(Color.brandSecondary)
-            }
-            if let qty = product.availableQuantity, qty > 0 {
-                StockBadge(quantity: qty)
-            }
-        }
-        .frame(width: 160)
+        ProductCardView(product: product, imageHeight: 130)
+            .frame(width: 168)
     }
 }
 
-/// Grid'da ishlatiladigan kartochka (2 ustunli, markazlashtirilgan matn).
+/// Grid'da ishlatiladigan kartochka (2 ustunli).
 struct FeaturedGridCard: View {
     let product: Product
 
     var body: some View {
-        VStack(alignment: .center, spacing: 6) {
-            AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
-                if let image = phase.image {
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    Color.brandPrimary.opacity(0.3)
-                }
-            }
-            .frame(height: 130)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-            Text(product.nameUz).font(.subheadline).bold().lineLimit(1).multilineTextAlignment(.center)
-            if let attributeSummary = product.attributeSummary {
-                Text(attributeSummary).font(.caption2).bold().foregroundStyle(Color.brandDeep).lineLimit(1)
-                    .multilineTextAlignment(.center)
-            }
-            Text(product.companyName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                .multilineTextAlignment(.center)
-            if let first = product.variants.first {
-                Text("\(first.basePrice.formattedSom) so'm dan")
-                    .font(.caption).bold().lineLimit(1)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(Color.brandSecondary)
-            }
-            if let qty = product.availableQuantity, qty > 0 {
-                StockBadge(quantity: qty)
-            }
-        }
-        .padding(.leading, 4)
+        ProductCardView(product: product)
     }
 }
 
@@ -587,7 +556,7 @@ struct StockBadge: View {
             Text("\(quantity) dona").font(.caption2).bold()
         }
         .padding(.horizontal, 9).padding(.vertical, 4)
-        .background(Color.green)
+        .background(Color.appSuccess)
         .foregroundStyle(.white)
         .clipShape(Capsule())
     }

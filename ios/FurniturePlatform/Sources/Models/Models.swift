@@ -86,6 +86,11 @@ struct Variant: Codable, Identifiable {
     // Omborda tayyor turgan dona soni (qarang backend VariantSerializer.
     // get_available_quantity) — mijozga darhol berish mumkinligini bildiradi.
     let availableQuantity: Int?
+    // Chegirma (backend `VariantSerializer`): faol bo'lsa kartada eski narx
+    // chizilgan holda va foiz bilan ko'rsatiladi.
+    let discountActive: Bool?
+    let effectiveBasePrice: String?
+    let discountPercent: String?
 
     var basePriceValue: Double { Double(basePrice) ?? 0 }
     var widthValue: Double { Double(width) ?? 1 }
