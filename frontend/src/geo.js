@@ -3,11 +3,33 @@
 // Avval oddiy aniqlikda (Wi-Fi/tarmoq bo'yicha, kesh bilan) so'raymiz — GPS'siz
 // noutbuk/kompyuterda ham tez ishlaydi. Faqat ruxsat bilan bog'liq bo'lmagan
 // xatoda (aniqlab bo'lmadi / vaqt tugadi) yuqori aniqlik bilan qayta uriniladi.
-function getPosition(options) {
+function getPosition(options, graceMs = 0) {
   return new Promise((resolve, reject) => {
+    let timer = null;
+    let done = false;
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-      reject,
+      (pos) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      },
+      (err) => {
+        if (done) return;
+        // Ruxsat berilgan bo'lsa-yu, Chrome ba'zan avval "User denied" xatosini,
+        // KEYIN esa shu so'rovning muvaffaqiyatli natijasini qaytaradi —
+        // `graceMs` ichida muvaffaqiyatni kutamiz, so'ng xatoni qaytaramiz.
+        if (err.code === 1 && graceMs > 0 && !timer) {
+          timer = setTimeout(() => {
+            done = true;
+            reject(err);
+          }, graceMs);
+          return;
+        }
+        done = true;
+        clearTimeout(timer);
+        reject(err);
+      },
       options,
     );
   });
@@ -26,18 +48,19 @@ export async function currentPosition() {
     throw new Error("Brauzeringiz joylashuvni aniqlashni qo'llab-quvvatlamaydi");
   }
   const options = { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 };
+  const grace = (await permissionState()) === "granted" ? 4000 : 0;
   let err;
   try {
-    return await getPosition(options);
+    return await getPosition(options, grace);
   } catch (e) {
     err = e;
   }
   // Ruxsat aslida berilgan bo'lsa-yu, tizim joylashuv xizmati uyg'onayotganda
   // birinchi so'rov "User denied" qaytarishi mumkin (macOS/Chrome) — bir marta qayta urinamiz.
-  if (err.code === 1 && (await permissionState()) === "granted") {
+  if (err.code === 1 && grace > 0) {
     await new Promise((r) => setTimeout(r, 600));
     try {
-      return await getPosition(options);
+      return await getPosition(options, grace);
     } catch (e) {
       err = e;
     }
