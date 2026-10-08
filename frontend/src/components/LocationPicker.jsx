@@ -12,12 +12,14 @@ export default function LocationPicker({ value, onChange, required = true }) {
 
   const hasPoint = value.latitude !== "" && value.latitude != null && value.longitude !== "" && value.longitude != null;
 
-  const apply = (p, address) =>
+  const apply = (p, address) => {
+    setError("");
     onChange({
       latitude: fixCoord(p.latitude),
       longitude: fixCoord(p.longitude),
       address: address || value.address || `${fixCoord(p.latitude)}, ${fixCoord(p.longitude)}`,
     });
+  };
 
   const useCurrent = async () => {
     setError("");
