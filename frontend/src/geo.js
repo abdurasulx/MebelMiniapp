@@ -1,25 +1,46 @@
 // Xarita/joylashuv yordamchilari — OpenStreetMap Nominatim (kalitsiz, bepul).
 
-export function currentPosition() {
+// Avval oddiy aniqlikda (Wi-Fi/tarmoq bo'yicha, kesh bilan) so'raymiz — GPS'siz
+// noutbuk/kompyuterda ham tez ishlaydi. Faqat ruxsat bilan bog'liq bo'lmagan
+// xatoda (aniqlab bo'lmadi / vaqt tugadi) yuqori aniqlik bilan qayta uriniladi.
+function getPosition(options) {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("Brauzeringiz joylashuvni aniqlashni qo'llab-quvvatlamaydi"));
-      return;
-    }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-      (err) =>
-        reject(
-          new Error(
-            err.code === 1
-              ? "Brauzer joylashuvga ruxsat bermadi. Manzil satridagi qulf belgisi orqali \"Joylashuv\"ni yoqing " +
-                "(yoki xaritadan tanlang)."
-              : "Joylashuvni aniqlab bo'lmadi: " + err.message
-          )
-        ),
-      { enableHighAccuracy: true, timeout: 15000 }
+      reject,
+      options,
     );
   });
+}
+
+export async function currentPosition() {
+  if (!navigator.geolocation) {
+    throw new Error("Brauzeringiz joylashuvni aniqlashni qo'llab-quvvatlamaydi");
+  }
+  let err;
+  try {
+    return await getPosition({ enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+  } catch (e) {
+    err = e;
+  }
+  if (err.code !== 1) {
+    try {
+      return await getPosition({ enableHighAccuracy: true, timeout: 15000 });
+    } catch (e) {
+      err = e;
+    }
+  }
+  if (err.code === 1) {
+    throw new Error(
+      "Brauzer joylashuvga ruxsat bermadi. Manzil satridagi qulf belgisi orqali \"Joylashuv\"ni yoqing " +
+        "(yoki xaritadan tanlang)."
+    );
+  }
+  throw new Error(
+    "Joylashuvni aniqlab bo'lmadi" +
+      (err.code === 3 ? " (vaqt tugadi)" : "") +
+      ". Qurilmada joylashuv xizmati yoqilganini tekshiring yoki xaritadan tanlang."
+  );
 }
 
 export async function reverseGeocode(latitude, longitude) {
