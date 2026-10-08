@@ -90,6 +90,11 @@ class Variant {
   // Omborda tayyor turgan dona soni (qarang backend VariantSerializer.
   // get_available_quantity) — mijozga darhol berish mumkinligini bildiradi.
   final int availableQuantity;
+  // Chegirma (backend `VariantSerializer`): faol bo'lsa kartada eski narx
+  // chizilgan holda va foiz bilan ko'rsatiladi.
+  final bool discountActive;
+  final String? effectiveBasePrice;
+  final double discountPercent;
 
   Variant({
     required this.id,
@@ -102,6 +107,9 @@ class Variant {
     this.textureUrl,
     this.model3d,
     this.availableQuantity = 0,
+    this.discountActive = false,
+    this.effectiveBasePrice,
+    this.discountPercent = 0,
   });
 
   double get basePriceValue => double.tryParse(basePrice) ?? 0;
@@ -120,6 +128,9 @@ class Variant {
     textureUrl: j['texture_url'],
     model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
     availableQuantity: (j['available_quantity'] as num?)?.toInt() ?? 0,
+    discountActive: j['discount_active'] == true,
+    effectiveBasePrice: j['effective_base_price']?.toString(),
+    discountPercent: double.tryParse('${j['discount_percent'] ?? 0}') ?? 0,
   );
 }
 

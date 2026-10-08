@@ -16,9 +16,12 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = context.watch<LocaleStore>();
     final hasAr = product.model3d?.glbUrl != null;
-    final price = product.variants.isNotEmpty
-        ? product.variants.first.basePriceValue
-        : null;
+    final firstVariant =
+        product.variants.isNotEmpty ? product.variants.first : null;
+    final price = firstVariant?.basePriceValue;
+    final discounted = firstVariant != null &&
+        firstVariant.discountActive &&
+        firstVariant.effectiveBasePrice != null;
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.lg),
       onTap: () => Navigator.of(context).push(
@@ -169,8 +172,46 @@ class ProductCard extends StatelessWidget {
                   ),
                   if (price != null) ...[
                     const SizedBox(height: AppSpacing.sm - 2),
+                    if (discounted) ...[
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${formatSom(price.toStringAsFixed(0))} ${loc.t('currency_som')}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          ),
+                          if (firstVariant.discountPercent > 0) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppColors.error,
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.pill),
+                              ),
+                              child: Text(
+                                '-${firstVariant.discountPercent.round()}%',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                     Text(
-                      '${formatSom(price.toStringAsFixed(0))} ${loc.t('currency_som')}${loc.t('price_from_suffix')}',
+                      '${formatSom((discounted ? double.tryParse(firstVariant.effectiveBasePrice!) ?? price : price).toStringAsFixed(0))} ${loc.t('currency_som')}${loc.t('price_from_suffix')}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppText.price,
