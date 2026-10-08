@@ -13,15 +13,34 @@ function getPosition(options) {
   });
 }
 
+async function permissionState() {
+  try {
+    return (await navigator.permissions.query({ name: "geolocation" })).state;
+  } catch {
+    return "unknown";
+  }
+}
+
 export async function currentPosition() {
   if (!navigator.geolocation) {
     throw new Error("Brauzeringiz joylashuvni aniqlashni qo'llab-quvvatlamaydi");
   }
+  const options = { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 };
   let err;
   try {
-    return await getPosition({ enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+    return await getPosition(options);
   } catch (e) {
     err = e;
+  }
+  // Ruxsat aslida berilgan bo'lsa-yu, tizim joylashuv xizmati uyg'onayotganda
+  // birinchi so'rov "User denied" qaytarishi mumkin (macOS/Chrome) — bir marta qayta urinamiz.
+  if (err.code === 1 && (await permissionState()) === "granted") {
+    await new Promise((r) => setTimeout(r, 600));
+    try {
+      return await getPosition(options);
+    } catch (e) {
+      err = e;
+    }
   }
   if (err.code !== 1) {
     try {
