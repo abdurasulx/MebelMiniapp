@@ -5,35 +5,40 @@
 
 /* Design tokens — docs/design_tokens.md (eski mebelweb palitrasi) */
 :root {
-  --primary: #ecc299;
-  --primary-deep: #4c2c24;
-  --secondary: #3498db;
-  --bg: #f7f3ef;
-  --text: #2c3e50;
-  --muted: #8a8f98;
+  /* Vida Market — iliq premium palitra (semantik tokenlar, bir joyda) */
+  --primary: #f2e6d8; /* ikkinchi darajali fon / yumshoq ta'kid */
+  --primary-deep: #493027; /* asosiy brend */
+  --secondary: #493027; /* asosiy harakat/havola rangi (avval ko'k edi) */
+  --accent: #c58b5a; /* ta'kid, kamdan-kam */
+  --brand-secondary: #805c46;
+  --bg: #faf5ef;
+  --text: #30231e;
+  --muted: #796b61;
+  --disabled: #a69a90;
+  --disabled-bg: #eee7e0;
   --card: #ffffff;
-  --border: rgba(76, 44, 36, 0.12);
-  --shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  --border: #e5d7c8;
+  --shadow: 0 1px 3px rgba(48, 35, 30, 0.06);
 
-  /* Semantik ranglar — like/tasdiqlash/o'chirish kabi holatlar uchun BIR
-     joydan (barcha sahifalarda shu yerga ishora qilinsin, alohida hex
-     qaytarilmasin) */
-  --success: #16a34a;
-  --danger: #e74c3c;
-  --warning: #e67e22;
+  /* Holat ranglari — barcha sahifalarda shu yerga ishora qilinadi */
+  --success: #27865a;
+  --danger: #c94c4c;
+  --warning: #c58a36;
+  --info: #3979b7;
 
-  /* Brend yuzalar: LIGHT rejimda CREAM, DARK rejimda JIGARRANG */
-  --brand-surface: #ecc299;
-  --brand-surface-text: #4c2c24;
-  --brand-surface-muted: #8a6a55;
-  --brand-cta-bg: #4c2c24;
-  --brand-cta-text: #ecc299;
+  /* Brend yuzalar: LIGHT rejimda yumshoq krem, DARK rejimda jigarrang */
+  --brand-surface: #f2e6d8;
+  --brand-surface-text: #493027;
+  --brand-surface-muted: #796b61;
+  --brand-cta-bg: #493027;
+  --brand-cta-bg-hover: #38231d;
+  --brand-cta-text: #faf5ef;
 }
 
 .dark-mode {
   --primary: #ecc299;
   --primary-deep: #4c2c24;
-  --secondary: #50a3d3;
+  --secondary: #ecc299;
   --bg: #0d0d15;
   --text: #eaeaea;
   --muted: #8a8f98;
@@ -45,7 +50,16 @@
   --brand-surface-text: #ecc299;
   --brand-surface-muted: #c9a389;
   --brand-cta-bg: #ecc299;
+  --brand-cta-bg-hover: #f2d2b1;
   --brand-cta-text: #4c2c24;
+  --accent: #c58b5a;
+  --brand-secondary: #c9a389;
+  --disabled: #6b6f7a;
+  --disabled-bg: #1f1f2a;
+  --success: #3fb27f;
+  --danger: #e06c6c;
+  --warning: #d9a04a;
+  --info: #5b9bd5;
 }
 
 body {
@@ -58,27 +72,35 @@ body {
 /* ===== Komponent klasslari ===== */
 
 .btn {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white transition cursor-pointer border-0;
-  background: var(--secondary);
+  @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer border-0;
+  background: var(--brand-cta-bg);
+  color: var(--brand-cta-text);
+  min-height: 44px;
 }
 .btn:hover {
-  filter: brightness(1.08);
+  background: var(--brand-cta-bg-hover);
+}
+.btn:disabled {
+  background: var(--disabled-bg);
+  color: var(--disabled);
+  cursor: not-allowed;
 }
 .btn-brand {
   background: var(--brand-cta-bg);
   color: var(--brand-cta-text);
 }
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition cursor-pointer;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer;
   background: transparent;
   color: var(--secondary);
-  border: 1px solid var(--secondary);
+  border: 1px solid var(--border);
+  min-height: 44px;
 }
 .btn-ghost:hover {
   background: color-mix(in srgb, var(--secondary) 10%, transparent);
 }
 .btn-danger {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition cursor-pointer;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer;
   background: transparent;
   color: var(--danger);
   border: 1px solid var(--danger);
@@ -88,7 +110,7 @@ body {
 }
 
 .input {
-  @apply w-full rounded-lg px-3 py-2 text-sm outline-none transition;
+  @apply w-full rounded-xl px-3.5 py-2.5 text-sm outline-none transition;
   background: var(--card);
   color: var(--text);
   border: 1px solid var(--border);
@@ -118,12 +140,12 @@ body {
   @apply inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold;
 }
 .trend-pill.up {
-  background: color-mix(in srgb, #27ae60 16%, transparent);
-  color: #27ae60;
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
 }
 .trend-pill.down {
-  background: color-mix(in srgb, #e74c3c 16%, transparent);
-  color: #e74c3c;
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
 }
 
 /* Jadval ustidagi qidiruv/filtr paneli */
@@ -145,8 +167,8 @@ body {
 
 .badge {
   @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
-  background: color-mix(in srgb, #27ae60 14%, transparent);
-  color: #27ae60;
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+  color: var(--success);
 }
 .badge-off {
   background: color-mix(in srgb, var(--muted) 16%, transparent);
@@ -189,7 +211,7 @@ body {
 .error {
   @apply rounded-lg px-3 py-2 text-sm;
   background: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
+  color: var(--danger);
 }
 
 /* Market top nav — sidebar (.side-link) bilan bir xil naqsh: faol havola

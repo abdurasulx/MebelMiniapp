@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Box, Camera, Heart, MapPinOff, PackageCheck, Search, Sofa, Store, ArrowRight, X } from "lucide-react";
+import {
+  ArrowLeft, Armchair, Baby, BedDouble, Box, Camera, CookingPot, DoorClosed, Heart, Lamp, LampDesk, Library,
+  MapPinOff, PackageCheck, RectangleHorizontal, Search, Sofa, Store, Trees, ArrowRight, X,
+} from "lucide-react";
 import { api } from "../api";
 import { coordsParams, useGeolocation } from "../location";
 import { useAuth } from "../auth";
@@ -22,6 +25,28 @@ function attributeSummary(p) {
     if (w > 1 && h > 1 && d > 1) parts.push(`${w}×${h}×${d} sm`);
   }
   return parts.length ? parts.join(" · ") : null;
+}
+
+// Kategoriya nomi/slug'idagi kalit so'zga qarab ikonka (backend'da ikonka maydoni yo'q).
+const CATEGORY_ICONS = [
+  [["kitob", "javon", "polka", "shelf"], Library],
+  [["divan", "sofa", "yumshoq", "mehmon", "zal"], Sofa],
+  [["karavat", "krovat", "yotoq", "bed", "matras"], BedDouble],
+  [["shkaf", "garderob", "jovon", "komod"], DoorClosed],
+  [["stol", "table", "jurnal"], RectangleHorizontal],
+  [["oshxona", "kuxn", "kitchen"], CookingPot],
+  [["bolalar", "bola", "kids", "child"], Baby],
+  [["bog", "tashqi", "garden", "outdoor"], Trees],
+  [["ofis", "office"], LampDesk],
+  [["yoritgich", "chiroq", "lamp"], Lamp],
+  [["kreslo", "stul", "chair"], Armchair],
+];
+function categoryIcon(c) {
+  const k = `${c.slug || ""} ${c.name_uz || ""}`.toLowerCase();
+  for (const [words, Icon] of CATEGORY_ICONS) {
+    if (words.some((w) => k.includes(w))) return Icon;
+  }
+  return Sofa;
 }
 
 export default function Catalog() {
@@ -260,7 +285,7 @@ export default function Catalog() {
                 style={
                   cat === ""
                     ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
-                    : { background: "color-mix(in srgb, var(--primary) 30%, transparent)", color: "var(--text)" }
+                    : { background: "var(--primary)", color: "var(--text)" }
                 }
               >
                 <Sofa size={26} />
@@ -279,10 +304,13 @@ export default function Catalog() {
                   style={
                     cat === c.id
                       ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
-                      : { background: "color-mix(in srgb, var(--primary) 30%, transparent)", color: "var(--text)" }
+                      : { background: "var(--primary)", color: "var(--text)" }
                   }
                 >
-                  <Sofa size={26} />
+                  {(() => {
+                    const CatIcon = categoryIcon(c);
+                    return <CatIcon size={26} />;
+                  })()}
                 </span>
                 <span className="line-clamp-2 text-center text-xs font-semibold leading-tight">{c.name_uz}</span>
               </button>
@@ -326,7 +354,7 @@ export default function Catalog() {
           <Link
             to={`/products/${p.id}`}
             key={p.id}
-            className="card group relative overflow-hidden transition hover:-translate-y-1 hover:shadow-lg"
+            className="card group relative overflow-hidden transition hover:border-[var(--brand-secondary)] hover:shadow-md"
           >
             <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
               {p.model3d?.glb_url && (
@@ -354,12 +382,13 @@ export default function Catalog() {
                 <img
                   src={p.image_url || p.images[0].image_url}
                   alt={p.name_uz}
-                  className="h-44 w-full object-cover transition group-hover:scale-105"
+                  loading="lazy"
+                  className="aspect-[4/3] w-full bg-white object-contain p-3"
                 />
               ) : (
                 <div
-                  className="flex h-44 w-full items-center justify-center"
-                  style={{ background: "color-mix(in srgb, var(--primary) 25%, transparent)" }}
+                  className="flex aspect-[4/3] w-full items-center justify-center"
+                  style={{ background: "var(--primary)", color: "var(--disabled)" }}
                 >
                   <Sofa size={36} />
                 </div>
@@ -374,9 +403,9 @@ export default function Catalog() {
               )}
             </div>
             <div className="flex flex-col gap-1 p-4">
-              <span className="font-semibold">{p.name_uz}</span>
+              <span className="line-clamp-2 text-sm font-semibold leading-snug">{p.name_uz}</span>
               {attributeSummary(p) && (
-                <span className="text-xs font-medium" style={{ color: "var(--brand-cta-bg)" }}>
+                <span className="text-xs font-medium" style={{ color: "var(--brand-secondary)" }}>
                   {attributeSummary(p)}
                 </span>
               )}
