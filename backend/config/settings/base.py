@@ -158,12 +158,12 @@ FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 # ANIQ mos kelishi shart).
 BACKEND_URL = env("BACKEND_URL", default="http://127.0.0.1:8000")
 
-# Telegram bot login (webhook) — qarang apps/users/telegram_bot.py.
 # Eskiz.uz SMS (OTP). Bo'sh bo'lsa SMS yuborilmaydi, kod javobda qaytariladi.
 ESKIZ_EMAIL = env("ESKIZ_EMAIL", default="")
 ESKIZ_PASSWORD = env("ESKIZ_PASSWORD", default="")
 ESKIZ_FROM = env("ESKIZ_FROM", default="4546")
 
+# Telegram bot login (webhook) — qarang apps/users/telegram_bot.py.
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")
 TELEGRAM_WEBHOOK_URL = env("TELEGRAM_WEBHOOK_URL", default="")
