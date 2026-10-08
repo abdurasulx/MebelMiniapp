@@ -18,9 +18,9 @@ TIMEOUT = 10
 
 
 # Eskiz moderatsiyasidan o'tgan matn — o'zgartirsangiz qayta moderatsiya kerak.
-# Moderatsiyaga shu matnni haqiqiy 6 xonali kod bilan (masalan 123456) topshiring:
+# Moderatsiyaga shu matnni haqiqiy 6 xonali kod bilan (masalan 1234) topshiring:
 # o'zgaruvchan qismni moderatorning o'zi maskalaydi, bizda `****` almashtirish yo'q.
-OTP_TEMPLATE = "Vida Market ilovasiga kirish uchun tasdiqlash kodi: {code}. Kodni hech kimga bermang!"
+OTP_TEMPLATE = "Kodni hech kimga bermang! vidamarket.uz saytiga kirish uchun tasdiqlash kodi: {code}"
 
 
 class SMSError(Exception):
