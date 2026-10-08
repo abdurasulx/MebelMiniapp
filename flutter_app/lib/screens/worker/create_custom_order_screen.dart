@@ -6,6 +6,7 @@ import '../../api_client.dart';
 import '../../auth_store.dart';
 import '../../locale_store.dart';
 import '../../models.dart';
+import '../../theme.dart';
 
 /// Joylashuvni olishda muvaffaqiyatsizlik — backend hali chaqirilmagan
 /// holat, backend javobidan farqli (qarang attendance_store.dart'dagi
@@ -272,7 +273,7 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
             onTap: _pickBazisFile,
           ),
           if (_error != null)
-            Text(_error!, style: const TextStyle(color: Colors.red)),
+            Text(_error!, style: const TextStyle(color: AppColors.error)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _busy ? null : () => _submit(loc),

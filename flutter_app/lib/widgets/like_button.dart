@@ -4,6 +4,7 @@ import '../auth_store.dart';
 import '../likes_store.dart';
 import '../models.dart';
 import '../screens/auth_screen.dart';
+import '../theme.dart';
 
 /// Yurakcha tugmasi — bosilganda serverga saqlanadi (iOS'dagi `LikeButton`
 /// bilan bir xil vazifa). Tizimga kirilmagan bo'lsa ham har doim ko'rinadi —
@@ -48,7 +49,7 @@ class LikeButton extends StatelessWidget {
         child: Icon(
           liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
           size: 16,
-          color: liked ? const Color(0xFFE74C3C) : Colors.black45,
+          color: liked ? AppColors.error : AppColors.textDisabled,
         ),
       ),
     );

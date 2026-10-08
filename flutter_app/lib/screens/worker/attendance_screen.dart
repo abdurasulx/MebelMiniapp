@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../attendance_store.dart';
 import '../../locale_store.dart';
+import '../../theme.dart';
 
 /// Xodim uchun "Ishga keldim"/"Ishni tugatdim" — geolokatsiya orqali
 /// backendga yuboriladi, YAKUNIY qarorni (tasdiqlangan/rad etilgan/shubhali)
@@ -49,10 +50,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             if (_busy) const CircularProgressIndicator(),
             if (_error != null)
               Card(
-                color: Colors.red.shade50,
+                color: AppColors.errorSurface,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                  child: Text(_error!, style: const TextStyle(color: AppColors.error)),
                 ),
               ),
             if (_lastResult != null) _ResultBanner(result: _lastResult!, loc: loc),
@@ -92,14 +93,14 @@ class _ResultBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final approved = result.isApproved;
     return Card(
-      color: approved ? Colors.green.shade50 : Colors.red.shade50,
+      color: approved ? AppColors.success : AppColors.errorSurface,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             Icon(
               approved ? Icons.check_circle : Icons.cancel,
-              color: approved ? Colors.green : Colors.red,
+              color: approved ? AppColors.success : AppColors.error,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -113,7 +114,7 @@ class _ResultBanner extends StatelessWidget {
                         : (result.action == 'check_in'
                             ? loc.t('attendance_check_in_rejected')
                             : loc.t('attendance_check_out_rejected'))),
-                style: TextStyle(color: approved ? Colors.green.shade900 : Colors.red.shade900),
+                style: TextStyle(color: approved ? AppColors.success : AppColors.errorDark),
               ),
             ),
           ],

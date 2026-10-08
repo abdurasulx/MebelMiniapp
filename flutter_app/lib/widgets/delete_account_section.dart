@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../locale_store.dart';
+import '../theme.dart';
 
 /// Profildagi "Hisobni o'chirish" bo'limi — veb'dagi `DeleteAccountSection`
 /// (Profile.jsx) bilan bir xil oqim: sabab bilan so'rov yuboriladi
@@ -55,7 +56,7 @@ class _DeleteAccountSectionState extends State<DeleteAccountSection> {
         padding: const EdgeInsets.only(top: 12),
         child: Text(
           loc.t('profile_delete_account_pending'),
-          style: const TextStyle(color: Color(0xFF8A7357), fontSize: 13),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
         ),
       );
     }
@@ -63,7 +64,7 @@ class _DeleteAccountSectionState extends State<DeleteAccountSection> {
       padding: const EdgeInsets.only(top: 8),
       child: TextButton.icon(
         onPressed: _openForm,
-        style: TextButton.styleFrom(foregroundColor: Colors.red),
+        style: TextButton.styleFrom(foregroundColor: AppColors.error),
         icon: const Icon(Icons.delete_outline, size: 18),
         label: Text(loc.t('profile_delete_account_title')),
       ),
@@ -121,12 +122,12 @@ class _DeleteAccountFormState extends State<_DeleteAccountForm> {
         children: [
           Text(
             loc.t('profile_delete_account_title'),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.red),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.error),
           ),
           const SizedBox(height: 8),
           Text(
             loc.t('profile_delete_account_desc'),
-            style: const TextStyle(color: Color(0xFF8A7357), fontSize: 13),
+            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -141,7 +142,7 @@ class _DeleteAccountFormState extends State<_DeleteAccountForm> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+            Text(_error!, style: const TextStyle(color: AppColors.error, fontSize: 12)),
           ],
           const SizedBox(height: 12),
           Row(
@@ -149,7 +150,7 @@ class _DeleteAccountFormState extends State<_DeleteAccountForm> {
               Expanded(
                 child: FilledButton(
                   onPressed: _busy || _reason.text.trim().isEmpty ? null : _submit,
-                  style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                  style: FilledButton.styleFrom(backgroundColor: AppColors.error),
                   child: _busy
                       ? const SizedBox(
                           width: 16,

@@ -186,7 +186,7 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
           const SizedBox(height: 6),
           Text(
             loc.t('phone_verify_desc'),
-            style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           if (!_codeSent) ...[
@@ -227,7 +227,7 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
             ),
             const SizedBox(height: 14),
             if (_error != null) ...[
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+              Text(_error!, style: const TextStyle(color: AppColors.error)),
               const SizedBox(height: 8),
             ],
             ElevatedButton(
@@ -240,7 +240,7 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
                   '${loc.t('phone_verify_dev_code')}$_debugCode',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ),
             OtpBoxInput(
@@ -269,7 +269,7 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
               ],
             ),
             if (_error != null) ...[
-              Text(_error!, style: const TextStyle(color: Colors.red)),
+              Text(_error!, style: const TextStyle(color: AppColors.error)),
               const SizedBox(height: 8),
             ],
           ],

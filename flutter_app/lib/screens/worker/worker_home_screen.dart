@@ -9,6 +9,7 @@ import '../product_detail_screen.dart';
 import 'attendance_screen.dart';
 import 'create_custom_order_screen.dart';
 import 'warehouses_screen.dart';
+import '../../theme.dart';
 
 /// Usta ish rejimi: faqat o'z firmasining mahsulotlari (va ularning 3D
 /// modellari) ko'rinadi — uy loyihalashda butun bozor emas, faqat o'z firmasi
@@ -116,13 +117,13 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                   ),
                   Text(
                     loc.t('worker_company_products_note'),
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 12),
                   if (_loading)
                     const Center(child: CircularProgressIndicator()),
                   if (_error != null)
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
+                    Text(_error!, style: const TextStyle(color: AppColors.error)),
                   if (!_loading && _products.isEmpty)
                     Text(loc.t('worker_no_products')),
                   ..._products.map(

@@ -26,7 +26,7 @@ class OfflineView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.wifi_off_rounded, size: 56, color: AppColors.deep.withValues(alpha: 0.5)),
+            const Icon(Icons.wifi_off_rounded, size: 56, color: AppColors.textSecondary),
             const SizedBox(height: 16),
             Text(
               loc.t('offline_title'),
@@ -36,7 +36,7 @@ class OfflineView extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               message ?? loc.t('offline_message'),
-              style: const TextStyle(fontSize: 13.5, color: Color(0xFF8A7357)),
+              style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),

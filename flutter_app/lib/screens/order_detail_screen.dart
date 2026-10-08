@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../locale_store.dart';
 import '../models.dart';
+import '../theme.dart';
 
 /// Mijoz tomonidagi buyurtma tafsiloti — ishlab chiqarish bosqichlarini
 /// (workflow_steps) FAQAT O'QISH uchun ko'rsatadi (rasm/izoh bilan birga),
@@ -14,15 +15,15 @@ class OrderDetailScreen extends StatelessWidget {
   Color _statusColor(String status) {
     switch (status) {
       case 'completed':
-        return const Color(0xFF2E7D32);
+        return AppColors.success;
       case 'approved':
         return const Color(0xFF2563EB);
       case 'cancelled':
-        return const Color(0xFFE74C3C);
+        return AppColors.error;
       case 'in_progress':
         return const Color(0xFFB8860B);
       default:
-        return const Color(0xFF8A7357);
+        return AppColors.textSecondary;
     }
   }
 
@@ -49,7 +50,7 @@ class OrderDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECC299).withValues(alpha: 0.4),
+                      color: AppColors.backgroundAlt.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(order.statusDisplay, style: const TextStyle(fontSize: 12)),
@@ -61,14 +62,14 @@ class OrderDetailScreen extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: (order.progressPercent ?? 0) / 100,
                         minHeight: 8,
-                        backgroundColor: const Color(0xFFECC299).withValues(alpha: 0.25),
-                        valueColor: const AlwaysStoppedAnimation(Color(0xFF8A5A2B)),
+                        backgroundColor: AppColors.backgroundAlt.withValues(alpha: 0.25),
+                        valueColor: const AlwaysStoppedAnimation(AppColors.brandSecondary),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${loc.t('order_detail_production_prefix')}${order.progressPercent}%',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ],
@@ -140,14 +141,14 @@ class _StepTile extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 '${loc.t('order_detail_executor_prefix')}${step.employeeName}',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
             ],
             if (step.updates.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 '${step.updates.length}${loc.t('order_detail_updates_suffix')}',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF8A7357)),
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 8),
               // Web'dagi WorkflowPanel bilan bir xil — faqat oxirgisi emas,
@@ -197,7 +198,7 @@ class _UpdateTile extends StatelessWidget {
               if (update.isCompletion)
                 const Padding(
                   padding: EdgeInsets.only(right: 4),
-                  child: Icon(Icons.check_circle, size: 14, color: Color(0xFF2E7D32)),
+                  child: Icon(Icons.check_circle, size: 14, color: AppColors.success),
                 ),
               if (update.employeeName != null && update.employeeName!.isNotEmpty)
                 Text(
@@ -207,7 +208,7 @@ class _UpdateTile extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 _formatTime(update.createdAt),
-                style: const TextStyle(fontSize: 11, color: Color(0xFF8A7357)),
+                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
               ),
             ],
           ),

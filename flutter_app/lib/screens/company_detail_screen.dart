@@ -6,6 +6,7 @@ import '../auth_store.dart';
 import '../locale_store.dart';
 import '../models.dart';
 import 'product_detail_screen.dart';
+import '../theme.dart';
 
 /// Firma do'kon sahifasi (marketplace uslubida) — mahsulot sahifasidan firma
 /// nomiga bosilganda ochiladi: tavsif, ishonch darajasi, boshqa mahsulotlari
@@ -101,7 +102,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
       body: company == null
           ? Center(
               child: _error != null
-                  ? Text(_error!, style: const TextStyle(color: Colors.red))
+                  ? Text(_error!, style: const TextStyle(color: AppColors.error))
                   : const CircularProgressIndicator(),
             )
           : ListView(
@@ -117,7 +118,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                 if (_products.isEmpty)
                   Text(
                     loc.t('shop_no_products'),
-                    style: const TextStyle(color: Colors.black54),
+                    style: const TextStyle(color: AppColors.textSecondary),
                   )
                 else
                   GridView.builder(
@@ -185,7 +186,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                 if (_reviews.isEmpty)
                   Text(
                     loc.t('shop_no_reviews'),
-                    style: const TextStyle(color: Colors.black54),
+                    style: const TextStyle(color: AppColors.textSecondary),
                   )
                 else
                   ..._reviews.map(
@@ -226,7 +227,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                   const SizedBox(height: 16),
                   Text(
                     loc.t('shop_review_locked'),
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
               ],
@@ -299,7 +300,7 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFECC299).withValues(alpha: 0.25),
+        color: AppColors.backgroundAlt.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -319,7 +320,7 @@ class _Header extends StatelessWidget {
                     : Container(
                         width: 60,
                         height: 60,
-                        color: const Color(0xFFECC299).withValues(alpha: 0.5),
+                        color: AppColors.backgroundAlt.withValues(alpha: 0.5),
                         child: const Icon(Icons.business),
                       ),
               ),
@@ -364,7 +365,7 @@ class _Header extends StatelessWidget {
                               '⭐ ${tier.rating!.toStringAsFixed(1)} (${tier.reviewCount})',
                               style: const TextStyle(
                                 fontSize: 11,
-                                color: Colors.black54,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                         ],
@@ -386,12 +387,12 @@ class _Header extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.location_on, size: 14, color: Colors.black54),
+                const Icon(Icons.location_on, size: 14, color: AppColors.textSecondary),
                 const SizedBox(width: 4),
                 if (company.address?.isNotEmpty == true)
                   Text(
                     company.address!,
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 if (company.mapUrl != null) ...[
                   const SizedBox(width: 6),
@@ -399,7 +400,7 @@ class _Header extends StatelessWidget {
                     onTap: () => launchUrl(Uri.parse(company.mapUrl!), mode: LaunchMode.externalApplication),
                     child: Text(
                       loc.t('shop_view_on_map'),
-                      style: const TextStyle(fontSize: 12, color: Colors.blue, decoration: TextDecoration.underline),
+                      style: const TextStyle(fontSize: 12, color: AppColors.info, decoration: TextDecoration.underline),
                     ),
                   ),
                 ],

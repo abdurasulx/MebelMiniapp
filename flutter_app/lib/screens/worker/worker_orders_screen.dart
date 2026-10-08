@@ -6,6 +6,7 @@ import '../../api_client.dart';
 import '../../locale_store.dart';
 import '../../models.dart';
 import '../../widgets/offline_view.dart';
+import '../../theme.dart';
 
 /// Xodim (ustadan tortib sotuvchi/haydovchigacha) — o'z firmasi
 /// buyurtmalarini KO'RADI (holatini o'zgartirish — qabul qilish/bekor
@@ -173,7 +174,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text(loc.t('worker_step_accepted')),
-              backgroundColor: Colors.green),
+              backgroundColor: AppColors.success),
         );
       }
     } catch (e) {
@@ -395,7 +396,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
         SnackBar(
           content: Text(
               complete ? loc.t('worker_step_completed') : loc.t('worker_update_sent')),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.success,
         ),
       );
     }
@@ -427,7 +428,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
             : _error != null && !OfflineView.isNetworkError(_error)
                 ? Center(
                     child: Text(_error.toString(),
-                        style: const TextStyle(color: Colors.red)))
+                        style: const TextStyle(color: AppColors.error)))
                 : ListView(
                     padding: const EdgeInsets.all(12),
                     children: [
@@ -443,7 +444,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                           child: Text(
                             loc.t('worker_open_tasks_desc'),
                             style:
-                                const TextStyle(fontSize: 12, color: Colors.black54),
+                                const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                           ),
                         ),
                         Card(
@@ -482,7 +483,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
                           padding: const EdgeInsets.only(top: 60),
                           child: Center(
                               child: Text(loc.t('worker_no_tasks'),
-                                  style: const TextStyle(color: Colors.black54))),
+                                  style: const TextStyle(color: AppColors.textSecondary))),
                         ),
                       for (final order in activeOrders)
                         _OrderCard(
@@ -591,7 +592,7 @@ class _OrderCard extends StatelessWidget {
                     Text(
                       '${loc.t('worker_my_steps')}: ${mySteps.length}',
                       style:
-                          const TextStyle(fontSize: 12, color: Colors.black54),
+                          const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                     ),
                 ],
               ),
@@ -706,7 +707,7 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
                 children: [
                   Text(order.phone,
                       style: const TextStyle(
-                          fontSize: 12.5, color: Colors.black54)),
+                          fontSize: 12.5, color: AppColors.textSecondary)),
                   const SizedBox(height: 2),
                   Text(
                     '${formatSom(order.totalPrice)} ${loc.t('currency_som')}',
@@ -718,7 +719,7 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECC299).withValues(alpha: 0.4),
+                      color: AppColors.backgroundAlt.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(order.statusDisplay,
@@ -732,16 +733,16 @@ class _OrderStepsScreenState extends State<_OrderStepsScreen> {
                         value: (order.progressPercent ?? 0) / 100,
                         minHeight: 8,
                         backgroundColor:
-                            const Color(0xFFECC299).withValues(alpha: 0.25),
+                            AppColors.backgroundAlt.withValues(alpha: 0.25),
                         valueColor:
-                            const AlwaysStoppedAnimation(Color(0xFF8A5A2B)),
+                            const AlwaysStoppedAnimation(AppColors.brandSecondary),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${loc.t('worker_production')}: ${order.progressPercent}%',
                       style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF8A7357)),
+                          fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ],
@@ -847,13 +848,13 @@ class _StepTileState extends State<_StepTile> {
   Color get _color {
     switch (step.status) {
       case 'completed':
-        return Colors.green;
+        return AppColors.success;
       case 'approved':
-        return Colors.blue;
+        return AppColors.info;
       case 'cancelled':
-        return Colors.red;
+        return AppColors.error;
       case 'in_progress':
-        return Colors.orange;
+        return AppColors.warning;
       default:
         return Colors.grey;
     }
@@ -921,7 +922,7 @@ class _StepTileState extends State<_StepTile> {
                 ].join(' · '),
                 style: step.isOverdue
                     ? const TextStyle(
-                        color: Colors.red, fontWeight: FontWeight.w600)
+                        color: AppColors.error, fontWeight: FontWeight.w600)
                     : null,
               ),
             ],
@@ -1050,7 +1051,7 @@ class _OpenTaskTile extends StatelessWidget {
               backgroundColor: Colors.white,
             )
           : const Icon(Icons.chevron_right_rounded,
-              size: 20, color: Colors.black38),
+              size: 20, color: AppColors.textDisabled),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
@@ -1128,13 +1129,13 @@ class _OpenTaskDetailScreenState extends State<_OpenTaskDetailScreen> {
                   '${step.quantity ?? ''} ${step.workTypeUnitDisplay ?? ''} × ${step.workTypeName}'
                       .trim(),
               ].join(' · '),
-              style: const TextStyle(color: Colors.black54),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
             const Spacer(),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                child: Text(_error!, style: const TextStyle(color: AppColors.error)),
               ),
             Row(
               children: [

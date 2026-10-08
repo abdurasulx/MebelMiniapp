@@ -9,6 +9,7 @@ import '../widgets/employee_invitation_sheet.dart';
 import '../widgets/offline_view.dart';
 import 'order_detail_screen.dart';
 import 'worker/worker_orders_screen.dart';
+import '../theme.dart';
 
 /// Bell tugmasi — AppBar `actions`ga qo'yiladi, o'qilmagan sonini
 /// WebSocket orqali real vaqtda oladi (avval 30s'da bir marta HTTP bilan
@@ -261,14 +262,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null && !OfflineView.isNetworkError(_error)
-                ? Center(child: Text(_error.toString(), style: const TextStyle(color: Colors.red)))
+                ? Center(child: Text(_error.toString(), style: const TextStyle(color: AppColors.error)))
                 : _items.isEmpty
                     ? ListView(
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(top: 60),
                             child: Center(
-                              child: Text(loc.t('notif_empty'), style: const TextStyle(color: Colors.black54)),
+                              child: Text(loc.t('notif_empty'), style: const TextStyle(color: AppColors.textSecondary)),
                             ),
                           ),
                         ],
@@ -286,10 +287,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               children: [
                                 if (n.body.isNotEmpty) Text(n.body),
                                 const SizedBox(height: 2),
-                                Text(loc.timeAgo(n.createdAt), style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                                Text(loc.timeAgo(n.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.textDisabled)),
                               ],
                             ),
-                            trailing: n.isRead ? null : const Icon(Icons.circle, size: 8, color: Colors.red),
+                            trailing: n.isRead ? null : const Icon(Icons.circle, size: 8, color: AppColors.error),
                           );
                         },
                       ),

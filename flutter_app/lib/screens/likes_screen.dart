@@ -56,29 +56,31 @@ class _LikesScreenState extends State<LikesScreen> {
               message: loc.t('likes_login_message'),
             )
           : _loading && products.isEmpty
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.deep),
-            )
-          : products.isEmpty
-          ? _emptyState(
-              icon: Icons.favorite_border_rounded,
-              title: loc.t('likes_empty_title'),
-              message: loc.t('likes_empty_message'),
-            )
-          : RefreshIndicator(
-              onRefresh: _reload,
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  childAspectRatio: 0.62,
-                ),
-                itemCount: products.length,
-                itemBuilder: (context, i) => ProductCard(product: products[i]),
-              ),
-            ),
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.deep),
+                )
+              : products.isEmpty
+                  ? _emptyState(
+                      icon: Icons.favorite_border_rounded,
+                      title: loc.t('likes_empty_title'),
+                      message: loc.t('likes_empty_message'),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _reload,
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 14,
+                          childAspectRatio: 0.62,
+                        ),
+                        itemCount: products.length,
+                        itemBuilder: (context, i) =>
+                            ProductCard(product: products[i]),
+                      ),
+                    ),
     );
   }
 
@@ -93,17 +95,24 @@ class _LikesScreenState extends State<LikesScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 44, color: const Color(0xFF8A7357)),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            Container(
+              width: 84,
+              height: 84,
+              decoration: const BoxDecoration(
+                color: AppColors.backgroundAlt,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 40, color: AppColors.brand),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.lg),
+            Text(title,
+                textAlign: TextAlign.center, style: AppText.sectionTitle),
+            const SizedBox(height: AppSpacing.sm - 2),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF8A7357)),
+              style: const TextStyle(
+                  fontSize: 14, height: 1.4, color: AppColors.textSecondary),
             ),
           ],
         ),

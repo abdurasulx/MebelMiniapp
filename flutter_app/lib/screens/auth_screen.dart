@@ -182,15 +182,15 @@ class _AuthScreenState extends State<AuthScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFDE8E8),
+                  color: AppColors.errorSurface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFF8B4B4)),
+                  border: Border.all(color: AppColors.errorBorder),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(Icons.error_outline_rounded,
-                        color: Color(0xFFC81E1E), size: 20),
+                        color: AppColors.error, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -199,7 +199,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           Text(
                             loc.t(auth.errorMessage!),
                             style: const TextStyle(
-                              color: Color(0xFF9B1C1C),
+                              color: AppColors.errorDark,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               height: 1.35,
@@ -210,7 +210,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             Text(
                               auth.errorDetails!,
                               style: TextStyle(
-                                color: const Color(0xFF9B1C1C).withValues(alpha: 0.75),
+                                color: AppColors.errorDark.withValues(alpha: 0.75),
                                 fontSize: 11,
                                 fontFamily: 'monospace',
                               ),
@@ -282,9 +282,9 @@ class _AuthScreenState extends State<AuthScreen> {
         Text(
           loc.t('auth_subtitle'),
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 14,
-            color: AppColors.deep.withValues(alpha: 0.65),
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -393,9 +393,9 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(width: 6),
             Text(
               loc.t('auth_secure_note'),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                color: AppColors.deep.withValues(alpha: 0.5),
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -409,7 +409,7 @@ class _AuthScreenState extends State<AuthScreen> {
           style: const TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 12.5,
-            color: Color(0xFF8A7357),
+            color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 8),

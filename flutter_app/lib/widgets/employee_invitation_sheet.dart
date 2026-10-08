@@ -5,6 +5,7 @@ import '../auth_store.dart';
 import '../locale_store.dart';
 import '../models.dart';
 import '../positions.dart';
+import '../theme.dart';
 
 /// "Ishga taklif" bildirishnomasi (in-app ro'yxat yoki push) bosilganda
 /// ochiladigan oyna — kutilayotgan takliflarni ko'rsatib, shu yerning
@@ -100,7 +101,7 @@ class _InvitationSheetState extends State<_InvitationSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
                   loc.t('offer_none'),
-                  style: const TextStyle(color: Colors.black54),
+                  style: const TextStyle(color: AppColors.textSecondary),
                 ),
               )
             else
@@ -143,7 +144,7 @@ class _InvitationSheetState extends State<_InvitationSheet> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                child: Text(_error!, style: const TextStyle(color: AppColors.error)),
               ),
           ],
         ),

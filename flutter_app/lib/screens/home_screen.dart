@@ -154,7 +154,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<Product> get _filtered {
     var items = _products;
     if (_selectedCategorySlug != null) {
-      items = items.where((p) => p.categorySlug == _selectedCategorySlug).toList();
+      items =
+          items.where((p) => p.categorySlug == _selectedCategorySlug).toList();
     }
     if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
@@ -267,12 +268,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               width: 60,
               height: 60,
               decoration: const BoxDecoration(
-                color: Color(0xFFFDE8E8),
+                color: AppColors.errorSurface,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.image_not_supported_outlined,
-                color: Color(0xFFC81E1E),
+                color: AppColors.error,
                 size: 30,
               ),
             ),
@@ -290,9 +291,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Text(
               loc.t('image_search_error_desc'),
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13.5,
-                color: AppColors.deep.withValues(alpha: 0.7),
+                color: AppColors.textSecondary,
                 height: 1.45,
               ),
             ),
@@ -378,29 +379,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             children: [
               _searchBar(loc),
               _filterChips(loc),
-              if (_error != null && !OfflineView.isNetworkError(_error))
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    _error.toString(),
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
+              if (_error != null &&
+                  !OfflineView.isNetworkError(_error) &&
+                  !_loading)
+                _errorBanner(loc),
               if (_loading)
-                const Padding(
-                  padding: EdgeInsets.only(top: 40),
-                  child: Center(
-                    child: CircularProgressIndicator(color: AppColors.deep),
-                  ),
-                )
+                const _HomeSkeleton()
               else ...[
                 if (!_isFiltering && _categories.isNotEmpty) ...[
-                  _sectionHeader(loc.t('home_collections'), loc.t('home_collections_subtitle')),
+                  _sectionHeader(loc.t('home_collections'),
+                      loc.t('home_collections_subtitle')),
                   _collectionsRow(),
                   const SizedBox(height: 24),
                 ],
                 if (!_isFiltering && _products.isNotEmpty) ...[
-                  _sectionHeader(loc.t('home_featured'), loc.t('home_featured_subtitle')),
+                  _sectionHeader(
+                      loc.t('home_featured'), loc.t('home_featured_subtitle')),
                   _featuredRow(),
                   const SizedBox(height: 24),
                 ],
@@ -420,13 +414,69 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  Widget _errorBanner(LocaleStore loc) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.errorSurface,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.errorBorder),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: AppColors.error, size: 20),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                _error.toString(),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(color: AppColors.errorDark, fontSize: 13),
+              ),
+            ),
+            TextButton(onPressed: _load, child: Text(loc.t('loc_retry'))),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Kategoriya nomi/slug'idagi kalit so'zga qarab ikonka (backend'da ikonka
+  /// maydoni yo'q); topilmasa — umumiy mebel ikonkasi.
+  static const _categoryIcons = <(List<String>, IconData)>[
+    (['divan', 'sofa', 'yumshoq'], Icons.weekend_rounded),
+    (['karavat', 'krovat', 'yotoq', 'bed', 'matras'], Icons.bed_rounded),
+    (['shkaf', 'garderob', 'jovon', 'komod'], Icons.door_sliding_rounded),
+    (['stol', 'table', 'jurnal'], Icons.table_restaurant_rounded),
+    (['oshxona', 'kuxn', 'kitchen'], Icons.kitchen_rounded),
+    (['bolalar', 'bola', 'kids', 'child'], Icons.child_care_rounded),
+    (['bog', 'tashqi', 'garden', 'outdoor'], Icons.deck_rounded),
+    (['ofis', 'office'], Icons.desk_rounded),
+    (['yoritgich', 'chiroq', 'lamp'], Icons.light_rounded),
+    (['kreslo', 'stul', 'chair'], Icons.chair_alt_rounded),
+  ];
+
+  IconData _categoryIcon(_Category c) {
+    final k = '${c.slug} ${c.nameUz}'.toLowerCase();
+    for (final (words, icon) in _categoryIcons) {
+      if (words.any(k.contains)) return icon;
+    }
+    return Icons.chair_rounded;
+  }
+
   /// Joylashuv hali aniqlanmagan / ruxsat yo'q / GPS o'chiq holati.
   Widget _locationGate(LocaleStore loc, LocationStore location) {
     final checking = location.status == LocationStatus.idle ||
         location.status == LocationStatus.loading ||
         (location.status == LocationStatus.granted && !location.hasFix);
     if (checking) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.deep));
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.deep));
     }
     final gpsOff = location.status == LocationStatus.unavailable;
     return _stateMessage(
@@ -434,7 +484,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       title: loc.t(gpsOff ? 'loc_gps_off_title' : 'loc_required_title'),
       body: loc.t(gpsOff ? 'loc_gps_off_body' : 'loc_required_body'),
       actionLabel: loc.t(
-        gpsOff || location.permanentlyDenied ? 'loc_open_settings' : 'loc_allow',
+        gpsOff || location.permanentlyDenied
+            ? 'loc_open_settings'
+            : 'loc_allow',
       ),
       onAction: () async {
         if (gpsOff || location.permanentlyDenied) {
@@ -476,13 +528,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.deep),
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.deep),
             ),
             const SizedBox(height: 8),
             Text(
               body,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, height: 1.45, color: AppColors.deep.withValues(alpha: 0.7)),
+              style: const TextStyle(
+                  fontSize: 13.5, height: 1.45, color: AppColors.textSecondary),
             ),
             if (actionLabel != null) ...[
               const SizedBox(height: 22),
@@ -491,11 +547,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.deep,
                   foregroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                   elevation: 0,
                 ),
-                child: Text(actionLabel, style: const TextStyle(fontWeight: FontWeight.w700)),
+                child: Text(actionLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
             if (secondaryLabel != null)
@@ -514,19 +573,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.cardBorder),
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.border),
               ),
               child: TextField(
                 controller: _searchCtrl,
+                textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
+                  filled: false,
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
                   hintText: loc.t('catalog_search_hint'),
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFF8A7357)),
+                  hintMaxLines: 1,
+                  prefixIcon:
+                      const Icon(Icons.search, color: AppColors.textSecondary),
                   suffixIcon: _query.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Color(0xFF8A7357)),
+                          icon: const Icon(Icons.close_rounded,
+                              color: AppColors.textSecondary),
                           onPressed: _searchCtrl.clear,
                         )
                       : null,
@@ -537,16 +603,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           const SizedBox(width: 8),
           InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppRadius.md),
             onTap: _pickAndSearchByImage,
             child: Container(
-              width: 48,
-              height: 48,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: AppColors.deep,
-                borderRadius: BorderRadius.circular(16),
+                color: AppColors.brand,
+                borderRadius: BorderRadius.circular(AppRadius.md),
               ),
-              child: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+              child: const Icon(Icons.camera_alt_rounded,
+                  color: AppColors.onBrand),
             ),
           ),
         ],
@@ -571,7 +638,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
               label: Text(
                 loc.t('home_top_products'),
-                style: TextStyle(color: _topOnly ? AppColors.primary : AppColors.deep),
+                style: TextStyle(
+                    color: _topOnly ? AppColors.primary : AppColors.deep),
               ),
               selected: _topOnly,
               onSelected: (_) => _toggleTopOnly(),
@@ -603,7 +671,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: AppColors.deep),
+                  icon: const Icon(Icons.arrow_back_rounded,
+                      color: AppColors.deep),
                   onPressed: _backToHome,
                   tooltip: loc.t('home_back_tooltip'),
                 ),
@@ -612,18 +681,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     isImageSearch
                         ? '${items.length}${loc.t('home_similar_suffix')}'
                         : '${items.length}${loc.t('home_results_suffix')}',
-                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+                    style: const TextStyle(
+                        fontSize: 12.5, color: AppColors.textSecondary),
                   ),
                 ),
               ],
             ),
           )
         else
-          _sectionHeader(loc.t('home_all_products'), '${items.length}${loc.t('home_products_suffix')}'),
+          _sectionHeader(loc.t('home_all_products'),
+              '${items.length}${loc.t('home_products_suffix')}'),
         if (items.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(loc.t('home_nothing_found'), style: const TextStyle(color: Color(0xFF8A7357))),
+            child: Text(loc.t('home_nothing_found'),
+                style: const TextStyle(color: AppColors.textSecondary)),
           )
         else
           Padding(
@@ -653,11 +725,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            style: AppText.sectionTitle,
           ),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+            style:
+                const TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -686,14 +759,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      color: selected
-                          ? AppColors.deep
-                          : AppColors.primary.withValues(alpha: 0.4),
+                      color:
+                          selected ? AppColors.brand : AppColors.backgroundAlt,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      Icons.chair_rounded,
-                      color: selected ? AppColors.primary : AppColors.deep,
+                      _categoryIcon(c),
+                      color: selected ? AppColors.onBrand : AppColors.brand,
                       size: 28,
                     ),
                   ),
@@ -720,7 +792,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _featuredRow() {
     final items = _products.length > 10 ? _products.sublist(0, 10) : _products;
     return SizedBox(
-      height: 240,
+      height: 268,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -745,4 +817,112 @@ class _Category {
         nameUz: j['name_uz'] ?? '',
         slug: j['slug'] ?? '',
       );
+}
+
+/// Yuklanish paytidagi skelet: kategoriya doiralari va mahsulot kartalari o'rnida
+/// yumshoq, "nafas oluvchi" bloklar (bo'sh ekran va aylanuvchi indikator o'rniga).
+class _HomeSkeleton extends StatefulWidget {
+  const _HomeSkeleton();
+
+  @override
+  State<_HomeSkeleton> createState() => _HomeSkeletonState();
+}
+
+class _HomeSkeletonState extends State<_HomeSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 900))
+    ..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  Widget _box(
+      {double? width,
+      double height = 12,
+      double radius = AppRadius.sm,
+      BoxShape shape = BoxShape.rectangle}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.backgroundAlt,
+        shape: shape,
+        borderRadius:
+            shape == BoxShape.circle ? null : BorderRadius.circular(radius),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween(begin: 0.45, end: 1.0).animate(_pulse),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _box(width: 140, height: 18),
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              height: 84,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: 5,
+                separatorBuilder: (_, __) => const SizedBox(width: 14),
+                itemBuilder: (_, __) => Column(
+                  children: [
+                    _box(width: 64, height: 64, shape: BoxShape.circle),
+                    const SizedBox(height: 6),
+                    _box(width: 48, height: 8),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            _box(width: 160, height: 18),
+            const SizedBox(height: AppSpacing.md),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              childAspectRatio: 0.62,
+              children: List.generate(
+                4,
+                (_) => Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                          child: _box(
+                              height: double.infinity, radius: AppRadius.md)),
+                      const SizedBox(height: AppSpacing.md),
+                      _box(height: 12),
+                      const SizedBox(height: 6),
+                      _box(width: 70, height: 10),
+                      const SizedBox(height: 8),
+                      _box(width: 90, height: 14),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

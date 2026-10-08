@@ -124,7 +124,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         appBar: AppBar(title: Text(loc.t('product_title'))),
         body: Center(
           child: _error != null
-              ? Text(_error!, style: const TextStyle(color: Colors.red))
+              ? Text(_error!, style: const TextStyle(color: AppColors.error))
               : const CircularProgressIndicator(color: AppColors.deep),
         ),
       );
@@ -162,7 +162,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         fontWeight: FontWeight.w800,
                         fontSize: 11.5,
                         letterSpacing: 0.6,
-                        color: Color(0xFF8A7357),
+                        color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -177,8 +177,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               color: selected
-                                  ? const Color(0xFFECC299)
-                                  : const Color(0xFF4C2C24),
+                                  ? AppColors.backgroundAlt
+                                  : AppColors.brand,
                             ),
                           ),
                           selected: selected,
@@ -228,7 +228,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       child: TabBar(
         controller: _tabController,
         labelColor: AppColors.deep,
-        unselectedLabelColor: const Color(0xFF8A7357),
+        unselectedLabelColor: AppColors.textSecondary,
         indicatorColor: AppColors.deep,
         dividerColor: AppColors.cardBorder,
         labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
@@ -244,7 +244,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     if (p.description?.isNotEmpty != true) {
       return Text(
         loc.t('product_no_description'),
-        style: const TextStyle(fontSize: 13, color: Color(0xFF8A7357)),
+        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
       );
     }
     return Text(
@@ -279,7 +279,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     if (rows.isEmpty) {
       return Text(
         loc.t('product_no_characteristics'),
-        style: const TextStyle(fontSize: 13, color: Color(0xFF8A7357)),
+        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
       );
     }
     return Column(
@@ -294,7 +294,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     width: 130,
                     child: Text(
                       r.$1,
-                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+                      style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
                     ),
                   ),
                   Expanded(
@@ -540,13 +540,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         const Icon(
           Icons.location_on_rounded,
           size: 15,
-          color: Color(0xFF8A7357),
+          color: AppColors.textSecondary,
         ),
         const SizedBox(width: 4),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 12.5, color: Color(0xFF8A7357)),
+            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
           ),
         ),
       ],
@@ -687,7 +687,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         content: Container(
           padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
           decoration: BoxDecoration(
-            color: const Color(0xFF2E1A15),
+            color: AppColors.brandPressed,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: AppColors.primary.withValues(alpha: 0.35),
@@ -742,7 +742,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     child: Container(
                       padding: const EdgeInsets.all(2.5),
                       decoration: const BoxDecoration(
-                        color: Color(0xFF27AE60),
+                        color: AppColors.success,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -800,12 +800,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFECC299), Color(0xFFDFC0A0)],
+                      colors: [AppColors.backgroundAlt, AppColors.backgroundAlt],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFECC299).withValues(alpha: 0.3),
+                        color: AppColors.backgroundAlt.withValues(alpha: 0.3),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -851,7 +851,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           borderRadius: BorderRadius.circular(16),
           gradient: _justAddedToCart
               ? const LinearGradient(
-                  colors: [Color(0xFF27AE60), Color(0xFF2ECC71)],
+                  colors: [AppColors.success, AppColors.success],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 )
@@ -863,7 +863,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           boxShadow: [
             BoxShadow(
               color: (_justAddedToCart
-                      ? const Color(0xFF27AE60)
+                      ? AppColors.success
                       : AppColors.deep)
                   .withValues(alpha: 0.28),
               blurRadius: 14,
@@ -896,7 +896,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                             ),
                             child: const Icon(
                               Icons.check,
-                              color: Color(0xFF27AE60),
+                              color: AppColors.success,
                               size: 14,
                             ),
                           ),
@@ -963,7 +963,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               fontSize: 11,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.6,
-              color: Color(0xFF8A7357),
+              color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
@@ -980,7 +980,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.green.shade600,
+                color: AppColors.success,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
@@ -1009,7 +1009,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF8A7357),
+                color: AppColors.textSecondary,
               ),
             ),
         ],
@@ -1123,18 +1123,18 @@ class _Model3DViewerSheetState extends State<_Model3DViewerSheet>
                     child: Container(
                       width: 68,
                       height: 68,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [AppColors.deep, Color(0xFF2E1A15)],
+                        gradient: LinearGradient(
+                          colors: [AppColors.deep, AppColors.brandPressed],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.deep.withValues(alpha: 0.3),
+                            color: AppColors.textDisabled,
                             blurRadius: 16,
-                            offset: const Offset(0, 6),
+                            offset: Offset(0, 6),
                           ),
                         ],
                       ),

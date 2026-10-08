@@ -20,7 +20,7 @@ class ProductCard extends StatelessWidget {
         ? product.variants.first.basePriceValue
         : null;
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ProductDetailScreen(productId: product.id),
@@ -28,16 +28,9 @@ class ProductCard extends StatelessWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.cardBorder),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: AppColors.border),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -46,25 +39,34 @@ class ProductCard extends StatelessWidget {
             Expanded(
               child: Stack(
                 children: [
+                  // Rasm hech qachon cho'zilmaydi/kesilmaydi: `contain` + ichki
+                  // bo'sh joy — butun mebel ko'rinadi, shaffof fonli rasmlar ham
+                  // yumshoq fon ustida toza turadi.
                   Positioned.fill(
-                    child: product.cardImageUrl != null
-                        ? Image.network(
-                            product.cardImageUrl!,
-                            fit: BoxFit.cover,
-                          )
-                        : Container(
-                            color: AppColors.primary.withValues(alpha: 0.35),
-                            child: const Icon(
-                              Icons.chair_rounded,
-                              size: 42,
-                              color: AppColors.deep,
-                            ),
-                          ),
+                    child: ColoredBox(
+                      color: AppColors.background,
+                      child: product.cardImageUrl != null
+                          ? Padding(
+                              padding: const EdgeInsets.all(AppSpacing.sm),
+                              child: Image.network(
+                                product.cardImageUrl!,
+                                fit: BoxFit.contain,
+                                loadingBuilder: (_, child, progress) =>
+                                    progress == null
+                                        ? child
+                                        : const ColoredBox(
+                                            color: AppColors.backgroundAlt),
+                                errorBuilder: (_, __, ___) =>
+                                    const _ImagePlaceholder(),
+                              ),
+                            )
+                          : const _ImagePlaceholder(),
+                    ),
                   ),
                   Positioned(
-                    top: 8,
-                    left: 8,
-                    right: 8,
+                    top: AppSpacing.sm,
+                    left: AppSpacing.sm,
+                    right: AppSpacing.sm,
                     child: Row(
                       children: [
                         if (hasAr)
@@ -74,23 +76,24 @@ class ProductCard extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.deep,
-                              borderRadius: BorderRadius.circular(20),
+                              color: AppColors.brand,
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.pill),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
                                   Icons.view_in_ar_rounded,
-                                  size: 11,
-                                  color: AppColors.primary,
+                                  size: 12,
+                                  color: AppColors.onBrand,
                                 ),
                                 SizedBox(width: 3),
                                 Text(
                                   '3D',
                                   style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 10,
+                                    color: AppColors.onBrand,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
@@ -104,42 +107,24 @@ class ProductCard extends StatelessWidget {
                   ),
                   if (product.availableQuantity > 0)
                     Positioned(
-                      bottom: 8,
-                      left: 8,
+                      bottom: AppSpacing.sm,
+                      left: AppSpacing.sm,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 9,
-                          vertical: 5,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade600,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                          color: AppColors.success,
+                          borderRadius: BorderRadius.circular(AppRadius.pill),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.inventory_2_rounded,
-                              size: 12,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${product.availableQuantity} ${loc.t('unit_pcs')}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          '${product.availableQuantity} ${loc.t('unit_pcs')}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -147,18 +132,20 @@ class ProductCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm + 2,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     product.nameUz,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13.5,
-                    ),
+                    style: AppText.productName,
                   ),
                   if (product.attributeSummary != null) ...[
                     const SizedBox(height: 2),
@@ -167,8 +154,8 @@ class ProductCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.deep,
+                        fontSize: 12,
+                        color: AppColors.brandSecondary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -178,22 +165,15 @@ class ProductCard extends StatelessWidget {
                     product.companyName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      color: Color(0xFF8A7357),
-                    ),
+                    style: AppText.caption,
                   ),
                   if (price != null) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.sm - 2),
                     Text(
                       '${formatSom(price.toStringAsFixed(0))} ${loc.t('currency_som')}${loc.t('price_from_suffix')}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.secondary,
-                      ),
+                      style: AppText.price,
                     ),
                   ],
                 ],
@@ -201,6 +181,21 @@ class ProductCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  const _ImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: AppColors.backgroundAlt,
+      child: Center(
+        child:
+            Icon(Icons.chair_rounded, size: 40, color: AppColors.textDisabled),
       ),
     );
   }

@@ -59,7 +59,7 @@ class SplashScreen extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                Center(
+                const Center(
                   child: SizedBox(
                     width: 28,
                     height: 28,

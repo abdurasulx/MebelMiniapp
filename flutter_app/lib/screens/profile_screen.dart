@@ -50,7 +50,7 @@ Future<void> pickLanguage(BuildContext context) async {
                 leading: Text(l.flag, style: const TextStyle(fontSize: 22)),
                 title: Text(l.nativeName),
                 trailing: loc.code == l.code
-                    ? const Icon(Icons.check, color: Color(0xFF4C2C24))
+                    ? const Icon(Icons.check, color: AppColors.brand)
                     : null,
                 onTap: () => Navigator.pop(ctx, l.code),
               ),
@@ -140,9 +140,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
     final user = widget.user;
     final auth = context.watch<AuthStore>();
     final loc = context.watch<LocaleStore>();
-    final pendingInvitations = _invitations
-        .where((i) => i.status == 'pending')
-        .toList();
+    final pendingInvitations =
+        _invitations.where((i) => i.status == 'pending').toList();
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -160,7 +159,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 onTap: user.phoneVerified
                     ? null
                     : () async {
-                        final ok = await showPhoneVerifyDialog(context, initialPhone: user.phone);
+                        final ok = await showPhoneVerifyDialog(context,
+                            initialPhone: user.phone);
                         if (ok == true && context.mounted) auth.refreshUser();
                       },
                 child: Container(
@@ -168,20 +168,22 @@ class _ProfileBodyState extends State<_ProfileBody> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: user.phoneVerified ? Colors.green : Colors.orange,
+                      color: user.phoneVerified
+                          ? AppColors.success
+                          : AppColors.warning,
                       width: 2.5,
                     ),
                   ),
                   child: CircleAvatar(
-                    radius: 28,
-                    backgroundColor: const Color(0xFFECC299),
+                    radius: 30,
+                    backgroundColor: AppColors.backgroundAlt,
                     child: Text(
                       (user.firstName?.isNotEmpty == true
                               ? user.firstName![0]
                               : user.email[0])
                           .toUpperCase(),
                       style: const TextStyle(
-                        color: Color(0xFF4C2C24),
+                        color: AppColors.brand,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -195,18 +197,21 @@ class _ProfileBodyState extends State<_ProfileBody> {
                   children: [
                     Text(
                       ([user.firstName, user.lastName]
-                              .where((s) => s != null && s.trim().isNotEmpty)
-                              .join(' '))
-                          .trim()
-                          .isNotEmpty
+                                  .where(
+                                      (s) => s != null && s.trim().isNotEmpty)
+                                  .join(' '))
+                              .trim()
+                              .isNotEmpty
                           ? [user.firstName, user.lastName]
                               .where((s) => s != null && s.trim().isNotEmpty)
                               .join(' ')
                           : user.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 17,
-                        color: AppColors.deep,
+                        fontSize: 18,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     if (user.email.isNotEmpty &&
@@ -214,18 +219,18 @@ class _ProfileBodyState extends State<_ProfileBody> {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.mail_outline_rounded,
                             size: 14,
-                            color: AppColors.deep.withValues(alpha: 0.6),
+                            color: AppColors.textSecondary,
                           ),
                           const SizedBox(width: 5),
                           Flexible(
                             child: Text(
                               user.email,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
-                                color: AppColors.deep.withValues(alpha: 0.7),
+                                color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w500,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -238,17 +243,19 @@ class _ProfileBodyState extends State<_ProfileBody> {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.phone_outlined,
                             size: 13.5,
-                            color: AppColors.deep.withValues(alpha: 0.6),
+                            color: AppColors.textSecondary,
                           ),
                           const SizedBox(width: 5),
                           Text(
                             user.phone!,
-                            style: TextStyle(
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
                               fontSize: 12.5,
-                              color: AppColors.deep.withValues(alpha: 0.7),
+                              color: AppColors.textSecondary,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -261,9 +268,10 @@ class _ProfileBodyState extends State<_ProfileBody> {
                         children: [
                           Text(
                             'ID: ${user.workerId}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                           ),
                           const SizedBox(width: 4),
                           GestureDetector(
@@ -296,7 +304,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(loc.t('profile_linked_accounts'), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(loc.t('profile_linked_accounts'),
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   _LinkedAccountRow(
                     iconAsset: 'assets/icons/google_logo.png',
@@ -311,8 +320,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
                     onLink: () async {
                       final ok = await auth.linkGoogle();
                       if (!ok && auth.errorMessage != null && context.mounted) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(auth.errorMessage!)));
                       }
                     },
                   ),
@@ -325,8 +334,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
                     onLink: () async {
                       final ok = await auth.linkTelegram();
                       if (!ok && auth.errorMessage != null && context.mounted) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text(auth.errorMessage!)));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(auth.errorMessage!)));
                       }
                     },
                   ),
@@ -342,10 +351,11 @@ class _ProfileBodyState extends State<_ProfileBody> {
               title: Text(loc.t('profile_language')),
               trailing: Builder(
                 builder: (_) {
-                  final current = supportedLocales.firstWhere((l) => l.code == loc.code);
+                  final current =
+                      supportedLocales.firstWhere((l) => l.code == loc.code);
                   return Text(
                     '${current.flag} ${current.nativeName}',
-                    style: const TextStyle(color: Color(0xFF8A7357)),
+                    style: const TextStyle(color: AppColors.textSecondary),
                   );
                 },
               ),
@@ -367,7 +377,9 @@ class _ProfileBodyState extends State<_ProfileBody> {
             const SizedBox(height: 8),
             SegmentedButton<AppMode>(
               segments: [
-                ButtonSegment(value: AppMode.customer, label: Text(loc.t('profile_customer_mode'))),
+                ButtonSegment(
+                    value: AppMode.customer,
+                    label: Text(loc.t('profile_customer_mode'))),
                 ButtonSegment(
                   value: AppMode.worker,
                   label: Text(
@@ -387,7 +399,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
                   final chosen = await showModalBottomSheet<String>(
                     context: context,
                     showDragHandle: true,
-                    builder: (ctx) => _RolePickerSheet(positions: user.positions),
+                    builder: (ctx) =>
+                        _RolePickerSheet(positions: user.positions),
                   );
                   if (chosen != null) auth.enterWorkerMode(chosen);
                 }
@@ -398,7 +411,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
                   '${loc.t('profile_current_mode_prefix')}${positionInfo(auth.activePosition!, loc).label}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF8A7357)),
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary),
                 ),
               ),
             const SizedBox(height: 20),
@@ -424,7 +438,9 @@ class _ProfileBodyState extends State<_ProfileBody> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        inv.positions.map((p) => positionInfo(p, loc).label).join(', '),
+                        inv.positions
+                            .map((p) => positionInfo(p, loc).label)
+                            .join(', '),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 8),
@@ -464,11 +480,14 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 dense: true,
                 leading: Icon(c.isActive ? Icons.work : Icons.work_outline),
                 title: Text(c.companyName),
-                subtitle: Text(c.positions.map((p) => positionInfo(p, loc).label).join(', ')),
+                subtitle: Text(c.positions
+                    .map((p) => positionInfo(p, loc).label)
+                    .join(', ')),
                 trailing: c.isActive
                     ? Text(
                         loc.t('profile_career_active_now'),
-                        style: const TextStyle(color: Colors.green, fontSize: 12),
+                        style: const TextStyle(
+                            color: AppColors.success, fontSize: 12),
                       )
                     : null,
               ),
@@ -478,7 +497,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
 
           OutlinedButton(
             onPressed: () => context.read<AuthStore>().logout(),
-            style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
             child: Text(loc.t('common_logout')),
           ),
           const DeleteAccountSection(),
@@ -492,18 +511,17 @@ class _ProfileBodyState extends State<_ProfileBody> {
           if (_orders.isEmpty)
             Text(
               loc.t('orders_empty'),
-              style: const TextStyle(color: Color(0xFF8A7357)),
+              style: const TextStyle(color: AppColors.textSecondary),
             )
           else ...[
             // Ro'yxat cheklanadi: firma egasi uchun barcha buyurtmalar ko'p
             // bo'lishi mumkin — bu yerda faqat so'nggilari ko'rsatiladi.
-            ..._orders
-                .take(5)
-                .map(
+            ..._orders.take(5).map(
                   (o) => Card(
                     child: InkWell(
                       onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => OrderDetailScreen(order: o)),
+                        MaterialPageRoute(
+                            builder: (_) => OrderDetailScreen(order: o)),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
@@ -515,7 +533,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
                                 children: [
                                   Text(
                                     o.companyName,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
                                   ),
                                   Text(
                                     '${formatSom(o.totalPrice)} ${loc.t('currency_som')}',
@@ -528,7 +547,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFECC299).withValues(alpha: 0.4),
+                                      color: AppColors.backgroundAlt
+                                          .withValues(alpha: 0.4),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
@@ -539,7 +559,8 @@ class _ProfileBodyState extends State<_ProfileBody> {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.chevron_right, color: Color(0xFF8A7357)),
+                            const Icon(Icons.chevron_right,
+                                color: AppColors.textSecondary),
                           ],
                         ),
                       ),
@@ -553,7 +574,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
                   '${loc.t('orders_more_prefix')}${_orders.length - 5}${loc.t('orders_more_suffix')}',
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF8A7357),
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ),
@@ -603,15 +624,16 @@ class _LinkedAccountRowState extends State<_LinkedAccountRow> {
             children: [
               Text(
                 widget.label,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
               ),
               if (widget.subtitle != null) ...[
                 const SizedBox(height: 2),
                 Text(
                   widget.subtitle!,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
-                    color: AppColors.deep.withValues(alpha: 0.65),
+                    color: AppColors.textSecondary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -623,12 +645,13 @@ class _LinkedAccountRowState extends State<_LinkedAccountRow> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle_rounded, color: Color(0xFF27AE60), size: 16),
+              const Icon(Icons.check_circle_rounded,
+                  color: AppColors.success, size: 16),
               const SizedBox(width: 4),
               Text(
                 widget.loc.t('profile_linked'),
                 style: const TextStyle(
-                  color: Color(0xFF27AE60),
+                  color: AppColors.success,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -682,10 +705,12 @@ class _RolePickerSheet extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
-                  backgroundColor: const Color(0xFFECC299),
-                  child: Icon(positionInfo(p, loc).icon, color: const Color(0xFF4C2C24), size: 20),
+                  backgroundColor: AppColors.backgroundAlt,
+                  child: Icon(positionInfo(p, loc).icon,
+                      color: AppColors.brand, size: 20),
                 ),
-                title: Text(positionInfo(p, loc).label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                title: Text(positionInfo(p, loc).label,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text(positionInfo(p, loc).desc),
                 onTap: () => Navigator.pop(context, p),
               ),

@@ -4,6 +4,7 @@ import '../../api_client.dart';
 import '../../locale_store.dart';
 import '../../models.dart';
 import '../../widgets/offline_view.dart';
+import '../../theme.dart';
 
 /// Faqat ko'rish uchun ombor ro'yxati — boshqaruv (kirim/chiqim, varaq
 /// kirim qilish, material qo'shish) hozircha faqat veb-portalda.
@@ -59,13 +60,13 @@ class _WarehousesScreenState extends State<WarehousesScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null && !OfflineView.isNetworkError(_error)
-                ? Center(child: Text(_error.toString(), style: const TextStyle(color: Colors.red)))
+                ? Center(child: Text(_error.toString(), style: const TextStyle(color: AppColors.error)))
                 : _warehouses.isEmpty
                     ? ListView(
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(top: 60),
-                            child: Center(child: Text(loc.t('warehouses_empty'), style: const TextStyle(color: Colors.black54))),
+                            child: Center(child: Text(loc.t('warehouses_empty'), style: const TextStyle(color: AppColors.textSecondary))),
                           ),
                         ],
                       )
@@ -158,7 +159,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null && !OfflineView.isNetworkError(_error)
-                ? Center(child: Text(_error.toString(), style: const TextStyle(color: Colors.red)))
+                ? Center(child: Text(_error.toString(), style: const TextStyle(color: AppColors.error)))
                 : !_isRawMaterial
                     ? ListView(
                         children: [
@@ -167,7 +168,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
                             child: Center(
                               child: Text(
                                 loc.t('warehouse_ready_goods_note'),
-                                style: const TextStyle(color: Colors.black54),
+                                style: const TextStyle(color: AppColors.textSecondary),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -182,7 +183,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
                           if (_stocks.isEmpty)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(loc.t('warehouse_no_stocks'), style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                              child: Text(loc.t('warehouse_no_stocks'), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                             ),
                           ..._stocks.map(
                             (s) => Card(
@@ -200,7 +201,7 @@ class _WarehouseDetailScreenState extends State<WarehouseDetailScreen> {
                           if (_remnants.isEmpty)
                             Padding(
                               padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(loc.t('warehouse_no_offcuts'), style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                              child: Text(loc.t('warehouse_no_offcuts'), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                             ),
                           ..._remnants.map(
                             (r) => Card(

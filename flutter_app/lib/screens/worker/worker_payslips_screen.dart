@@ -4,6 +4,7 @@ import '../../api_client.dart';
 import '../../locale_store.dart';
 import '../../models.dart';
 import '../../widgets/offline_view.dart';
+import '../../theme.dart';
 
 /// To'lov turiga mos asosiy summa tavsifi — web'dagi `payBreakdown()`
 /// (FirmaPayroll.jsx) bilan bir xil.
@@ -84,14 +85,14 @@ class _WorkerPayslipsScreenState extends State<WorkerPayslipsScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null && !OfflineView.isNetworkError(_error)
-                ? Center(child: Text(_error.toString(), style: const TextStyle(color: Colors.red)))
+                ? Center(child: Text(_error.toString(), style: const TextStyle(color: AppColors.error)))
                 : _payslips.isEmpty
                     ? ListView(
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(top: 60),
                             child: Center(
-                              child: Text(loc.t('payslip_empty'), style: const TextStyle(color: Colors.black54)),
+                              child: Text(loc.t('payslip_empty'), style: const TextStyle(color: AppColors.textSecondary)),
                             ),
                           ),
                         ],
@@ -179,7 +180,7 @@ class _PayslipTileState extends State<_PayslipTile> {
                           const SizedBox(height: 2),
                           Text(
                             "${formatSom(paidTotal.toStringAsFixed(0))}${loc.t('payslip_advance_taken')}",
-                            style: const TextStyle(fontSize: 11, color: Colors.black45),
+                            style: const TextStyle(fontSize: 11, color: AppColors.textDisabled),
                           ),
                         ],
                       ],
@@ -203,14 +204,14 @@ class _PayslipTileState extends State<_PayslipTile> {
                           p.isPaid ? loc.t('payslip_paid') : loc.t('payslip_pending'),
                           style: TextStyle(
                             fontSize: 11,
-                            color: p.isPaid ? Colors.green.shade800 : Colors.orange.shade800,
+                            color: p.isPaid ? AppColors.success : AppColors.warning,
                           ),
                         ),
                       ),
                       Icon(
                         _expanded ? Icons.expand_less : Icons.expand_more,
                         size: 16,
-                        color: Colors.black45,
+                        color: AppColors.textDisabled,
                       ),
                     ],
                   ),
@@ -221,9 +222,9 @@ class _PayslipTileState extends State<_PayslipTile> {
                 if (_loading)
                   const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator(strokeWidth: 2)))
                 else if (_error != null)
-                  Text(_error.toString(), style: const TextStyle(color: Colors.red, fontSize: 12))
+                  Text(_error.toString(), style: const TextStyle(color: AppColors.error, fontSize: 12))
                 else if ((_payments ?? []).isEmpty)
-                  Text(loc.t('payslip_no_payments'), style: const TextStyle(fontSize: 12, color: Colors.black54))
+                  Text(loc.t('payslip_no_payments'), style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))
                 else
                   ..._payments!.map(
                     (pm) => Padding(
@@ -238,7 +239,7 @@ class _PayslipTileState extends State<_PayslipTile> {
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
-                          Text(pm.paidAt, style: const TextStyle(fontSize: 11, color: Colors.black45)),
+                          Text(pm.paidAt, style: const TextStyle(fontSize: 11, color: AppColors.textDisabled)),
                         ],
                       ),
                     ),

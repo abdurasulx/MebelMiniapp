@@ -105,7 +105,8 @@ class _CartScreenState extends State<CartScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(loc.t('cart_empty_title')),
-        content: const Text("Savatdagi barcha mahsulotlarni o'chirmoqchimisiz?"),
+        content:
+            const Text("Savatdagi barcha mahsulotlarni o'chirmoqchimisiz?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -113,7 +114,7 @@ class _CartScreenState extends State<CartScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFC81E1E),
+              backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
             ),
             onPressed: () {
@@ -138,7 +139,8 @@ class _CartScreenState extends State<CartScreen> {
         actions: [
           if (cart.items.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined, color: AppColors.deep),
+              icon: const Icon(Icons.delete_sweep_outlined,
+                  color: AppColors.deep),
               tooltip: 'Tozalash',
               onPressed: () => _confirmClear(cart, loc),
             ),
@@ -159,8 +161,8 @@ class _CartScreenState extends State<CartScreen> {
             Container(
               width: 90,
               height: 90,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.3),
+              decoration: const BoxDecoration(
+                color: AppColors.backgroundAlt,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -182,8 +184,8 @@ class _CartScreenState extends State<CartScreen> {
             Text(
               loc.t('cart_empty_subtitle'),
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.deep.withValues(alpha: 0.65),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
                 fontSize: 14,
                 height: 1.4,
               ),
@@ -194,7 +196,8 @@ class _CartScreenState extends State<CartScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.deep,
                 foregroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -202,7 +205,8 @@ class _CartScreenState extends State<CartScreen> {
               ),
               child: Text(
                 loc.t('cart_start_shopping'),
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
             ),
           ],
@@ -219,8 +223,8 @@ class _CartScreenState extends State<CartScreen> {
           padding: const EdgeInsets.only(bottom: 10, left: 4),
           child: Text(
             '${cart.items.length} ${loc.t('cart_items_count')}',
-            style: TextStyle(
-              color: AppColors.deep.withValues(alpha: 0.65),
+            style: const TextStyle(
+              color: AppColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -234,20 +238,20 @@ class _CartScreenState extends State<CartScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFDE8E8),
+              color: AppColors.errorSurface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFF8B4B4)),
+              border: Border.all(color: AppColors.errorBorder),
             ),
             child: Row(
               children: [
                 const Icon(Icons.error_outline_rounded,
-                    color: Color(0xFFC81E1E), size: 18),
+                    color: AppColors.error, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     _error!,
                     style: const TextStyle(
-                      color: Color(0xFF9B1C1C),
+                      color: AppColors.errorDark,
                       fontSize: 13,
                     ),
                   ),
@@ -266,47 +270,36 @@ class _CartScreenState extends State<CartScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: i.imageUrl != null
-                ? Image.network(
-                    i.imageUrl!,
-                    width: 72,
-                    height: 72,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 72,
-                      height: 72,
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      child: const Icon(
-                        Icons.chair_rounded,
-                        color: AppColors.deep,
-                      ),
-                    ),
-                  )
-                : Container(
-                    width: 72,
-                    height: 72,
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    child: const Icon(
-                      Icons.chair_rounded,
-                      color: AppColors.deep,
-                    ),
-                  ),
+            borderRadius: BorderRadius.circular(AppRadius.sm + 2),
+            child: SizedBox(
+              width: 80,
+              height: 80,
+              child: ColoredBox(
+                color: AppColors.background,
+                child: i.imageUrl != null
+                    ? Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xs),
+                        child: Image.network(
+                          i.imageUrl!,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.chair_rounded,
+                            color: AppColors.textDisabled,
+                          ),
+                        ),
+                      )
+                    : const Icon(Icons.chair_rounded,
+                        color: AppColors.textDisabled),
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -332,11 +325,13 @@ class _CartScreenState extends State<CartScreen> {
                     IconButton(
                       icon: const Icon(
                         Icons.close_rounded,
-                        size: 18,
-                        color: Color(0xFFC81E1E),
+                        size: 20,
+                        color: AppColors.textSecondary,
                       ),
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                      constraints:
+                          const BoxConstraints(minWidth: 36, minHeight: 36),
                       onPressed: () => cart.removeAt(index),
                       tooltip: "O'chirish",
                     ),
@@ -344,7 +339,8 @@ class _CartScreenState extends State<CartScreen> {
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(6),
@@ -354,7 +350,7 @@ class _CartScreenState extends State<CartScreen> {
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF8A7357),
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),
@@ -386,7 +382,7 @@ class _CartScreenState extends State<CartScreen> {
                             () => cart.setQty(index, i.qty - 1),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
                             child: Text(
                               '${i.qty}',
                               style: const TextStyle(
@@ -417,9 +413,10 @@ class _CartScreenState extends State<CartScreen> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
-      child: Padding(
-        padding: const EdgeInsets.all(5),
-        child: Icon(icon, size: 16, color: AppColors.deep),
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: Icon(icon, size: 18, color: AppColors.brand),
       ),
     );
   }
@@ -449,11 +446,13 @@ class _CartScreenState extends State<CartScreen> {
             children: [
               Text(
                 '${loc.t('cart_total')} (${cart.items.length} ${loc.t('cart_items_count')}):',
-                style: const TextStyle(color: Color(0xFF8A7357), fontSize: 13.5),
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 13.5),
               ),
               Text(
                 '${formatSom(cart.total.toStringAsFixed(0))} so\'m',
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
               ),
             ],
           ),
@@ -463,7 +462,8 @@ class _CartScreenState extends State<CartScreen> {
             children: [
               Text(
                 loc.t('cart_delivery'),
-                style: const TextStyle(color: Color(0xFF8A7357), fontSize: 13.5),
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 13.5),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -474,7 +474,7 @@ class _CartScreenState extends State<CartScreen> {
                 child: Text(
                   loc.t('cart_delivery_free'),
                   style: const TextStyle(
-                    color: Color(0xFF2E7D32),
+                    color: AppColors.success,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
@@ -539,8 +539,8 @@ class _CartScreenState extends State<CartScreen> {
             children: [
               Text(
                 loc.t('cart_total'),
-                style: TextStyle(
-                  color: AppColors.deep.withValues(alpha: 0.6),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                 ),
