@@ -23,7 +23,7 @@ from apps.companies.models import Company
 from apps.orders.models import Order
 from apps.products.models import Product
 
-from . import telegram_bot
+from . import sms, telegram_bot
 from .google_auth import exchange_google_code, verify_google_credential
 from .models import AccountDeletionRequest, GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession
 from .serializers import (
@@ -843,12 +843,17 @@ def _request_otp(phone: str) -> dict:
         raise ValidationError("Juda ko'p urinish. Bir soatdan so'ng qayta urinib ko'ring")
 
     code = "".join(random.choices("0123456789", k=6))
-    PhoneOTP.objects.create(phone=phone, code=code)
-    return {
-        "detail": "SMS yuborildi",
-        "debug_code": code,
-        "resend_after": PhoneOTP.RESEND_COOLDOWN_SECONDS,
-    }
+    otp = PhoneOTP.objects.create(phone=phone, code=code)
+    response = {"detail": "SMS yuborildi", "resend_after": PhoneOTP.RESEND_COOLDOWN_SECONDS}
+    if sms.is_configured():
+        try:
+            sms.send_otp(phone, code)
+        except sms.SMSError:
+            otp.delete()  # yuborilmagan kod cooldown/limitga hisoblanmasin
+            raise ValidationError("SMS yuborib bo'lmadi. Birozdan so'ng qayta urinib ko'ring")
+    else:
+        response["debug_code"] = code  # SMS provayder sozlanmagan (dev)
+    return response
 
 
 def _consume_otp(phone: str, code: str) -> None:
@@ -879,8 +884,8 @@ def _consume_otp(phone: str, code: str) -> None:
 
 
 class OTPRequestView(APIView):
-    """Telefon raqamga SMS kod yuborish (hozircha SMS provayder yo'q — kod
-    javobda `debug_code` sifatida qaytariladi).
+    """Telefon raqamga SMS kod yuborish (Eskiz orqali; provayder sozlanmagan
+    dev muhitda kod javobda `debug_code` sifatida qaytariladi).
 
     Suiiste'moldan himoya: bir raqamga ketma-ket so'rovlar orasida eng kam
     `RESEND_COOLDOWN_SECONDS`, bir soatda esa ko'pi bilan `MAX_OTP_PER_HOUR`

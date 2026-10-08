@@ -928,3 +928,43 @@ class AccountDeletionFlowTests(TestCase):
         with self.assertRaises(ValidationError) as ctx:
             _resolve_google_user({"sub": "sub-123", "email": "yangi@example.com"})
         self.assertIn("Bu hisobga kirib bo'lmaydi", str(ctx.exception.detail))
+
+
+class EskizSMSTests(TestCase):
+    """OTP Eskiz orqali yuboriladi; sozlanmagan bo'lsa debug_code qaytadi."""
+
+    def _request(self, phone="+998901234567"):
+        return self.client.post(
+            reverse("otp-request"), {"phone": phone}, content_type="application/json"
+        )
+
+    def test_not_configured_returns_debug_code(self):
+        resp = self._request()
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("debug_code", resp.json())
+
+    def test_configured_sends_sms_and_hides_code(self):
+        with self.settings(ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"), patch(
+            "apps.users.sms.send_otp"
+        ) as send:
+            resp = self._request()
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("debug_code", resp.json())
+        otp = PhoneOTP.objects.get(phone="+998901234567")
+        send.assert_called_once_with("+998901234567", otp.code)
+
+    def test_send_failure_rolls_back_otp(self):
+        from .sms import SMSError
+
+        with self.settings(ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"), patch(
+            "apps.users.sms.send_otp", side_effect=SMSError("boom")
+        ):
+            resp = self._request()
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(PhoneOTP.objects.filter(phone="+998901234567").exists())
+
+    def test_normalize_phone(self):
+        from .sms import normalize_phone
+
+        self.assertEqual(normalize_phone("+998 88 236-80-06"), "998882368006")
+        self.assertEqual(normalize_phone("882368006"), "998882368006")
