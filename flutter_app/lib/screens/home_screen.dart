@@ -786,11 +786,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           selected ? AppColors.brand : AppColors.backgroundAlt,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      _categoryIcon(c),
-                      color: selected ? AppColors.onBrand : AppColors.brand,
-                      size: 28,
-                    ),
+                    // Backend kategoriya rasmini bersa — rasm (qirqilgan doira), aks holda ikonka.
+                    child: c.imageUrl != null && c.imageUrl!.isNotEmpty
+                        ? ClipOval(
+                            child: Image.network(
+                              c.imageUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(
+                                _categoryIcon(c),
+                                color: selected
+                                    ? AppColors.onBrand
+                                    : AppColors.brand,
+                                size: 28,
+                              ),
+                            ),
+                          )
+                        : Icon(
+                            _categoryIcon(c),
+                            color:
+                                selected ? AppColors.onBrand : AppColors.brand,
+                            size: 28,
+                          ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -834,11 +850,17 @@ class _Category {
   final String id;
   final String nameUz;
   final String slug;
-  _Category({required this.id, required this.nameUz, required this.slug});
+  final String? imageUrl;
+  _Category(
+      {required this.id,
+      required this.nameUz,
+      required this.slug,
+      this.imageUrl});
   factory _Category.fromJson(Map<String, dynamic> j) => _Category(
         id: j['id'],
         nameUz: j['name_uz'] ?? '',
         slug: j['slug'] ?? '',
+        imageUrl: j['image_url'],
       );
 }
 

@@ -71,6 +71,46 @@ class AppUser {
   );
 }
 
+/// Backend hisoblagan narx bloki (`pricing`): frontend chegirmani O'ZI hisoblamaydi.
+class PricingInfo {
+  final double originalPrice;
+  final double discountPercent;
+  final double discountAmount;
+  final double finalPrice;
+  const PricingInfo({
+    required this.originalPrice,
+    required this.discountPercent,
+    required this.discountAmount,
+    required this.finalPrice,
+  });
+  bool get hasDiscount => discountAmount > 0 && finalPrice < originalPrice;
+
+  factory PricingInfo.fromJson(Map<String, dynamic> j) => PricingInfo(
+    originalPrice: (j['original_price'] as num?)?.toDouble() ?? 0,
+    discountPercent: (j['discount_percent'] as num?)?.toDouble() ?? 0,
+    discountAmount: (j['discount_amount'] as num?)?.toDouble() ?? 0,
+    finalPrice: (j['final_price'] as num?)?.toDouble() ?? 0,
+  );
+}
+
+/// Firmaning yetkazib berish shartlari (`delivery`); sozlanmagan bo'lsa backend `null` beradi.
+class DeliveryInfo {
+  final bool free;
+  final double price;
+  final int minDays;
+  final int maxDays;
+  const DeliveryInfo({required this.free, required this.price, required this.minDays, required this.maxDays});
+
+  factory DeliveryInfo.fromJson(Map<String, dynamic> j) => DeliveryInfo(
+    free: j['free'] == true,
+    price: (j['price'] as num?)?.toDouble() ?? 0,
+    minDays: (j['min_days'] as num?)?.toInt() ?? 0,
+    maxDays: (j['max_days'] as num?)?.toInt() ?? 0,
+  );
+
+  static DeliveryInfo? tryParse(dynamic j) => j is Map<String, dynamic> ? DeliveryInfo.fromJson(j) : null;
+}
+
 class Variant {
   final String id;
   final String name;
@@ -95,6 +135,8 @@ class Variant {
   final bool discountActive;
   final String? effectiveBasePrice;
   final double discountPercent;
+  /// Backend `pricing` bloki (bo'lsa — yagona haqiqat manbai).
+  final PricingInfo? pricing;
 
   Variant({
     required this.id,
@@ -110,14 +152,29 @@ class Variant {
     this.discountActive = false,
     this.effectiveBasePrice,
     this.discountPercent = 0,
+    this.pricing,
   });
 
   double get basePriceValue => double.tryParse(basePrice) ?? 0;
   /// Haqiqiy to'lanadigan narx: chegirma faol bo'lsa `effective_base_price`
   /// (backend buyurtmani shu bo'yicha hisoblaydi), aks holda asosiy narx.
-  double get effectivePriceValue => discountActive && effectiveBasePrice != null
-      ? (double.tryParse(effectiveBasePrice!) ?? basePriceValue)
-      : basePriceValue;
+  double get effectivePriceValue => effectivePricing.finalPrice;
+
+  /// `pricing` bloki bo'lsa shu, aks holda eski maydonlardan yig'iladi (orqaga moslik).
+  PricingInfo get effectivePricing {
+    final p = pricing;
+    if (p != null) return p;
+    final base = basePriceValue;
+    final fin = discountActive && effectiveBasePrice != null
+        ? (double.tryParse(effectiveBasePrice!) ?? base)
+        : base;
+    return PricingInfo(
+      originalPrice: base,
+      discountPercent: discountPercent,
+      discountAmount: base - fin,
+      finalPrice: fin,
+    );
+  }
   double get widthValue => double.tryParse(width) ?? 1;
   double get heightValue => double.tryParse(height) ?? 1;
   double get depthValue => double.tryParse(depth) ?? 1;
@@ -136,6 +193,7 @@ class Variant {
     discountActive: j['discount_active'] == true,
     effectiveBasePrice: j['effective_base_price']?.toString(),
     discountPercent: double.tryParse('${j['discount_percent'] ?? 0}') ?? 0,
+    pricing: j['pricing'] is Map<String, dynamic> ? PricingInfo.fromJson(j['pricing']) : null,
   );
 }
 
@@ -225,6 +283,8 @@ class Company {
   // backend CompanySerializer.get_can_review) — "Baho qoldirish" formasi
   // shunga qarab ko'rsatiladi/yashiriladi (company_detail_screen.dart).
   final bool canReview;
+  final bool isVerified;
+  final DeliveryInfo? delivery;
 
   Company({
     required this.id,
@@ -241,6 +301,8 @@ class Company {
     this.latitude,
     this.longitude,
     this.canReview = false,
+    this.isVerified = false,
+    this.delivery,
   });
 
   /// Google Maps'da shu nuqtani ochadigan havola — lat/lng bo'lmasa null.
@@ -271,6 +333,8 @@ class Company {
     longitude: double.tryParse(j['longitude']?.toString() ?? ''),
     websiteUrl: j['website_url'],
     canReview: j['can_review'] ?? false,
+    isVerified: j['is_verified'] == true,
+    delivery: DeliveryInfo.tryParse(j['delivery']),
   );
 }
 
@@ -323,6 +387,12 @@ class Product {
   // tayyor turgan dona soni — kartochkada "Tayyor: N dona" belgisi uchun
   // (qarang backend ProductSerializer.get_available_quantity).
   final int availableQuantity;
+  // Backend hisoblagan (eng arzon variant) narx bloki, tasdiqlangan firma belgisi,
+  // firma yetkazib berish shartlari va kategoriya rasmi (hammasi ixtiyoriy/null bo'lishi mumkin).
+  final PricingInfo? pricing;
+  final bool companyIsVerified;
+  final DeliveryInfo? delivery;
+  final String? categoryImageUrl;
 
   Product({
     required this.id,
@@ -345,7 +415,16 @@ class Product {
     this.isLiked = false,
     this.similarityPercent,
     this.availableQuantity = 0,
+    this.pricing,
+    this.companyIsVerified = false,
+    this.delivery,
+    this.categoryImageUrl,
   });
+
+  /// Kartochka/sahifada ko'rsatiladigan narx: backend `pricing` (eng arzon variant),
+  /// bo'lmasa birinchi variantniki.
+  PricingInfo? get displayPricing =>
+      pricing ?? (variants.isNotEmpty ? variants.first.effectivePricing : null);
 
   /// Kartochkada nomdan keyin ko'rsatiladigan qisqa xususiyat qatori —
   /// masalan "kulrang · 60×90×60 sm" (rang avtomatik aniqlangan). O'lcham
@@ -406,6 +485,10 @@ class Product {
     isLiked: j['is_liked'] ?? false,
     similarityPercent: (j['similarity_percent'] as num?)?.toDouble(),
     availableQuantity: (j['available_quantity'] as num?)?.toInt() ?? 0,
+    pricing: j['pricing'] is Map<String, dynamic> ? PricingInfo.fromJson(j['pricing']) : null,
+    companyIsVerified: j['company_is_verified'] == true,
+    delivery: DeliveryInfo.tryParse(j['delivery']),
+    categoryImageUrl: j['category_image_url'],
   );
 }
 

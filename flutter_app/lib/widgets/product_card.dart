@@ -17,8 +17,6 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = context.watch<LocaleStore>();
     final hasAr = product.model3d?.glbUrl != null;
-    final firstVariant =
-        product.variants.isNotEmpty ? product.variants.first : null;
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadius.lg),
       onTap: () => Navigator.of(context).push(
@@ -161,15 +159,26 @@ class ProductCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 2),
-                  Text(
-                    product.companyName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppText.caption,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          product.companyName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppText.caption,
+                        ),
+                      ),
+                      if (product.companyIsVerified) ...[
+                        const SizedBox(width: 3),
+                        const VerifiedBadge(compact: true),
+                      ],
+                    ],
                   ),
-                  if (firstVariant != null) ...[
+                  if (product.displayPricing != null) ...[
                     const SizedBox(height: AppSpacing.sm - 2),
-                    PriceBlock(variant: firstVariant, fromSuffix: true),
+                    PriceBlock(
+                        pricing: product.displayPricing!, fromSuffix: true),
                   ],
                 ],
               ),

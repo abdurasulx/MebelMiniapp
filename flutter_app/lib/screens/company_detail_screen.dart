@@ -7,6 +7,7 @@ import '../locale_store.dart';
 import '../models.dart';
 import 'product_detail_screen.dart';
 import '../theme.dart';
+import '../widgets/price_block.dart';
 import '../widgets/product_card.dart';
 
 /// Firma do'kon sahifasi (marketplace uslubida) — mahsulot sahifasidan firma
@@ -381,6 +382,10 @@ class _Header extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    if (company.isVerified) ...[
+                      const SizedBox(height: 4),
+                      const VerifiedBadge(),
+                    ],
                     if (tier != null) ...[
                       const SizedBox(height: 4),
                       Wrap(

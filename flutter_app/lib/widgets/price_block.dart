@@ -5,41 +5,34 @@ import '../models.dart';
 import '../theme.dart';
 
 /// Narx ko'rinishi — kartada va mahsulot sahifasida BIR XIL (dizayn tizimi).
-/// Faqat backend haqiqatan chegirma bersa (`discountActive`) eski narx
-/// chizilgan holda va foiz belgisi bilan ko'rsatiladi; aks holda joriy narxning
-/// o'zi — bo'sh joy qoldirmasdan. Kelajakda yangi maydonlar (masalan boshqa
-/// aksiya turlari) shu yerga qo'shiladi.
+/// Qiymatlar backend `pricing` blokidan keladi (frontend chegirmani hisoblamaydi).
+/// Chegirma bo'lsa eski narx chizilgan holda va foiz belgisi bilan, aks holda faqat
+/// joriy narx — bo'sh joy qoldirmasdan.
 class PriceBlock extends StatelessWidget {
-  final Variant variant;
+  final PricingInfo pricing;
   final bool large;
   final bool fromSuffix; // "dan" qo'shimchasi (katalog kartasi)
   const PriceBlock(
       {super.key,
-      required this.variant,
+      required this.pricing,
       this.large = false,
       this.fromSuffix = false});
 
   @override
   Widget build(BuildContext context) {
     final loc = context.watch<LocaleStore>();
-    final base = variant.basePriceValue;
-    final discounted =
-        variant.discountActive && variant.effectiveBasePrice != null;
-    final current = discounted
-        ? (double.tryParse(variant.effectiveBasePrice!) ?? base)
-        : base;
     final suffix = fromSuffix ? loc.t('price_from_suffix') : '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (discounted)
+        if (pricing.hasDiscount)
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
                 child: Text(
-                  '${formatSom(base.toStringAsFixed(0))} ${loc.t('currency_som')}',
+                  '${formatSom(pricing.originalPrice.toStringAsFixed(0))} ${loc.t('currency_som')}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -49,7 +42,7 @@ class PriceBlock extends StatelessWidget {
                   ),
                 ),
               ),
-              if (variant.discountPercent > 0) ...[
+              if (pricing.discountPercent > 0) ...[
                 const SizedBox(width: 6),
                 Container(
                   padding: EdgeInsets.symmetric(
@@ -59,7 +52,7 @@ class PriceBlock extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                   child: Text(
-                    '-${variant.discountPercent.round()}%',
+                    '-${pricing.discountPercent.round()}%',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: large ? 12 : 10.5,
@@ -71,7 +64,7 @@ class PriceBlock extends StatelessWidget {
             ],
           ),
         Text(
-          '${formatSom(current.toStringAsFixed(0))} ${loc.t('currency_som')}$suffix',
+          '${formatSom(pricing.finalPrice.toStringAsFixed(0))} ${loc.t('currency_som')}$suffix',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: large
@@ -83,6 +76,49 @@ class PriceBlock extends StatelessWidget {
               : AppText.price,
         ),
       ],
+    );
+  }
+}
+
+/// "Tasdiqlangan firma" belgisi — faqat backend `is_verified == true` bergan bo'lsa ko'rsatiladi.
+class VerifiedBadge extends StatelessWidget {
+  final bool compact;
+  const VerifiedBadge({super.key, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
+    if (compact) {
+      return Tooltip(
+        message: loc.t('company_verified'),
+        child:
+            const Icon(Icons.verified_rounded, size: 14, color: AppColors.info),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.info.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.verified_rounded, size: 14, color: AppColors.info),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              loc.t('company_verified'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.info),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

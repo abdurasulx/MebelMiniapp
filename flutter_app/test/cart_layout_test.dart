@@ -80,21 +80,23 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      final plain = Variant(id: 'a', name: 'o', basePrice: '2000000');
-      final discounted = Variant(
-        id: 'b',
-        name: 'o',
-        basePrice: '2000000',
-        discountActive: true,
-        effectiveBasePrice: '1700000',
-        discountPercent: 15,
-      );
+      const plain = PricingInfo(
+          originalPrice: 2000000,
+          discountPercent: 0,
+          discountAmount: 0,
+          finalPrice: 2000000);
+      const discounted = PricingInfo(
+          originalPrice: 2000000,
+          discountPercent: 15,
+          discountAmount: 300000,
+          finalPrice: 1700000);
       await tester.pumpWidget(_app(
-        Scaffold(
+        const Scaffold(
           body: Column(children: [
-            PriceBlock(variant: plain, large: true),
-            PriceBlock(variant: discounted, large: true),
-            PriceBlock(variant: discounted, fromSuffix: true),
+            PriceBlock(pricing: plain, large: true),
+            PriceBlock(pricing: discounted, large: true),
+            PriceBlock(pricing: discounted, fromSuffix: true),
+            VerifiedBadge(),
           ]),
         ),
         textScale: scale,
@@ -104,4 +106,74 @@ void main() {
       expect(find.textContaining('-15%'), findsNWidgets(2));
     });
   }
+
+  test(
+      'Product.fromJson backend pricing, delivery, tasdiqlangan firma, kategoriya rasmini o\'qiydi',
+      () {
+    final p = Product.fromJson({
+      'id': 'p1',
+      'company': 'c1',
+      'company_name': 'Mebel House',
+      'name_uz': 'Divan',
+      'is_published': true,
+      'variants': [
+        {
+          'id': 'v1',
+          'name': 'oddiy',
+          'base_price': '5000000.00',
+          'pricing': {
+            'original_price': 5000000.0,
+            'discount_percent': 20.0,
+            'discount_amount': 1000000.0,
+            'final_price': 4000000.0,
+          },
+        }
+      ],
+      'pricing': {
+        'original_price': 5000000.0,
+        'discount_percent': 20.0,
+        'discount_amount': 1000000.0,
+        'final_price': 4000000.0,
+      },
+      'company_is_verified': true,
+      'delivery': {
+        'free': false,
+        'price': 30000.0,
+        'min_days': 2,
+        'max_days': 4
+      },
+      'category_image_url': 'https://x/c.png',
+    });
+    expect(p.companyIsVerified, isTrue);
+    expect(p.displayPricing!.finalPrice, 4000000.0);
+    expect(p.displayPricing!.hasDiscount, isTrue);
+    expect(p.variants.first.effectivePriceValue,
+        4000000.0); // savat ham backend narxini ishlatadi
+    expect(p.delivery!.minDays, 2);
+    expect(p.delivery!.free, isFalse);
+    expect(p.categoryImageUrl, 'https://x/c.png');
+  });
+
+  test('Eski javob (pricing/delivery yo\'q): null va orqaga moslik', () {
+    final p = Product.fromJson({
+      'id': 'p1',
+      'company': 'c1',
+      'company_name': 'X',
+      'name_uz': 'Y',
+      'is_published': true,
+      'variants': [
+        {
+          'id': 'v1',
+          'name': 'o',
+          'base_price': '1000',
+          'discount_active': true,
+          'effective_base_price': '800.00',
+          'discount_percent': '20.00'
+        }
+      ],
+    });
+    expect(p.delivery, isNull);
+    expect(p.companyIsVerified, isFalse);
+    expect(p.displayPricing!.finalPrice, 800.0);
+  });
 }

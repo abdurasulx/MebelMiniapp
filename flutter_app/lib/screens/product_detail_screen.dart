@@ -180,6 +180,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   ],
                   const SizedBox(height: AppSpacing.lg),
                   _companyCard(context, p),
+                  const SizedBox(height: AppSpacing.md),
+                  _deliveryCard(p, loc),
                   if (p.variants.length > 1) ...[
                     const SizedBox(height: AppSpacing.xl),
                     _sectionTitle(loc.t('product_variant_label')),
@@ -197,6 +199,92 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         ),
       ),
       bottomNavigationBar: v == null ? null : _purchaseBar(p, v, loc),
+    );
+  }
+
+  /// Yetkazib berish: firma shartlarini belgilagan bo'lsa narx va muddat,
+  /// aks holda (backend `null`) — "firma bilan kelishiladi" (soxta qiymat ko'rsatilmaydi).
+  Widget _deliveryCard(Product p, LocaleStore loc) {
+    final d = p.delivery;
+    final rows = <(String, String, bool)>[];
+    if (d != null) {
+      rows.add((
+        loc.t('delivery_price_label'),
+        d.free
+            ? loc.t('delivery_free')
+            : '${formatSom(d.price.toStringAsFixed(0))} ${loc.t('currency_som')}',
+        d.free,
+      ));
+      if (d.maxDays > 0) {
+        final days = d.minDays == d.maxDays
+            ? '${d.maxDays}'
+            : '${d.minDays}–${d.maxDays}';
+        rows.add((
+          loc.t('delivery_time_label'),
+          '$days${loc.t('delivery_days_suffix')}',
+          false
+        ));
+      }
+    }
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.local_shipping_outlined,
+              size: 22, color: AppColors.brand),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(loc.t('delivery_title'),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14.5)),
+                const SizedBox(height: 4),
+                if (rows.isEmpty)
+                  Text(
+                    loc.t('delivery_agreed'),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.35),
+                  )
+                else
+                  for (final r in rows)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Row(
+                        children: [
+                          Text('${r.$1}: ',
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary)),
+                          Flexible(
+                            child: Text(
+                              r.$2,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                color: r.$3
+                                    ? AppColors.success
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -235,7 +323,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PriceBlock(variant: v, large: true),
+        PriceBlock(pricing: v.effectivePricing, large: true),
         const SizedBox(height: AppSpacing.sm),
         if (v.availableQuantity > 0)
           Container(
@@ -638,7 +726,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
 
   /// Kelajakda tasdiqlangan firma nishoni kabi belgilar shu ro'yxatga qo'shiladi;
   /// hozir backend bunday maydon bermaydi — ro'yxat bo'sh va hech narsa ko'rinmaydi.
-  List<Widget> _companyBadges(Product p) => const <Widget>[];
+  List<Widget> _companyBadges(Product p) => [
+        if (p.companyIsVerified) const VerifiedBadge(),
+      ];
 
   Widget _companyCard(BuildContext context, Product p) {
     final location = [
