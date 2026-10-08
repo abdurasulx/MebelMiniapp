@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
 
-from .models import Company, Employee, EmployeeInvitation, Review, TariffPlan
+from .models import Company, CompanyDeliverySettings, Employee, EmployeeInvitation, Review, TariffPlan
 
 User = get_user_model()
 
@@ -30,6 +30,10 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
     tariff_plan_name = serializers.CharField(source="tariff_plan.name", read_only=True, default=None)
     billing_summary = serializers.SerializerMethodField()
     can_review = serializers.SerializerMethodField()
+    # Faqat o'qish uchun: tasdiqlashni platforma admini maxsus action orqali belgilaydi.
+    is_verified = serializers.BooleanField(read_only=True)
+    verified_at = serializers.DateTimeField(read_only=True)
+    delivery = serializers.SerializerMethodField()
     owner_display_name = serializers.CharField(source="owner.display_name", read_only=True)
     owner_email_display = serializers.EmailField(source="owner.email", read_only=True)
     # Faqat platforma admini yangi kompaniya yaratishda, uning egasini ham
@@ -50,6 +54,10 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
 
     def get_billing_summary(self, obj):
         return obj.billing_summary
+
+    def get_delivery(self, obj):
+        settings = getattr(obj, "delivery_settings", None)
+        return settings.as_api_dict() if settings is not None and not settings.is_deleted else None
 
     def get_can_review(self, obj):
         # Do'kon sahifasida "Baho qoldirish" formasi FAQAT shu kompaniyadan
@@ -100,10 +108,13 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
             "tariff_plan_name",
             "billing_summary",
             "can_review",
+            "is_verified",
+            "verified_at",
+            "delivery",
             "employment_contract_template",
             "created_at",
         )
-        read_only_fields = ("id", "owner", "slug", "created_at")
+        read_only_fields = ("id", "owner", "slug", "created_at", "is_verified", "verified_at")
 
     # Firma joylashuvi va xizmat radiusi — ichki ma'lumot: ommaviy API
     # (anonim yoki boshqa foydalanuvchi) buni ko'rmaydi, faqat firma egasi va
@@ -276,3 +287,32 @@ class EmployeeInvitationSerializer(serializers.ModelSerializer):
         if existing:
             return existing
         return EmployeeInvitation.objects.create(invited_user=self._invited_user, **validated_data)
+
+
+class CompanyDeliverySettingsSerializer(serializers.ModelSerializer):
+    """Yetkazib berish sozlamalarini yozish uchun (egasi/platforma admini); o'qish
+    javobi `as_api_dict()` formatida (free/price/min_days/max_days)."""
+
+    free = serializers.BooleanField(source="free_delivery", required=False)
+    price = serializers.DecimalField(
+        source="delivery_price", max_digits=12, decimal_places=2, required=False, min_value=0
+    )
+    min_days = serializers.IntegerField(source="delivery_min_days", required=False, min_value=0, max_value=365)
+    max_days = serializers.IntegerField(source="delivery_max_days", required=False, min_value=0, max_value=365)
+
+    class Meta:
+        model = CompanyDeliverySettings
+        fields = ("free", "price", "min_days", "max_days")
+
+    def validate(self, attrs):
+        inst = self.instance
+        min_days = attrs.get("delivery_min_days", inst.delivery_min_days if inst else 1)
+        max_days = attrs.get("delivery_max_days", inst.delivery_max_days if inst else 3)
+        if min_days > max_days:
+            raise serializers.ValidationError(
+                "Minimal muddat maksimal muddatdan katta bo'lmasligi kerak"
+            )
+        return attrs
+
+    def to_representation(self, instance):
+        return instance.as_api_dict()

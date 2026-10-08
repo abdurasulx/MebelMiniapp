@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from apps.companies.models import Employee
 from apps.inventory.models import Material
+from apps.products.pricing import line_snapshot
 from apps.notifications.services import (
     notify_custom_order_location_suspicious,
     notify_pool_open,
@@ -115,12 +116,9 @@ def create_custom_order_on_site(
     for item in items:
         is_custom = bool(item.get("is_custom_size"))
         variant = item.get("variant")
-        unit_price = None
-        subtotal = Decimal("0")
+        snapshot = {"unit_m3_price": None, "original_unit_m3_price": None, "discount_amount": Decimal("0"), "subtotal": Decimal("0")}
         if not is_custom and variant is not None:
-            volume = item["width"] * item["height"] * item["depth"]
-            unit_price = variant.effective_base_price
-            subtotal = (unit_price * volume * item["quantity"]).quantize(Decimal("0.01"))
+            snapshot = line_snapshot(variant, item["width"], item["height"], item["depth"], item["quantity"])
         OrderItem.objects.create(
             order=order,
             product=item["product"],
@@ -132,11 +130,13 @@ def create_custom_order_on_site(
             depth=item["depth"],
             quantity=item["quantity"],
             is_custom_size=is_custom,
-            unit_m3_price=unit_price,
-            subtotal=subtotal,
+            unit_m3_price=snapshot["unit_m3_price"],
+            original_unit_m3_price=snapshot["original_unit_m3_price"],
+            discount_amount=snapshot["discount_amount"],
+            subtotal=snapshot["subtotal"],
             created_by=created_by,
         )
-        total += subtotal
+        total += snapshot["subtotal"]
     order.total_price = total
     order.save(update_fields=["total_price"])
 

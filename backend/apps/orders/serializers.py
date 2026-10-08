@@ -5,6 +5,7 @@ from rest_framework import serializers
 from common.fields import CoordinateField
 
 from apps.products.models import Variant
+from apps.products.pricing import line_snapshot
 from apps.workflow.serializers import WorkflowStepInstanceSerializer
 from apps.workflow.services import create_workflow_instances
 
@@ -29,7 +30,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = (
             "id", "product", "variant", "product_name", "variant_name",
             "width", "height", "depth", "quantity", "is_custom_size",
-            "unit_m3_price", "cost_amount", "subtotal",
+            "unit_m3_price", "original_unit_m3_price", "discount_amount",
+            "cost_amount", "subtotal",
         )
 
 
@@ -177,15 +179,12 @@ class OrderCreateSerializer(serializers.Serializer):
         for item in validated_data["items"]:
             v = variants[str(item["variant"])]
             is_custom = item.get("is_custom_size", False)
-            unit_price = None
-            subtotal = Decimal("0")
+            snapshot = {"unit_m3_price": None, "original_unit_m3_price": None, "discount_amount": Decimal("0"), "subtotal": Decimal("0")}
             if not is_custom:
-                volume = item["width"] * item["height"] * item["depth"]
-                # Chegirma faol bo'lsa haqiqiy (chegirmali) narx bo'yicha hisoblanadi
-                # va shu tarzda MUHRLANADI — keyinchalik chegirma tugasa/o'zgarsa
-                # ham bu buyurtma narxi o'zgarmay qoladi (qarang Variant.effective_base_price).
-                unit_price = v.effective_base_price
-                subtotal = (unit_price * volume * item["quantity"]).quantize(Decimal("0.01"))
+                # Narx FAQAT backenddan: mijoz yuborgan narx/chegirma e'tiborga olinmaydi.
+                # Joriy faol chegirma bo'yicha hisoblanadi va MUHRLANADI — keyinchalik
+                # chegirma tugasa yoki narx o'zgarsa ham bu buyurtma narxi o'zgarmaydi.
+                snapshot = line_snapshot(v, item["width"], item["height"], item["depth"], item["quantity"])
             OrderItem.objects.create(
                 order=order,
                 product=v.product,
@@ -197,11 +196,13 @@ class OrderCreateSerializer(serializers.Serializer):
                 depth=item["depth"],
                 quantity=item["quantity"],
                 is_custom_size=is_custom,
-                unit_m3_price=unit_price,
-                subtotal=subtotal,
+                unit_m3_price=snapshot["unit_m3_price"],
+                original_unit_m3_price=snapshot["original_unit_m3_price"],
+                discount_amount=snapshot["discount_amount"],
+                subtotal=snapshot["subtotal"],
                 created_by=user,
             )
-            total += subtotal
+            total += snapshot["subtotal"]
         order.total_price = total
         order.save(update_fields=["total_price"])
 

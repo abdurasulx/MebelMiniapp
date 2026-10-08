@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.http import JsonResponse
 from django.utils import timezone
 
 from apps.notifications.services import (
@@ -12,8 +13,9 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Company, Employee, EmployeeInvitation, Review, TariffPlan
+from .models import Company, CompanyDeliverySettings, Employee, EmployeeInvitation, Review, TariffPlan
 from .serializers import (
+    CompanyDeliverySettingsSerializer,
     CompanySerializer,
     EmployeeInvitationSerializer,
     EmployeeSerializer,
@@ -90,6 +92,37 @@ class CompanyViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         instance.is_deleted = True
         instance.save(update_fields=["is_deleted"])
+
+    @action(detail=True, methods=["post"], url_path="verify")
+    def verify(self, request, slug=None):
+        """Firmani tasdiqlash/bekor qilish — FAQAT platforma admini. Firma egasi ham
+        (o'z firmasi uchun) bunga ruxsat etilmaydi. Body: {"is_verified": true|false}."""
+        if not (request.user.is_authenticated and request.user.role == "platform_admin"):
+            raise PermissionDenied("Firmani faqat platforma administratori tasdiqlay oladi")
+        company = self.get_object()
+        value = request.data.get("is_verified")
+        if not isinstance(value, bool):
+            raise ValidationError({"is_verified": "true yoki false bo'lishi kerak"})
+        company.set_verified(value)
+        return Response(self.get_serializer(company).data)
+
+    @action(detail=True, methods=["get", "put", "patch"], url_path="delivery")
+    def delivery(self, request, slug=None):
+        """Firmaning yetkazib berish shartlari. O'qish — hamma (sozlanmagan bo'lsa
+        `null`); yozish — firma egasi yoki platforma admini (object permission)."""
+        company = self.get_object()  # PUT/PATCH uchun IsOwnerOrPlatformAdmin tekshiradi
+        existing = CompanyDeliverySettings.objects.filter(company=company, is_deleted=False).first()
+        if request.method == "GET":
+            if existing is None:
+                # Aniq JSON `null` (DRF `Response(None)` bo'sh tana qaytarardi).
+                return JsonResponse(None, safe=False)
+            return Response(existing.as_api_dict())
+        serializer = CompanyDeliverySettingsSerializer(
+            existing, data=request.data, partial=request.method == "PATCH" or existing is not None
+        )
+        serializer.is_valid(raise_exception=True)
+        settings_obj = serializer.save(company=company) if existing is None else serializer.save()
+        return Response(settings_obj.as_api_dict())
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):

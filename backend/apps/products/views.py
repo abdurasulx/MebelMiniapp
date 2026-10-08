@@ -179,7 +179,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Product.objects.filter(is_deleted=False).select_related(
-            "company", "category"
+            "company", "company__delivery_settings", "category"
         ).prefetch_related("variants", "images")
         user = self.request.user
         if user.is_authenticated:
@@ -400,7 +400,7 @@ class ProductSearchByImageView(APIView):
         score_by_id = {product_id: score for product_id, score in hits}
         candidates_qs = Product.objects.filter(
             id__in=score_by_id.keys(), is_deleted=False, is_published=True
-        ).select_related("company", "category").prefetch_related("variants", "images")
+        ).select_related("company", "company__delivery_settings", "category").prefetch_related("variants", "images")
         # Mahsulotlar ro'yxati bilan bir xil qoida: foydalanuvchi lokatsiyasi
         # berilsa, firma xizmat radiusidan tashqaridagi mahsulotlar chiqmaydi.
         lat, lng = _parse_coords(request.data.get("lat"), request.data.get("lng"))

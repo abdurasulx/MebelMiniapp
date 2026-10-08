@@ -107,11 +107,27 @@ class Variant(BaseModel, StoredFileMixin):
     # Tannarx (1 m³) — ixtiyoriy; berilgan bo'lsa, chegirma shu qiymatdan
     # pastga tushirilishi taqiqlanadi (qarang clean()/discount_percent).
     cost_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    # Vaqtinchalik chegirma — foiz va tugash vaqti. `discount_ends_at`
-    # o'tib ketsa chegirma avtomatik faolsiz hisoblanadi (qarang
-    # `discount_active`), maydonlarni qo'lda tozalash shart emas.
+    # Vaqtinchalik chegirma. Bir variantda bir vaqtning o'zida faqat BITTA chegirma
+    # (tur + qiymat + oraliq) — shuning uchun bir nechta faol chegirma to'qnashuvi
+    # mumkin emas. Faol/faolmasligi va narx hisobi FAQAT `apps.products.pricing`
+    # xizmatida (qarang `pricing`/`discount_active`/`effective_base_price`).
+    # `discount_percent` + `discount_ends_at` mavjud maydonlar — orqaga moslik
+    # uchun saqlangan (foizli chegirma avvalgidek ishlaydi).
+    DISCOUNT_PERCENT = "percent"
+    DISCOUNT_FIXED = "fixed"
+    DISCOUNT_TYPE_CHOICES = (
+        (DISCOUNT_PERCENT, "Foiz"),
+        (DISCOUNT_FIXED, "Qat'iy summa"),
+    )
+    discount_type = models.CharField(
+        max_length=10, choices=DISCOUNT_TYPE_CHOICES, default=DISCOUNT_PERCENT
+    )
     discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    discount_fixed_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    discount_starts_at = models.DateTimeField(null=True, blank=True)
     discount_ends_at = models.DateTimeField(null=True, blank=True)
+    # Qo'lda o'chirib qo'yish (chegirmani o'chirmasdan vaqtincha to'xtatish).
+    discount_enabled = models.BooleanField(default=True)
 
     class Meta:
         ordering = ("name",)
@@ -119,30 +135,43 @@ class Variant(BaseModel, StoredFileMixin):
     def clean(self):
         from django.core.exceptions import ValidationError
 
-        if self.discount_percent:
-            if not (0 < self.discount_percent <= 100):
-                raise ValidationError("Chegirma foizi 0 dan 100 gacha bo'lishi kerak")
-            if not self.discount_ends_at:
-                raise ValidationError("Chegirma tugash sanasi/vaqti ko'rsatilishi kerak")
-            if self.cost_price is not None and self.effective_base_price < self.cost_price:
-                raise ValidationError("Chegirma narxi tannarxdan pastga tushirilmasin")
+        from .pricing import validate_discount
+
+        errors = validate_discount(
+            base_price=self.base_price,
+            discount_type=self.discount_type,
+            percent=self.discount_percent,
+            fixed_amount=self.discount_fixed_amount,
+            starts_at=self.discount_starts_at,
+            ends_at=self.discount_ends_at,
+            cost_price=self.cost_price,
+        )
+        if errors:
+            raise ValidationError(errors)
+
+    @property
+    def pricing(self):
+        """`PriceBreakdown` — asl narx, chegirma foizi/summasi va yakuniy narx."""
+        from .pricing import compute_pricing
+
+        return compute_pricing(
+            self.base_price,
+            enabled=self.discount_enabled,
+            discount_type=self.discount_type,
+            percent=self.discount_percent,
+            fixed_amount=self.discount_fixed_amount,
+            starts_at=self.discount_starts_at,
+            ends_at=self.discount_ends_at,
+        )
 
     @property
     def discount_active(self):
-        from django.utils import timezone
-
-        return bool(
-            self.discount_percent and self.discount_ends_at and self.discount_ends_at > timezone.now()
-        )
+        return self.pricing.active
 
     @property
     def effective_base_price(self):
         """Chegirma faol bo'lsa chegirmali, aks holda oddiy 1 m³ narxi."""
-        from decimal import Decimal
-
-        if self.discount_active:
-            return self.base_price * (Decimal("1") - self.discount_percent / Decimal("100"))
-        return self.base_price
+        return self.pricing.final_price
 
     def price_for(self, width, height, depth):
         """Berilgan o'lcham (m) uchun narx (chegirmasiz) — hajmga proporsional."""

@@ -27,16 +27,22 @@ class VariantSerializer(StorageStampMixin, serializers.ModelSerializer):
     discount_active = serializers.BooleanField(read_only=True)
     effective_base_price = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     available_quantity = serializers.SerializerMethodField()
+    # Yagona narx bloki (backend hisoblaydi — frontend chegirmani hisoblamaydi).
+    pricing = serializers.SerializerMethodField()
 
     class Meta:
         model = Variant
         fields = (
             "id", "name", "base_price", "width", "height", "depth",
             "color_hex", "texture", "texture_url", "model3d",
-            "cost_price", "discount_percent", "discount_ends_at",
-            "discount_active", "effective_base_price", "available_quantity",
+            "cost_price", "discount_type", "discount_percent", "discount_fixed_amount",
+            "discount_starts_at", "discount_ends_at", "discount_enabled",
+            "discount_active", "effective_base_price", "pricing", "available_quantity",
         )
         read_only_fields = ("id",)
+
+    def get_pricing(self, obj):
+        return obj.pricing.as_dict()
 
     def get_texture_url(self, obj):
         return visible_file_url(obj, "texture", self.context.get("request"))
@@ -54,25 +60,22 @@ class VariantSerializer(StorageStampMixin, serializers.ModelSerializer):
         ).count()
 
     def validate(self, attrs):
-        discount_percent = attrs.get(
-            "discount_percent", getattr(self.instance, "discount_percent", 0)
-        )
-        discount_ends_at = attrs.get(
-            "discount_ends_at", getattr(self.instance, "discount_ends_at", None)
-        )
-        cost_price = attrs.get("cost_price", getattr(self.instance, "cost_price", None))
-        base_price = attrs.get("base_price", getattr(self.instance, "base_price", None))
-        if discount_percent:
-            if not (0 < discount_percent <= 100):
-                raise serializers.ValidationError("Chegirma foizi 0 dan 100 gacha bo'lishi kerak")
-            if not discount_ends_at:
-                raise serializers.ValidationError("Chegirma tugash sanasi/vaqti ko'rsatilishi kerak")
-            if cost_price is not None and base_price is not None:
-                from decimal import Decimal
+        from .pricing import validate_discount
 
-                effective = base_price * (Decimal("1") - discount_percent / Decimal("100"))
-                if effective < cost_price:
-                    raise serializers.ValidationError("Chegirma narxi tannarxdan pastga tushirilmasin")
+        def current(name, default=None):
+            return attrs.get(name, getattr(self.instance, name, default))
+
+        errors = validate_discount(
+            base_price=current("base_price"),
+            discount_type=current("discount_type", "percent"),
+            percent=current("discount_percent", 0),
+            fixed_amount=current("discount_fixed_amount", 0),
+            starts_at=current("discount_starts_at"),
+            ends_at=current("discount_ends_at"),
+            cost_price=current("cost_price"),
+        )
+        if errors:
+            raise serializers.ValidationError(errors)
         return attrs
 
     def to_representation(self, instance):
@@ -144,6 +147,11 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
     is_liked = serializers.SerializerMethodField()
     model3d = serializers.SerializerMethodField()
     available_quantity = serializers.SerializerMethodField()
+    # Yangi (orqaga mos, faqat qo'shimcha kalitlar):
+    pricing = serializers.SerializerMethodField()
+    company_is_verified = serializers.BooleanField(source="company.is_verified", read_only=True)
+    delivery = serializers.SerializerMethodField()
+    category_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -170,9 +178,35 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
             "is_liked",
             "model3d",
             "available_quantity",
+            "pricing",
+            "company_is_verified",
+            "delivery",
+            "category_image_url",
             "created_at",
         )
         read_only_fields = ("id", "company", "slug", "created_at")
+
+    def get_pricing(self, obj):
+        """Mahsulot narxi = eng arzon (yakuniy narx bo'yicha) variant narxi — "dan"
+        narx. Variantlari yo'q mahsulotda `None`. Barcha endpointlarda (ro'yxat,
+        qidiruv, sevimlilar, tafsilot) bir xil `apps.products.pricing` xizmatidan."""
+        best = None
+        for variant in obj.variants.all():
+            if variant.is_deleted:
+                continue
+            p = variant.pricing
+            if best is None or p.final_price < best.final_price:
+                best = p
+        return best.as_dict() if best else None
+
+    def get_delivery(self, obj):
+        settings = getattr(obj.company, "delivery_settings", None) if obj.company_id else None
+        return settings.as_api_dict() if settings is not None and not settings.is_deleted else None
+
+    def get_category_image_url(self, obj):
+        if not obj.category_id:
+            return None
+        return visible_file_url(obj.category, "image", self.context.get("request"))
 
     def get_image_url(self, obj):
         return visible_file_url(obj, "image", self.context.get("request"))

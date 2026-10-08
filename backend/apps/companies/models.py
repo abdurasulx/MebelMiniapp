@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.utils import timezone
 from django.db import models
 from django.db.models import Avg
 from django.utils.text import slugify
@@ -97,6 +98,11 @@ class Company(BaseModel, StoredFileMixin):
     facebook_url = models.URLField(max_length=300, blank=True)
     website_url = models.URLField(max_length=300, blank=True)
     is_active = models.BooleanField(default=True)
+    # Tasdiqlangan firma — FAQAT platforma admini belgilaydi (oddiy API orqali
+    # o'zgarmaydi, qarang CompanySerializer: read-only + `verify` action).
+    # `verified_at` `save()` ichida avtomatik sinxronlanadi.
+    is_verified = models.BooleanField(default=False)
+    verified_at = models.DateTimeField(null=True, blank=True)
     # Har firma o'zining ishga olish shartnomasi matnini moslashtirib qo'yadi —
     # xodim taklifnomani (EmployeeInvitation) qabul qilishdan oldin shu matnni
     # ko'radi.
@@ -109,7 +115,20 @@ class Company(BaseModel, StoredFileMixin):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
+        # Tasdiqlash sanasi holatga mos turishi shart: tasdiqlanganda avtomatik
+        # belgilanadi, bekor qilinganda tozalanadi (qaysi yo'l bilan o'zgarmasin).
+        if self.is_verified and self.verified_at is None:
+            self.verified_at = timezone.now()
+        elif not self.is_verified and self.verified_at is not None:
+            self.verified_at = None
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and ("is_verified" in update_fields):
+            kwargs["update_fields"] = set(update_fields) | {"verified_at"}
         super().save(*args, **kwargs)
+
+    def set_verified(self, flag: bool):
+        self.is_verified = bool(flag)
+        self.save(update_fields=["is_verified", "verified_at", "updated_at"])
 
     def __str__(self):
         return self.name
@@ -290,3 +309,49 @@ class EmployeeInvitation(BaseModel):
 
     def __str__(self):
         return f"{self.invited_user} -> {self.company} ({self.status})"
+
+
+class CompanyDeliverySettings(BaseModel):
+    """Firma darajasidagi yetkazib berish shartlari (MVP — hudud/zona bo'yicha emas).
+
+    Qator YO'Q bo'lsa firma yetkazib berish shartlarini hali belgilamagan —
+    API `delivery: null` qaytaradi (frontend "firma bilan kelishiladi" deb
+    ko'rsatadi); soxta standart narx/muddat ko'rsatilmaydi."""
+
+    company = models.OneToOneField(
+        Company, on_delete=models.CASCADE, related_name="delivery_settings"
+    )
+    delivery_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    delivery_min_days = models.PositiveIntegerField(default=1)
+    delivery_max_days = models.PositiveIntegerField(default=3)
+    free_delivery = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name_plural = "company delivery settings"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        errors = []
+        if self.delivery_price is not None and self.delivery_price < 0:
+            errors.append("Yetkazib berish narxi manfiy bo'lmasligi kerak")
+        if self.delivery_min_days > self.delivery_max_days:
+            errors.append("Minimal muddat maksimal muddatdan katta bo'lmasligi kerak")
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.free_delivery:
+            self.delivery_price = 0
+        super().save(*args, **kwargs)
+
+    def as_api_dict(self):
+        return {
+            "free": self.free_delivery,
+            "price": 0 if self.free_delivery else float(self.delivery_price),
+            "min_days": self.delivery_min_days,
+            "max_days": self.delivery_max_days,
+        }
+
+    def __str__(self):
+        return f"{self.company} delivery"

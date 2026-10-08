@@ -112,6 +112,11 @@ class OrderItem(BaseModel):
     # qo'lda kiritadi (docs "Buyurtma va ishlab chiqarish tizimi" §4).
     is_custom_size = models.BooleanField(default=False)
     unit_m3_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Narx snapshot'i: `unit_m3_price` — buyurtma paytidagi YAKUNIY (chegirmali)
+    # narx; quyidagilar asl narx va shu bandga berilgan jami chegirma summasi.
+    # Keyinchalik mahsulot narxi/chegirma o'zgarsa ham eski buyurtma o'zgarmaydi.
+    original_unit_m3_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    discount_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     cost_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     subtotal = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     created_by = models.ForeignKey(
