@@ -11,6 +11,7 @@ import '../locale_store.dart';
 import '../model_cache.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../widgets/dimension_box.dart';
 import '../widgets/like_button.dart';
 import '../widgets/price_block.dart';
 import '../widgets/product_card.dart';
@@ -359,76 +360,20 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  /// Texnik xususiyatlar — faqat backend bergan maydonlar (bo'shlari ko'rsatilmaydi).
+  /// O'lcham chizmasi (quti: eni/bo'yi/chuqurligi + hajm). Kategoriya, firma, material
+  /// va rang bu yerda takrorlanmaydi — ular rasm va firma kartasida allaqachon bor.
+  /// Haqiqiy o'lcham bo'lmasa bo'lim umuman ko'rsatilmaydi.
   Widget _specsSection(Product p, LocaleStore loc) {
-    final v = _selectedVariant;
-    // O'lcham 3D model faylidan (geometriya) hisoblangan haqiqiy qiymat
-    // (`bbox_*`); model tayyor bo'lmasa variantning o'z qiymati.
-    final model = _activeModel3d;
-    final w = model?.bboxWidthValue ?? v?.widthValue;
-    final h = model?.bboxHeightValue ?? v?.heightValue;
-    final d = model?.bboxDepthValue ?? v?.depthValue;
-    final rows = <(String, String)>[
-      if (p.categoryName != null)
-        (loc.t('product_char_category'), p.categoryName!),
-      (loc.t('product_char_company'), p.companyName),
-      if (v != null) (loc.t('product_char_material'), v.name),
-      if (w != null && h != null && d != null)
-        (
-          loc.t('product_char_size'),
-          '${(w * 100).round()}×${(h * 100).round()}×${(d * 100).round()} sm',
-        ),
-      if (p.colorTag?.isNotEmpty == true)
-        (loc.t('product_char_color'), p.colorTag!),
-    ];
-    if (rows.isEmpty) return const SizedBox.shrink();
+    final size = DimensionBox.resolve(_activeModel3d, _selectedVariant);
+    if (size == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle(loc.t('product_tab_characteristics')),
+          _sectionTitle(loc.t('dim_title')),
           const SizedBox(height: AppSpacing.sm),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              children: [
-                for (var i = 0; i < rows.length; i++) ...[
-                  if (i > 0) const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md, vertical: 11),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 4,
-                          child: Text(
-                            rows[i].$1,
-                            style: const TextStyle(
-                                fontSize: 13, color: AppColors.textSecondary),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 6,
-                          child: Text(
-                            rows[i].$2,
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(
-                                fontSize: 13.5, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          DimensionBox(widthM: size.w, heightM: size.h, depthM: size.d),
         ],
       ),
     );

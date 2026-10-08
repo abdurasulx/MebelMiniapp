@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Ruler } from "lucide-react";
+import { useLocale } from "../locale";
 
 let loaded = false;
 
@@ -43,6 +44,12 @@ const ModelViewer = forwardRef(function ModelViewer(
   const ref = useRef(null);
   const [hasAnimation, setHasAnimation] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const { t } = useLocale();
+  // O'lcham chiziqlari (chizmachilikdagi kabi): model geometriyasining HAQIQIY
+  // o'lchamidan (`getDimensions()`, metr) hisoblanadi.
+  const [dimInfo, setDimInfo] = useState(null);
+  const [showDims, setShowDims] = useState(false);
+  const svgRef = useRef(null);
 
   useImperativeHandle(forwardedRef, () => ({
     activateAR: () => ref.current?.activateAR(),
@@ -117,6 +124,60 @@ const ModelViewer = forwardRef(function ModelViewer(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [glb, usdz]);
 
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setDimInfo(null);
+    setShowDims(false);
+    const read = () => {
+      const d = el.getDimensions?.();
+      const c = el.getBoundingBoxCenter?.();
+      if (d && c && d.x > 0 && d.y > 0 && d.z > 0) setDimInfo({ x: d.x, y: d.y, z: d.z, cx: c.x, cy: c.y, cz: c.z });
+    };
+    el.addEventListener("load", read);
+    if (el.loaded) read();
+    return () => el.removeEventListener("load", read);
+  }, [glb]);
+
+  // Hotspot nuqtalarining ekrandagi o'rniga qarab SVG chiziqlarini yangilaymiz (kamera
+  // aylanganda/yaqinlashganda ham chiziqlar modelga yopishib turadi).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !showDims || !dimInfo) return undefined;
+    // O'lchamlar ko'rinayotganda avto-aylanish to'xtatiladi va kamera old-o'ng tomondan
+    // qaraydi — shunda 3 ta o'lcham qirrasi (old-past eni, chap bo'yi, o'ng-past chuqurligi)
+    // doim ko'rinib turadi va yozuvlar bir-birini bosmaydi.
+    const prevOrbit = el.cameraOrbit;
+    const wasRotating = el.autoRotate;
+    el.autoRotate = false;
+    el.cameraOrbit = "35deg 72deg auto";
+    el.jumpCameraToGoal?.();
+    const pos = (name) => el.queryHotspot?.(`hotspot-${name}`)?.canvasPosition;
+    const setLine = (id, a, b) => {
+      const line = svgRef.current?.querySelector(`#dim-${id}`);
+      if (!line || !a || !b) return;
+      line.setAttribute("x1", a.x);
+      line.setAttribute("y1", a.y);
+      line.setAttribute("x2", b.x);
+      line.setAttribute("y2", b.y);
+    };
+    const update = () => {
+      const p1 = pos("p1"), p2 = pos("p2"), p3 = pos("p3"), p4 = pos("p4");
+      setLine("w", p1, p2);
+      setLine("h", p1, p3);
+      setLine("d", p2, p4);
+    };
+    update();
+    const raf = requestAnimationFrame(update);
+    el.addEventListener("camera-change", update);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener("camera-change", update);
+      el.autoRotate = wasRotating;
+      if (prevOrbit) el.cameraOrbit = prevOrbit;
+    };
+  }, [showDims, dimInfo]);
+
   const toggleAnimation = () => {
     const el = ref.current;
     if (!el) return;
@@ -157,7 +218,52 @@ const ModelViewer = forwardRef(function ModelViewer(
           ko'rinmas tugma bilan almashtiriladi — AR faqat tashqi "AR'da
           ko'rish" tugmasi orqali, tayyor bo'lgandagina ishga tushadi. */}
       <button slot="ar-button" style={{ display: "none" }} aria-hidden="true" />
+      {showDims && dimInfo && <DimensionHotspots info={dimInfo} t={t} />}
     </model-viewer>
+    {showDims && dimInfo && (
+      <>
+        <svg
+          ref={svgRef}
+          aria-hidden="true"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", overflow: "visible" }}
+        >
+          {["w", "h", "d"].map((id) => (
+            <line key={id} id={`dim-${id}`} stroke="var(--brand-secondary, #805c46)" strokeWidth="1.6" strokeDasharray="5 3" />
+          ))}
+        </svg>
+        <div className="dim-volume">
+          {t("dim_volume")}: {volumeText(dimInfo)} m³
+        </div>
+      </>
+    )}
+    {dimInfo && (
+      <button
+        type="button"
+        onClick={() => setShowDims((v) => !v)}
+        title={t("dim_title")}
+        aria-pressed={showDims}
+        style={{
+          position: "absolute",
+          right: 12,
+          bottom: 12,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "8px 14px",
+          borderRadius: 999,
+          border: "1px solid var(--border)",
+          background: showDims ? "var(--brand-cta-bg)" : "var(--card)",
+          color: showDims ? "var(--brand-cta-text)" : "var(--text)",
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: "pointer",
+          boxShadow: "0 2px 8px rgba(0,0,0,.15)",
+        }}
+      >
+        <Ruler size={15} />
+        {t("dim_title")}
+      </button>
+    )}
     {hasAnimation && (
       <button
         type="button"
@@ -188,5 +294,41 @@ const ModelViewer = forwardRef(function ModelViewer(
     </div>
   );
 });
+
+const cm = (m) => `${Math.round(m * 100)} sm`;
+const volumeText = ({ x, y, z }) => {
+  const v = x * y * z;
+  const str = v >= 1 ? v.toFixed(2) : v.toFixed(3);
+  return str.replace(/0+$/, "").replace(/\.$/, "");
+};
+
+/** O'lcham nuqtalari va yozuvlari: bounding box'ning old-past-chap burchagidan boshlanadigan
+ *  3 qirra — eni (X), bo'yi (Y), chuqurligi (Z). */
+function DimensionHotspots({ info, t }) {
+  const { x, y, z, cx, cy, cz } = info;
+  const hx = x / 2, hy = y / 2, hz = z / 2;
+  const p1 = [cx - hx, cy - hy, cz + hz];
+  const p2 = [cx + hx, cy - hy, cz + hz];
+  const p3 = [cx - hx, cy + hy, cz + hz];
+  const p4 = [cx + hx, cy - hy, cz - hz];
+  const mid = (a, b) => a.map((v, i) => (v + b[i]) / 2);
+  const at = (p) => p.map((v) => `${v}m`).join(" ");
+  return (
+    <>
+      {[["p1", p1], ["p2", p2], ["p3", p3], ["p4", p4]].map(([name, p]) => (
+        <button key={name} slot={`hotspot-${name}`} className="dim-dot" data-position={at(p)} data-normal="0 0 0" aria-hidden="true" tabIndex={-1} />
+      ))}
+      <button slot="hotspot-lw" className="dim-label" data-position={at(mid(p1, p2))} data-normal="0 0 0" tabIndex={-1}>
+        {t("dim_width")} {cm(x)}
+      </button>
+      <button slot="hotspot-lh" className="dim-label" data-position={at(mid(p1, p3))} data-normal="0 0 0" tabIndex={-1}>
+        {t("dim_height")} {cm(y)}
+      </button>
+      <button slot="hotspot-ld" className="dim-label" data-position={at(mid(p2, p4))} data-normal="0 0 0" tabIndex={-1}>
+        {t("dim_depth")} {cm(z)}
+      </button>
+    </>
+  );
+}
 
 export default ModelViewer;
