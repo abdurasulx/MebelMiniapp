@@ -7,6 +7,7 @@ import '../l10n/app_locale.dart';
 import '../locale_store.dart';
 import '../models.dart';
 import '../positions.dart';
+import '../widgets/delete_account_section.dart';
 import '../widgets/phone_verify_dialog.dart';
 import 'auth_screen.dart';
 import 'notifications_screen.dart';
@@ -480,6 +481,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
             style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
             child: Text(loc.t('common_logout')),
           ),
+          const DeleteAccountSection(),
           const SizedBox(height: 20),
 
           Text(

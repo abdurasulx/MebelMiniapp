@@ -263,6 +263,8 @@ private struct ProfileView: View {
                 Button("Chiqish", role: .destructive) { auth.logout() }
             }
 
+            DeleteAccountSection()
+
             Section("So'nggi buyurtmalar") {
                 if isLoading {
                     ProgressView()
