@@ -250,8 +250,8 @@ function WorkflowPipeline({ isManager }) {
                     <span
                       className="rounded-full px-2 py-0.5 text-[10px] font-medium"
                       style={{
-                        background: `color-mix(in srgb, ${TASK_STATUS[step.status]?.color || "#8a8f98"} 16%, transparent)`,
-                        color: TASK_STATUS[step.status]?.color || "#8a8f98",
+                        background: `color-mix(in srgb, ${TASK_STATUS[step.status]?.color || "var(--muted)"} 16%, transparent)`,
+                        color: TASK_STATUS[step.status]?.color || "var(--muted)",
                       }}
                     >
                       {step.awaiting_approval ? "Admin tasdig'ini kutmoqda" : step.status_display}

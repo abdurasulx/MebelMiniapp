@@ -27,10 +27,10 @@ export default function ProjectViewer() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center" style={{ background: "#0d0d15", color: "#eaeaea" }}>
-        <Lock size={36} style={{ color: "#8a8f98" }} />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center" style={{ background: "#17110e", color: "#eaeaea" }}>
+        <Lock size={36} style={{ color: "var(--muted)" }} />
         <h1 className="text-lg font-bold">{t("viewer_access_denied_title")}</h1>
-        <p className="max-w-sm text-sm" style={{ color: "#8a8f98" }}>{error}</p>
+        <p className="max-w-sm text-sm" style={{ color: "var(--muted)" }}>{error}</p>
         {needsLogin && <a href="/login" className="btn btn-brand mt-2">{t("viewer_login_link")}</a>}
       </div>
     );
@@ -38,14 +38,14 @@ export default function ProjectViewer() {
 
   if (!data) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: "#0d0d15", color: "#8a8f98" }}>
+      <div className="flex min-h-screen items-center justify-center" style={{ background: "#17110e", color: "var(--muted)" }}>
         {t("projects_loading")}
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen flex-col" style={{ background: "#0d0d15" }}>
+    <div className="flex h-screen flex-col" style={{ background: "#17110e" }}>
       <div className="px-5 py-4">
         <div className="text-sm font-bold text-white">{data.name}</div>
         <div className="text-xs" style={{ color: "#9a9aa5" }}>{data.items.length}{t("projects_items_suffix")}</div>

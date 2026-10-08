@@ -216,7 +216,7 @@ export default function FirmaDashboard() {
       <Link to="/orders" className="card flex items-center justify-between p-4 transition hover:bg-black/5">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold">
           <Package size={17} /> Yangi buyurtmalar (ilovadan)
-          {newOrders.length > 0 && <span className="badge" style={{ background: "#3498db22", color: "#3498db" }}>{newOrders.length}</span>}
+          {newOrders.length > 0 && <span className="badge" style={{ background: "color-mix(in srgb, var(--info) 15%, transparent)", color: "var(--info)" }}>{newOrders.length}</span>}
         </h2>
         <span className="inline-flex items-center gap-0.5 text-sm" style={{ color: "var(--secondary)" }}>
           Hammasi <ArrowRight size={14} />

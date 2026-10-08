@@ -43,7 +43,7 @@ export default function Viewer() {
     return (
       <div
         className="flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center"
-        style={{ background: "var(--bg)", color: "var(--text)" }}
+        style={{ background: "#17110e", color: "var(--text)" }}
       >
         <Lock size={36} style={{ color: "var(--muted)" }} />
         <h1 className="text-lg font-bold">Kirish mumkin emas</h1>
@@ -59,7 +59,7 @@ export default function Viewer() {
     return (
       <div
         className="flex min-h-screen items-center justify-center"
-        style={{ background: "var(--bg)", color: "var(--muted)" }}
+        style={{ background: "#17110e", color: "var(--muted)" }}
       >
         Yuklanmoqda…
       </div>
@@ -67,7 +67,7 @@ export default function Viewer() {
   }
 
   return (
-    <div className="flex h-screen flex-col" style={{ background: "#0d0d15" }}>
+    <div className="flex h-screen flex-col" style={{ background: "#17110e" }}>
       <div className="flex shrink-0 items-center justify-between px-5 py-4">
         <div>
           <div className="text-sm font-bold text-white">{data.product_name}</div>
