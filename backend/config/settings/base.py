@@ -163,11 +163,6 @@ BACKEND_URL = env("BACKEND_URL", default="http://127.0.0.1:8000")
 ESKIZ_EMAIL = env("ESKIZ_EMAIL", default="")
 ESKIZ_PASSWORD = env("ESKIZ_PASSWORD", default="")
 ESKIZ_FROM = env("ESKIZ_FROM", default="4546")
-# Moderatsiyadan o'tgan matn bilan bir xil bo'lishi shart ({code} — o'zgaruvchan qism).
-ESKIZ_OTP_TEMPLATE = env(
-    "ESKIZ_OTP_TEMPLATE",
-    default="Vida Market ilovasiga kirish uchun tasdiqlash kodi: {code}. Kodni hech kimga bermang!",
-)
 
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", default="")

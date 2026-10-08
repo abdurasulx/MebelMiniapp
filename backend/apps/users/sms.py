@@ -17,6 +17,12 @@ TOKEN_TTL = 20 * 24 * 3600  # Eskiz tokeni ~30 kun yashaydi
 TIMEOUT = 10
 
 
+# Eskiz moderatsiyasidan o'tgan matn — o'zgartirsangiz qayta moderatsiya kerak.
+# Moderatsiyaga shu matnni haqiqiy 6 xonali kod bilan (masalan 123456) topshiring:
+# o'zgaruvchan qismni moderatorning o'zi maskalaydi, bizda `****` almashtirish yo'q.
+OTP_TEMPLATE = "Vida Market ilovasiga kirish uchun tasdiqlash kodi: {code}. Kodni hech kimga bermang!"
+
+
 class SMSError(Exception):
     pass
 
@@ -75,4 +81,4 @@ def send_sms(phone: str, text: str) -> None:
 
 
 def send_otp(phone: str, code: str) -> None:
-    send_sms(phone, settings.ESKIZ_OTP_TEMPLATE.format(code=code))
+    send_sms(phone, OTP_TEMPLATE.format(code=code))
