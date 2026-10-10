@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Armchair, Baby, BedDouble, Box, Camera, CookingPot, DoorClosed, Heart, Lamp, LampDesk, Library,
   MapPinOff, PackageCheck, RectangleHorizontal, Search, Sofa, Store, Trees, ArrowRight, X,
@@ -51,6 +51,7 @@ function categoryIcon(c) {
 
 export default function Catalog() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { t } = useLocale();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -340,7 +341,13 @@ export default function Catalog() {
 
       {error && <div className="error mb-4">{error}</div>}
       {shown.length === 0 && productsLoaded && !isSearching && !cat && products.length === 0 ? (
-        <StateMessage icon={Store} title={t("loc_no_firms")} body={t("loc_no_firms_hint")} />
+        <StateMessage
+          icon={Store}
+          title={t("showcase_prompt_title")}
+          body={t("showcase_prompt_body")}
+          actionLabel={t("showcase_prompt_button")}
+          onAction={() => navigate("/demo")}
+        />
       ) : (
         shown.length === 0 && (
           <p className="text-sm" style={{ color: "var(--muted)" }}>

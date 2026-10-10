@@ -44,6 +44,7 @@ import Profile from "./pages/Profile";
 import ProjectComposer from "./pages/ProjectComposer";
 import ProjectViewer from "./pages/ProjectViewer";
 import Shop from "./pages/Shop";
+import Showcase from "./pages/Showcase";
 import Viewer from "./pages/Viewer";
 import ThemeSwitch from "./components/ThemeSwitch";
 import NotificationBell from "./components/NotificationBell";
@@ -378,6 +379,7 @@ export default function App() {
     <MarketLayout>
       <Routes>
         <Route path="/" element={<Catalog />} />
+        <Route path="/demo" element={<Showcase />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="/complete-registration" element={<CompleteRegistration />} />
