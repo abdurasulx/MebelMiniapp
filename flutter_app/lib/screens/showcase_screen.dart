@@ -4,6 +4,7 @@ import '../api_client.dart';
 import '../locale_store.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../net_image.dart';
 
 /// Vitrina (demo) — faol firma yo'q hududdagi foydalanuvchi ilova imkoniyatlarini
 /// ko'rishi uchun test mahsulotlar. Buyurtma/savat YO'Q (backendda ham firmasiz).
@@ -26,6 +27,12 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
       final page = await ApiClient.instance.get(
         '/showcase/products/?lang=$lang',
         (j) => Paginated<ShowcaseProduct>.fromJson(j, ShowcaseProduct.fromJson),
+        cache: true,
+        onRefresh: (page) {
+          if (mounted && _loadedLang == lang) {
+            setState(() => _items = page.results);
+          }
+        },
       );
       if (mounted) setState(() => _items = page.results);
     } catch (e) {
@@ -127,7 +134,7 @@ class _ShowcaseCard extends StatelessWidget {
                 child: product.imageUrl != null
                     ? Padding(
                         padding: const EdgeInsets.all(AppSpacing.sm),
-                        child: Image.network(product.imageUrl!,
+                        child: netImage(product.imageUrl!,
                             fit: BoxFit.contain,
                             errorBuilder: (_, __, ___) => const _Placeholder()),
                       )
@@ -222,7 +229,7 @@ class _ShowcaseDetailScreenState extends State<ShowcaseDetailScreen> {
                       color: AppColors.backgroundAlt,
                       child: Padding(
                         padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Image.network(images[i], fit: BoxFit.contain),
+                        child: netImage(images[i], fit: BoxFit.contain),
                       ),
                     ),
                   ),

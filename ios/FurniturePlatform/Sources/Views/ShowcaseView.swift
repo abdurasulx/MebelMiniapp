@@ -68,8 +68,12 @@ struct ShowcaseView: View {
     private func load() async {
         failed = false
         do {
-            let page: Paginated<ShowcaseProduct> = try await APIClient.shared.get(
-                "/showcase/products/?lang=\(locale.code)"
+            let lang = locale.code
+            let page: Paginated<ShowcaseProduct> = try await APIClient.shared.getCached(
+                "/showcase/products/?lang=\(lang)",
+                onRefresh: { fresh in
+                    if locale.code == lang { items = fresh.results }
+                }
             )
             items = page.results
             loadedLang = locale.code
@@ -97,7 +101,7 @@ private struct ShowcaseCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            AsyncImage(url: URL(string: product.imageUrl ?? "")) { phase in
+            CachedAsyncImage(url: URL(string: product.imageUrl ?? "")) { phase in
                 if let image = phase.image {
                     image.resizable().scaledToFit().padding(8)
                 } else {
@@ -152,7 +156,7 @@ struct ShowcaseDetailView: View {
                     } else {
                         TabView(selection: $index) {
                             ForEach(Array(urls.enumerated()), id: \.offset) { i, url in
-                                AsyncImage(url: URL(string: url)) { phase in
+                                CachedAsyncImage(url: URL(string: url)) { phase in
                                     if let image = phase.image {
                                         image.resizable().scaledToFit().padding(12)
                                     } else {

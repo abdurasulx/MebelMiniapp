@@ -11,6 +11,7 @@ import '../theme.dart';
 import '../widgets/offline_view.dart';
 import '../widgets/product_card.dart';
 import 'showcase_screen.dart';
+import '../net_image.dart';
 
 /// Bosh sahifa — endi alohida "Katalog" tabi yo'q, bu ekranning o'zi
 /// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha), "Top"
@@ -114,7 +115,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'lat': location.lat!.toString(),
         'lng': location.lng!.toString(),
       };
-      _loadedFor = '${location.lat},${location.lng}';
+      final loadedFor = '${location.lat},${location.lng}';
+      _loadedFor = loadedFor;
       final query = params.isEmpty
           ? ''
           : '?${params.entries.map((e) => '${e.key}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
@@ -122,10 +124,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         '/products/$query',
         (j) => Paginated<Product>.fromJson(j, Product.fromJson),
         auth: true,
+        cache: true,
+        onRefresh: (page) {
+          if (!mounted || _loadedFor != loadedFor) return;
+          setState(() => _products = page.results);
+          context.read<LikesStore>().sync(page.results);
+        },
       );
       final categoriesPage = await ApiClient.instance.get(
         '/categories/',
         (j) => Paginated<_Category>.fromJson(j, _Category.fromJson),
+        cache: true,
+        onRefresh: (page) {
+          if (mounted) setState(() => _categories = page.results);
+        },
       );
       setState(() {
         _products = productsPage.results;
@@ -794,7 +806,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     // Backend kategoriya rasmini bersa — rasm (qirqilgan doira), aks holda ikonka.
                     child: c.imageUrl != null && c.imageUrl!.isNotEmpty
                         ? ClipOval(
-                            child: Image.network(
+                            child: netImage(
                               c.imageUrl!,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => Icon(

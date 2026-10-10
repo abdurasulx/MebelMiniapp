@@ -102,7 +102,7 @@ struct CartView: View {
 
     private func cartRow(_ item: CartItem) -> some View {
         HStack(spacing: 10) {
-            AsyncImage(url: URL(string: item.imageUrl ?? "")) { phase in
+            CachedAsyncImage(url: URL(string: item.imageUrl ?? "")) { phase in
                 if let image = phase.image {
                     image.resizable().aspectRatio(contentMode: .fill)
                 } else {

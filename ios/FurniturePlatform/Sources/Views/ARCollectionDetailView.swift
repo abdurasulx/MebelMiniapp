@@ -157,7 +157,7 @@ private struct ARCollectionItemCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ZStack(alignment: .topTrailing) {
-                AsyncImage(url: URL(string: item.product.cardImageUrl ?? "")) { phase in
+                CachedAsyncImage(url: URL(string: item.product.cardImageUrl ?? "")) { phase in
                     if let image = phase.image {
                         image.resizable().aspectRatio(contentMode: .fill)
                     } else {

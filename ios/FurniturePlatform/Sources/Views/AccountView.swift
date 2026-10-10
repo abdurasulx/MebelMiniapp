@@ -749,7 +749,7 @@ private struct ProgressUpdateRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if let imageUrl = update.imageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { phase in
+                CachedAsyncImage(url: url) { phase in
                     if let image = phase.image {
                         image.resizable().aspectRatio(contentMode: .fill)
                     } else {

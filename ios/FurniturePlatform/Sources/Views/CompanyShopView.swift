@@ -50,7 +50,7 @@ struct CompanyShopView: View {
     private func header(_ company: Company) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 14) {
-                AsyncImage(url: URL(string: company.logoUrl ?? "")) { phase in
+                CachedAsyncImage(url: URL(string: company.logoUrl ?? "")) { phase in
                     if let image = phase.image {
                         image.resizable().aspectRatio(contentMode: .fill)
                     } else {
@@ -102,7 +102,7 @@ struct CompanyShopView: View {
                     ForEach(products) { product in
                         NavigationLink(destination: ProductDetailView(productId: product.id)) {
                             VStack(alignment: .center, spacing: 4) {
-                                AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
+                                CachedAsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
                                     if let image = phase.image {
                                         image.resizable().aspectRatio(contentMode: .fill)
                                     } else {
@@ -191,9 +191,18 @@ struct CompanyShopView: View {
 
     private func load() async {
         do {
-            async let companyResult: Company = APIClient.shared.get("/companies/\(companySlug)/", auth: auth.isAuthenticated)
-            async let productsResult: Paginated<Product> = APIClient.shared.get("/products/?company=\(companySlug)", auth: auth.isAuthenticated)
-            async let reviewsResult: Paginated<Review> = APIClient.shared.get("/reviews/?company=\(companySlug)", auth: auth.isAuthenticated)
+            async let companyResult: Company = APIClient.shared.getCached(
+                "/companies/\(companySlug)/", auth: auth.isAuthenticated,
+                onRefresh: { fresh in company = fresh }
+            )
+            async let productsResult: Paginated<Product> = APIClient.shared.getCached(
+                "/products/?company=\(companySlug)", auth: auth.isAuthenticated,
+                onRefresh: { page in products = page.results }
+            )
+            async let reviewsResult: Paginated<Review> = APIClient.shared.getCached(
+                "/reviews/?company=\(companySlug)", auth: auth.isAuthenticated,
+                onRefresh: { page in reviews = page.results }
+            )
             let (c, p, r) = try await (companyResult, productsResult, reviewsResult)
             company = c
             products = p.results

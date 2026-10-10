@@ -325,7 +325,7 @@ private var arScaleFactors: SIMD3<Float> {
     private func galleryImage(_ url: String) -> some View {
         ZStack {
             Color.appBackground
-            AsyncImage(url: URL(string: url)) { phase in
+            CachedAsyncImage(url: URL(string: url)) { phase in
                 if let image = phase.image {
                     image.resizable().aspectRatio(contentMode: .fit)
                 } else {
@@ -337,7 +337,19 @@ private var arScaleFactors: SIMD3<Float> {
 
 private func load() async {
         do {
-            let p: Product = try await APIClient.shared.get("/products/\(productId)/", auth: true)
+            let p: Product = try await APIClient.shared.getCached(
+                "/products/\(productId)/", auth: true,
+                onRefresh: { fresh in
+                    // Server o'zgartirgan bo'lsa jim yangilanadi; tanlangan variant saqlanadi.
+                    product = fresh
+                    if let current = selectedVariant,
+                       let same = fresh.variants.first(where: { $0.id == current.id }) {
+                        selectedVariant = same
+                    } else {
+                        selectedVariant = fresh.variants.first
+                    }
+                }
+            )
             product = p
             if let first = p.variants.first {
                 selectedVariant = first

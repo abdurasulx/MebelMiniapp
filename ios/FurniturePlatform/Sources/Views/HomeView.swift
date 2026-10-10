@@ -515,8 +515,17 @@ struct HomeView: View {
             params.append("ordering=top")
         }
         let query = params.isEmpty ? "" : "?\(params.joined(separator: "&"))"
-        async let productsResult: Paginated<Product> = APIClient.shared.get("/products/\(query)", auth: true)
-        async let categoriesResult: Paginated<Category> = APIClient.shared.get("/categories/")
+        async let productsResult: Paginated<Product> = APIClient.shared.getCached(
+            "/products/\(query)", auth: true,
+            onRefresh: { page in
+                products = page.results
+                likes.sync(from: page.results)
+            }
+        )
+        async let categoriesResult: Paginated<Category> = APIClient.shared.getCached(
+            "/categories/",
+            onRefresh: { page in categories = page.results }
+        )
         do {
             let (p, c) = try await (productsResult, categoriesResult)
             products = p.results

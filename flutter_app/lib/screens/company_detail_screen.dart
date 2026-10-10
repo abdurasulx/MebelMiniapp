@@ -9,6 +9,7 @@ import 'product_detail_screen.dart';
 import '../theme.dart';
 import '../widgets/price_block.dart';
 import '../widgets/product_card.dart';
+import '../net_image.dart';
 
 /// Firma do'kon sahifasi (marketplace uslubida) — mahsulot sahifasidan firma
 /// nomiga bosilganda ochiladi: tavsif, ishonch darajasi, boshqa mahsulotlari
@@ -47,14 +48,26 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
         // formasini ko'rsatish/yashirish) shu foydalanuvchiga to'g'ri
         // hisoblanishi uchun token yuborilishi kerak.
         auth: true,
+        cache: true,
+        onRefresh: (fresh) {
+          if (mounted) setState(() => _company = fresh);
+        },
       );
       final productsPage = await ApiClient.instance.get(
         '/products/?company=${widget.companySlug}',
         (j) => Paginated<Product>.fromJson(j, Product.fromJson),
+        cache: true,
+        onRefresh: (page) {
+          if (mounted) setState(() => _products = page.results);
+        },
       );
       final reviewsPage = await ApiClient.instance.get(
         '/reviews/?company=${widget.companySlug}',
         (j) => Paginated<Review>.fromJson(j, Review.fromJson),
+        cache: true,
+        onRefresh: (page) {
+          if (mounted) setState(() => _reviews = page.results);
+        },
       );
       setState(() {
         _company = company;
@@ -354,7 +367,7 @@ class _Header extends StatelessWidget {
                         height: 64,
                         color: AppColors.card,
                         padding: const EdgeInsets.all(4),
-                        child: Image.network(
+                        child: netImage(
                           company.logoUrl!,
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => const Icon(

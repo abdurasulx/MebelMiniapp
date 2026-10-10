@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../locale_store.dart';
+import '../net_image.dart';
 
 /// Mahsulot rasmini to'liq ekranda ochadi (marketplace uslubidagi galereya):
 /// pinch/ikki marta bosish bilan zoom, o'ngga-chapga surib almashtirish,
@@ -26,7 +28,8 @@ Future<void> showImageGallery(
         initialIndex: initialIndex.clamp(0, urls.length - 1),
         onIndexChanged: onIndexChanged,
       ),
-      transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
+      transitionsBuilder: (_, anim, __, child) =>
+          FadeTransition(opacity: anim, child: child),
     ),
   );
 }
@@ -35,7 +38,8 @@ class _GalleryScreen extends StatefulWidget {
   final List<String> urls;
   final int initialIndex;
   final ValueChanged<int>? onIndexChanged;
-  const _GalleryScreen({required this.urls, required this.initialIndex, this.onIndexChanged});
+  const _GalleryScreen(
+      {required this.urls, required this.initialIndex, this.onIndexChanged});
 
   @override
   State<_GalleryScreen> createState() => _GalleryScreenState();
@@ -43,7 +47,8 @@ class _GalleryScreen extends StatefulWidget {
 
 class _GalleryScreenState extends State<_GalleryScreen> {
   static const _maxDots = 7;
-  late final PageController _pages = PageController(initialPage: widget.initialIndex);
+  late final PageController _pages =
+      PageController(initialPage: widget.initialIndex);
   late int _index = widget.initialIndex;
   bool _zoomed = false;
 
@@ -59,7 +64,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
     // Qo'shni rasmlar oldindan yuklanadi — surilganda bo'sh joy ko'rinmaydi.
     for (final i in [_index - 1, _index + 1]) {
       if (i >= 0 && i < widget.urls.length) {
-        precacheImage(NetworkImage(widget.urls[i]), context);
+        precacheImage(CachedNetworkImageProvider(widget.urls[i]), context);
       }
     }
   }
@@ -86,7 +91,9 @@ class _GalleryScreenState extends State<_GalleryScreen> {
             controller: _pages,
             itemCount: count,
             // Rasm kattalashtirilganda barmoq rasmni siljitadi, sahifani emas.
-            physics: _zoomed ? const NeverScrollableScrollPhysics() : const PageScrollPhysics(),
+            physics: _zoomed
+                ? const NeverScrollableScrollPhysics()
+                : const PageScrollPhysics(),
             onPageChanged: _onPage,
             itemBuilder: (_, i) => _ZoomablePage(
               url: widget.urls[i],
@@ -102,13 +109,19 @@ class _GalleryScreenState extends State<_GalleryScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (multi) _pill(Text('${_index + 1} / $count', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontFeatures: [FontFeature.tabularFigures()]))),
+                  if (multi)
+                    _pill(Text('${_index + 1} / $count',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: [FontFeature.tabularFigures()]))),
                   const Spacer(),
                   Material(
                     color: Colors.black.withValues(alpha: 0.5),
                     shape: const CircleBorder(),
                     child: IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.white),
+                      icon:
+                          const Icon(Icons.close_rounded, color: Colors.white),
                       tooltip: loc.t('common_close'),
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
@@ -146,14 +159,16 @@ class _GalleryScreenState extends State<_GalleryScreen> {
   /// Ko'p rasmda nuqtalar oynasi [_maxDots] bilan cheklanadi, chetlari kichrayadi.
   Widget _dots(int count) {
     final visible = math.min(count, _maxDots);
-    final start = (_index - _maxDots ~/ 2).clamp(0, math.max(0, count - _maxDots));
+    final start =
+        (_index - _maxDots ~/ 2).clamp(0, math.max(0, count - _maxDots));
     return _pill(
       Row(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(visible, (k) {
           final i = start + k;
           final active = i == _index;
-          final edge = count > _maxDots && ((k == 0 && i > 0) || (k == visible - 1 && i < count - 1));
+          final edge = count > _maxDots &&
+              ((k == 0 && i > 0) || (k == visible - 1 && i < count - 1));
           return AnimatedContainer(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeOutCubic,
@@ -161,7 +176,8 @@ class _GalleryScreenState extends State<_GalleryScreen> {
             width: active ? 20 : (edge ? 4 : 6),
             height: active ? 8 : (edge ? 4 : 6),
             decoration: BoxDecoration(
-              color: active ? Colors.white : Colors.white.withValues(alpha: 0.4),
+              color:
+                  active ? Colors.white : Colors.white.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(999),
             ),
           );
@@ -177,16 +193,20 @@ class _ZoomablePage extends StatefulWidget {
   final String url;
   final String errorText;
   final ValueChanged<bool> onZoomChanged;
-  const _ZoomablePage({required this.url, required this.errorText, required this.onZoomChanged});
+  const _ZoomablePage(
+      {required this.url,
+      required this.errorText,
+      required this.onZoomChanged});
 
   @override
   State<_ZoomablePage> createState() => _ZoomablePageState();
 }
 
-class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderStateMixin {
+class _ZoomablePageState extends State<_ZoomablePage>
+    with SingleTickerProviderStateMixin {
   final _controller = TransformationController();
-  late final AnimationController _anim =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
+  late final AnimationController _anim = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 220));
   Offset _tapPos = Offset.zero;
   Matrix4Tween? _tween;
 
@@ -195,9 +215,12 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
     super.initState();
     _anim.addListener(() {
       final t = _tween;
-      if (t != null) _controller.value = t.evaluate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
+      if (t != null)
+        _controller.value = t.evaluate(
+            CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
     });
-    _controller.addListener(() => widget.onZoomChanged(_controller.value.getMaxScaleOnAxis() > 1.01));
+    _controller.addListener(() =>
+        widget.onZoomChanged(_controller.value.getMaxScaleOnAxis() > 1.01));
   }
 
   @override
@@ -215,7 +238,8 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
       end = Matrix4.identity();
     } else {
       const s = 2.5;
-      end = Matrix4.translationValues(-_tapPos.dx * (s - 1), -_tapPos.dy * (s - 1), 0) *
+      end = Matrix4.translationValues(
+              -_tapPos.dx * (s - 1), -_tapPos.dy * (s - 1), 0) *
           Matrix4.diagonal3Values(s, s, 1);
     }
     _tween = Matrix4Tween(begin: begin, end: end);
@@ -234,19 +258,26 @@ class _ZoomablePageState extends State<_ZoomablePage> with SingleTickerProviderS
         minScale: 1,
         maxScale: 4,
         child: SizedBox.expand(
-          child: Image.network(
+          child: netImage(
             widget.url,
             fit: BoxFit.contain,
             loadingBuilder: (_, child, progress) => progress == null
                 ? child
-                : const Center(child: SizedBox(width: 36, height: 36, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70))),
+                : const Center(
+                    child: SizedBox(
+                        width: 36,
+                        height: 36,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white70))),
             errorBuilder: (_, __, ___) => Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 40),
+                  const Icon(Icons.broken_image_outlined,
+                      color: Colors.white54, size: 40),
                   const SizedBox(height: 8),
-                  Text(widget.errorText, style: const TextStyle(color: Colors.white70)),
+                  Text(widget.errorText,
+                      style: const TextStyle(color: Colors.white70)),
                 ],
               ),
             ),

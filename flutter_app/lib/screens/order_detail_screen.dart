@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../locale_store.dart';
 import '../models.dart';
 import '../theme.dart';
+import '../net_image.dart';
 
 /// Mijoz tomonidagi buyurtma tafsiloti — ishlab chiqarish bosqichlarini
 /// (workflow_steps) FAQAT O'QISH uchun ko'rsatadi (rasm/izoh bilan birga),
@@ -44,16 +45,19 @@ class OrderDetailScreen extends StatelessWidget {
                 children: [
                   Text(
                     '${formatSom(order.totalPrice)} ${loc.t('currency_som')}',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.backgroundAlt.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(order.statusDisplay, style: const TextStyle(fontSize: 12)),
+                    child: Text(order.statusDisplay,
+                        style: const TextStyle(fontSize: 12)),
                   ),
                   if (order.progressPercent != null) ...[
                     const SizedBox(height: 12),
@@ -62,14 +66,17 @@ class OrderDetailScreen extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: (order.progressPercent ?? 0) / 100,
                         minHeight: 8,
-                        backgroundColor: AppColors.backgroundAlt.withValues(alpha: 0.25),
-                        valueColor: const AlwaysStoppedAnimation(AppColors.brandSecondary),
+                        backgroundColor:
+                            AppColors.backgroundAlt.withValues(alpha: 0.25),
+                        valueColor: const AlwaysStoppedAnimation(
+                            AppColors.brandSecondary),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${loc.t('order_detail_production_prefix')}${order.progressPercent}%',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ],
@@ -83,7 +90,8 @@ class OrderDetailScreen extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             const SizedBox(height: 10),
-            ...steps.map((step) => _StepTile(step: step, color: _statusColor(step.status), loc: loc)),
+            ...steps.map((step) => _StepTile(
+                step: step, color: _statusColor(step.status), loc: loc)),
           ],
         ],
       ),
@@ -111,21 +119,27 @@ class _StepTile extends StatelessWidget {
                 Container(
                   width: 10,
                   height: 10,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  decoration:
+                      BoxDecoration(color: color, shape: BoxShape.circle),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(step.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  child: Text(step.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     step.statusDisplay,
-                    style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: color,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -134,21 +148,26 @@ class _StepTile extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 step.cuttingInstruction!,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00695C)),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF00695C)),
               ),
             ],
             if (step.employeeName != null && step.employeeName!.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 '${loc.t('order_detail_executor_prefix')}${step.employeeName}',
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textSecondary),
               ),
             ],
             if (step.updates.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 '${step.updates.length}${loc.t('order_detail_updates_suffix')}',
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 8),
               // Web'dagi WorkflowPanel bilan bir xil — faqat oxirgisi emas,
@@ -185,7 +204,7 @@ class _UpdateTile extends StatelessWidget {
           if (update.imageUrl != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.network(
+              child: netImage(
                 update.imageUrl!,
                 height: 140,
                 width: double.infinity,
@@ -198,17 +217,21 @@ class _UpdateTile extends StatelessWidget {
               if (update.isCompletion)
                 const Padding(
                   padding: EdgeInsets.only(right: 4),
-                  child: Icon(Icons.check_circle, size: 14, color: AppColors.success),
+                  child: Icon(Icons.check_circle,
+                      size: 14, color: AppColors.success),
                 ),
-              if (update.employeeName != null && update.employeeName!.isNotEmpty)
+              if (update.employeeName != null &&
+                  update.employeeName!.isNotEmpty)
                 Text(
                   update.employeeName!,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               const SizedBox(width: 6),
               Text(
                 _formatTime(update.createdAt),
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.textSecondary),
               ),
             ],
           ),

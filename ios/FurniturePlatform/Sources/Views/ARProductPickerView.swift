@@ -95,7 +95,7 @@ private struct ARProductPickerCard: View {
     var body: some View {
         VStack(spacing: 6) {
             ZStack {
-                AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
+                CachedAsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
                     if let image = phase.image {
                         image.resizable().aspectRatio(contentMode: .fill)
                     } else {
@@ -181,7 +181,7 @@ private struct VariantSwatch: View {
             VStack(spacing: 4) {
                 Group {
                     if let textureUrl = variant.textureUrl, let url = URL(string: textureUrl) {
-                        AsyncImage(url: url) { phase in
+                        CachedAsyncImage(url: url) { phase in
                             if let image = phase.image {
                                 image.resizable().aspectRatio(contentMode: .fill)
                             } else {

@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../screens/product_detail_screen.dart';
 import 'like_button.dart';
 import 'price_block.dart';
+import '../net_image.dart';
 
 /// Katalog/Bosh sahifa/Sevimlilarda bir xil ko'rinishdagi mahsulot kartasi
 /// (iOS'dagi `ShopProductCard` bilan bir xil dizayn).
@@ -46,7 +47,7 @@ class ProductCard extends StatelessWidget {
                       child: product.cardImageUrl != null
                           ? Padding(
                               padding: const EdgeInsets.all(AppSpacing.sm),
-                              child: Image.network(
+                              child: netImage(
                                 product.cardImageUrl!,
                                 fit: BoxFit.contain,
                                 loadingBuilder: (_, child, progress) =>

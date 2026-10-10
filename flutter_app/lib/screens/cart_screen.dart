@@ -9,6 +9,7 @@ import '../models.dart';
 import '../theme.dart';
 import '../widgets/phone_verify_dialog.dart';
 import 'auth_screen.dart';
+import '../net_image.dart';
 
 /// Savat — web `Cart.jsx` bilan bir xil oqim: bitta buyurtmada faqat bitta
 /// kompaniya bo'lishi shart (backend qoidasi), shuning uchun checkout paytida
@@ -490,7 +491,7 @@ class _CartScreenState extends State<CartScreen> {
                 child: i.imageUrl != null
                     ? Padding(
                         padding: const EdgeInsets.all(AppSpacing.xs),
-                        child: Image.network(
+                        child: netImage(
                           i.imageUrl!,
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => const Icon(

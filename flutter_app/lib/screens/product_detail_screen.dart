@@ -18,6 +18,7 @@ import '../widgets/product_card.dart';
 import 'cart_screen.dart';
 import 'company_detail_screen.dart';
 import '../widgets/image_gallery_viewer.dart';
+import '../net_image.dart';
 
 /// Mahsulot tafsiloti — avval rasmlar galereyasi ko'rsatiladi, 3D model
 /// "3D ko'rish" tugmasi orqali talab bo'yicha alohida oynada ochiladi
@@ -86,7 +87,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       final p = await ApiClient.instance.get(
         '/products/${widget.productId}/',
         (j) => Product.fromJson(j),
+        auth: true,
+        cache: true,
+        // Server javobi keshdagidan farq qilsa — sahifa jim yangilanadi
+        // (tanlangan variant va soni saqlanadi).
+        onRefresh: (fresh) {
+          if (!mounted) return;
+          setState(() {
+            _product = fresh;
+            final sel = _selectedVariant;
+            final same = fresh.variants.where((v) => v.id == sel?.id);
+            _selectedVariant = same.isNotEmpty
+                ? same.first
+                : (fresh.variants.isNotEmpty ? fresh.variants.first : null);
+          });
+        },
       );
+      if (!mounted) return;
       setState(() {
         _product = p;
         _selectedVariant = p.variants.isNotEmpty ? p.variants.first : null;
@@ -109,6 +126,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       final page = await ApiClient.instance.get(
         '/products/?category=${p.categorySlug}&exclude=${p.id}',
         (j) => Paginated<Product>.fromJson(j, Product.fromJson),
+        cache: true,
+        onRefresh: (page) {
+          if (mounted) setState(() => _recommended = page.results);
+        },
       );
       if (mounted) setState(() => _recommended = page.results);
     } catch (_) {
@@ -491,7 +512,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     ),
                     child: Padding(
                       padding: const EdgeInsets.only(top: 24, bottom: 8),
-                      child: Image.network(
+                      child: netImage(
                         urls[i],
                         fit: BoxFit.contain,
                         loadingBuilder: (_, child, progress) => progress == null
@@ -880,7 +901,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(11),
                       child: firstPhoto != null
-                          ? Image.network(
+                          ? netImage(
                               firstPhoto,
                               fit: BoxFit.cover,
                               errorBuilder: (_, __, ___) => const Icon(

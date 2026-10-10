@@ -10,7 +10,7 @@ struct ProductCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottomLeading) {
-                AsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
+                CachedAsyncImage(url: URL(string: product.cardImageUrl ?? "")) { phase in
                     switch phase {
                     case .success(let image):
                         image.resizable().scaledToFit().padding(8)

@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'app_version.dart';
 import 'device_signature.dart';
 import 'models.dart';
+import 'response_cache.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -127,6 +128,7 @@ class ApiClient {
     throw ApiException('Versiya tekshiruvi: ${resp.statusCode}',
         statusCode: resp.statusCode);
   }
+
   // WebSocket ulanishi (notification_ws.dart) joriy access token'ni shu
   // orqali o'qiydi — qayta ulanishda har doim ENG YANGI qiymatni olish
   // uchun (token yangilanib qolgan bo'lishi mumkin).
@@ -207,16 +209,84 @@ class ApiClient {
   }
 
   void setTokens(TokenPair? tokens) {
+    if (tokens == null && _accessToken != null) {
+      // Chiqish — oldingi foydalanuvchining keshlangan javoblari qolmasin.
+      unawaited(ResponseCache.instance.clear());
+    }
     _accessToken = tokens?.access;
     _refreshToken = tokens?.refresh;
   }
 
+  /// Keshlangan GET'lar kalitidagi foydalanuvchi: JWT `user_id` (imzo tekshirilmaydi —
+  /// bu faqat kesh bo'limi uchun).
+  String _cacheScope(bool auth) {
+    final token = _accessToken;
+    if (!auth || token == null) return 'anon';
+    try {
+      final parts = token.split('.');
+      final payload =
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final id = (jsonDecode(payload) as Map)['user_id'];
+      return 'u$id';
+    } catch (_) {
+      return 'auth';
+    }
+  }
+
+  final Map<String, Future<void>> _revalidating = {};
+
+  /// `cache: true` — stale-while-revalidate: keshdagi javob darhol qaytadi,
+  /// fonda server so'raladi; farq bo'lsa kesh yangilanib `onRefresh(yangi)` chaqiriladi.
+  /// Kesh bo'lmasa oddiy so'rov (natija keshlanadi). Server javobi o'zgarmasa hech narsa yangilanmaydi.
   Future<T> get<T>(
     String path,
     T Function(dynamic json) fromJson, {
     bool auth = false,
-  }) =>
-      _send('GET', path, null, fromJson, auth: auth);
+    bool cache = false,
+    void Function(T fresh)? onRefresh,
+  }) async {
+    if (!cache) return _send('GET', path, null, fromJson, auth: auth);
+
+    final key = '${_cacheScope(auth)}|$path';
+    final cached = await ResponseCache.instance.read(key);
+    if (cached != null) {
+      try {
+        final value = fromJson(jsonDecode(cached));
+        _revalidate<T>(key, path, cached, fromJson, auth, onRefresh);
+        return value;
+      } catch (_) {
+        // Kesh buzilgan/eski model — oddiy so'rovga tushamiz.
+      }
+    }
+    final body = await _send<String>('GET', path, null, (j) => jsonEncode(j),
+        auth: auth);
+    unawaited(ResponseCache.instance.write(key, body));
+    return fromJson(jsonDecode(body));
+  }
+
+  void _revalidate<T>(
+    String key,
+    String path,
+    String cachedBody,
+    T Function(dynamic json) fromJson,
+    bool auth,
+    void Function(T fresh)? onRefresh,
+  ) {
+    if (_revalidating.containsKey(key)) return;
+    _revalidating[key] = () async {
+      try {
+        final body = await _send<String>(
+            'GET', path, null, (j) => jsonEncode(j),
+            auth: auth);
+        if (body == cachedBody) return;
+        await ResponseCache.instance.write(key, body);
+        onRefresh?.call(fromJson(jsonDecode(body)));
+      } catch (_) {
+        // Tarmoq xatosi — keshdagi ma'lumot ko'rinib turaveradi.
+      }
+    }()
+        .whenComplete(() => _revalidating.remove(key));
+  }
 
   Future<T> post<T>(
     String path,

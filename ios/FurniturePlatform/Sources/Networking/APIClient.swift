@@ -63,6 +63,7 @@ actor APIClient {
     var currentAccessToken: String? { accessToken }
 
     func setTokens(_ tokens: TokenPair?) {
+        if tokens == nil, accessToken != nil { ResponseCache.shared.clear() } // chiqish
         accessToken = tokens?.access
         refreshToken = tokens?.refresh
     }
@@ -71,6 +72,49 @@ actor APIClient {
 
     func get<T: Decodable>(_ path: String, auth: Bool = false) async throws -> T {
         try await send(path: path, method: "GET", body: Data?.none, auth: auth)
+    }
+
+    /// Stale-while-revalidate: keshdagi javob DARHOL qaytadi, fonda server so'raladi;
+    /// javob o'zgargan bo'lsa kesh yangilanadi va `onRefresh` (main aktor) yangi qiymat bilan
+    /// chaqiriladi. Kesh bo'lmasa oddiy so'rov (natija keshlanadi).
+    func getCached<T: Decodable>(
+        _ path: String,
+        auth: Bool = false,
+        onRefresh: (@MainActor (T) -> Void)? = nil
+    ) async throws -> T {
+        let key = "\(cacheScope(auth: auth))|\(path)"
+        if let cached = ResponseCache.shared.read(key), let value = try? decoder.decode(T.self, from: cached) {
+            Task { [weak self] in
+                guard let self else { return }
+                guard let fresh = try? await self.rawRequest(path: path, method: "GET", body: nil, auth: auth),
+                      fresh != cached else { return }
+                ResponseCache.shared.write(key, fresh)
+                if let onRefresh, let updated = try? self.decoder.decode(T.self, from: fresh) {
+                    await onRefresh(updated)
+                }
+            }
+            return value
+        }
+        let data = try await rawRequest(path: path, method: "GET", body: nil, auth: auth)
+        let value: T
+        do { value = try decoder.decode(T.self, from: data) } catch { throw APIError.decoding }
+        ResponseCache.shared.write(key, data)
+        return value
+    }
+
+    /// Keshlangan GET'lar kalitidagi foydalanuvchi (JWT `user_id`, imzo tekshirilmaydi).
+    private func cacheScope(auth: Bool) -> String {
+        guard auth, let token = accessToken else { return "anon" }
+        let parts = token.split(separator: ".")
+        guard parts.count > 1 else { return "auth" }
+        var b64 = String(parts[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        while b64.count % 4 != 0 { b64 += "=" }
+        if let data = Data(base64Encoded: b64),
+           let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let id = obj["user_id"] {
+            return "u\(id)"
+        }
+        return "auth"
     }
 
     func post<T: Decodable, B: Encodable>(_ path: String, body: B, auth: Bool = false) async throws -> T {

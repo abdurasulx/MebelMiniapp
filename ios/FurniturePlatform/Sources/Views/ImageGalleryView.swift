@@ -103,7 +103,7 @@ private struct ZoomableImagePage: View {
 
     var body: some View {
         GeometryReader { geo in
-            AsyncImage(url: URL(string: url), transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
+            CachedAsyncImage(url: URL(string: url), transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
                 switch phase {
                 case .success(let image):
                     image.resizable().scaledToFit()
