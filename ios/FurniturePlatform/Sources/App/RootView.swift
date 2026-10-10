@@ -84,7 +84,7 @@ struct RootView: View {
 
                 CartView()
                     .appScreenBackground()
-                    .tabItem { Label(locale.t("nav_cart"), systemImage: "cart.fill") }
+                    .tabItem { Label(locale.t("nav_cart"), systemImage: "bag.fill") }
                     .badge(cart.count)
             }
 

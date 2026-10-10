@@ -40,7 +40,7 @@ struct CartView: View {
 
     private var empty: some View {
         VStack(spacing: 8) {
-            Image(systemName: "cart").font(.largeTitle).foregroundStyle(Color.textSecondary)
+            Image(systemName: "bag").font(.largeTitle).foregroundStyle(Color.textSecondary)
             Text(locale.t("cart_empty_title")).font(.headline)
             Text(locale.t("cart_empty_subtitle")).font(.caption).foregroundStyle(Color.textSecondary)
         }

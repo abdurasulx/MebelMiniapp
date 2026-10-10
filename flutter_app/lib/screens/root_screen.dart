@@ -76,7 +76,7 @@ class _RootScreenState extends State<RootScreen> {
               icon: Badge(
                 label: Text('$cartCount'),
                 isLabelVisible: cartCount > 0,
-                child: const Icon(Icons.shopping_basket_rounded),
+                child: const Icon(Icons.shopping_bag_rounded),
               ),
               label: loc.t('nav_cart'),
             ),

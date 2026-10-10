@@ -110,9 +110,6 @@ private var arScaleFactors: SIMD3<Float> {
                             }
                             .foregroundStyle(Color.textSecondary)
                         }
-                        if let description = product.description, !description.isEmpty {
-                            Text(description).font(.subheadline).padding(.top, 4)
-                        }
                     }
                     .padding(.horizontal)
 
@@ -131,6 +128,10 @@ private var arScaleFactors: SIMD3<Float> {
                                 }
                             }
                             .pickerStyle(.segmented)
+
+                            if let description = product.description, !description.isEmpty {
+                                Text(description).font(.subheadline)
+                            }
 
                             // 2) Bitta model butun mahsulotga tegishli — faqat rang/naqsh
                             // tanlangan variantga qarab AR'da runtime'da almashadi. Tugma
