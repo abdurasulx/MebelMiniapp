@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowUp, ArrowDown, Check, CheckCircle2,
-  Circle, Eye, ExternalLink, FileBox, Image as ImageIcon, Images, Layers, Link2,
+  Circle, Eye, ExternalLink, FileBox, Image as ImageIcon, Layers, Link2,
   Lock, MoreHorizontal, Palette, Pencil, Share2, Sparkles, Tag, TrendingUp, Trash2, Unlock, Upload,
   Workflow,
 } from "lucide-react";
@@ -276,61 +276,6 @@ function ProgressBar({ percent, height = 6 }) {
     </div>
   );
 }
-
-function Dropzone({ hint, accept, onFile, previewUrl, currentLabel, busy }) {
-  const [dragOver, setDragOver] = useState(false);
-  const [localFile, setLocalFile] = useState(null);
-  const inputRef = useRef(null);
-
-  const handleFiles = (files) => {
-    const f = files?.[0];
-    if (!f) return;
-    setLocalFile(f);
-    onFile(f);
-  };
-
-  return (
-    <div>
-      <div
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
-        style={{
-          border: `1.5px dashed ${dragOver ? ENT.primary : ENT.border}`,
-          background: dragOver ? `color-mix(in srgb, ${ENT.primary} 4%, transparent)` : ENT.bg,
-          borderRadius: 12, padding: "22px 16px", cursor: "pointer", textAlign: "center", transition: "all .12s",
-        }}
-      >
-        <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={(e) => handleFiles(e.target.files)} />
-        {localFile ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: ENT.text }}>
-            <FileBox size={16} style={{ color: ENT.primary }} />
-            <span style={{ fontWeight: 600 }}>{localFile.name}</span>
-            <span style={{ color: ENT.muted }}>({(localFile.size / 1024 / 1024).toFixed(2)} MB)</span>
-          </div>
-        ) : previewUrl ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            <img src={previewUrl} alt="" style={{ height: 56, width: 56, borderRadius: 10, objectFit: "cover" }} />
-            <span style={{ fontSize: 12, color: ENT.muted }}>{currentLabel || "Almashtirish uchun bosing yoki sudrab tashlang"}</span>
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-            <Upload size={18} style={{ color: ENT.muted }} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: ENT.text }}>Faylni shu yerga tashlang yoki bosing</span>
-            {hint && <span style={{ fontSize: 11.5, color: ENT.muted }}>{hint}</span>}
-          </div>
-        )}
-      </div>
-      {busy && (
-        <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: ENT.border, overflow: "hidden", position: "relative" }}>
-          <div style={{ position: "absolute", inset: 0, width: "40%", background: ENT.primary, borderRadius: 2, animation: "ent-indeterminate 1s ease-in-out infinite" }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ============================== Header / Nav / Right panel ==============================
 
 function HeroHeader({ product, completeness, menuOpen, setMenuOpen, onTogglePublish, onDelete }) {
@@ -571,114 +516,7 @@ function GeneralTab({ product, categories, onDone }) {
         </Card>
       </form>
 
-      <ImagesCard product={product} onDone={onDone} />
     </div>
-  );
-}
-
-function ImagesCard({ product, onDone }) {
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const upload = async (f) => {
-    setError("");
-    setBusy(true);
-    try {
-      const fd = new FormData();
-      fd.append("image", f);
-      fd.append("sort_order", product.images?.length || 0);
-      await api(`/products/${product.id}/images/`, { method: "POST", body: fd, isForm: true });
-      onDone();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (imageId) => {
-    try {
-      await api(`/products/${product.id}/images/${imageId}/`, { method: "DELETE" });
-      onDone();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  const makePrimary = async (imageId) => {
-    setError("");
-    try {
-      await api(`/products/${product.id}/set-primary-image/`, { method: "POST", body: { image: imageId } });
-      onDone();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
-  // Asosiy rasm serverda alohida faylga nusxalanadi (boshqa upload_to
-  // papkaga) — to'liq URL hech qachon mos kelmaydi, shuning uchun taqqoslash
-  // fayl nomi (oxirgi segment) bo'yicha.
-  const sameFile = (a, b) => !!a && !!b && a.split("/").pop() === b.split("/").pop();
-  // Mahsulot yaratilganda yuklangan asosiy rasm galereyada (`ProductImage`)
-  // yo'q bo'lishi mumkin — shunda u ham ro'yxatda ko'rinishi kerak.
-  const primaryOnly =
-    product.image_url && !(product.images || []).some((img) => sameFile(img.image_url, product.image_url));
-
-  return (
-    <Card
-      title="Rasmlar"
-      description="Yuklangan rasmlardan istalganini asosiy rasm sifatida belgilashingiz mumkin — u katalog kartochkasida ko'rsatiladi."
-      icon={Images}
-    >
-      {primaryOnly || product.images?.length > 0 ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10, marginBottom: 16 }}>
-          {primaryOnly && (
-            <div style={{ position: "relative", aspectRatio: "1/1", borderRadius: 10, overflow: "hidden", border: `1px solid ${ENT.primary}` }}>
-              <img src={product.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              <div style={{ position: "absolute", top: 6, left: 6 }}><Pill tone="primary">Asosiy</Pill></div>
-            </div>
-          )}
-          {product.images.map((img) => {
-            const isPrimary = sameFile(img.image_url, product.image_url);
-            return (
-              <div key={img.id} className="group" style={{ position: "relative", aspectRatio: "1/1", borderRadius: 10, overflow: "hidden", border: `1px solid ${isPrimary ? ENT.primary : ENT.border}` }}>
-                <img src={img.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                {isPrimary && <div style={{ position: "absolute", top: 6, left: 6 }}><Pill tone="primary">Asosiy</Pill></div>}
-                <div
-                  className="opacity-0 group-hover:opacity-100"
-                  style={{ position: "absolute", inset: 0, background: "rgba(17,24,39,0.5)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "opacity .12s" }}
-                >
-                  {!isPrimary && (
-                    <button
-                      onClick={() => makePrimary(img.id)}
-                      title="Asosiy qilish"
-                      style={{ width: 30, height: 30, borderRadius: 8, background: ENT.card, border: "none", color: ENT.primary, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                    >
-                      <Check size={14} />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => remove(img.id)}
-                    title="O'chirish"
-                    style={{ width: 30, height: 30, borderRadius: 8, background: ENT.card, border: "none", color: ENT.danger, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p style={{ fontSize: 13, color: ENT.muted, marginBottom: 16 }}>Hali rasm yuklanmagan.</p>
-      )}
-
-      <div style={{ maxWidth: 340 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: ENT.muted, marginBottom: 8 }}>Yangi rasm qo'shish</div>
-        <Dropzone accept="image/*" onFile={upload} hint="PNG, JPG — bir nechta marta yuklashingiz mumkin" busy={busy} />
-      </div>
-      {error && <div className="error" style={{ marginTop: 12 }}>{error}</div>}
-    </Card>
   );
 }
 
