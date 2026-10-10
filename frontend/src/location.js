@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { safeLocal } from "./storage";
 
 // Foydalanuvchi joylashuvi — mahsulotlar firma xizmat radiusiga qarab
 // serverda filtrlanadi (backend apps/products/views.py), shuning uchun
@@ -6,6 +7,31 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const TTL_MS = 5 * 60 * 1000;
 let cache = null;
 let inflight = null;
+
+// Oxirgi muvaffaqiyatli aniqlangan joylashuv (30 kun): brauzer/OT vaqtincha aniqlay
+// olmasa (masalan macOS Location Services bir lahza "rad" qaytarsa) mahsulotlar
+// yo'qolib qolmasin.
+const LAST_KEY = "vida.lastCoords";
+const LAST_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function readLast() {
+  try {
+    const v = JSON.parse(safeLocal.getItem(LAST_KEY) || "null");
+    if (v && Number.isFinite(v.lat) && Number.isFinite(v.lng) && Date.now() - v.t < LAST_MAX_AGE_MS) return v;
+  } catch {
+    /* e'tiborsiz */
+  }
+  return null;
+}
+
+async function permissionGranted() {
+  try {
+    const p = await navigator.permissions?.query({ name: "geolocation" });
+    return p?.state === "granted";
+  } catch {
+    return false;
+  }
+}
 
 function readCache() {
   return cache && Date.now() - cache.t < TTL_MS ? cache : null;
@@ -26,11 +52,19 @@ export function requestCoords() {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           cache = { lat: pos.coords.latitude, lng: pos.coords.longitude, t: Date.now() };
+          safeLocal.setItem(LAST_KEY, JSON.stringify(cache));
           resolve({ status: "granted", lat: cache.lat, lng: cache.lng });
         },
-        (err) => {
-          if (err.code === 1) return resolve({ status: "denied" });
+        async (err) => {
+          const last = readLast();
+          const fallback = () => resolve({ status: "granted", lat: last.lat, lng: last.lng, stale: true });
+          if (err.code === 1) {
+            // Brauzerda sayt uchun ruxsat berilgan, lekin OT aniqlay olmayapti — oxirgi joylashuv.
+            if (last && (await permissionGranted())) return fallback();
+            return resolve({ status: "denied" });
+          }
           if (retriesLeft > 0) return attempt(20000, retriesLeft - 1);
+          if (last) return fallback();
           resolve({ status: "unavailable" });
         },
         { timeout, maximumAge: TTL_MS },
