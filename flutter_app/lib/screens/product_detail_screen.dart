@@ -308,7 +308,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             color: selected ? AppColors.onBrand : AppColors.textPrimary,
           ),
           onSelected: (_) {
-            setState(() => _selectedVariant = v);
+            setState(() {
+              _selectedVariant = v;
+              // Variant almashganda galereya shu variant rasmlariga o'tadi — boshidan.
+              _galleryIndex = 0;
+              if (_galleryController.hasClients)
+                _galleryController.jumpToPage(0);
+            });
             if (_activeModel3d?.glbUrl != null) {
               Model3DCacheManager.instance.prefetch(_activeModel3d!.glbUrl);
             }
@@ -449,7 +455,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   }
 
   Widget _gallery(Product p, LocaleStore loc) {
-    final urls = p.galleryUrls;
+    final urls = p.galleryFor(_selectedVariant);
     final width = MediaQuery.of(context).size.width;
     // Rasm hech qachon kesilmaydi/cho'zilmaydi (`contain`): butun mebel ko'rinadi.
     final height = (width * 0.92).clamp(280.0, 440.0);

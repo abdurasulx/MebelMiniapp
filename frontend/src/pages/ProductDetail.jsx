@@ -166,6 +166,11 @@ export default function ProductDetail() {
   const items = [...renderItems, ...realItems];
   const gallery = items.map((it) => it.src);
 
+  // Variant almashganda galereya shu variantning birinchi rasmidan boshlansin.
+  useEffect(() => {
+    setImgIdx(0);
+  }, [variantId]);
+
   // URL'ni tanlangan variant bilan sinxronlash (?variant=slug), sahifani qayta yuklamasdan.
   useEffect(() => {
     if (!variant) return;

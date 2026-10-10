@@ -242,6 +242,7 @@ private var arScaleFactors: SIMD3<Float> {
         }
         .onChange(of: selectedVariant?.id) { _, _ in
             guard let v = selectedVariant else { return }
+            galleryIndex = 0 // variant almashganda galereya shu variant rasmlariga o'tadi
             width = v.width
             height = v.height
             depth = v.depth
@@ -272,7 +273,7 @@ private var arScaleFactors: SIMD3<Float> {
 
     @ViewBuilder
     private func gallery(_ product: Product) -> some View {
-        let urls = product.galleryUrls
+        let urls = product.galleryUrls(for: selectedVariant)
         Group {
             if urls.count > 1 {
                 TabView(selection: $galleryIndex) {

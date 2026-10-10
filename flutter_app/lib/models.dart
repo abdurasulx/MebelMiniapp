@@ -54,21 +54,22 @@ class AppUser {
   });
 
   factory AppUser.fromJson(Map<String, dynamic> j) => AppUser(
-    id: j['id'],
-    email: j['email'],
-    firstName: j['first_name'],
-    lastName: j['last_name'],
-    phone: j['phone'],
-    role: j['role'],
-    workerId: j['worker_id'],
-    company: j['company'] != null ? CompanyRef.fromJson(j['company']) : null,
-    positions:
-        (j['positions'] as List?)?.map((e) => e.toString()).toList() ?? [],
-    phoneVerified: j['phone_verified'] ?? true,
-    hasGoogle: j['has_google'] ?? false,
-    hasTelegram: j['has_telegram'] ?? false,
-    payType: j['pay_type'],
-  );
+        id: j['id'],
+        email: j['email'],
+        firstName: j['first_name'],
+        lastName: j['last_name'],
+        phone: j['phone'],
+        role: j['role'],
+        workerId: j['worker_id'],
+        company:
+            j['company'] != null ? CompanyRef.fromJson(j['company']) : null,
+        positions:
+            (j['positions'] as List?)?.map((e) => e.toString()).toList() ?? [],
+        phoneVerified: j['phone_verified'] ?? true,
+        hasGoogle: j['has_google'] ?? false,
+        hasTelegram: j['has_telegram'] ?? false,
+        payType: j['pay_type'],
+      );
 }
 
 /// Backend hisoblagan narx bloki (`pricing`): frontend chegirmani O'ZI hisoblamaydi.
@@ -86,11 +87,11 @@ class PricingInfo {
   bool get hasDiscount => discountAmount > 0 && finalPrice < originalPrice;
 
   factory PricingInfo.fromJson(Map<String, dynamic> j) => PricingInfo(
-    originalPrice: (j['original_price'] as num?)?.toDouble() ?? 0,
-    discountPercent: (j['discount_percent'] as num?)?.toDouble() ?? 0,
-    discountAmount: (j['discount_amount'] as num?)?.toDouble() ?? 0,
-    finalPrice: (j['final_price'] as num?)?.toDouble() ?? 0,
-  );
+        originalPrice: (j['original_price'] as num?)?.toDouble() ?? 0,
+        discountPercent: (j['discount_percent'] as num?)?.toDouble() ?? 0,
+        discountAmount: (j['discount_amount'] as num?)?.toDouble() ?? 0,
+        finalPrice: (j['final_price'] as num?)?.toDouble() ?? 0,
+      );
 }
 
 /// Firmaning yetkazib berish shartlari (`delivery`); sozlanmagan bo'lsa backend `null` beradi.
@@ -99,16 +100,21 @@ class DeliveryInfo {
   final double price;
   final int minDays;
   final int maxDays;
-  const DeliveryInfo({required this.free, required this.price, required this.minDays, required this.maxDays});
+  const DeliveryInfo(
+      {required this.free,
+      required this.price,
+      required this.minDays,
+      required this.maxDays});
 
   factory DeliveryInfo.fromJson(Map<String, dynamic> j) => DeliveryInfo(
-    free: j['free'] == true,
-    price: (j['price'] as num?)?.toDouble() ?? 0,
-    minDays: (j['min_days'] as num?)?.toInt() ?? 0,
-    maxDays: (j['max_days'] as num?)?.toInt() ?? 0,
-  );
+        free: j['free'] == true,
+        price: (j['price'] as num?)?.toDouble() ?? 0,
+        minDays: (j['min_days'] as num?)?.toInt() ?? 0,
+        maxDays: (j['max_days'] as num?)?.toInt() ?? 0,
+      );
 
-  static DeliveryInfo? tryParse(dynamic j) => j is Map<String, dynamic> ? DeliveryInfo.fromJson(j) : null;
+  static DeliveryInfo? tryParse(dynamic j) =>
+      j is Map<String, dynamic> ? DeliveryInfo.fromJson(j) : null;
 }
 
 class Variant {
@@ -135,6 +141,7 @@ class Variant {
   final bool discountActive;
   final String? effectiveBasePrice;
   final double discountPercent;
+
   /// Backend `pricing` bloki (bo'lsa — yagona haqiqat manbai).
   final PricingInfo? pricing;
 
@@ -156,6 +163,7 @@ class Variant {
   });
 
   double get basePriceValue => double.tryParse(basePrice) ?? 0;
+
   /// Haqiqiy to'lanadigan narx: chegirma faol bo'lsa `effective_base_price`
   /// (backend buyurtmani shu bo'yicha hisoblaydi), aks holda asosiy narx.
   double get effectivePriceValue => effectivePricing.finalPrice;
@@ -175,26 +183,29 @@ class Variant {
       finalPrice: fin,
     );
   }
+
   double get widthValue => double.tryParse(width) ?? 1;
   double get heightValue => double.tryParse(height) ?? 1;
   double get depthValue => double.tryParse(depth) ?? 1;
 
   factory Variant.fromJson(Map<String, dynamic> j) => Variant(
-    id: j['id'],
-    name: j['name'],
-    basePrice: j['base_price'].toString(),
-    width: (j['width'] ?? 1).toString(),
-    height: (j['height'] ?? 1).toString(),
-    depth: (j['depth'] ?? 1).toString(),
-    colorHex: j['color_hex'],
-    textureUrl: j['texture_url'],
-    model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
-    availableQuantity: (j['available_quantity'] as num?)?.toInt() ?? 0,
-    discountActive: j['discount_active'] == true,
-    effectiveBasePrice: j['effective_base_price']?.toString(),
-    discountPercent: double.tryParse('${j['discount_percent'] ?? 0}') ?? 0,
-    pricing: j['pricing'] is Map<String, dynamic> ? PricingInfo.fromJson(j['pricing']) : null,
-  );
+        id: j['id'],
+        name: j['name'],
+        basePrice: j['base_price'].toString(),
+        width: (j['width'] ?? 1).toString(),
+        height: (j['height'] ?? 1).toString(),
+        depth: (j['depth'] ?? 1).toString(),
+        colorHex: j['color_hex'],
+        textureUrl: j['texture_url'],
+        model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
+        availableQuantity: (j['available_quantity'] as num?)?.toInt() ?? 0,
+        discountActive: j['discount_active'] == true,
+        effectiveBasePrice: j['effective_base_price']?.toString(),
+        discountPercent: double.tryParse('${j['discount_percent'] ?? 0}') ?? 0,
+        pricing: j['pricing'] is Map<String, dynamic>
+            ? PricingInfo.fromJson(j['pricing'])
+            : null,
+      );
 }
 
 class ProductImage {
@@ -225,17 +236,20 @@ class Model3D {
     this.bboxDepth,
   });
   factory Model3D.fromJson(Map<String, dynamic> j) => Model3D(
-    glbUrl: j['glb_url'],
-    usdzUrl: j['usdz_url'],
-    status: j['status'],
-    bboxWidth: j['bbox_width']?.toString(),
-    bboxHeight: j['bbox_height']?.toString(),
-    bboxDepth: j['bbox_depth']?.toString(),
-  );
+        glbUrl: j['glb_url'],
+        usdzUrl: j['usdz_url'],
+        status: j['status'],
+        bboxWidth: j['bbox_width']?.toString(),
+        bboxHeight: j['bbox_height']?.toString(),
+        bboxDepth: j['bbox_depth']?.toString(),
+      );
 
-  double? get bboxWidthValue => bboxWidth != null ? double.tryParse(bboxWidth!) : null;
-  double? get bboxHeightValue => bboxHeight != null ? double.tryParse(bboxHeight!) : null;
-  double? get bboxDepthValue => bboxDepth != null ? double.tryParse(bboxDepth!) : null;
+  double? get bboxWidthValue =>
+      bboxWidth != null ? double.tryParse(bboxWidth!) : null;
+  double? get bboxHeightValue =>
+      bboxHeight != null ? double.tryParse(bboxHeight!) : null;
+  double? get bboxDepthValue =>
+      bboxDepth != null ? double.tryParse(bboxDepth!) : null;
 }
 
 class CompanyTier {
@@ -256,13 +270,13 @@ class CompanyTier {
   });
 
   factory CompanyTier.fromJson(Map<String, dynamic> j) => CompanyTier(
-    key: j['key'],
-    label: j['label'],
-    color: j['color'],
-    completedOrders: j['completed_orders'] ?? 0,
-    rating: (j['rating'] as num?)?.toDouble(),
-    reviewCount: j['review_count'] ?? 0,
-  );
+        key: j['key'],
+        label: j['label'],
+        color: j['color'],
+        completedOrders: j['completed_orders'] ?? 0,
+        rating: (j['rating'] as num?)?.toDouble(),
+        reviewCount: j['review_count'] ?? 0,
+      );
 }
 
 class Company {
@@ -306,36 +320,41 @@ class Company {
   });
 
   /// Google Maps'da shu nuqtani ochadigan havola — lat/lng bo'lmasa null.
-  String? get mapUrl =>
-      (latitude != null && longitude != null) ? 'https://www.google.com/maps?q=$latitude,$longitude' : null;
+  String? get mapUrl => (latitude != null && longitude != null)
+      ? 'https://www.google.com/maps?q=$latitude,$longitude'
+      : null;
 
   /// Do'kon sahifasida bosiladigan ikonkalar ro'yxati — bo'sh havolalar
   /// chiqarib tashlanadi.
   Map<String, String> get socialLinks => {
-    if (instagramUrl != null && instagramUrl!.isNotEmpty) 'Instagram': instagramUrl!,
-    if (telegramUrl != null && telegramUrl!.isNotEmpty) 'Telegram': telegramUrl!,
-    if (facebookUrl != null && facebookUrl!.isNotEmpty) 'Facebook': facebookUrl!,
-    if (websiteUrl != null && websiteUrl!.isNotEmpty) 'Veb-sayt': websiteUrl!,
-  };
+        if (instagramUrl != null && instagramUrl!.isNotEmpty)
+          'Instagram': instagramUrl!,
+        if (telegramUrl != null && telegramUrl!.isNotEmpty)
+          'Telegram': telegramUrl!,
+        if (facebookUrl != null && facebookUrl!.isNotEmpty)
+          'Facebook': facebookUrl!,
+        if (websiteUrl != null && websiteUrl!.isNotEmpty)
+          'Veb-sayt': websiteUrl!,
+      };
 
   factory Company.fromJson(Map<String, dynamic> j) => Company(
-    id: j['id'],
-    name: j['name'],
-    slug: j['slug'],
-    description: j['description'],
-    address: j['address'],
-    logoUrl: j['logo_url'],
-    tier: j['tier'] != null ? CompanyTier.fromJson(j['tier']) : null,
-    instagramUrl: j['instagram_url'],
-    telegramUrl: j['telegram_url'],
-    facebookUrl: j['facebook_url'],
-    latitude: double.tryParse(j['latitude']?.toString() ?? ''),
-    longitude: double.tryParse(j['longitude']?.toString() ?? ''),
-    websiteUrl: j['website_url'],
-    canReview: j['can_review'] ?? false,
-    isVerified: j['is_verified'] == true,
-    delivery: DeliveryInfo.tryParse(j['delivery']),
-  );
+        id: j['id'],
+        name: j['name'],
+        slug: j['slug'],
+        description: j['description'],
+        address: j['address'],
+        logoUrl: j['logo_url'],
+        tier: j['tier'] != null ? CompanyTier.fromJson(j['tier']) : null,
+        instagramUrl: j['instagram_url'],
+        telegramUrl: j['telegram_url'],
+        facebookUrl: j['facebook_url'],
+        latitude: double.tryParse(j['latitude']?.toString() ?? ''),
+        longitude: double.tryParse(j['longitude']?.toString() ?? ''),
+        websiteUrl: j['website_url'],
+        canReview: j['can_review'] ?? false,
+        isVerified: j['is_verified'] == true,
+        delivery: DeliveryInfo.tryParse(j['delivery']),
+      );
 }
 
 class Review {
@@ -354,13 +373,61 @@ class Review {
   });
 
   factory Review.fromJson(Map<String, dynamic> j) => Review(
-    id: j['id'],
-    customerName: j['customer_name'],
-    rating: j['rating'],
-    comment: j['comment'],
-    createdAt: j['created_at'] ?? '',
-  );
+        id: j['id'],
+        customerName: j['customer_name'],
+        rating: j['rating'],
+        comment: j['comment'],
+        createdAt: j['created_at'] ?? '',
+      );
 }
+
+/// Server render qilgan bitta rakurs (hero/front/side/back/top) rasmlari.
+class RenderShot {
+  final String key;
+  final String? url400;
+  final String? url1600;
+  const RenderShot({required this.key, this.url400, this.url1600});
+
+  factory RenderShot.fromJson(Map<String, dynamic> j) {
+    String? pick(String size) {
+      final urls = j['urls'];
+      if (urls is Map && urls[size] is Map)
+        return urls[size]['webp'] as String?;
+      return null;
+    }
+
+    return RenderShot(
+        key: j['key'] ?? '', url400: pick('400'), url1600: pick('1600'));
+  }
+}
+
+/// Bitta variantning render rasmlari (3D modeldan, serverda yaratilgan).
+class RenderGroup {
+  final String variantName;
+  final String slug;
+  final String? variantId;
+  final List<RenderShot> shots;
+  const RenderGroup({
+    required this.variantName,
+    required this.slug,
+    required this.variantId,
+    required this.shots,
+  });
+
+  factory RenderGroup.fromJson(Map<String, dynamic> j) => RenderGroup(
+        variantName: j['variant'] ?? '',
+        slug: j['slug'] ?? '',
+        variantId: j['variant_id']?.toString(),
+        shots: (j['shots'] as List? ?? [])
+            .map((e) => RenderShot.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+String _slugify(String v) => v
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+    .replaceAll(RegExp(r'^-+|-+$'), '');
 
 class Product {
   final String id;
@@ -376,6 +443,9 @@ class Product {
   final String? description;
   final String? imageUrl;
   final List<ProductImage> images;
+
+  /// 3D modeldan server render qilgan rasmlar (variantlar bo'yicha); render tayyor bo'lmasa bo'sh.
+  final List<RenderGroup> renders;
   final bool isPublished;
   final String? colorTag;
   final List<Variant> variants;
@@ -419,6 +489,7 @@ class Product {
     this.companyIsVerified = false,
     this.delivery,
     this.categoryImageUrl,
+    this.renders = const [],
   });
 
   /// Kartochka/sahifada ko'rsatiladigan narx: backend `pricing` (eng arzon variant),
@@ -451,9 +522,36 @@ class Product {
 
   /// Galereya: bosh rasm + qo'shimcha rasmlar, birortasi bo'lmasa bo'sh.
   List<String> get galleryUrls => [
-    if (imageUrl != null) imageUrl!,
-    ...images.map((i) => i.imageUrl).whereType<String>(),
-  ];
+        if (imageUrl != null) imageUrl!,
+        ...images.map((i) => i.imageUrl).whereType<String>(),
+      ];
+
+  /// Tanlangan variantning galereyasi: avval server render (hero → front → side → back → top),
+  /// so'ng sotuvchining haqiqiy fotolari; render bo'lmasa — eski galereya.
+  List<String> galleryFor(Variant? v) {
+    if (renders.isEmpty) return galleryUrls;
+    RenderGroup? group;
+    if (v != null) {
+      for (final g in renders) {
+        if (g.variantId == v.id) {
+          group = g;
+          break;
+        }
+      }
+      group ??= renders.cast<RenderGroup?>().firstWhere(
+            (g) => g!.slug == _slugify(v.name),
+            orElse: () => null,
+          );
+    }
+    group ??= renders.first;
+    const order = ['hero', 'front', 'side', 'back', 'top'];
+    final shots = [...group.shots]
+      ..sort((a, b) => order.indexOf(a.key).compareTo(order.indexOf(b.key)));
+    final urls = shots.map((s) => s.url1600).whereType<String>().toList();
+    // Render hero `imageUrl`ga ham yoziladi — takrorlamaymiz; haqiqiy fotolar oxirida.
+    final real = images.map((i) => i.imageUrl).whereType<String>();
+    return [...urls, ...real];
+  }
 
   /// Kartochka (Bosh sahifa/Katalog/Sevimlilar)da bitta rasm ko'rsatiladi —
   /// asosiy rasm bo'lmasa, galereyadagi birinchi rasm ishlatiladi.
@@ -461,35 +559,40 @@ class Product {
       imageUrl ?? (images.isNotEmpty ? images.first.imageUrl : null);
 
   factory Product.fromJson(Map<String, dynamic> j) => Product(
-    id: j['id'],
-    company: j['company'],
-    companyName: j['company_name'] ?? '',
-    companySlug: j['company_slug'],
-    companyViloyat: j['company_viloyat'],
-    companyViloyatDisplay: j['company_viloyat_display'],
-    companyAddress: j['company_address'],
-    categorySlug: j['category_slug'],
-    categoryName: j['category_name'],
-    nameUz: j['name_uz'] ?? '',
-    description: j['description'],
-    imageUrl: j['image_url'],
-    images: (j['images'] as List? ?? [])
-        .map((e) => ProductImage.fromJson(e as Map<String, dynamic>))
-        .toList(),
-    isPublished: j['is_published'] ?? false,
-    colorTag: j['color_tag'],
-    variants: (j['variants'] as List? ?? [])
-        .map((e) => Variant.fromJson(e as Map<String, dynamic>))
-        .toList(),
-    model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
-    isLiked: j['is_liked'] ?? false,
-    similarityPercent: (j['similarity_percent'] as num?)?.toDouble(),
-    availableQuantity: (j['available_quantity'] as num?)?.toInt() ?? 0,
-    pricing: j['pricing'] is Map<String, dynamic> ? PricingInfo.fromJson(j['pricing']) : null,
-    companyIsVerified: j['company_is_verified'] == true,
-    delivery: DeliveryInfo.tryParse(j['delivery']),
-    categoryImageUrl: j['category_image_url'],
-  );
+        id: j['id'],
+        company: j['company'],
+        companyName: j['company_name'] ?? '',
+        companySlug: j['company_slug'],
+        companyViloyat: j['company_viloyat'],
+        companyViloyatDisplay: j['company_viloyat_display'],
+        companyAddress: j['company_address'],
+        categorySlug: j['category_slug'],
+        categoryName: j['category_name'],
+        nameUz: j['name_uz'] ?? '',
+        description: j['description'],
+        imageUrl: j['image_url'],
+        images: (j['images'] as List? ?? [])
+            .map((e) => ProductImage.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        isPublished: j['is_published'] ?? false,
+        colorTag: j['color_tag'],
+        variants: (j['variants'] as List? ?? [])
+            .map((e) => Variant.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        model3d: j['model3d'] != null ? Model3D.fromJson(j['model3d']) : null,
+        isLiked: j['is_liked'] ?? false,
+        similarityPercent: (j['similarity_percent'] as num?)?.toDouble(),
+        availableQuantity: (j['available_quantity'] as num?)?.toInt() ?? 0,
+        pricing: j['pricing'] is Map<String, dynamic>
+            ? PricingInfo.fromJson(j['pricing'])
+            : null,
+        companyIsVerified: j['company_is_verified'] == true,
+        delivery: DeliveryInfo.tryParse(j['delivery']),
+        categoryImageUrl: j['category_image_url'],
+        renders: (j['renders'] as List? ?? [])
+            .map((e) => RenderGroup.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 class Like {
@@ -500,10 +603,10 @@ class Like {
   Like({required this.id, required this.product, required this.productDetail});
 
   factory Like.fromJson(Map<String, dynamic> j) => Like(
-    id: j['id'],
-    product: j['product'],
-    productDetail: Product.fromJson(j['product_detail']),
-  );
+        id: j['id'],
+        product: j['product'],
+        productDetail: Product.fromJson(j['product_detail']),
+      );
 }
 
 class OrderItemSummary {
@@ -518,11 +621,11 @@ class OrderItemSummary {
     required this.subtotal,
   });
   factory OrderItemSummary.fromJson(Map<String, dynamic> j) => OrderItemSummary(
-    productName: j['product_name'] ?? '',
-    variantName: j['variant_name'] ?? '',
-    quantity: j['quantity'] ?? 1,
-    subtotal: j['subtotal'].toString(),
-  );
+        productName: j['product_name'] ?? '',
+        variantName: j['variant_name'] ?? '',
+        quantity: j['quantity'] ?? 1,
+        subtotal: j['subtotal'].toString(),
+      );
 }
 
 class WorkflowStepInstance {
@@ -621,7 +724,8 @@ class WorkflowStepInstance {
         deadline: j['deadline'],
         isManual: j['is_manual'] ?? false,
         updates: (j['updates'] as List? ?? [])
-            .map((e) => WorkflowProgressUpdate.fromJson(e as Map<String, dynamic>))
+            .map((e) =>
+                WorkflowProgressUpdate.fromJson(e as Map<String, dynamic>))
             .toList(),
         openApplicationsCount: j['open_applications_count'] ?? 0,
         myApplicationStatus: j['my_application_status'],
@@ -660,7 +764,8 @@ class WorkflowProgressUpdate {
     required this.createdAt,
   });
 
-  factory WorkflowProgressUpdate.fromJson(Map<String, dynamic> j) => WorkflowProgressUpdate(
+  factory WorkflowProgressUpdate.fromJson(Map<String, dynamic> j) =>
+      WorkflowProgressUpdate(
         id: j['id'],
         imageUrl: j['image_url'],
         comment: j['comment'] ?? '',
@@ -803,21 +908,22 @@ class Order {
   });
 
   factory Order.fromJson(Map<String, dynamic> j) => Order(
-    id: j['id'],
-    companyName: j['company_name'] ?? '',
-    status: j['status'] ?? '',
-    statusDisplay: j['status_display'] ?? '',
-    totalPrice: j['total_price'].toString(),
-    phone: j['phone'] ?? '',
-    address: j['address'] ?? '',
-    items: (j['items'] as List? ?? [])
-        .map((e) => OrderItemSummary.fromJson(e as Map<String, dynamic>))
-        .toList(),
-    workflowSteps: (j['workflow_steps'] as List? ?? [])
-        .map((e) => WorkflowStepInstance.fromJson(e as Map<String, dynamic>))
-        .toList(),
-    progressPercent: j['progress_percent'],
-  );
+        id: j['id'],
+        companyName: j['company_name'] ?? '',
+        status: j['status'] ?? '',
+        statusDisplay: j['status_display'] ?? '',
+        totalPrice: j['total_price'].toString(),
+        phone: j['phone'] ?? '',
+        address: j['address'] ?? '',
+        items: (j['items'] as List? ?? [])
+            .map((e) => OrderItemSummary.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        workflowSteps: (j['workflow_steps'] as List? ?? [])
+            .map(
+                (e) => WorkflowStepInstance.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        progressPercent: j['progress_percent'],
+      );
 }
 
 // kompaniya tomonidagi keyingi mumkin status o'tishlari (web orderStatus.js bilan bir xil)
@@ -858,9 +964,8 @@ class EmployeeInvitation {
       EmployeeInvitation(
         id: j['id'],
         companyName: j['company_name'] ?? '',
-        positions: (j['positions'] as List? ?? [])
-            .map((e) => e.toString())
-            .toList(),
+        positions:
+            (j['positions'] as List? ?? []).map((e) => e.toString()).toList(),
         status: j['status'],
         statusDisplay: j['status_display'],
       );
@@ -878,12 +983,11 @@ class CareerEntry {
   });
 
   factory CareerEntry.fromJson(Map<String, dynamic> j) => CareerEntry(
-    companyName: j['company_name'] ?? '',
-    positions: (j['positions'] as List? ?? [])
-        .map((e) => e.toString())
-        .toList(),
-    isActive: j['is_active'] ?? false,
-  );
+        companyName: j['company_name'] ?? '',
+        positions:
+            (j['positions'] as List? ?? []).map((e) => e.toString()).toList(),
+        isActive: j['is_active'] ?? false,
+      );
 }
 
 class Paginated<T> {
@@ -1016,7 +1120,8 @@ class MaterialRemnantItem {
     required this.quantity,
   });
 
-  factory MaterialRemnantItem.fromJson(Map<String, dynamic> j) => MaterialRemnantItem(
+  factory MaterialRemnantItem.fromJson(Map<String, dynamic> j) =>
+      MaterialRemnantItem(
         id: j['id'],
         materialName: j['material_name'] ?? '',
         materialUnit: j['material_unit'] ?? '',
@@ -1038,7 +1143,6 @@ String formatSom(String raw) {
   }
   return buffer.toString();
 }
-
 
 /// Vitrina (demo) mahsuloti — firmasiz, faqat ko'rish uchun (`/showcase/products/`).
 /// `name`/`description` so'ralgan til (`?lang=`) bo'yicha backend tomonidan tayyorlanadi.
@@ -1069,7 +1173,10 @@ class ShowcaseProduct {
         name: (j['name'] as String?) ?? '',
         description: (j['description'] as String?) ?? '',
         imageUrl: j['image_url'] as String?,
-        images: ((j['images'] as List?) ?? const []).whereType<String>().toList(),
-        priceFrom: j['price_from'] == null ? null : double.tryParse(j['price_from'].toString()),
+        images:
+            ((j['images'] as List?) ?? const []).whereType<String>().toList(),
+        priceFrom: j['price_from'] == null
+            ? null
+            : double.tryParse(j['price_from'].toString()),
       );
 }

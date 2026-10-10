@@ -219,6 +219,22 @@ struct Review: Codable, Identifiable {
     let createdAt: String
 }
 
+/// Server render qilgan bitta rakurs (hero/front/side/back/top).
+struct RenderShot: Codable {
+    let key: String
+    let urls: [String: [String: String]]?
+
+    func url(_ size: String) -> String? { urls?[size]?["webp"] }
+}
+
+/// Bitta variantning render rasmlari (3D modeldan).
+struct RenderGroup: Codable {
+    let variant: String
+    let slug: String
+    let variantId: String?
+    let shots: [RenderShot]
+}
+
 struct Product: Codable, Identifiable {
     let id: String
     let company: String
@@ -254,6 +270,8 @@ struct Product: Codable, Identifiable {
     let companyIsVerified: Bool?
     let delivery: DeliveryInfo?
     let categoryImageUrl: String?
+    /// 3D modeldan server render qilgan rasmlar (variantlar bo'yicha); render tayyor bo'lmasa bo'sh.
+    let renders: [RenderGroup]?
 
     var liked: Bool { isLiked ?? false }
     var isVerified: Bool { companyIsVerified ?? false }
@@ -291,6 +309,25 @@ struct Product: Codable, Identifiable {
         if let imageUrl { urls.append(imageUrl) }
         urls.append(contentsOf: images.compactMap(\.imageUrl))
         return urls
+    }
+
+    /// Tanlangan variantning galereyasi: server render (hero → front → side → back → top),
+    /// so'ng sotuvchining haqiqiy fotolari; render bo'lmasa — eski galereya.
+    func galleryUrls(for variant: Variant?) -> [String] {
+        guard let renders, !renders.isEmpty else { return galleryUrls }
+        func slugify(_ v: String) -> String {
+            v.lowercased()
+                .replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+        }
+        var group: RenderGroup?
+        if let variant {
+            group = renders.first { $0.variantId == variant.id } ?? renders.first { $0.slug == slugify(variant.name) }
+        }
+        let g = group ?? renders[0]
+        let order = ["hero", "front", "side", "back", "top"]
+        let shots = g.shots.sorted { (order.firstIndex(of: $0.key) ?? 99) < (order.firstIndex(of: $1.key) ?? 99) }
+        return shots.compactMap { $0.url("1600") } + images.compactMap(\.imageUrl)
     }
 
     /// Kartochka (Bosh sahifa/Katalog/Sevimlilar)da bitta rasm ko'rsatiladi —
