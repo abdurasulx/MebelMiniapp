@@ -14,7 +14,6 @@ import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminDeletionRequests from "./pages/admin/AdminDeletionRequests";
 import AdminFinance from "./pages/admin/AdminFinance";
-import AdminOrders from "./pages/admin/AdminOrders";
 import AdminTariffPlans from "./pages/admin/AdminTariffPlans";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminAppVersions from "./pages/admin/AdminAppVersions";
@@ -84,8 +83,6 @@ const ADMIN_MENU = [
   { to: "/showcase", icon: Store, label: "Vitrina (demo)", group: "Boshqaruv" },
   { to: "/tariff-plans", icon: Banknote, label: "Tarif rejalari", group: "Boshqaruv" },
   { to: "/app-versions", icon: Smartphone, label: "Versiya nazorati", group: "Boshqaruv" },
-  { to: "/orders", icon: Package, label: "Buyurtmalar", group: "Savdo" },
-  { to: "/finance", icon: Wallet, label: "Moliya", group: "Savdo" },
 ];
 
 const FIRMA_MENU = [
@@ -326,8 +323,6 @@ export default function App() {
           <Route path="/showcase" element={<AdminShowcase />} />
           <Route path="/tariff-plans" element={<AdminTariffPlans />} />
           <Route path="/app-versions" element={<AdminAppVersions />} />
-          <Route path="/orders" element={<AdminOrders />} />
-          <Route path="/finance" element={<AdminFinance />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
