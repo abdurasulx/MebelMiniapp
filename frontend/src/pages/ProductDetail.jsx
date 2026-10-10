@@ -448,33 +448,6 @@ export default function ProductDetail() {
           )}
           {arError && <div className="error mt-2">{arError}</div>}
 
-          {gallery.length > 1 && (
-            <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
-              {items.map((item, i) => (
-                <button
-                  key={item.key + i}
-                  type="button"
-                  ref={(el) => {
-                    if (el && i === imgIdx) el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
-                  }}
-                  onClick={() => setImgIdx(i)}
-                  aria-label={`${i + 1} / ${gallery.length}`}
-                  className="shrink-0 overflow-hidden rounded-xl transition"
-                  style={{
-                    outline: i === imgIdx ? "2px solid var(--brand-cta-bg)" : "2px solid transparent",
-                    outlineOffset: 2,
-                    opacity: i === imgIdx ? 1 : 0.7,
-                  }}
-                >
-                  <Picture
-                    item={item}
-                    sizes="80px"
-                    className={`h-20 w-20 ${item.real ? "object-cover" : "object-contain"}`}
-                  />
-                </button>
-              ))}
-            </div>
-          )}
           {lightboxOpen && gallery.length > 0 && (
             <ImageLightbox
               images={gallery}
