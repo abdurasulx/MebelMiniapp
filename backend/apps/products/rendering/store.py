@@ -51,7 +51,17 @@ def source_key(product: Product) -> str:
 
 def is_stale(product: Product) -> bool:
     key = source_key(product)
-    return bool(key) and key != product.render_source
+    if not key:
+        return False
+    if key != product.render_source:
+        return True
+    # Manbalar o'zgarmagan, lekin o'z modeli bor variantlardan birining rasmi yo'q
+    # (masalan, avvalgi render o'sha model tayyor bo'lmasdan olingan) — qayta olinadi.
+    have = {r.variant_slug for r in product.renders.all() if not r.is_deleted}
+    for kind, _m, v in glb_sources(product):
+        if kind == "variant" and (slugify(v.name) or "default") not in have:
+            return True
+    return False
 
 
 def _save(key: str, data: bytes) -> str:

@@ -141,6 +141,20 @@ class ClientRenderApiTests(TestCase):
         m.glb_file.save("b.glb", ContentFile(tiny_glb()), save=True)  # fayl almashdi
         self.assertTrue(self.client.get(f"{self.url}/").json()["render_stale"])
 
+    def test_stale_when_variant_with_own_model_has_no_render(self):
+        """Ikkala variantning modeli bor, lekin render faqat bittasi uchun olingan -> qayta olinadi."""
+        for v, fname in ((self.v1, "a.glb"), (self.v2, "b.glb")):
+            m = Model3D(variant=v)
+            m.glb_file.save(fname, ContentFile(tiny_glb()), save=False)
+            m.recompute_status()
+            m.save()
+        self._shot("hero", self.v1)
+        self.client.post(f"{self.url}/render-complete/", {}, format="json")
+        self.assertTrue(self.client.get(f"{self.url}/").json()["render_stale"])  # v2 rasmi yo'q
+        self._shot("hero", self.v2)
+        self.client.post(f"{self.url}/render-complete/", {}, format="json")
+        self.assertFalse(self.client.get(f"{self.url}/").json()["render_stale"])
+
     def test_only_admin_approves_moderation(self):
         self.product.needs_moderation = True
         self.product.save()
