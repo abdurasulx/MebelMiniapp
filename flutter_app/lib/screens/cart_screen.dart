@@ -252,7 +252,7 @@ class _CartScreenState extends State<CartScreen> {
         Padding(
           padding: const EdgeInsets.only(bottom: 10, left: 4),
           child: Text(
-            '${cart.items.length} ${loc.t('cart_items_count')}',
+            '${cart.count} ${loc.t('unit_pcs')}',
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
@@ -654,7 +654,7 @@ class _CartScreenState extends State<CartScreen> {
             children: [
               Flexible(
                 child: Text(
-                  '${loc.t('cart_total')} (${cart.items.length} ${loc.t('cart_items_count')}):',
+                  '${loc.t('cart_total')} (${cart.count} ${loc.t('unit_pcs')}):',
                   style: const TextStyle(
                       color: AppColors.textSecondary, fontSize: 13.5),
                 ),

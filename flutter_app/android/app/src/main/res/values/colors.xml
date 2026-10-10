@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Adaptive icon foni — VIDA belgisi orqasidagi qora rang (qarang mipmap-anydpi-v26/ic_launcher.xml). -->
-    <color name="ic_launcher_background">#08090B</color>
+    <!-- Adaptive icon foni — VIDA belgisi orqasidagi to'q yashil (Forest + Lime) (qarang mipmap-anydpi-v26/ic_launcher.xml). -->
+    <color name="ic_launcher_background">#1D3A2F</color>
+    <!-- Ishga tushish ekrani foni — ilova foni (#EEECE6) -->
+    <color name="launch_background_color">#EEECE6</color>
 </resources>
