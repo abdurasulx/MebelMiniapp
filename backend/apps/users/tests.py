@@ -943,8 +943,13 @@ class EskizSMSTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("debug_code", resp.json())
 
+    def test_credentials_without_enabled_flag_still_return_debug_code(self):
+        with self.settings(ESKIZ_ENABLED=False, ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"):
+            resp = self._request()
+        self.assertIn("debug_code", resp.json())
+
     def test_configured_sends_sms_and_hides_code(self):
-        with self.settings(ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"), patch(
+        with self.settings(ESKIZ_ENABLED=True, ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"), patch(
             "apps.users.sms.send_otp"
         ) as send:
             resp = self._request()
@@ -956,7 +961,7 @@ class EskizSMSTests(TestCase):
     def test_send_failure_rolls_back_otp(self):
         from .sms import SMSError
 
-        with self.settings(ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"), patch(
+        with self.settings(ESKIZ_ENABLED=True, ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"), patch(
             "apps.users.sms.send_otp", side_effect=SMSError("boom")
         ):
             resp = self._request()

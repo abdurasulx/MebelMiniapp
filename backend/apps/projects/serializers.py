@@ -89,8 +89,15 @@ class ProjectItemSerializer(serializers.ModelSerializer):
 
 
 class ProjectSerializer(serializers.ModelSerializer):
-    items = ProjectItemSerializer(many=True, read_only=True)
+    items = serializers.SerializerMethodField()
     customer_name = serializers.CharField(source="customer.first_name", read_only=True)
+
+    def get_items(self, obj):
+        # `obj.items` — filtrlanmagan teskari FK manager, is_deleted=False
+        # bilan filtrlamasak o'chirilgan loyiha elementlari abadiy ko'rinib
+        # qolar edi (xuddi variant/lead-note/filial o'chirish xatolaridagi kabi).
+        visible = [i for i in obj.items.all() if not i.is_deleted]
+        return ProjectItemSerializer(visible, many=True, context=self.context).data
 
     class Meta:
         model = Project

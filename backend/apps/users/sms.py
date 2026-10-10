@@ -1,7 +1,7 @@
 """Eskiz.uz SMS provayderi — OTP kodlarni haqiqiy SMS qilib yuboradi.
 
-`ESKIZ_EMAIL`/`ESKIZ_PASSWORD` berilmagan bo'lsa (lokal/dev) `is_configured()`
-False bo'ladi va OTP avvalgidek javobda `debug_code` sifatida qaytariladi."""
+`ESKIZ_ENABLED=True` va `ESKIZ_EMAIL`/`ESKIZ_PASSWORD` berilmagan bo'lsa
+(lokal/dev yoki moderatsiya kutilayotgan paytda) `is_configured()` False bo'ladi va OTP avvalgidek javobda `debug_code` sifatida qaytariladi."""
 import logging
 import re
 
@@ -28,7 +28,7 @@ class SMSError(Exception):
 
 
 def is_configured() -> bool:
-    return bool(settings.ESKIZ_EMAIL and settings.ESKIZ_PASSWORD)
+    return bool(settings.ESKIZ_ENABLED and settings.ESKIZ_EMAIL and settings.ESKIZ_PASSWORD)
 
 
 def normalize_phone(phone: str) -> str:
