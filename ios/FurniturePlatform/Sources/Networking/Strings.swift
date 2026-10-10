@@ -21,6 +21,7 @@ let defaultLocaleCode = "uz"
 
 private let stringsTable: [String: [String: String]] = [
     "uz": [
+        "privacy_policy": "Maxfiylik siyosati",
         "showcase_prompt_title": "Hududingizda faol firmalar topilmadi",
         "showcase_prompt_body": "Ilovaning imkoniyatlarini ko'rish uchun test mahsulotlarni sinab ko'rasizmi?",
         "showcase_prompt_button": "Test mahsulotlarni ko'rish",
@@ -355,6 +356,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Faqat shu firmadan yakunlangan buyurtmangiz bo'lsa baho qoldira olasiz.",
     ],
     "en": [
+        "privacy_policy": "Privacy Policy",
         "showcase_prompt_title": "No active firms found in your area",
         "showcase_prompt_body": "Would you like to try test products to see what the app can do?",
         "showcase_prompt_button": "View test products",
@@ -738,6 +740,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "You can leave a review only after completing an order with this company.",
     ],
     "ru": [
+        "privacy_policy": "Политика конфиденциальности",
         "showcase_prompt_title": "В вашем регионе не найдено активных фирм",
         "showcase_prompt_body": "Хотите попробовать тестовые товары, чтобы увидеть возможности приложения?",
         "showcase_prompt_button": "Смотреть тестовые товары",
@@ -1121,6 +1124,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Оставить отзыв можно только после завершённого заказа у этой компании.",
     ],
     "tg": [
+        "privacy_policy": "Сиёсати махфият",
         "showcase_prompt_title": "Дар минтақаи шумо ширкатҳои фаъол ёфт нашуд",
         "showcase_prompt_body": "Мехоҳед маҳсулоти таҷрибавиро барои дидани имкониятҳои барнома санҷед?",
         "showcase_prompt_button": "Дидани маҳсулоти таҷрибавӣ",
@@ -1504,6 +1508,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Шумо танҳо пас аз фармоиши анҷомёфта аз ин ширкат метавонед баҳо гузоред.",
     ],
     "tr": [
+        "privacy_policy": "Gizlilik politikası",
         "showcase_prompt_title": "Bölgenizde aktif firma bulunamadı",
         "showcase_prompt_body": "Uygulamanın özelliklerini görmek için test ürünlerini denemek ister misiniz?",
         "showcase_prompt_button": "Test ürünlerini gör",
@@ -1887,6 +1892,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Yalnızca bu firmadan tamamlanmış bir siparişiniz varsa yorum bırakabilirsiniz.",
     ],
     "ky": [
+        "privacy_policy": "Купуялык саясаты",
         "showcase_prompt_title": "Аймагыңызда активдүү фирмалар табылган жок",
         "showcase_prompt_body": "Тиркеменин мүмкүнчүлүктөрүн көрүү үчүн сыноо товарларын байкап көрөсүзбү?",
         "showcase_prompt_button": "Сыноо товарларын көрүү",
@@ -2270,6 +2276,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Бул компаниядан аяктаган буйрутмаңыз болсо гана баа калтыра аласыз.",
     ],
     "kk": [
+        "privacy_policy": "Құпиялылық саясаты",
         "showcase_prompt_title": "Аймағыңызда белсенді фирмалар табылмады",
         "showcase_prompt_body": "Қосымшаның мүмкіндіктерін көру үшін сынақ тауарларын байқап көресіз бе?",
         "showcase_prompt_button": "Сынақ тауарларын көру",
@@ -2653,6 +2660,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Бұл компаниядан аяқталған тапсырысыңыз болса ғана пікір қалдыра аласыз.",
     ],
     "de": [
+        "privacy_policy": "Datenschutzerklärung",
         "showcase_prompt_title": "In Ihrer Region wurden keine aktiven Firmen gefunden",
         "showcase_prompt_body": "Möchten Sie Testprodukte ausprobieren, um die Funktionen der App zu sehen?",
         "showcase_prompt_button": "Testprodukte ansehen",
@@ -3036,6 +3044,7 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Sie können erst nach einer abgeschlossenen Bestellung bei dieser Firma eine Bewertung abgeben.",
     ],
     "az": [
+        "privacy_policy": "Məxfilik siyasəti",
         "showcase_prompt_title": "Bölgənizdə aktiv firma tapılmadı",
         "showcase_prompt_body": "Tətbiqin imkanlarını görmək üçün test məhsullarını sınamaq istərdinizmi?",
         "showcase_prompt_button": "Test məhsullarına bax",

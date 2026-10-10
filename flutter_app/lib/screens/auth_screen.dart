@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../auth_store.dart';
 import '../countries.dart';
@@ -159,7 +160,8 @@ class _AuthScreenState extends State<AuthScreen> {
     final loc = context.watch<LocaleStore>();
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isTab ? loc.t('profile_title') : loc.t('auth_title')),
+        title:
+            Text(widget.isTab ? loc.t('profile_title') : loc.t('auth_title')),
         automaticallyImplyLeading: !widget.isTab,
         actions: [
           IconButton(
@@ -175,12 +177,14 @@ class _AuthScreenState extends State<AuthScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_step == _Step.phone) _phoneStep(loc),
+            if (_step == _Step.phone) _privacyLink(loc),
             if (_step == _Step.code) _codeStep(loc),
             if (_step == _Step.profile) _profileStep(loc),
             if (auth.errorMessage != null) ...[
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: AppColors.errorSurface,
                   borderRadius: BorderRadius.circular(12),
@@ -210,7 +214,8 @@ class _AuthScreenState extends State<AuthScreen> {
                             Text(
                               auth.errorDetails!,
                               style: TextStyle(
-                                color: AppColors.errorDark.withValues(alpha: 0.75),
+                                color:
+                                    AppColors.errorDark.withValues(alpha: 0.75),
                                 fontSize: 11,
                                 fontFamily: 'monospace',
                               ),
@@ -225,6 +230,18 @@ class _AuthScreenState extends State<AuthScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _privacyLink(LocaleStore loc) {
+    return Center(
+      child: TextButton(
+        onPressed: () => launchUrl(
+          Uri.parse('https://qrbite.uz/privacy'),
+          mode: LaunchMode.externalApplication,
+        ),
+        child: Text(loc.t('privacy_policy')),
       ),
     );
   }
@@ -294,7 +311,8 @@ class _AuthScreenState extends State<AuthScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
+            border:
+                Border.all(color: AppColors.cardBorder.withValues(alpha: 0.8)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.03),

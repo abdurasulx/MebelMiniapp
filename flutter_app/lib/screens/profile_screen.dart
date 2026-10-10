@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../api_client.dart';
@@ -500,6 +501,7 @@ class _ProfileBodyState extends State<_ProfileBody> {
             style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
             child: Text(loc.t('common_logout')),
           ),
+          const _PrivacyLink(),
           const DeleteAccountSection(),
           const SizedBox(height: 20),
 
@@ -716,6 +718,24 @@ class _RolePickerSheet extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PrivacyLink extends StatelessWidget {
+  const _PrivacyLink();
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = context.watch<LocaleStore>();
+    return Center(
+      child: TextButton(
+        onPressed: () => launchUrl(
+          Uri.parse('https://qrbite.uz/privacy'),
+          mode: LaunchMode.externalApplication,
+        ),
+        child: Text(loc.t('privacy_policy')),
       ),
     );
   }

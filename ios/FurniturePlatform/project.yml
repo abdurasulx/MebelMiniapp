@@ -21,6 +21,7 @@ targets:
       - path: Sources
       - path: Resources/Assets.xcassets
       - path: Resources/GoogleService-Info.plist
+      - path: Resources/PrivacyInfo.xcprivacy
     dependencies:
       - package: GoogleSignIn
         product: GoogleSignIn
@@ -31,12 +32,16 @@ targets:
       properties:
         # Xcode Release/App Store imzolashda buni avtomatik "production"ga almashtiradi.
         aps-environment: development
+        com.apple.developer.applesignin:
+          - Default
     info:
       path: Resources/Info.plist
       properties:
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         NSCameraUsageDescription: "Mebelni AR orqali xonangizda ko'rish uchun kamera kerak."
         NSLocationWhenInUseUsageDescription: "Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak."
+        NSMicrophoneUsageDescription: "Mahsulot va ish jarayoni videosini ovoz bilan yozib olish uchun mikrofon kerak."
         CFBundleDisplayName: "VIDA Market"
         ITSAppUsesNonExemptEncryption: false
         UIBackgroundModes:

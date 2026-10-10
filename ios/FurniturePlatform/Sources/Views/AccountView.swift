@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 struct AccountView: View {
@@ -285,6 +286,10 @@ private struct ProfileView: View {
                 Button(locale.t("common_logout"), role: .destructive) { auth.logout() }
             }
 
+            Section {
+                Link(locale.t("privacy_policy"), destination: URL(string: "https://qrbite.uz/privacy")!)
+            }
+
             DeleteAccountSection()
 
             Section(locale.t("So'nggi buyurtmalar")) {
@@ -466,6 +471,18 @@ private struct AuthFormView: View {
             .disabled(busy)
             .frame(maxWidth: .infinity)
 
+            // Apple talabi (4.8): Google bilan kirish bor ekan, Sign in with Apple ham bo'lishi shart.
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                handleApple(result)
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .disabled(busy)
+            .accessibilityIdentifier("authAppleButton")
+
             Button(action: loginWithTelegram) {
                 if busyAction == .telegram {
                     ProgressView()
@@ -478,6 +495,10 @@ private struct AuthFormView: View {
             }
             .disabled(busy)
             .frame(maxWidth: .infinity)
+        }
+        Section {
+            Link(locale.t("privacy_policy"), destination: URL(string: "https://qrbite.uz/privacy")!)
+                .font(.footnote)
         }
     }
 
@@ -564,6 +585,28 @@ private struct AuthFormView: View {
             if auth.isAuthenticated && auth.isNewUser {
                 // Google berilgan ism/familiya bo'lsa oldindan to'ldiramiz —
                 // foydalanuvchi qayta yozib o'tirmasin.
+                firstName = auth.user?.firstName ?? ""
+                lastName = auth.user?.lastName ?? ""
+                step = .profile
+            }
+        }
+    }
+
+    private func handleApple(_ result: Result<ASAuthorization, Error>) {
+        guard case .success(let authorization) = result,
+              let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = credential.identityToken,
+              let token = String(data: tokenData, encoding: .utf8)
+        else { return } // bekor qilindi yoki xato — jim
+        busyAction = .google
+        Task {
+            await auth.loginWithApple(
+                identityToken: token,
+                firstName: credential.fullName?.givenName ?? "",
+                lastName: credential.fullName?.familyName ?? ""
+            )
+            busyAction = nil
+            if auth.isAuthenticated && auth.isNewUser {
                 firstName = auth.user?.firstName ?? ""
                 lastName = auth.user?.lastName ?? ""
                 step = .profile

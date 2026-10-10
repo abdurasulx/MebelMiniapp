@@ -1,4 +1,5 @@
 import Combine
+import AuthenticationServices
 import Foundation
 import GoogleSignIn
 import UIKit
@@ -181,6 +182,34 @@ final class AuthStore: ObservableObject {
             await loadMe()
         } catch let error as GIDSignInError where error.code == .canceled {
             // foydalanuvchi bekor qildi — xato ko'rsatilmaydi
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Sign in with Apple — Apple bergan `identityToken` serverda tekshiriladi
+    /// (`/auth/apple/`). Ism/familiya Apple tomonidan faqat birinchi kirishda beriladi.
+    func loginWithApple(identityToken: String, firstName: String, lastName: String) async {
+        errorMessage = nil
+        do {
+            struct Body: Encodable {
+                let identityToken: String
+                let firstName: String
+                let lastName: String
+            }
+            struct Resp: Decodable { let access: String; let refresh: String; let isNewUser: Bool }
+            let resp: Resp = try await APIClient.shared.post(
+                "/auth/apple/",
+                body: Body(identityToken: identityToken, firstName: firstName, lastName: lastName),
+                auth: false
+            )
+            let tokens = TokenPair(access: resp.access, refresh: resp.refresh)
+            isNewUser = resp.isNewUser
+            needsRoleCompletion = isNewUser
+            hasStoredTokens = true
+            await APIClient.shared.setTokens(tokens)
+            persist(tokens)
+            await loadMe()
         } catch {
             errorMessage = error.localizedDescription
         }
