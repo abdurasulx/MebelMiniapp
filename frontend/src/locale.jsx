@@ -1,3 +1,4 @@
+import { safeLocal } from "./storage";
 import { createContext, useContext, useEffect, useState } from "react";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, tr } from "./l10n/strings";
 
@@ -17,10 +18,10 @@ function detectBrowserLocale() {
 }
 
 export function LocaleProvider({ children }) {
-  const [code, setCode] = useState(() => localStorage.getItem(STORAGE_KEY) || detectBrowserLocale());
+  const [code, setCode] = useState(() => safeLocal.getItem(STORAGE_KEY) || detectBrowserLocale());
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, code);
+    safeLocal.setItem(STORAGE_KEY, code);
   }, [code]);
 
   const t = (key) => tr(code, key);

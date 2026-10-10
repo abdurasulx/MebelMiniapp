@@ -5,20 +5,21 @@
 // (qarang backend apps/products/views.py). Har bir lokal band muvaffaqiyatli
 // serverga yozilgach `serverId`ni saqlaydi — keyingi o'zgartirish/o'chirish
 // shu ID orqali serverga ham yetkaziladi.
+import { safeLocal } from "./storage";
 import { api, getTokens } from "./api";
 
 const KEY = "cart";
 
 export function getCart() {
   try {
-    return JSON.parse(localStorage.getItem(KEY)) || [];
+    return JSON.parse(safeLocal.getItem(KEY)) || [];
   } catch {
     return [];
   }
 }
 
 function save(items) {
-  localStorage.setItem(KEY, JSON.stringify(items));
+  safeLocal.setItem(KEY, JSON.stringify(items));
   window.dispatchEvent(new Event("cart-changed"));
 }
 

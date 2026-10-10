@@ -1,3 +1,4 @@
+import { safeSession } from "../../storage";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -132,7 +133,7 @@ export default function FirmaProductDetail() {
     captureBusy.current = true;
     const controller = new AbortController();
     abortRef.current = controller;
-    sessionStorage.removeItem(skipKey(product));
+    safeSession.removeItem(skipKey(product));
     setError("");
     setCapture({ label: "3D ko'rinishdan rasmlar olinmoqda…", percent: 3 });
     try {
@@ -147,7 +148,7 @@ export default function FirmaProductDetail() {
       );
       setProduct(updated);
     } catch (e) {
-      sessionStorage.setItem(skipKey(product), "1");
+      safeSession.setItem(skipKey(product), "1");
       if (!(e instanceof CaptureCancelled)) {
         await reportRenderFailure(product.id, e.message);
         setError(`Rasmlarni olib bo'lmadi: ${e.message}`);
@@ -163,7 +164,7 @@ export default function FirmaProductDetail() {
   useEffect(() => {
     if (!product || !product.render_stale || captureBusy.current) return;
     if (product.render_status === "failed") return; // xatodan keyin faqat qo'lda
-    if (sessionStorage.getItem(skipKey(product))) return;
+    if (safeSession.getItem(skipKey(product))) return;
     if (renderSources(product).length === 0) return;
     runCapture();
     // eslint-disable-next-line react-hooks/exhaustive-deps

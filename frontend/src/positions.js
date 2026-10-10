@@ -1,3 +1,4 @@
+import { safeLocal } from "./storage";
 import { Hammer, ShoppingCart, Wrench, Palette, Package, Truck, ClipboardList } from "lucide-react";
 
 // Mebel firmasi xodim kasblari (backend: Employee.Position bilan bir xil)
@@ -13,6 +14,6 @@ export const POSITIONS = {
 
 const KEY = "active_position";
 
-export const getActivePosition = () => localStorage.getItem(KEY);
+export const getActivePosition = () => safeLocal.getItem(KEY);
 export const setActivePosition = (p) =>
-  p ? localStorage.setItem(KEY, p) : localStorage.removeItem(KEY);
+  p ? safeLocal.setItem(KEY, p) : safeLocal.removeItem(KEY);

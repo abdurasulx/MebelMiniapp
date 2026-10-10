@@ -31,6 +31,25 @@ function pickRenderGroup(renders, variant) {
 
 const SHOT_ORDER = ["hero", "front", "side", "back", "top"];
 
+const srcSetFor = (sets, fmt) =>
+  sets
+    ? ["400", "800", "1600"].filter((w) => sets[w]?.[fmt]).map((w) => `${sets[w][fmt]} ${w}w`).join(", ")
+    : undefined;
+
+// MUHIM: komponent modul darajasida — render ichida e'lon qilinsa har safar yangi tur
+// bo'lib, rasm elementi qayta yaratiladi va har almashishda "reload" kabi miltillaydi.
+function Picture({ item, className, sizes, eager = false, alt = "" }) {
+  const common = { src: item.src, alt, className, decoding: "async", loading: eager ? "eager" : "lazy" };
+  if (!item.sets) return <img {...common} />;
+  return (
+    <picture>
+      <source type="image/avif" srcSet={srcSetFor(item.sets, "avif")} sizes={sizes} />
+      <source type="image/webp" srcSet={srcSetFor(item.sets, "webp")} sizes={sizes} />
+      <img {...common} />
+    </picture>
+  );
+}
+
 export default function ProductDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -181,20 +200,13 @@ export default function ProductDetail() {
     window.history.replaceState(null, "", url);
   }, [variant]);
 
-  const srcSet = (sets, fmt) =>
-    sets
-      ? ["400", "800", "1600"].filter((w) => sets[w]?.[fmt]).map((w) => `${sets[w][fmt]} ${w}w`).join(", ")
-      : undefined;
-  const Picture = ({ item, className, sizes, eager = false, alt = "" }) =>
-    item.sets ? (
-      <picture>
-        <source type="image/avif" srcSet={srcSet(item.sets, "avif")} sizes={sizes} />
-        <source type="image/webp" srcSet={srcSet(item.sets, "webp")} sizes={sizes} />
-        <img src={item.src} alt={alt} className={className} loading={eager ? "eager" : "lazy"} />
-      </picture>
-    ) : (
-      <img src={item.src} alt={alt} className={className} loading={eager ? "eager" : "lazy"} />
-    );
+  // Keyingi rasmlarni oldindan yuklaymiz — almashganda "qayta yuklanish" miltillashi bo'lmasin.
+  useEffect(() => {
+    gallery.forEach((src) => {
+      const im = new window.Image();
+      im.src = src;
+    });
+  }, [gallery.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error && !p)
     return (
@@ -382,24 +394,36 @@ export default function ProductDetail() {
             <>
               <div>
                 <label className="label">{t("product_variant_field_label")}</label>
-                <div className="flex items-center gap-2">
-                  {variant?.color_hex && (
-                    <span
-                      className="h-8 w-8 shrink-0 rounded-lg"
-                      style={{ background: variant.texture_url ? `url(${variant.texture_url}) center/cover` : variant.color_hex, border: "1px solid var(--border)" }}
-                      title={variant.name}
-                    />
-                  )}
-                  <select className="input" value={variantId} onChange={(e) => setVariantId(e.target.value)}>
-                    {p.variants.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name} — {v.discount_active
-                          ? `${Number(v.effective_base_price).toLocaleString()} so'm (-${Number(v.discount_percent)}%)`
-                          : `${Number(v.base_price).toLocaleString()} so'm`}
-                        {(v.model3d?.glb_url || p.model3d?.glb_url) ? " · AR" : ""}
-                      </option>
-                    ))}
-                  </select>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("product_variant_field_label")}>
+                  {p.variants.map((v) => {
+                    const selected = v.id === variantId;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setVariantId(v.id)}
+                        className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold transition"
+                        style={{
+                          background: selected ? "var(--brand-cta-bg)" : "var(--card)",
+                          color: selected ? "var(--brand-cta-text)" : "var(--text)",
+                          border: `1px solid ${selected ? "var(--brand-cta-bg)" : "var(--border)"}`,
+                        }}
+                      >
+                        {(v.texture_url || v.color_hex) && (
+                          <span
+                            className="h-4 w-4 rounded-full"
+                            style={{
+                              background: v.texture_url ? `url(${v.texture_url}) center/cover` : v.color_hex,
+                              border: "1px solid var(--border)",
+                            }}
+                          />
+                        )}
+                        {v.name}
+                      </button>
+                    );
+                  })}
                 </div>
                 {variant && (
                   variant.available_quantity > 0 ? (

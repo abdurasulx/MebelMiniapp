@@ -1,3 +1,4 @@
+import { safeLocal } from "./storage";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
 import { api } from "./api";
@@ -24,10 +25,10 @@ function isConfigured() {
 }
 
 function deviceId() {
-  let id = localStorage.getItem("web_device_id");
+  let id = safeLocal.getItem("web_device_id");
   if (!id) {
     id = crypto.randomUUID();
-    localStorage.setItem("web_device_id", id);
+    safeLocal.setItem("web_device_id", id);
   }
   return id;
 }

@@ -1,8 +1,9 @@
+import { safeLocal } from "./storage";
 import { useEffect, useRef, useState } from "react";
 
 function readStored() {
   try {
-    return localStorage.getItem("theme");
+    return safeLocal.getItem("theme");
   } catch {
     return null;
   }
@@ -27,7 +28,7 @@ export function useTheme() {
     root.setAttribute("data-theme", dark ? "dark" : "light");
     if (touched.current) {
       try {
-        localStorage.setItem("theme", dark ? "dark" : "light");
+        safeLocal.setItem("theme", dark ? "dark" : "light");
       } catch {
         /* private rejim */
       }

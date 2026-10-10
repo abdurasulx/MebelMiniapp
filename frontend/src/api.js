@@ -1,3 +1,4 @@
+import { safeLocal } from "./storage";
 import { PORTAL } from "./portal";
 
 const BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
@@ -26,15 +27,15 @@ export async function fetchAppPolicy() {
 
 export function getTokens() {
   try {
-    return JSON.parse(localStorage.getItem("tokens")) || null;
+    return JSON.parse(safeLocal.getItem("tokens")) || null;
   } catch {
     return null;
   }
 }
 
 export function setTokens(tokens) {
-  if (tokens) localStorage.setItem("tokens", JSON.stringify(tokens));
-  else localStorage.removeItem("tokens");
+  if (tokens) safeLocal.setItem("tokens", JSON.stringify(tokens));
+  else safeLocal.removeItem("tokens");
 }
 
 export async function refreshAccess() {
@@ -46,7 +47,11 @@ export async function refreshAccess() {
     body: JSON.stringify({ refresh: tokens.refresh }),
   });
   if (!res.ok) {
-    setTokens(null);
+    try {
+      setTokens(null);
+    } catch {
+      /* storage yopiq — baribir sessiya tugaganini bildiramiz */
+    }
     // Faqat tokenni tozalash yetarli emas — `AuthProvider`dagi `user` holati
     // xotirada eskirgan holda qolib ketardi (masalan sahifa ochilgandan keyin
     // sessiya orada tugab qolsa): UI hamon "kirgan" ko'rsatib turar, lekin
