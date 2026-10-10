@@ -50,6 +50,117 @@ function Picture({ item, className, sizes, eager = false, alt = "" }) {
   );
 }
 
+/** Mobil ilovadagi kabi: chapga/o'ngga surib o'tiladigan galereya (scroll-snap), nuqtalar va strelkalar. */
+function GalleryCarousel({ items, index, onIndexChange, onOpen, alt, realLabel, openLabel }) {
+  const trackRef = useRef(null);
+  const programmatic = useRef(false);
+
+  // Tashqaridan (miniatyura/variant) indeks o'zgarsa — shu slaydga o'tamiz.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || !el.clientWidth) return;
+    const current = Math.round(el.scrollLeft / el.clientWidth);
+    if (current === index) return;
+    programmatic.current = true;
+    el.scrollTo({ left: index * el.clientWidth, behavior: index === 0 ? "auto" : "smooth" });
+    const t = setTimeout(() => {
+      programmatic.current = false;
+    }, 450);
+    return () => clearTimeout(t);
+  }, [index, items.length]);
+
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el || programmatic.current || !el.clientWidth) return;
+    const i = Math.round(el.scrollLeft / el.clientWidth);
+    if (i !== index && i >= 0 && i < items.length) onIndexChange(i);
+  };
+
+  const go = (d) => {
+    const next = Math.min(items.length - 1, Math.max(0, index + d));
+    if (next !== index) onIndexChange(next);
+  };
+
+  return (
+    <div className="relative" style={{ background: "var(--card)", borderRadius: 16, border: "1px solid var(--border)" }}>
+      <div
+        ref={trackRef}
+        onScroll={onScroll}
+        className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto"
+        style={{ scrollbarWidth: "none", borderRadius: 16 }}
+      >
+        {items.map((item, i) => (
+          <button
+            key={item.key + i}
+            type="button"
+            onClick={onOpen}
+            aria-label={openLabel}
+            className="relative block w-full shrink-0 cursor-zoom-in snap-center"
+            style={{ aspectRatio: "1 / 1", background: "var(--card)" }}
+          >
+            <Picture
+              item={item}
+              alt={alt}
+              sizes="(min-width: 1024px) 600px, 100vw"
+              eager={i === 0}
+              className={`h-full w-full ${item.real ? "object-cover" : "object-contain"}`}
+            />
+            {item.real && (
+              <span
+                className="absolute left-2 top-2 rounded-full px-2.5 py-1 text-xs font-semibold"
+                style={{ background: "var(--accent)", color: "var(--on-accent)" }}
+              >
+                {realLabel}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {items.length > 1 && (
+        <>
+          {index > 0 && (
+            <button
+              type="button"
+              aria-label="Oldingi rasm"
+              onClick={() => go(-1)}
+              className="absolute left-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full md:flex"
+              style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+            >
+              ‹
+            </button>
+          )}
+          {index < items.length - 1 && (
+            <button
+              type="button"
+              aria-label="Keyingi rasm"
+              onClick={() => go(1)}
+              className="absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full md:flex"
+              style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+            >
+              ›
+            </button>
+          )}
+          <div className="pointer-events-none absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+            {items.map((_, i) => (
+              <span
+                key={i}
+                style={{
+                  width: i === index ? 18 : 6,
+                  height: 6,
+                  borderRadius: 999,
+                  background: i === index ? "var(--brand-cta-bg)" : "var(--border)",
+                  transition: "width .2s ease",
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ProductDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -290,30 +401,15 @@ export default function ProductDetail() {
           )}
           {!(activeModel3d?.glb_url && viewMode === "3d") && (
             gallery.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => setLightboxOpen(true)}
-                aria-label={t("gallery_open")}
-                className="block w-full cursor-zoom-in"
-              >
-                <div className="relative" style={{ background: "var(--card)" }}>
-                  <Picture
-                    item={items[imgIdx] || items[0]}
-                    alt={p.name_uz}
-                    sizes="(min-width: 1024px) 600px, 100vw"
-                    eager
-                    className={`card w-full ${(items[imgIdx] || items[0]).real ? "object-cover" : "object-contain"}`}
-                  />
-                  {(items[imgIdx] || items[0]).real && (
-                    <span
-                      className="absolute left-2 top-2 rounded-full px-2.5 py-1 text-xs font-semibold"
-                      style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                    >
-                      {t("product_real_photo")}
-                    </span>
-                  )}
-                </div>
-              </button>
+              <GalleryCarousel
+                items={items}
+                index={Math.min(imgIdx, items.length - 1)}
+                onIndexChange={setImgIdx}
+                onOpen={() => setLightboxOpen(true)}
+                alt={p.name_uz}
+                realLabel={t("product_real_photo")}
+                openLabel={t("gallery_open")}
+              />
             ) : (
               <div
                 className="card flex h-72 w-full items-center justify-center"
@@ -353,14 +449,17 @@ export default function ProductDetail() {
           {arError && <div className="error mt-2">{arError}</div>}
 
           {gallery.length > 1 && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
               {items.map((item, i) => (
                 <button
                   key={item.key + i}
                   type="button"
+                  ref={(el) => {
+                    if (el && i === imgIdx) el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+                  }}
                   onClick={() => setImgIdx(i)}
                   aria-label={`${i + 1} / ${gallery.length}`}
-                  className="overflow-hidden rounded-xl transition"
+                  className="shrink-0 overflow-hidden rounded-xl transition"
                   style={{
                     outline: i === imgIdx ? "2px solid var(--brand-cta-bg)" : "2px solid transparent",
                     outlineOffset: 2,
