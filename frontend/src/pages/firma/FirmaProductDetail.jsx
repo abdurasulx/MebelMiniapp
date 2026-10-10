@@ -6,7 +6,7 @@ import {
   Lock, MoreHorizontal, Palette, Pencil, Share2, Sparkles, Tag, TrendingUp, Trash2, Unlock, Upload,
   Workflow,
 } from "lucide-react";
-import { api } from "../../api";
+import { api, apiUpload } from "../../api";
 import { portalURLFor } from "../../portal";
 import { POSITIONS } from "../../positions";
 import Model3DPartPicker from "../../components/Model3DPartPicker";
@@ -703,6 +703,16 @@ function VariantsTab({ product: p, onDone }) {
     return () => clearInterval(timer);
   }, [isProcessing, onDone]);
 
+  const [uploadPct, setUploadPct] = useState(0);
+  const renderActive = ["pending", "processing"].includes(p.render_status);
+  // Render tugaguncha (yoki model qayta ishlanayotganda) mahsulotni yangilab turamiz.
+  useEffect(() => {
+    if (!renderActive) return undefined;
+    const t = setInterval(onDone, 4000);
+    return () => clearInterval(t);
+  }, [renderActive, onDone]);
+  const progressStage = busy ? "upload" : isProcessing ? "processing" : renderActive ? "render" : null;
+
   const call = async (fn) => {
     try {
       setError("");
@@ -727,7 +737,8 @@ function VariantsTab({ product: p, onDone }) {
       const fd = new FormData();
       fd.append("variant", created.id);
       fd.append("glb_file", modelFile);
-      await api("/models3d/", { method: "POST", body: fd, isForm: true });
+      setUploadPct(0);
+      await apiUpload("/models3d/", fd, { onProgress: setUploadPct });
       setVariant({ name: "", base_price: "", width: 1, height: 1, depth: 1 });
       setModelFile(null);
       setShowVariant(false);
@@ -857,8 +868,12 @@ function VariantsTab({ product: p, onDone }) {
               required
             />
           </div>
-          <EntButton type="submit" disabled={busy}>{busy ? "Yaratilmoqda…" : "Qo'shish"}</EntButton>
+          {busy && <StagedProgress stage="upload" uploadPct={uploadPct} />}
+          <EntButton type="submit" disabled={busy}>{busy ? "Yuklanmoqda…" : "Qo'shish"}</EntButton>
         </form>
+      )}
+      {!busy && progressStage && (
+        <StagedProgress stage={progressStage} variantCount={p.variants.length} />
       )}
       {error && <div className="error" style={{ marginTop: 12 }}>{error}</div>}
     </Card>
@@ -967,6 +982,7 @@ function VariantModelSection({ variant, onDone }) {
   const [file, setFile] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pct, setPct] = useState(0);
   const m = variant.model3d;
 
   const upload = async (e) => {
@@ -978,7 +994,8 @@ function VariantModelSection({ variant, onDone }) {
       const fd = new FormData();
       fd.append("variant", variant.id);
       fd.append("glb_file", file);
-      await api(m ? `/models3d/${m.id}/` : "/models3d/", { method: m ? "PATCH" : "POST", body: fd, isForm: true });
+      setPct(0);
+      await apiUpload(m ? `/models3d/${m.id}/` : "/models3d/", fd, { method: m ? "PATCH" : "POST", onProgress: setPct });
       setFile(null);
       onDone();
     } catch (err) {
@@ -1009,6 +1026,7 @@ function VariantModelSection({ variant, onDone }) {
       <div style={{ display: "flex", gap: 8 }}>
         <EntButton small onClick={upload} disabled={busy || !file}>{busy ? "Yuklanmoqda…" : m ? "Yangilash" : "Yuklash"}</EntButton>
       </div>
+      {busy && <div style={{ flex: "1 1 100%" }}><StagedProgress stage="upload" uploadPct={pct} /></div>}
       {error && <div className="error">{error}</div>}
     </div>
   );
@@ -1915,5 +1933,66 @@ function RendersCard({ product, onDone }) {
         />
       )}
     </Card>
+  );
+}
+
+
+// ============================== Yuklash / render progressi ==============================
+
+/**
+ * Bosqichli progress: 1) yuklash — HAQIQIY foiz; 2) model qayta ishlash va
+ * 3) rasmlarni yaratish — TAXMINIY (silliq to'ldiriladi, haqiqiy holat
+ * "tayyor" bo'lganda 100%ga yetadi; sahifa polling bilan holatni biladi).
+ * stage: "upload" | "processing" | "render" | "done"
+ */
+function StagedProgress({ stage, uploadPct = 0, variantCount = 1 }) {
+  const [elapsed, setElapsed] = useState(0);
+  const stageStart = useRef(Date.now());
+
+  useEffect(() => {
+    stageStart.current = Date.now();
+    setElapsed(0);
+    if (stage === "upload" || stage === "done") return undefined;
+    const t = setInterval(() => setElapsed((Date.now() - stageStart.current) / 1000), 250);
+    return () => clearInterval(t);
+  }, [stage]);
+
+  // Taxminiy bosqichlar: "asimptotik" to'lish — hech qachon 100% ga yetmaydi, lekin to'xtab ham qolmaydi.
+  const approach = (sec, tau) => 1 - Math.exp(-sec / tau);
+  let pct;
+  let label;
+  if (stage === "upload") {
+    pct = uploadPct * 0.4;
+    label = `Model yuklanmoqda… ${uploadPct}%`;
+  } else if (stage === "processing") {
+    pct = 40 + approach(elapsed, 8) * 20; // 40 -> 60
+    label = "Model qayta ishlanmoqda…";
+  } else if (stage === "render") {
+    pct = 60 + approach(elapsed, 12 * Math.max(1, variantCount)) * 35; // 60 -> 95
+    label = "Rasmlar yaratilmoqda va joylashtirilmoqda…";
+  } else {
+    pct = 100;
+    label = "Tayyor ✓";
+  }
+  const hint =
+    stage === "render" ? "Odatda 20–60 soniya. Sahifani yopsangiz ham jarayon davom etadi." : null;
+
+  return (
+    <div role="status" aria-live="polite" style={{ margin: "10px 0" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 6, color: ENT.text }}>
+        <span>{label}</span>
+        <span style={{ color: ENT.muted }}>{Math.round(pct)}%</span>
+      </div>
+      <div style={{ height: 8, borderRadius: 999, background: "var(--surface-muted)", overflow: "hidden" }}>
+        <div
+          style={{
+            width: `${pct}%`, height: "100%", borderRadius: 999,
+            background: stage === "done" ? "var(--success)" : "var(--brand-cta-bg)",
+            transition: "width .35s ease",
+          }}
+        />
+      </div>
+      {hint && <div style={{ fontSize: 11.5, color: ENT.muted, marginTop: 6 }}>{hint}</div>}
+    </div>
   );
 }

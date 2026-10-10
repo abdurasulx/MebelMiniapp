@@ -223,3 +223,44 @@ class PipelineTests(TestCase):
         resp = client.post(f"/api/v1/products/{self.product.id}/approve-moderation/")
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.json()["needs_moderation"])
+
+
+class VariantModelTests(TestCase):
+    """Variantning o'z GLB'i bo'lganda (asosiy yuklash yo'li) ham render ishlaydi."""
+
+    def setUp(self):
+        owner = User.objects.create_user(email="o2@x.uz", password="x", role=User.Role.COMPANY_OWNER)
+        company = Company.objects.create(owner=owner, name="G", slug="g")
+        cat = Category.objects.create(name_uz="Shkaf", slug="shkaf")
+        self.product = Product.objects.create(company=company, category=cat, name_uz="Shkaf", is_published=True)
+        self.v1 = Variant.objects.create(product=self.product, name="Oq", base_price=1)
+        self.v2 = Variant.objects.create(product=self.product, name="Qora", base_price=1)
+        for v, name in ((self.v1, "oq.glb"), (self.v2, "qora.glb")):
+            m = Model3D(variant=v)
+            m.glb_file.save(name, ContentFile(make_glb(50)), save=False)
+            m.recompute_status()
+            m.save()
+
+    def test_variant_models_enqueue_and_render_per_variant(self):
+        job = RenderJob.objects.get(product=self.product)
+        self.assertEqual(RenderJob.objects.filter(product=self.product).count(), 1)
+        calls = []
+
+        def fake(path, variants, size=1600, shots=runner.SHOTS):
+            calls.append(len(variants))
+            return {
+                "dimensionsCm": {"w": 90.0, "h": 200.0, "d": 50.0},
+                "variants": [{"name": "default", "source": "default",
+                              "shots": [{"key": "hero", "dataUrl": png_data_url()}]}],
+            }
+
+        with patch.object(runner, "run_browser", side_effect=fake):
+            stats = runner.run_one(job)
+        self.assertEqual(len(calls), 2)  # har variant GLB'i alohida render
+        groups = set(RenderedImage.objects.filter(product=self.product).values_list("variant_name", flat=True))
+        self.assertEqual(groups, {"Oq", "Qora"})
+        r = RenderedImage.objects.get(product=self.product, variant_name="Qora")
+        self.assertEqual(r.variant_id, self.v2.id)
+        self.assertEqual(stats["images"], 2)
+        # o'zgarmagan GLB'lar — qayta navbat yo'q
+        self.assertIsNone(runner.enqueue(self.product))

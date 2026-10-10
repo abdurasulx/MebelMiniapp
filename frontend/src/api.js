@@ -109,3 +109,60 @@ export async function api(path, { method = "GET", body, isForm = false } = {}) {
   }
   return data;
 }
+
+
+/**
+ * Fayl yuklash — haqiqiy yuklanish foizi bilan (fetch progress bermaydi, shuning
+ * uchun XMLHttpRequest). 401 bo'lsa bir marta token yangilab qayta urinadi.
+ * `onProgress(0..100)`.
+ */
+export function apiUpload(path, formData, { method = "POST", onProgress } = {}) {
+  const url = /^https?:\/\//.test(path) ? path : `${BASE}${path}`;
+  const send = (access) =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, url);
+      const headers = versionHeaders();
+      Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      if (access) xhr.setRequestHeader("Authorization", `Bearer ${access}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        let data = null;
+        try {
+          data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+        } catch (_) {
+          /* json emas */
+        }
+        resolve({ status: xhr.status, data });
+      };
+      xhr.onerror = () => reject(new Error("Tarmoq xatosi. Internetni tekshirib qayta urinib ko'ring."));
+      xhr.send(formData);
+    });
+
+  return (async () => {
+    let res = await send(getTokens()?.access);
+    if (res.status === 401 && getTokens()?.refresh) {
+      const access = await refreshAccess();
+      if (access) res = await send(access);
+    }
+    if (res.status >= 200 && res.status < 300) {
+      if (onProgress) onProgress(100);
+      return res.data;
+    }
+    const data = res.data;
+    const msg =
+      (Array.isArray(data) && data.length ? data[0] : null) ||
+      data?.detail ||
+      (data && typeof data === "object"
+        ? Object.entries(data)
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+            .join("; ")
+        : "Xatolik yuz berdi");
+    const err = new Error(msg);
+    err.body = data;
+    err.status = res.status;
+    throw err;
+  })();
+}

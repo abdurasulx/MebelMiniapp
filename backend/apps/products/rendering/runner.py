@@ -121,60 +121,94 @@ def _save(key: str, data: bytes) -> str:
     return default_storage.url(saved)
 
 
+def _glb_sources(product: Product):
+    """Render manbalari: mahsulotning umumiy GLB'i (rang variantlari ustiga tint
+    qilinadi) va o'z GLB'iga ega har bir variant (qarang Model3D.variant).
+    Qaytaradi: [(label, model3d, variant|None)]."""
+    sources = []
+    pm = getattr(product, "model3d", None)
+    if pm is not None and not pm.is_deleted and pm.glb_file and pm.glb_file.name.lower().endswith(".glb"):
+        sources.append(("product", pm, None))
+    for v in product.variants.filter(is_deleted=False).order_by("created_at"):
+        vm = getattr(v, "model3d", None)
+        if vm is not None and not vm.is_deleted and vm.glb_file and vm.glb_file.name.lower().endswith(".glb"):
+            sources.append(("variant", vm, v))
+    return sources
+
+
+def source_key(product: Product) -> str:
+    """Render manbalarining barqaror imzosi (o'zgarmagan fayllar qayta render qilinmasin)."""
+    return "|".join(sorted(m.glb_file.name for _, m, _ in _glb_sources(product)))[:300]
+
+
 def process_job(job: RenderJob) -> dict:
     """Bitta job'ni bajaradi; natija statistikasini qaytaradi."""
     product = job.product
-    model3d = getattr(product, "model3d", None)
-    if model3d is None or not model3d.glb_file:
-        raise validate.RenderValidationError("Mahsulotda 3D model (GLB) yo'q.")
-    name = (model3d.glb_file.name or "").lower()
-    if not name.endswith(".glb"):
-        raise validate.RenderValidationError("Render uchun GLB fayl kerak (model hali GLB'ga aylantirilmagan).")
+    sources = _glb_sources(product)
+    if not sources:
+        raise validate.RenderValidationError(
+            "Render uchun GLB model yo'q (model hali GLB'ga aylantirilmagan bo'lishi mumkin)."
+        )
 
     tmp = Path(tempfile.mkdtemp(prefix="vida-glb-"))
     try:
-        glb_path = tmp / "model.glb"
-        with model3d.glb_file.open("rb") as src, open(glb_path, "wb") as dst:
-            shutil.copyfileobj(src, dst)
-        stats = validate.validate_glb_bytes(glb_path.read_bytes())
-
         started = time.monotonic()
-        result = run_browser(glb_path, _variant_payload(product))
+        stats = {"triangles": 0, "bytes": 0}
+        results = []  # [(variant_db|None, result_dict, is_variant_source)]
+        db_variant_payload = _variant_payload(product)
+        for i, (kind, model3d, variant) in enumerate(sources):
+            glb_path = tmp / f"model-{i}.glb"
+            with model3d.glb_file.open("rb") as src, open(glb_path, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+            st = validate.validate_glb_bytes(glb_path.read_bytes())
+            stats["triangles"] += st["triangles"]
+            stats["bytes"] += st["bytes"]
+            payload = db_variant_payload if kind == "product" else []
+            result = run_browser(glb_path, payload)
+            d = result["dimensionsCm"]
+            validate.validate_dimensions_cm(d["w"], d["h"], d["d"])
+            results.append((variant, result, kind == "variant"))
         render_s = time.monotonic() - started
 
-        dims = result["dimensionsCm"]
-        validate.validate_dimensions_cm(dims["w"], dims["h"], dims["d"])
+        # Mahsulot o'lchami: umumiy model bo'lsa o'sha, aks holda birinchi variant modeli.
+        dims = results[0][1]["dimensionsCm"]
 
         variants_by_name = {v.name: v for v in product.variants.filter(is_deleted=False)}
         RenderedImage.objects.filter(product=product).delete()
         saved = 0
         hero_png = None
-        for variant in result["variants"]:
-            vname = variant["name"]
-            slug = slugify(vname) or "default"
-            db_variant = variants_by_name.get(vname)
-            order = {s: i for i, s in enumerate(SHOTS)}
-            for shot in sorted(variant["shots"], key=lambda s: order.get(s["key"], 99)):
-                base = imaging.normalize_square(imaging.data_url_to_image(shot["dataUrl"]), 1600)
-                urls = {}
-                for size in imaging.SIZES:
-                    urls[str(size)] = {}
-                    for fmt in ("webp", "avif"):
-                        data = imaging.encode(base, size, fmt)
-                        key = f"products/{product.id}/{slug}/{shot['key']}-{size}-{imaging.short_hash(data)}.{fmt}"
-                        urls[str(size)][fmt] = _save(key, data)
-                RenderedImage.objects.create(
-                    product=product,
-                    variant=db_variant,
-                    variant_name=vname,
-                    variant_slug=slug,
-                    shot=shot["key"],
-                    sort_order=order.get(shot["key"], 99),
-                    urls=urls,
-                )
-                saved += 1
-                if hero_png is None and shot["key"] == "hero":
-                    hero_png = imaging.encode(base, 1600, "png")
+        order = {s: i for i, s in enumerate(SHOTS)}
+        seen_slugs = set()
+        for owner_variant, result, is_variant_source in results:
+            for variant in result["variants"]:
+                # O'z modeli bor variantda nom — variantning o'zi; "default" guruh ham shu nom bilan.
+                vname = owner_variant.name if is_variant_source else variant["name"]
+                db_variant = owner_variant if is_variant_source else variants_by_name.get(vname)
+                slug = slugify(vname) or "default"
+                while slug in seen_slugs:  # bir xil nomli guruhlar to'qnashmasin
+                    slug += "-2"
+                seen_slugs.add(slug)
+                for shot in sorted(variant["shots"], key=lambda s: order.get(s["key"], 99)):
+                    base = imaging.normalize_square(imaging.data_url_to_image(shot["dataUrl"]), 1600)
+                    urls = {}
+                    for size in imaging.SIZES:
+                        urls[str(size)] = {}
+                        for fmt in ("webp", "avif"):
+                            data = imaging.encode(base, size, fmt)
+                            key = f"products/{product.id}/{slug}/{shot['key']}-{size}-{imaging.short_hash(data)}.{fmt}"
+                            urls[str(size)][fmt] = _save(key, data)
+                    RenderedImage.objects.create(
+                        product=product,
+                        variant=db_variant,
+                        variant_name=vname,
+                        variant_slug=slug,
+                        shot=shot["key"],
+                        sort_order=order.get(shot["key"], 99),
+                        urls=urls,
+                    )
+                    saved += 1
+                    if hero_png is None and shot["key"] == "hero":
+                        hero_png = imaging.encode(base, 1600, "png")
 
         product.model_dims_cm = dims
         product.render_status = Product.RenderStatus.READY
@@ -186,7 +220,8 @@ def process_job(job: RenderJob) -> dict:
             product.image_from_render = True
             update += ["image", "image_from_render"]
         product.save(update_fields=update + ["updated_at"])
-        return {"render_s": round(render_s, 1), "images": saved, "variants": len(result["variants"]), **stats}
+        n_variants = sum(len(r["variants"]) for _, r, _ in results)
+        return {"render_s": round(render_s, 1), "images": saved, "variants": n_variants, **stats}
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -213,11 +248,10 @@ def _check_dimensions(product: Product, dims: dict) -> None:
 
 
 def enqueue(product: Product, force: bool = False):
-    """Render navbatiga qo'yadi. `force=False` bo'lsa va xuddi shu GLB allaqachon
-    render qilingan (yoki kutilayotgan) bo'lsa — hech narsa qilmaydi."""
-    model3d = getattr(product, "model3d", None)
-    source = (model3d.glb_file.name if model3d and model3d.glb_file else "") or ""
-    if not source.lower().endswith(".glb"):
+    """Render navbatiga qo'yadi. `force=False` bo'lsa va xuddi shu GLB'lar to'plami
+    allaqachon render qilingan (yoki kutilayotgan) bo'lsa — hech narsa qilmaydi."""
+    source = source_key(product)
+    if not source:
         return None
     pending = RenderJob.objects.filter(product=product, status=RenderJob.Status.PENDING).first()
     if pending:
@@ -242,7 +276,7 @@ def run_one(job: RenderJob, max_attempts: int = 3):
     stats = None
     try:
         stats = process_job(job)
-        job.source_name = job.source_name or (getattr(job.product.model3d.glb_file, "name", "") or "")
+        job.source_name = source_key(job.product)
         logger.info("render tayyor: %s", stats)
         job.status = RenderJob.Status.DONE
         job.error = ""
