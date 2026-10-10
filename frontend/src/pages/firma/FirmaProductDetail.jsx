@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { api, apiUpload } from "../../api";
 import BlockingLoader from "../../components/BlockingLoader";
-import { captureAndUpload, renderSources, reportRenderFailure } from "../../lib/captureRenders";
+import { captureAndUpload, CaptureCancelled, renderSources, reportRenderFailure } from "../../lib/captureRenders";
 import { portalURLFor } from "../../portal";
 import { POSITIONS } from "../../positions";
 import Model3DPartPicker from "../../components/Model3DPartPicker";
@@ -122,35 +122,49 @@ export default function FirmaProductDetail() {
   // 3D ko'rinishdan skrin olish: model yuklangach (render_stale) avtomatik; ekran bloklanadi.
   const [capture, setCapture] = useState(null); // { label, percent }
   const captureBusy = useRef(false);
-  const failedKey = useRef("");
+  const abortRef = useRef(null);
+  // Xato/bekor qilingan urinish shu mahsulot+model uchun brauzer sessiyasida eslab qolinadi:
+  // sahifani yangilaganda ekran qayta qulflanmaydi (qo'lda tugma orqali urinish mumkin).
+  const skipKey = (p) => `render-skip:${p.id}:${p.render_source || ""}`;
 
   const runCapture = async () => {
     if (!product || captureBusy.current) return;
     captureBusy.current = true;
-    setCapture({ label: "3D ko'rinishdan rasmlar olinmoqda…", percent: 5 });
+    const controller = new AbortController();
+    abortRef.current = controller;
+    sessionStorage.removeItem(skipKey(product));
+    setError("");
+    setCapture({ label: "3D ko'rinishdan rasmlar olinmoqda…", percent: 3 });
     try {
-      const updated = await captureAndUpload(product, ({ stage, done, total, label }) => {
-        const base = stage === "capture" ? 0 : 30;
-        const span = stage === "capture" ? 30 : 70;
-        setCapture({ label, percent: base + (total ? (done / total) * span : 0) });
-      });
+      const updated = await captureAndUpload(
+        product,
+        ({ stage, done, total, label }) => {
+          const base = stage === "capture" ? 0 : 40;
+          const span = stage === "capture" ? 40 : 60;
+          setCapture({ label, percent: base + (total ? Math.min(1, done / total) * span : 0) });
+        },
+        controller.signal,
+      );
       setProduct(updated);
-      failedKey.current = "";
     } catch (e) {
-      failedKey.current = product.id + ":" + (product.render_source || "");
-      await reportRenderFailure(product.id, e.message);
-      setError(e.message);
-      setTimeout(load, 0);
+      sessionStorage.setItem(skipKey(product), "1");
+      if (!(e instanceof CaptureCancelled)) {
+        await reportRenderFailure(product.id, e.message);
+        setError(`Rasmlarni olib bo'lmadi: ${e.message}`);
+      }
+      load();
     } finally {
       captureBusy.current = false;
+      abortRef.current = null;
       setCapture(null);
     }
   };
 
   useEffect(() => {
     if (!product || !product.render_stale || captureBusy.current) return;
+    if (product.render_status === "failed") return; // xatodan keyin faqat qo'lda
+    if (sessionStorage.getItem(skipKey(product))) return;
     if (renderSources(product).length === 0) return;
-    if (failedKey.current === product.id + ":" + (product.render_source || "")) return; // xatodan keyin qayta-qayta urinmaymiz
     runCapture();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product]);
@@ -162,7 +176,15 @@ export default function FirmaProductDetail() {
 
   return (
     <div style={{ background: ENT.bg, margin: "calc(-1 * var(--portal-pad, 24px))", minHeight: "100%" }}>
-      {capture && <BlockingLoader label={capture.label} percent={capture.percent} hint="3D model ko'rinishlaridan rasmlar yaratilmoqda." />}
+      {capture && (
+        <BlockingLoader
+          label={capture.label}
+          percent={capture.percent}
+          hint="3D model ko'rinishlaridan rasmlar yaratilmoqda."
+          onCancel={() => abortRef.current?.abort()}
+          cancelLabel="Bekor qilish (keyinroq qo'lda olaman)"
+        />
+      )}
       {error && <div className="error" style={{ margin: 16 }}>{error}</div>}
       <div style={{ position: "sticky", top: "calc(-1 * var(--portal-pad, 24px))", zIndex: 30 }}>
         <HeroHeader
@@ -179,7 +201,7 @@ export default function FirmaProductDetail() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 20, padding: "20px 24px 60px", maxWidth: 1400, margin: "0 auto" }} className="ent-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-          {tab === "general" && <RendersCard product={product} onCapture={runCapture} />}
+          {tab === "general" && <RendersCard product={product} onCapture={() => runCapture()} />}
           {tab === "general" && <GeneralTab product={product} categories={categories} onDone={load} />}
           {tab === "variants" && <VariantsTab product={product} onDone={load} />}
           {tab === "production" && (

@@ -4,7 +4,6 @@
 import { api, apiUpload } from "../api";
 
 const SHOTS = "hero,front,side,back,top";
-const IFRAME_TIMEOUT_MS = 180_000;
 
 function dataUrlToBlob(dataUrl) {
   const [head, b64] = dataUrl.split(",");
@@ -15,8 +14,16 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: mime });
 }
 
-/** Bitta GLB'ni yashirin iframe'da render qiladi; natija: {dimensionsCm, variants:[{name,id,shots}]}. */
-function renderInIframe(glbUrl, variants) {
+const READY_TIMEOUT_MS = 12_000; // render sahifa yuklanishi (aks holda sahifa topilmagan/yangilanmagan)
+const MODEL_TIMEOUT_MS = 120_000; // model yuklanishi + rasm olish
+
+export class CaptureCancelled extends Error {}
+
+/**
+ * Bitta GLB'ni yashirin iframe'da render qiladi; natija: {dimensionsCm, variants:[{name,id,shots}]}.
+ * `onModelProgress(0..1)` — model yuklanish foizi; `signal` — bekor qilish.
+ */
+function renderInIframe(glbUrl, variants, { onModelProgress, signal } = {}) {
   return new Promise((resolve, reject) => {
     const q = new URLSearchParams({
       src: glbUrl,
@@ -33,23 +40,45 @@ function renderInIframe(glbUrl, variants) {
       position: "fixed", left: "0", top: "0", width: "800px", height: "800px",
       opacity: "0.01", pointerEvents: "none", border: "0", zIndex: "-1",
     });
-    let timer;
-    const cleanup = () => {
-      clearTimeout(timer);
+    let readyTimer;
+    let modelTimer;
+    let settled = false;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(readyTimer);
+      clearTimeout(modelTimer);
       window.removeEventListener("message", onMsg);
+      signal?.removeEventListener("abort", onAbort);
       frame.remove();
+      fn(value);
     };
+    const onAbort = () => finish(reject, new CaptureCancelled("Bekor qilindi"));
     const onMsg = (e) => {
-      if (e.source !== frame.contentWindow || e.data?.type !== "vida-render") return;
-      cleanup();
-      if (e.data.ok) resolve(e.data.result);
-      else reject(new Error(e.data.error || "Brauzerda rasm olib bo'lmadi"));
+      if (e.source !== frame.contentWindow) return;
+      const d = e.data || {};
+      if (d.type === "vida-render-ready") {
+        clearTimeout(readyTimer);
+        modelTimer = setTimeout(
+          () => finish(reject, new Error("Model juda sekin yuklandi yoki WebGL ishlamayapti (2 daqiqa).")),
+          MODEL_TIMEOUT_MS,
+        );
+      } else if (d.type === "vida-render-progress") {
+        onModelProgress?.(d.value);
+      } else if (d.type === "vida-render") {
+        if (d.ok) finish(resolve, d.result);
+        else finish(reject, new Error(d.error || "Brauzerda rasm olib bo'lmadi"));
+      }
     };
     window.addEventListener("message", onMsg);
-    timer = setTimeout(() => {
-      cleanup();
-      reject(new Error("Rasm olish vaqti tugadi. Qurilmangiz WebGL'ni qo'llab-quvvatlashini tekshiring."));
-    }, IFRAME_TIMEOUT_MS);
+    if (signal) {
+      if (signal.aborted) return onAbort();
+      signal.addEventListener("abort", onAbort);
+    }
+    readyTimer = setTimeout(
+      () => finish(reject, new Error("Render sahifa (/render/index.html) ochilmadi. Frontend yangi build qilinganini tekshiring.")),
+      READY_TIMEOUT_MS,
+    );
     frame.src = `/render/index.html?${q}`;
     document.body.appendChild(frame);
   });
@@ -78,7 +107,7 @@ export function renderSources(product) {
  * 3D modeldan rasmlarni oladi va serverga yuboradi. `onProgress({stage, done, total, label})`.
  * Qaytaradi: yangilangan mahsulot (render-complete javobi).
  */
-export async function captureAndUpload(product, onProgress = () => {}) {
+export async function captureAndUpload(product, onProgress = () => {}, signal) {
   const sources = renderSources(product);
   if (!sources.length) throw new Error("Render uchun tayyor GLB model yo'q.");
 
@@ -87,7 +116,16 @@ export async function captureAndUpload(product, onProgress = () => {}) {
   for (let i = 0; i < sources.length; i += 1) {
     onProgress({ stage: "capture", done: i, total: sources.length, label: "Model ko'rinishlari olinmoqda…" });
     const src = sources[i];
-    const result = await renderInIframe(src.glbUrl, src.tints);
+    const result = await renderInIframe(src.glbUrl, src.tints, {
+      signal,
+      onModelProgress: (v) =>
+        onProgress({
+          stage: "capture",
+          done: i + v,
+          total: sources.length,
+          label: `Model yuklanmoqda… ${Math.round(v * 100)}%`,
+        }),
+    });
     rendered.push({ src, result });
   }
 
@@ -106,7 +144,8 @@ export async function captureAndUpload(product, onProgress = () => {}) {
   // 3) Serverga yuklash (har bir rakurs — alohida so'rov, foiz ko'rsatiladi).
   for (let i = 0; i < jobs.length; i += 1) {
     const j = jobs[i];
-    onProgress({ stage: "upload", done: i, total: jobs.length, label: "Rasmlar saqlanmoqda…" });
+    if (signal?.aborted) throw new CaptureCancelled("Bekor qilindi");
+    onProgress({ stage: "upload", done: i, total: jobs.length, label: `Rasmlar saqlanmoqda… ${i + 1}/${jobs.length}` });
     const fd = new FormData();
     fd.append("image", dataUrlToBlob(j.dataUrl), `${j.shot}.png`);
     fd.append("shot", j.shot);

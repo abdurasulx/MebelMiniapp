@@ -5,7 +5,7 @@ import { useEffect } from "react";
  * `percent` — 0..100 (bo'lmasa aylanuvchi indikator), `label` — joriy bosqich.
  * Yopish/brauzer tabini yangilash ogohlantiriladi — jarayon uziladi.
  */
-export default function BlockingLoader({ label, percent = null, hint = null }) {
+export default function BlockingLoader({ label, percent = null, hint = null, onCancel = null, cancelLabel = "Bekor qilish" }) {
   useEffect(() => {
     const warn = (e) => {
       e.preventDefault();
@@ -63,6 +63,16 @@ export default function BlockingLoader({ label, percent = null, hint = null }) {
         <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 14 }}>
           Iltimos kuting, oynani yopmang.
         </div>
+        {onCancel && (
+          <button
+            type="button"
+            className="btn-ghost"
+            style={{ marginTop: 16, width: "100%" }}
+            onClick={onCancel}
+          >
+            {cancelLabel}
+          </button>
+        )}
       </div>
       <style>{"@keyframes vida-spin { to { transform: rotate(360deg); } }"}</style>
     </div>

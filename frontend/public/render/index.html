@@ -79,6 +79,12 @@
       mv.setAttribute("interaction-prompt", "none");
       mv.style.width = SIZE + "px";
       mv.style.height = SIZE + "px";
+      mv.addEventListener("progress", (e) => {
+        const v = e.detail?.totalProgress;
+        if (typeof v === "number" && window.parent !== window) {
+          window.parent.postMessage({ type: "vida-render-progress", value: v }, "*");
+        }
+      });
       document.getElementById("stage").appendChild(mv);
       await new Promise((res, rej) => {
         mv.addEventListener("load", res, { once: true });
@@ -161,6 +167,9 @@
     };
 
     window.__ready = true;
+    // Ota oynaga: sahifa (va skript) yuklandi — aks holda ota nginx SPA-fallback'ni aniqlaydi.
+    const post = (msg) => { if (window.parent !== window) window.parent.postMessage(msg, "*"); };
+    post({ type: "vida-render-ready" });
     // Iframe rejimida (sotuvchi preview) — ota oynaga natijani yuboradi.
     if (window.parent !== window && params.get("auto") === "1") {
       window.renderAll()
