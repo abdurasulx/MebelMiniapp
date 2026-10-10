@@ -184,3 +184,59 @@ class Variant(BaseModel, StoredFileMixin):
 
     def __str__(self):
         return f"{self.product} — {self.name}"
+
+
+# Platforma qo'llab-quvvatlaydigan tillar (ilova/web bilan bir xil kodlar).
+SHOWCASE_LANGUAGES = ("uz", "en", "ru", "tg", "tr", "ky", "kk", "de", "az")
+
+
+def _validate_translations(value):
+    from django.core.exceptions import ValidationError
+
+    if not isinstance(value, dict):
+        raise ValidationError("Tarjimalar {til: matn} ko'rinishida bo'lishi kerak.")
+    for lang, text in value.items():
+        if lang not in SHOWCASE_LANGUAGES:
+            raise ValidationError(f"Noma'lum til kodi: {lang}")
+        if not isinstance(text, str):
+            raise ValidationError("Tarjima matn bo'lishi kerak.")
+
+
+class ShowcaseProduct(BaseModel, StoredFileMixin):
+    """Vitrina (demo) mahsuloti — firmaga tegishli EMAS, faqat platforma admini
+    boshqaradi. Faol firma yo'q hududdagi foydalanuvchiga ilova imkoniyatlarini
+    ko'rsatish uchun ishlatiladi; buyurtma berib bo'lmaydi (Variant/Cart/Order'ga
+    umuman bog'lanmagan — shuning uchun buyurtma yo'li yo'q).
+
+    `name`/`description` — {"uz": "...", "ru": "...", ...}; til bo'lmasa o'zbekcha.
+    """
+
+    category = models.ForeignKey(
+        Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="showcase_products"
+    )
+    name = models.JSONField(default=dict, validators=[_validate_translations])
+    description = models.JSONField(default=dict, blank=True, validators=[_validate_translations])
+    image = models.ImageField(upload_to="showcase/", blank=True, null=True)
+    price_from = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_published = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("sort_order", "-created_at")
+        verbose_name = "showcase product"
+
+    def text(self, field, lang):
+        data = getattr(self, field) or {}
+        return data.get(lang) or data.get("uz") or next((v for v in data.values() if v), "")
+
+    def __str__(self):
+        return self.text("name", "uz") or str(self.pk)
+
+
+class ShowcaseImage(BaseModel, StoredFileMixin):
+    product = models.ForeignKey(ShowcaseProduct, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="showcase/gallery/")
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ("sort_order",)

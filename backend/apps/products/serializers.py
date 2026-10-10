@@ -2,7 +2,15 @@ from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
 
-from .models import Category, Product, ProductImage, Variant
+from .models import (
+    SHOWCASE_LANGUAGES,
+    Category,
+    Product,
+    ProductImage,
+    ShowcaseImage,
+    ShowcaseProduct,
+    Variant,
+)
 
 
 class CategorySerializer(StorageStampMixin, serializers.ModelSerializer):
@@ -257,3 +265,84 @@ class ImageSearchSerializer(serializers.Serializer):
     """`/products/search-by-image/` uchun kirish ma'lumoti."""
 
     image = serializers.ImageField()
+
+
+class ShowcaseImageSerializer(StorageStampMixin, serializers.ModelSerializer):
+    file_fields = ("image",)
+    image = serializers.ImageField(write_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ShowcaseImage
+        fields = ("id", "product", "image", "image_url", "sort_order")
+        read_only_fields = ("id",)
+
+    def get_image_url(self, obj):
+        return visible_file_url(obj, "image", self.context.get("request"))
+
+
+class ShowcaseProductSerializer(StorageStampMixin, serializers.ModelSerializer):
+    """Ommaviy o'qish: `lang` bo'yicha tayyor `name`/`description` + to'liq
+    tarjimalar (`name_translations`) — admin tahrirlashi uchun."""
+
+    file_fields = ("image",)
+    image = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    image_url = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
+    name_translations = serializers.JSONField(source="name")
+    description_translations = serializers.JSONField(source="description", required=False)
+    name = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    category_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ShowcaseProduct
+        fields = (
+            "id", "category", "category_name", "name", "description",
+            "name_translations", "description_translations",
+            "image", "image_url", "images", "price_from", "sort_order", "is_published",
+        )
+        read_only_fields = ("id",)
+
+    def _lang(self):
+        request = self.context.get("request")
+        lang = (request.query_params.get("lang") if request else None) or "uz"
+        return lang if lang in SHOWCASE_LANGUAGES else "uz"
+
+    def get_name(self, obj):
+        return obj.text("name", self._lang())
+
+    def get_description(self, obj):
+        return obj.text("description", self._lang())
+
+    def get_category_name(self, obj):
+        if not obj.category:
+            return None
+        return (obj.category.name_ru if self._lang() == "ru" and obj.category.name_ru else obj.category.name_uz)
+
+    def get_image_url(self, obj):
+        return visible_file_url(obj, "image", self.context.get("request"))
+
+    def get_images(self, obj):
+        request = self.context.get("request")
+        return [u for u in (visible_file_url(i, "image", request) for i in obj.images.all()) if u]
+
+    @staticmethod
+    def _check_languages(value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Tarjimalar {til: matn} ko'rinishida bo'lishi kerak.")
+        for lang, text in value.items():
+            if lang not in SHOWCASE_LANGUAGES:
+                raise serializers.ValidationError(f"Noma'lum til kodi: {lang}")
+            if not isinstance(text, str):
+                raise serializers.ValidationError("Tarjima matn bo'lishi kerak.")
+        return value
+
+    def validate_name_translations(self, value):
+        self._check_languages(value)
+        if not (value.get("uz") or "").strip():
+            raise serializers.ValidationError("O'zbekcha nom majburiy.")
+        return value
+
+    def validate_description_translations(self, value):
+        return self._check_languages(value)

@@ -15,12 +15,14 @@ from apps.orders.models import OrderItem
 from common.geo import haversine_km
 
 from . import embedding
-from .models import Category, Product, ProductImage, Variant
+from .models import Category, Product, ProductImage, ShowcaseImage, ShowcaseProduct, Variant
 from .serializers import (
     CategorySerializer,
     ImageSearchSerializer,
     ProductImageSerializer,
     ProductSerializer,
+    ShowcaseImageSerializer,
+    ShowcaseProductSerializer,
     VariantSerializer,
 )
 
@@ -423,3 +425,30 @@ class ProductSearchByImageView(APIView):
             item["similarity_percent"] = round(score * 100, 1)
 
         return Response(products_data)
+
+
+class ShowcaseProductViewSet(viewsets.ModelViewSet):
+    """Vitrina (demo) mahsulotlari: hamma o'qiy oladi (faqat nashr qilinganlari),
+    yozish faqat platforma admini. `?lang=ru` — nom/tavsif shu tilda."""
+
+    serializer_class = ShowcaseProductSerializer
+    permission_classes = (IsPlatformAdminOrReadOnly,)
+
+    def get_queryset(self):
+        qs = ShowcaseProduct.objects.filter(is_deleted=False).select_related("category").prefetch_related("images")
+        user = self.request.user
+        if not (user.is_authenticated and user.role == "platform_admin"):
+            qs = qs.filter(is_published=True)
+        return qs
+
+    def perform_destroy(self, instance):
+        instance.is_deleted = True
+        instance.save(update_fields=["is_deleted"])
+
+
+class ShowcaseImageViewSet(viewsets.ModelViewSet):
+    serializer_class = ShowcaseImageSerializer
+    permission_classes = (IsPlatformAdminOrReadOnly,)
+
+    def get_queryset(self):
+        return ShowcaseImage.objects.filter(is_deleted=False)

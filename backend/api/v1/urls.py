@@ -48,6 +48,8 @@ from apps.products.views import (
     ProductImageViewSet,
     ProductSearchByImageView,
     ProductViewSet,
+    ShowcaseImageViewSet,
+    ShowcaseProductViewSet,
     VariantViewSet,
 )
 from apps.projects.views import (
@@ -97,6 +99,8 @@ from apps.workflow.views import (
 )
 
 router = DefaultRouter()
+router.register("showcase/products", ShowcaseProductViewSet, basename="showcase-product")
+router.register("showcase/images", ShowcaseImageViewSet, basename="showcase-image")
 router.register("companies", CompanyViewSet, basename="company")
 router.register("employees", EmployeeViewSet, basename="employee")
 router.register("employee-invitations", EmployeeInvitationViewSet, basename="employee-invitation")

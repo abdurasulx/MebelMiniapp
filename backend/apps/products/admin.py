@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Category, Product, ProductImage, Variant
+from .models import Category, Product, ProductImage, ShowcaseImage, ShowcaseProduct, Variant
 
 
 class VariantInline(admin.TabularInline):
@@ -25,3 +25,15 @@ class ProductAdmin(admin.ModelAdmin):
     list_filter = ("is_published", "category")
     search_fields = ("name_uz", "name_ru")
     inlines = (VariantInline, ProductImageInline)
+
+
+class ShowcaseImageInline(admin.TabularInline):
+    model = ShowcaseImage
+    extra = 0
+
+
+@admin.register(ShowcaseProduct)
+class ShowcaseProductAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "category", "price_from", "sort_order", "is_published")
+    list_filter = ("is_published", "category")
+    inlines = (ShowcaseImageInline,)
