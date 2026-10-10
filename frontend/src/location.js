@@ -18,14 +18,24 @@ export function requestCoords() {
   if (!("geolocation" in navigator)) return Promise.resolve({ status: "unsupported" });
   if (inflight) return inflight;
   inflight = new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        cache = { lat: pos.coords.latitude, lng: pos.coords.longitude, t: Date.now() };
-        resolve({ status: "granted", lat: cache.lat, lng: cache.lng });
-      },
-      (err) => resolve({ status: err.code === 1 ? "denied" : "unavailable" }),
-      { timeout: 10000, maximumAge: TTL_MS },
-    );
+    // Birinchi aniqlash (ayniqsa macOS/Wi-Fi bilan) 10 soniyadan ko'proq
+    // olishi mumkin — "timeout"/"unavailable" ruxsat rad etilgani emas,
+    // shuning uchun ruxsat kartasini ko'rsatishdan oldin bir marta
+    // uzoqroq kutib qayta urinib ko'ramiz. Faqat code 1 (denied) darhol qaytadi.
+    const attempt = (timeout, retriesLeft) =>
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          cache = { lat: pos.coords.latitude, lng: pos.coords.longitude, t: Date.now() };
+          resolve({ status: "granted", lat: cache.lat, lng: cache.lng });
+        },
+        (err) => {
+          if (err.code === 1) return resolve({ status: "denied" });
+          if (retriesLeft > 0) return attempt(20000, retriesLeft - 1);
+          resolve({ status: "unavailable" });
+        },
+        { timeout, maximumAge: TTL_MS },
+      );
+    attempt(10000, 1);
   }).finally(() => {
     inflight = null;
   });
