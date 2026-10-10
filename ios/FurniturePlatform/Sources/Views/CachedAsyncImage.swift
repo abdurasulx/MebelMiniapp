@@ -37,7 +37,12 @@ struct CachedAsyncImage<Content: View>: View {
             phase = .empty
             return
         }
-        if case .success = phase, ImageLoader.shared.memoryImage(for: url) != nil { return }
+        // URL o'zgargan bo'lishi mumkin (masalan variant almashdi): xotirada bo'lsa
+        // DARHOL yangi rasmni qo'yamiz — aks holda eski rasm qolib ketardi.
+        if let cached = ImageLoader.shared.memoryImage(for: url) {
+            phase = .success(Image(uiImage: cached))
+            return
+        }
         do {
             let image = try await ImageLoader.shared.image(for: url)
             withTransaction(transaction) { phase = .success(Image(uiImage: image)) }
