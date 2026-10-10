@@ -52,9 +52,9 @@ class Product(BaseModel, StoredFileMixin):
 
     # 3D modeldan avtomatik rasm (apps/products/rendering) holati.
     class RenderStatus(models.TextChoices):
-        NONE = "none", "Render yo'q"
+        NONE = "none", "Rasm yo'q"
         PENDING = "pending", "Navbatda"
-        PROCESSING = "processing", "Render qilinmoqda"
+        PROCESSING = "processing", "Olinmoqda"
         READY = "ready", "Tayyor"
         FAILED = "failed", "Xatolik"
 
@@ -70,6 +70,9 @@ class Product(BaseModel, StoredFileMixin):
     # `image` render'dan avtomatik qo'yilgan bo'lsa True (sotuvchi o'z rasmini
     # yuklasa render uni almashtirmaydi).
     image_from_render = models.BooleanField(default=False, editable=False)
+    # Oxirgi render qaysi GLB fayllar to'plamidan olingani (qarang rendering/store.py::source_key).
+    # Faylar o'zgarsa `render_stale` True bo'ladi va sotuvchi brauzeri rasmlarni yangilaydi.
+    render_source = models.CharField(max_length=500, blank=True, editable=False)
 
     class Meta:
         ordering = ("-created_at",)
@@ -261,30 +264,6 @@ class ShowcaseImage(BaseModel, StoredFileMixin):
 
     class Meta:
         ordering = ("sort_order",)
-
-
-class RenderJob(BaseModel):
-    """3D modeldan rasm render qilish navbati (apps/products/rendering/worker).
-    Bir vaqtda bitta job (concurrency 1) — `render_worker` buyrug'i."""
-
-    class Status(models.TextChoices):
-        PENDING = "pending", "Navbatda"
-        PROCESSING = "processing", "Jarayonda"
-        DONE = "done", "Tayyor"
-        FAILED = "failed", "Xatolik"
-
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="render_jobs")
-    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True)
-    attempts = models.PositiveSmallIntegerField(default=0)
-    # Render qilingan GLB fayl nomi — o'zgarmagan fayl qayta render qilinmasin.
-    source_name = models.CharField(max_length=300, blank=True)
-    error = models.TextField(blank=True)
-    started_at = models.DateTimeField(null=True, blank=True)
-    finished_at = models.DateTimeField(null=True, blank=True)
-    duration_s = models.FloatField(null=True, blank=True)
-
-    class Meta:
-        ordering = ("created_at",)
 
 
 class RenderedImage(BaseModel):

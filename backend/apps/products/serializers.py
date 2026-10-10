@@ -161,6 +161,7 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
     delivery = serializers.SerializerMethodField()
     category_image_url = serializers.SerializerMethodField()
     renders = serializers.SerializerMethodField()
+    render_stale = serializers.SerializerMethodField()
     model_dims_cm = serializers.JSONField(read_only=True)
 
     class Meta:
@@ -198,12 +199,20 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
             "needs_moderation",
             "moderation_note",
             "renders",
+            "render_stale",
             "created_at",
         )
         read_only_fields = (
             "id", "company", "slug", "created_at",
             "render_status", "render_error", "needs_moderation", "moderation_note",
         )
+
+    def get_render_stale(self, obj):
+        """GLB fayllar render'dan keyin o'zgargan (yoki hali render qilinmagan) bo'lsa True —
+        sotuvchi brauzeri rasmlarni avtomatik yangilaydi."""
+        from .rendering.store import is_stale
+
+        return is_stale(obj)
 
     def get_renders(self, obj):
         """Server render qilgan rasmlar variantlar bo'yicha guruhlangan:

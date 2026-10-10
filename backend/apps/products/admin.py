@@ -5,7 +5,6 @@ from .models import (
     Product,
     ProductImage,
     RenderedImage,
-    RenderJob,
     ShowcaseImage,
     ShowcaseProduct,
     Variant,
@@ -46,13 +45,6 @@ class ShowcaseProductAdmin(admin.ModelAdmin):
     list_display = ("__str__", "category", "price_from", "sort_order", "is_published")
     list_filter = ("is_published", "category")
     inlines = (ShowcaseImageInline,)
-
-
-@admin.register(RenderJob)
-class RenderJobAdmin(admin.ModelAdmin):
-    list_display = ("product", "status", "attempts", "duration_s", "finished_at")
-    list_filter = ("status",)
-    readonly_fields = ("error",)
 
 
 @admin.register(RenderedImage)

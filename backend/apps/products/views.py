@@ -3,6 +3,7 @@ from django.db.models import Case, Count, F, IntegerField, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -276,19 +277,87 @@ class ProductViewSet(viewsets.ModelViewSet):
             extra["image_from_render"] = False
         serializer.save(**extra)
 
-    @action(detail=True, methods=["post"], url_path="rerender")
-    def rerender(self, request, pk=None):
-        """3D modeldan rasmlarni qayta render qilishni navbatga qo'yadi (firma yoki admin)."""
-        from .rendering.runner import enqueue
+    @action(detail=True, methods=["post"], url_path="render-image", parser_classes=[MultiPartParser])
+    def render_image(self, request, pk=None):
+        """Sotuvchi brauzeri 3D ko'rinishdan olgan skrinni qabul qiladi (bitta rakurs).
+        Maydonlar: image (PNG), shot (hero|front|side|back|top), variant (ixtiyoriy id), variant_name."""
+        from .rendering import store
 
         product = self.get_object()
         if not can_manage(request.user, product.company):
             raise PermissionDenied("Bu mahsulot sizniki emas")
-        job = enqueue(product, force=True)
-        if job is None:
-            raise ValidationError("Mahsulotda render uchun GLB model yo'q.")
-        product.refresh_from_db()
+        upload = request.FILES.get("image")
+        if upload is None:
+            raise ValidationError("Rasm yuborilmadi.")
+        variant = None
+        variant_id = request.data.get("variant")
+        if variant_id:
+            variant = product.variants.filter(pk=variant_id, is_deleted=False).first()
+            if variant is None:
+                raise ValidationError("Variant topilmadi.")
+        name = (request.data.get("variant_name") or (variant.name if variant else "")).strip() or "default"
+        try:
+            obj = store.store_shot(
+                product, variant=variant, variant_name=name, shot=request.data.get("shot", ""), upload=upload
+            )
+        except store.RenderUploadError as exc:
+            raise ValidationError(str(exc))
+        hero_png = getattr(obj, "_hero_png", None)
+        first_variant = product.variants.filter(is_deleted=False).order_by("created_at").first()
+        is_primary = variant is None or first_variant is None or variant.pk == first_variant.pk
+        if hero_png and is_primary:
+            # Birinchi variant (yoki umumiy model) hero'si — asosiy rasm: katalog kartochkasi,
+            # rasm bo'yicha qidiruv va mobil ilovalar shuni ishlatadi.
+            from django.core.files.base import ContentFile
+
+            product.image.save(f"render-{product.id}.png", ContentFile(hero_png), save=False)
+            product.image_from_render = True
+            product.save(update_fields=["image", "image_from_render", "updated_at"])
+        return Response({"id": str(obj.id), "variant": obj.variant_name, "shot": obj.shot})
+
+    @action(detail=True, methods=["post"], url_path="render-complete")
+    def render_complete(self, request, pk=None):
+        """Skrinlar yuklab bo'lingach: holat `ready`, o'lcham tekshiruvi, hero -> asosiy rasm,
+        eski galereya/asosiy rasm almashtiriladi (fayllar o'chirilmaydi, faqat bazada yashiriladi)."""
+        from .rendering import store
+
+        product = self.get_object()
+        if not can_manage(request.user, product.company):
+            raise PermissionDenied("Bu mahsulot sizniki emas")
+        renders = list(product.renders.filter(is_deleted=False).order_by("sort_order"))
+        if not renders:
+            raise ValidationError("Hali rasm yuborilmagan.")
+
+        dims = request.data.get("dimensions_cm") or {}
+        try:
+            dims = {k: round(float(dims[k]), 1) for k in ("w", "h", "d")}
+        except (KeyError, TypeError, ValueError):
+            dims = None
+        product.model_dims_cm = dims
+        product.render_status = Product.RenderStatus.READY
+        product.render_error = ""
+        product.render_source = store.source_key(product)
+        update = ["model_dims_cm", "render_status", "render_error", "render_source",
+                  "needs_moderation", "moderation_note"]
+        if dims:
+            _flag_dimension_mismatch(product, dims)
+        else:
+            product.needs_moderation = False
+            product.moderation_note = ""
+
+        product.save(update_fields=update + ["updated_at"])
+        product.images.filter(is_deleted=False).update(is_deleted=True)
         return Response(ProductSerializer(product, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"], url_path="render-failed")
+    def render_failed(self, request, pk=None):
+        product = self.get_object()
+        if not can_manage(request.user, product.company):
+            raise PermissionDenied("Bu mahsulot sizniki emas")
+        product.render_status = Product.RenderStatus.FAILED
+        product.render_error = str(request.data.get("error") or "Brauzerda rasm olib bo'lmadi.")[:300]
+        product.save(update_fields=["render_status", "render_error", "updated_at"])
+        return Response({"ok": True})
 
     @action(detail=True, methods=["post"], url_path="approve-moderation")
     def approve_moderation(self, request, pk=None):
@@ -484,3 +553,25 @@ class ShowcaseImageViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return ShowcaseImage.objects.filter(is_deleted=False)
+
+
+def _flag_dimension_mismatch(product, dims: dict) -> None:
+    """Sotuvchi kiritgan o'lcham modeldan >10% farq qilsa moderatsiyaga belgilanadi."""
+    product.needs_moderation = False
+    product.moderation_note = ""
+    variant = product.variants.filter(is_deleted=False).order_by("created_at").first()
+    if variant is None:
+        return
+    entered = sorted([float(variant.width) * 100, float(variant.height) * 100, float(variant.depth) * 100])
+    if entered == [100.0, 100.0, 100.0]:
+        return  # to'ldirilmagan standart qiymat
+    actual = sorted([dims["w"], dims["h"], dims["d"]])
+    for e, a in zip(entered, actual):
+        if a > 0 and abs(e - a) / a > 0.10:
+            product.needs_moderation = True
+            product.moderation_note = (
+                f"Kiritilgan o'lcham ({entered[0]:.0f}×{entered[1]:.0f}×{entered[2]:.0f} sm) modeldan "
+                f"({actual[0]:.0f}×{actual[1]:.0f}×{actual[2]:.0f} sm) farq qiladi."
+            )
+            return
+
