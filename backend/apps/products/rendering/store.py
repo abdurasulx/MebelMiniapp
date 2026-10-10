@@ -19,15 +19,28 @@ class RenderUploadError(Exception):
     pass
 
 
+def _usable(m) -> bool:
+    # Frontend (captureRenders.renderSources) bilan bir xil shart: faqat `ready` modellar
+    # render qilinadi; aks holda "ishlov berilmoqda" model render_source'ga kirib,
+    # keyin tayyor bo'lganda qayta render qilinmay qolardi.
+    return (
+        m is not None
+        and not m.is_deleted
+        and m.status == "ready"
+        and bool(m.glb_file)
+        and m.glb_file.name.lower().endswith(".glb")
+    )
+
+
 def glb_sources(product: Product):
     """[(kind, model3d, variant|None)] — mahsulot umumiy GLB'i va o'z GLB'iga ega variantlar."""
     out = []
     pm = getattr(product, "model3d", None)
-    if pm is not None and not pm.is_deleted and pm.glb_file and pm.glb_file.name.lower().endswith(".glb"):
+    if _usable(pm):
         out.append(("product", pm, None))
     for v in product.variants.filter(is_deleted=False).order_by("created_at"):
         vm = getattr(v, "model3d", None)
-        if vm is not None and not vm.is_deleted and vm.glb_file and vm.glb_file.name.lower().endswith(".glb"):
+        if _usable(vm):
             out.append(("variant", vm, v))
     return out
 
