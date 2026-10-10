@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct OrderCheckoutView: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     let productName: String
     let variantId: String
     let width: Double
@@ -23,21 +25,21 @@ struct OrderCheckoutView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Mahsulot") {
+                Section(locale.t("Mahsulot")) {
                     Text(productName)
                     Text("\(String(format: "%.0f", total).formattedSom) so'm").bold()
                 }
-                Section("Yetkazish ma'lumotlari") {
-                    TextField("Telefon (+998…)", text: $phone).keyboardType(.phonePad)
-                    TextField("Manzil", text: $address)
-                    TextField("Izoh (ixtiyoriy)", text: $note)
+                Section(locale.t("Yetkazish ma'lumotlari")) {
+                    TextField(locale.t("Telefon (+998…)"), text: $phone).keyboardType(.phonePad)
+                    TextField(locale.t("Manzil"), text: $address)
+                    TextField(locale.t("Izoh (ixtiyoriy)"), text: $note)
                 }
                 if let errorMessage {
                     Section { Text(errorMessage).foregroundStyle(Color.appError) }
                 }
                 Section {
                     Button(action: submit) {
-                        if busy { ProgressView() } else { Text("Buyurtmani tasdiqlash").bold() }
+                        if busy { ProgressView() } else { Text(locale.t("Buyurtmani tasdiqlash")).bold() }
                     }
                     .disabled(phone.isEmpty || address.isEmpty || busy)
                     .frame(maxWidth: .infinity)
@@ -45,17 +47,17 @@ struct OrderCheckoutView: View {
                     .foregroundStyle(Color.brandPrimary)
                 }
             }
-            .navigationTitle("Buyurtma berish")
+            .navigationTitle(locale.t("Buyurtma berish"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Bekor") { dismiss() }
+                    Button(locale.t("Bekor")) { dismiss() }
                 }
             }
-            .alert("Buyurtma qabul qilindi", isPresented: $didSucceed) {
+            .alert(locale.t("Buyurtma qabul qilindi"), isPresented: $didSucceed) {
                 Button("OK") { dismiss() }
             } message: {
-                Text("Kompaniya siz bilan tez orada bog'lanadi.")
+                Text(locale.t("Kompaniya siz bilan tez orada bog'lanadi."))
             }
             .sheet(isPresented: $showPhoneVerify) {
                 PhoneVerifySheet(initialPhone: phone, onVerified: submit)

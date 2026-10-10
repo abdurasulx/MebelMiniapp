@@ -5,6 +5,7 @@ import SwiftUI
 /// (joylashuv) ma'lumot SAQLANMAYDI, faqat "qaysi mahsulot+rang loyihaga
 /// tegishli" (qarang backend apps.ar_collections va ARCollectionDetailView).
 struct LoyihalarimView: View {
+    @EnvironmentObject private var locale: LocaleStore
     let companySlug: String
 
     @State private var collections: [ARCollection] = []
@@ -31,8 +32,8 @@ struct LoyihalarimView: View {
             } else if collections.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "arkit").font(.largeTitle).foregroundStyle(Color.textSecondary)
-                    Text("Hali loyiha yo'q").foregroundStyle(Color.textSecondary)
-                    Text("Mahsulotlarni AR'da ko'rsatish uchun avval loyiha yarating.")
+                    Text(locale.t("Hali loyiha yo'q")).foregroundStyle(Color.textSecondary)
+                    Text(locale.t("Mahsulotlarni AR'da ko'rsatish uchun avval loyiha yarating."))
                         .font(.caption).foregroundStyle(Color.textSecondary)
                         .multilineTextAlignment(.center).padding(.horizontal, 40)
                 }
@@ -52,7 +53,7 @@ struct LoyihalarimView: View {
                 .listStyle(.plain)
             }
         }
-        .navigationTitle("Loyihalarim")
+        .navigationTitle(locale.t("Loyihalarim"))
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button { showCreate = true } label: { Image(systemName: "plus") }
@@ -60,10 +61,10 @@ struct LoyihalarimView: View {
         }
         .task { await load() }
         .refreshable { await load() }
-        .alert("Yangi loyiha", isPresented: $showCreate) {
-            TextField("Loyiha nomi", text: $newName)
-            Button("Bekor", role: .cancel) { newName = "" }
-            Button("Yaratish") { Task { await create() } }
+        .alert(locale.t("Yangi loyiha"), isPresented: $showCreate) {
+            TextField(locale.t("Loyiha nomi"), text: $newName)
+            Button(locale.t("Bekor"), role: .cancel) { newName = "" }
+            Button(locale.t("Yaratish")) { Task { await create() } }
         }
     }
 

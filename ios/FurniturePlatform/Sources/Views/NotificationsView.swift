@@ -69,6 +69,8 @@ struct NotificationBellButton: View {
 }
 
 struct NotificationsView: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     @State private var items: [AppNotification] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -84,7 +86,7 @@ struct NotificationsView: View {
                 } else if let errorMessage {
                     Text(errorMessage).foregroundStyle(Color.appError).padding()
                 } else if items.isEmpty {
-                    Text("Hali xabarnoma yo'q.").foregroundStyle(Color.textSecondary)
+                    Text(locale.t("Hali xabarnoma yo'q.")).foregroundStyle(Color.textSecondary)
                 } else {
                     List(items) { n in
                         NotificationRow(notification: n, onTap: { Task { await markRead(n) } })
@@ -92,12 +94,12 @@ struct NotificationsView: View {
                     .listStyle(.plain)
                 }
             }
-            .navigationTitle("Xabarnomalar")
+            .navigationTitle(locale.t("Xabarnomalar"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if items.contains(where: { !$0.isRead }) {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Hammasini o'qilgan qilish") { Task { await markAllRead() } }
+                        Button(locale.t("Hammasini o'qilgan qilish")) { Task { await markAllRead() } }
                             .font(.caption)
                     }
                 }

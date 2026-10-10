@@ -4,6 +4,7 @@ import SwiftUI
 /// yerda, AR joylashtirish esa alohida seans sifatida ochiladi (pozitsiyalar
 /// hech qachon saqlanmaydi, qarang MultiARPlacementView).
 struct ARCollectionDetailView: View {
+    @EnvironmentObject private var locale: LocaleStore
     let companySlug: String
     let collectionId: String
     let initialName: String
@@ -59,8 +60,8 @@ struct ARCollectionDetailView: View {
             } else if items.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "shippingbox").font(.largeTitle).foregroundStyle(Color.textSecondary)
-                    Text("Hali mahsulot qo'shilmagan").foregroundStyle(Color.textSecondary)
-                    Button("+ Mahsulot qo'shish") { showPicker = true }
+                    Text(locale.t("Hali mahsulot qo'shilmagan")).foregroundStyle(Color.textSecondary)
+                    Button(locale.t("+ Mahsulot qo'shish")) { showPicker = true }
                         .buttonStyle(.borderedProminent)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -148,6 +149,8 @@ struct ARCollectionDetailView: View {
 }
 
 private struct ARCollectionItemCard: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     let item: ARCollectionItem
     let onRemove: () -> Void
 
@@ -184,7 +187,7 @@ private struct ARCollectionItemCard: View {
                     Text(variant.name).font(.caption2).foregroundStyle(Color.textSecondary).lineLimit(1)
                 }
             } else if item.product.variants.count > 1 {
-                Text("Rang: joylashtirishda tanlanadi")
+                Text(locale.t("Rang: joylashtirishda tanlanadi"))
                     .font(.caption2).foregroundStyle(Color.textSecondary).lineLimit(1)
             }
         }

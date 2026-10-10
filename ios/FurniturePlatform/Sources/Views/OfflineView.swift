@@ -5,6 +5,7 @@ import SwiftUI
 /// (400/401 va h.k.) buni ishlatmaydi, chunki ular server ishlab turganini
 /// bildiradi — faqat `APIError.offline` uchun (qarang `isOffline(_:)`).
 struct OfflineView: View {
+    @EnvironmentObject private var locale: LocaleStore
     let onRetry: () -> Void
     var message: String? = nil
 
@@ -18,7 +19,7 @@ struct OfflineView: View {
             Image(systemName: "wifi.slash")
                 .font(.system(size: 44))
                 .foregroundStyle(Color.brandDeep.opacity(0.5))
-            Text("Internet aloqasi yo'q")
+            Text(locale.t("Internet aloqasi yo'q"))
                 .font(.headline)
             Text(message ?? "Serverga ulanib bo'lmadi. Internetingizni tekshirib, qayta urinib ko'ring.")
                 .font(.subheadline)

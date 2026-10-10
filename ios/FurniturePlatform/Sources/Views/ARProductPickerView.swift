@@ -8,6 +8,7 @@ import SwiftUI
 /// ham ko'ray" desa, usta uchun qiyinchilik tug'iladi — loyihaga qo'shish
 /// bir marta, rang tanlash esa har safar joylashtirishda erkin bo'lishi kerak.
 struct ARProductPickerView: View {
+    @EnvironmentObject private var locale: LocaleStore
     let companySlug: String
     let collectionId: String
 
@@ -27,7 +28,7 @@ struct ARProductPickerView: View {
                 } else if let errorMessage {
                     Text(errorMessage).foregroundStyle(Color.appError).padding()
                 } else if arReadyProducts.isEmpty {
-                    Text("3D modeli tayyor mahsulot yo'q").foregroundStyle(Color.textSecondary)
+                    Text(locale.t("3D modeli tayyor mahsulot yo'q")).foregroundStyle(Color.textSecondary)
                 } else {
                     ScrollView {
                         // .adaptive — kenglik qancha bo'lsa shuncha ustun
@@ -47,7 +48,7 @@ struct ARProductPickerView: View {
                     }
                 }
             }
-            .navigationTitle("Mahsulot qo'shish")
+            .navigationTitle(locale.t("Mahsulot qo'shish"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -121,6 +122,7 @@ private struct ARProductPickerCard: View {
 /// yozilmaydi, chunki rang har safar joylashtirishda erkin o'zgarishi kerak
 /// (qarang ARProductPickerView izohi).
 struct ARSessionVariantPickerView: View {
+    @EnvironmentObject private var locale: LocaleStore
     let items: [ARCollectionItem]
     let initialSelections: [String: Variant]
     let onConfirm: ([String: Variant]) -> Void
@@ -152,14 +154,14 @@ struct ARSessionVariantPickerView: View {
                 }
                 .padding(.vertical, 6)
             }
-            .navigationTitle("Rangni tanlang")
+            .navigationTitle(locale.t("Rangni tanlang"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Bekor") { dismiss() }
+                    Button(locale.t("Bekor")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Davom etish") {
+                    Button(locale.t("Davom etish")) {
                         onConfirm(selections)
                         dismiss()
                     }

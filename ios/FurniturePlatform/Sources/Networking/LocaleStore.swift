@@ -30,4 +30,5 @@ final class LocaleStore: ObservableObject {
     }
 
     func t(_ key: String) -> String { translate(code, key) }
+    func tf(_ key: String, _ args: CVarArg...) -> String { String(format: translate(code, key), arguments: args) }
 }

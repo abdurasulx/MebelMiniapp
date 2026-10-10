@@ -10,6 +10,7 @@ import SwiftUI
 /// raqam maydoni, N-katakli SMS-kod kiritish (OtpBoxInput), qayta
 /// yuborish countdown'i.
 struct PhoneVerifySheet: View {
+    @EnvironmentObject private var locale: LocaleStore
     let initialPhone: String
     let onVerified: () -> Void
 
@@ -51,7 +52,7 @@ struct PhoneVerifySheet: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("Buyurtma berishdan oldin telefon raqamingizni SMS-kod bilan tasdiqlashingiz kerak.")
+                    Text(locale.t("Buyurtma berishdan oldin telefon raqamingizni SMS-kod bilan tasdiqlashingiz kerak."))
                         .font(.subheadline).foregroundStyle(Color.textSecondary)
                 }
                 if !codeSent {
@@ -134,11 +135,11 @@ struct PhoneVerifySheet: View {
                     }
                 }
             }
-            .navigationTitle("Telefonni tasdiqlash")
+            .navigationTitle(locale.t("Telefonni tasdiqlash"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Bekor") { dismiss() }
+                    Button(locale.t("Bekor")) { dismiss() }
                 }
             }
             .onDisappear { resendTimer?.invalidate() }

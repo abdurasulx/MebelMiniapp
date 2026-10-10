@@ -121,7 +121,7 @@ private struct ProfileView: View {
                 }
             }
 
-            Section("Bog'langan hisoblar") {
+            Section(locale.t("Bog'langan hisoblar")) {
                 HStack {
                     Image("google_logo").resizable().scaledToFit().frame(width: 20, height: 20)
                     Text("Google")
@@ -133,7 +133,7 @@ private struct ProfileView: View {
                     } else if linkingGoogle {
                         ProgressView()
                     } else {
-                        Button("Bog'lash") {
+                        Button(locale.t("Bog'lash")) {
                             linkingGoogle = true
                             Task {
                                 await auth.linkGoogle()
@@ -154,7 +154,7 @@ private struct ProfileView: View {
                     } else if linkingTelegram {
                         ProgressView()
                     } else {
-                        Button("Bog'lash") {
+                        Button(locale.t("Bog'lash")) {
                             linkingTelegram = true
                             Task {
                                 await auth.linkTelegram()
@@ -205,8 +205,8 @@ private struct ProfileView: View {
             }
 
             if let positions = user.positions, !positions.isEmpty {
-                Section("Ko'rinish rejimi") {
-                    Picker("Rejim", selection: Binding<AppMode>(
+                Section(locale.t("Ko'rinish rejimi")) {
+                    Picker(locale.t("Rejim"), selection: Binding<AppMode>(
                         get: { auth.appMode },
                         set: { newValue in
                             if newValue == .customer {
@@ -218,13 +218,13 @@ private struct ProfileView: View {
                             }
                         }
                     )) {
-                        Text("Xaridor").tag(AppMode.customer)
+                        Text(locale.t("Xaridor")).tag(AppMode.customer)
                         Text(positions.count == 1 ? "\(positionInfo(positions[0]).label) bilan kirish" : "Xodim sifatida kirish")
                             .tag(AppMode.worker)
                     }
                     .pickerStyle(.segmented)
                     if auth.appMode == .worker, let active = auth.activePosition {
-                        Text("Hozir: \(positionInfo(active).label)")
+                        Text(locale.tf("Hozir: %@", positionInfo(active).label))
                             .font(.caption).foregroundStyle(Color.textSecondary)
                     }
                 }
@@ -237,7 +237,7 @@ private struct ProfileView: View {
             }
 
             if !invitations.isEmpty {
-                Section("Ish takliflari") {
+                Section(locale.t("Ish takliflari")) {
                     ForEach(invitations) { inv in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(inv.companyName).bold()
@@ -245,10 +245,10 @@ private struct ProfileView: View {
                                 .font(.caption).foregroundStyle(Color.textSecondary)
                             if inv.status == "pending" {
                                 HStack {
-                                    Button("Qabul qilish") { respond(inv, accept: true) }
+                                    Button(locale.t("Qabul qilish")) { respond(inv, accept: true) }
                                         .buttonStyle(.borderedProminent)
                                         .tint(.brandDeep)
-                                    Button("Rad etish", role: .destructive) { respond(inv, accept: false) }
+                                    Button(locale.t("Rad etish"), role: .destructive) { respond(inv, accept: false) }
                                         .buttonStyle(.bordered)
                                 }
                                 .disabled(busyInvitationId == inv.id)
@@ -265,13 +265,13 @@ private struct ProfileView: View {
             }
 
             if !career.isEmpty {
-                Section("Ish tarixi (karyera)") {
+                Section(locale.t("Ish tarixi (karyera)")) {
                     ForEach(career) { entry in
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 Text(entry.companyName).bold()
                                 if entry.isActive {
-                                    Text("hozir").font(.caption2).foregroundStyle(Color.appSuccess)
+                                    Text(locale.t("hozir")).font(.caption2).foregroundStyle(Color.appSuccess)
                                 }
                             }
                             Text(entry.positions.joined(separator: ", "))
@@ -287,11 +287,11 @@ private struct ProfileView: View {
 
             DeleteAccountSection()
 
-            Section("So'nggi buyurtmalar") {
+            Section(locale.t("So'nggi buyurtmalar")) {
                 if isLoading {
                     ProgressView()
                 } else if orders.isEmpty {
-                    Text("Hali buyurtma yo'q").foregroundStyle(Color.textSecondary)
+                    Text(locale.t("Hali buyurtma yo'q")).foregroundStyle(Color.textSecondary)
                 } else {
                     // Ro'yxat cheklanadi: ega uchun kompaniyaning barcha buyurtmalari
                     // ko'p bo'lishi mumkin — bu yerda faqat so'nggilari ko'rsatiladi.
@@ -310,7 +310,7 @@ private struct ProfileView: View {
                         }
                     }
                     if orders.count > 5 {
-                        Text("va yana \(orders.count - 5) ta buyurtma")
+                        Text(locale.tf("va yana %d ta buyurtma", orders.count - 5))
                             .font(.caption)
                             .foregroundStyle(Color.textSecondary)
                     }
@@ -621,6 +621,7 @@ struct OrderSummary: Codable, Identifiable {
 /// web'dagi read-only WorkflowPanel bilan bir xil g'oyada. Bosqichni
 /// boshlash/yakunlash faqat ustaning o'z ekranida (WorkerOrdersView).
 struct CustomerOrderDetailView: View {
+    @EnvironmentObject private var locale: LocaleStore
     let order: OrderSummary
 
     private func statusColor(_ status: String) -> Color {
@@ -642,12 +643,12 @@ struct CustomerOrderDetailView: View {
                     .clipShape(Capsule())
                 if let percent = order.progressPercent {
                     ProgressView(value: Double(percent), total: 100)
-                    Text("Ishlab chiqarish: \(percent)%").font(.caption).foregroundStyle(Color.textSecondary)
+                    Text(locale.tf("Ishlab chiqarish: %d%%", Int(percent))).font(.caption).foregroundStyle(Color.textSecondary)
                 }
             }
 
             if let steps = order.workflowSteps, !steps.isEmpty {
-                Section("Ishlab chiqarish jarayoni") {
+                Section(locale.t("Ishlab chiqarish jarayoni")) {
                     ForEach(steps) { step in
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
@@ -659,7 +660,7 @@ struct CustomerOrderDetailView: View {
                                     .foregroundStyle(statusColor(step.status))
                             }
                             if let employeeName = step.employeeName, !employeeName.isEmpty {
-                                Text("Ijrochi: \(employeeName)")
+                                Text(locale.tf("Ijrochi: %@", employeeName))
                                     .font(.caption).foregroundStyle(Color.textSecondary)
                             }
                             if let updates = step.updates, !updates.isEmpty {
