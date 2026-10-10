@@ -287,11 +287,13 @@ private var arScaleFactors: SIMD3<Float> {
                     }
                 }
                 .tabViewStyle(.page)
-                .frame(height: 240)
+                .frame(maxWidth: .infinity)
+                .aspectRatio(1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             } else {
                 galleryImage(urls.first ?? "")
-                    .frame(height: 240)
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(1, contentMode: .fit)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             }
         }
@@ -306,15 +308,18 @@ private var arScaleFactors: SIMD3<Float> {
         }
     }
 
+    /// Rasm kesilmaydi (`fit`): kvadrat kadrda butun mebel ko'rinadi.
     private func galleryImage(_ url: String) -> some View {
-        AsyncImage(url: URL(string: url)) { phase in
-            if let image = phase.image {
-                image.resizable().aspectRatio(contentMode: .fill)
-            } else {
-                Color.brandPrimary.opacity(0.3)
+        ZStack {
+            Color.brandPrimary.opacity(0.15)
+            AsyncImage(url: URL(string: url)) { phase in
+                if let image = phase.image {
+                    image.resizable().aspectRatio(contentMode: .fit)
+                } else {
+                    Color.clear
+                }
             }
         }
-        .clipped()
     }
 
 private func load() async {

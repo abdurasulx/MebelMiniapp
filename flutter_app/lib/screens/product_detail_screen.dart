@@ -458,7 +458,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     final urls = p.galleryFor(_selectedVariant);
     final width = MediaQuery.of(context).size.width;
     // Rasm hech qachon kesilmaydi/cho'zilmaydi (`contain`): butun mebel ko'rinadi.
-    final height = (width * 0.92).clamp(280.0, 440.0);
+    // Render kvadrat va allaqachon ichki bo'sh joyli — to'liq kenglikda ko'rsatiladi.
+    final height = width.clamp(280.0, 560.0);
     return Stack(
       children: [
         Container(
@@ -489,8 +490,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                       },
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg, 60, AppSpacing.lg, 36),
+                      padding: const EdgeInsets.only(top: 24, bottom: 8),
                       child: Image.network(
                         urls[i],
                         fit: BoxFit.contain,
