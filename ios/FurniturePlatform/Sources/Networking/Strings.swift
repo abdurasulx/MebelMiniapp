@@ -21,6 +21,8 @@ let defaultLocaleCode = "uz"
 
 private let stringsTable: [String: [String: String]] = [
     "uz": [
+        "auth_google": "Google orqali kirish",
+        "auth_telegram": "Telegram orqali kirish",
         "dim_title": "O'lchamlari",
         "dim_width": "Eni",
         "dim_height": "Bo'yi",
@@ -108,6 +110,8 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Faqat shu firmadan yakunlangan buyurtmangiz bo'lsa baho qoldira olasiz.",
     ],
     "en": [
+        "auth_google": "Sign in with Google",
+        "auth_telegram": "Sign in with Telegram",
         "dim_title": "Dimensions",
         "dim_width": "Width",
         "dim_height": "Height",
@@ -195,6 +199,8 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "You can leave a review only after completing an order with this company.",
     ],
     "ru": [
+        "auth_google": "Войти через Google",
+        "auth_telegram": "Войти через Telegram",
         "dim_title": "Размеры",
         "dim_width": "Ширина",
         "dim_height": "Высота",
@@ -282,6 +288,8 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Оставить отзыв можно только после завершённого заказа у этой компании.",
     ],
     "tg": [
+        "auth_google": "Вуруд бо Google",
+        "auth_telegram": "Вуруд бо Telegram",
         "dim_title": "Андозаҳо",
         "dim_width": "Паҳно",
         "dim_height": "Баландӣ",
@@ -369,6 +377,8 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Шумо танҳо пас аз фармоиши анҷомёфта аз ин ширкат метавонед баҳо гузоред.",
     ],
     "tr": [
+        "auth_google": "Google ile giriş yap",
+        "auth_telegram": "Telegram ile giriş yap",
         "dim_title": "Boyutlar",
         "dim_width": "Genişlik",
         "dim_height": "Yükseklik",
@@ -456,6 +466,8 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Yalnızca bu firmadan tamamlanmış bir siparişiniz varsa yorum bırakabilirsiniz.",
     ],
     "ky": [
+        "auth_google": "Google менен кирүү",
+        "auth_telegram": "Telegram менен кирүү",
         "dim_title": "Өлчөмдөрү",
         "dim_width": "Туурасы",
         "dim_height": "Бийиктиги",
@@ -543,6 +555,8 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Бул компаниядан аяктаган буйрутмаңыз болсо гана баа калтыра аласыз.",
     ],
     "kk": [
+        "auth_google": "Google арқылы кіру",
+        "auth_telegram": "Telegram арқылы кіру",
         "dim_title": "Өлшемдері",
         "dim_width": "Ені",
         "dim_height": "Биіктігі",
@@ -630,6 +644,8 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Бұл компаниядан аяқталған тапсырысыңыз болса ғана пікір қалдыра аласыз.",
     ],
     "de": [
+        "auth_google": "Mit Google anmelden",
+        "auth_telegram": "Mit Telegram anmelden",
         "dim_title": "Abmessungen",
         "dim_width": "Breite",
         "dim_height": "Höhe",
@@ -717,6 +733,8 @@ private let stringsTable: [String: [String: String]] = [
         "shop_review_locked": "Sie können erst nach einer abgeschlossenen Bestellung bei dieser Firma eine Bewertung abgeben.",
     ],
     "az": [
+        "auth_google": "Google ilə daxil ol",
+        "auth_telegram": "Telegram ilə daxil ol",
         "dim_title": "Ölçüləri",
         "dim_width": "En",
         "dim_height": "Hündürlük",

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AccountView: View {
     @EnvironmentObject private var auth: AuthStore
+    @EnvironmentObject private var locale: LocaleStore
 
     var body: some View {
         NavigationStack {
@@ -17,11 +18,32 @@ struct AccountView: View {
                     AuthFormView()
                 }
             }
-            .navigationTitle("Profil")
+            .navigationTitle(locale.t("profile_title"))
             .toolbar {
                 if auth.user != nil {
                     ToolbarItem(placement: .navigationBarTrailing) {
                         NotificationBellButton()
+                    }
+                } else {
+                    // Kirmagan foydalanuvchi ham tilni almashtira olishi kerak —
+                    // til tanlash avval faqat kirgandan keyingi profilda edi.
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Menu {
+                            ForEach(appLocales, id: \.code) { l in
+                                Button {
+                                    locale.setLocale(l.code)
+                                } label: {
+                                    if l.code == locale.code {
+                                        Label("\(l.flag) \(l.nativeName)", systemImage: "checkmark")
+                                    } else {
+                                        Text("\(l.flag) \(l.nativeName)")
+                                    }
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "globe")
+                        }
+                        .accessibilityLabel(locale.t("profile_language"))
                     }
                 }
             }
@@ -427,8 +449,8 @@ private struct AuthFormView: View {
             .accessibilityIdentifier("authSendCodeButton")
             .disabled(!phoneValid || busy)
             .frame(maxWidth: .infinity)
-            .listRowBackground(Color.brandDeep)
-            .foregroundStyle(Color.brandPrimary)
+            .listRowBackground(Color.brand)
+            .foregroundStyle(Color.onBrand)
         }
         Section {
             Button(action: loginWithGoogle) {
@@ -437,7 +459,7 @@ private struct AuthFormView: View {
                 } else {
                     HStack {
                         Image("google_logo").resizable().scaledToFit().frame(width: 20, height: 20)
-                        Text("Google orqali kirish")
+                        Text(locale.t("auth_google"))
                     }
                 }
             }
@@ -450,7 +472,7 @@ private struct AuthFormView: View {
                 } else {
                     HStack {
                         Image("telegram_logo").resizable().scaledToFit().frame(width: 20, height: 20)
-                        Text("Telegram orqali kirish")
+                        Text(locale.t("auth_telegram"))
                     }
                 }
             }
