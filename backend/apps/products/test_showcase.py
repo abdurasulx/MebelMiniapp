@@ -85,3 +85,45 @@ class ShowcaseApiTests(TestCase):
         self.assertEqual(resp.status_code, 204)
         listing = self.client.get("/api/v1/showcase/products/")
         self.assertNotIn("Divan", self._names(listing))
+
+
+class ShowcaseImageUploadTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_user(
+            email="admin2@example.com", password="x", role=User.Role.PLATFORM_ADMIN
+        )
+        self.client.force_authenticate(self.admin)
+        self.product = ShowcaseProduct.objects.create(name={"uz": "Divan"})
+
+    def _png(self, name="a.png"):
+        import io
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (8, 8), "#1d3a2f").save(buf, "PNG")
+        return SimpleUploadedFile(name, buf.getvalue(), content_type="image/png")
+
+    def test_main_image_and_gallery(self):
+        resp = self.client.patch(
+            f"/api/v1/showcase/products/{self.product.id}/", {"image": self._png()}, format="multipart"
+        )
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertTrue(resp.json()["image_url"])
+
+        resp = self.client.post(
+            "/api/v1/showcase/images/", {"product": str(self.product.id), "image": self._png("b.png")},
+            format="multipart",
+        )
+        self.assertEqual(resp.status_code, 201, resp.content)
+
+        detail = self.client.get(f"/api/v1/showcase/products/{self.product.id}/").json()
+        self.assertEqual(len(detail["gallery"]), 1)
+        self.assertEqual(len(detail["images"]), 1)
+
+        gid = detail["gallery"][0]["id"]
+        self.assertEqual(self.client.delete(f"/api/v1/showcase/images/{gid}/").status_code, 204)
+        detail = self.client.get(f"/api/v1/showcase/products/{self.product.id}/").json()
+        self.assertEqual(detail["gallery"], [])

@@ -289,6 +289,7 @@ class ShowcaseProductSerializer(StorageStampMixin, serializers.ModelSerializer):
     image = serializers.ImageField(write_only=True, required=False, allow_null=True)
     image_url = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
+    gallery = serializers.SerializerMethodField()
     name_translations = serializers.JSONField(source="name")
     description_translations = serializers.JSONField(source="description", required=False)
     name = serializers.SerializerMethodField()
@@ -300,7 +301,7 @@ class ShowcaseProductSerializer(StorageStampMixin, serializers.ModelSerializer):
         fields = (
             "id", "category", "category_name", "name", "description",
             "name_translations", "description_translations",
-            "image", "image_url", "images", "price_from", "sort_order", "is_published",
+            "image", "image_url", "images", "gallery", "price_from", "sort_order", "is_published",
         )
         read_only_fields = ("id",)
 
@@ -337,6 +338,11 @@ class ShowcaseProductSerializer(StorageStampMixin, serializers.ModelSerializer):
             if not isinstance(text, str):
                 raise serializers.ValidationError("Tarjima matn bo'lishi kerak.")
         return value
+
+    def get_gallery(self, obj):
+        request = self.context.get("request")
+        rows = [{"id": str(i.id), "url": visible_file_url(i, "image", request)} for i in obj.images.all()]
+        return [r for r in rows if r["url"]]
 
     def validate_name_translations(self, value):
         self._check_languages(value)
