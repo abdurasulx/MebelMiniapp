@@ -87,7 +87,7 @@ private struct DemoBanner: View {
             .foregroundStyle(Color.onAccent)
             .padding(.horizontal, 16).padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.accent)
+            .background(Color.accent, ignoresSafeAreaEdges: [])
     }
 }
 

@@ -127,3 +127,29 @@ class ShowcaseImageUploadTests(TestCase):
         self.assertEqual(self.client.delete(f"/api/v1/showcase/images/{gid}/").status_code, 204)
         detail = self.client.get(f"/api/v1/showcase/products/{self.product.id}/").json()
         self.assertEqual(detail["gallery"], [])
+
+
+class SeedShowcaseCommandTests(TestCase):
+    def test_copies_company_products_once(self):
+        from django.core.management import call_command
+
+        from apps.companies.models import Company
+
+        from .models import Category, Product, Variant
+
+        owner = User.objects.create_user(email="o@x.uz", password="x", role=User.Role.COMPANY_OWNER)
+        company = Company.objects.create(owner=owner, name="Test", slug="test-firm")
+        cat = Category.objects.create(name_uz="Divanlar", slug="divanlar")
+        product = Product.objects.create(
+            company=company, category=cat, name_uz="Divan", description="Yumshoq", is_published=True
+        )
+        Variant.objects.create(product=product, name="a", base_price=2000000)
+        Variant.objects.create(product=product, name="b", base_price=1500000)
+
+        call_command("seed_showcase_from_company", "--slug", "test-firm")
+        call_command("seed_showcase_from_company", "--slug", "test-firm")  # takror nusxalamaydi
+
+        item = ShowcaseProduct.objects.get()
+        self.assertEqual(item.name, {"uz": "Divan"})
+        self.assertEqual(item.description, {"uz": "Yumshoq"})
+        self.assertEqual(float(item.price_from), 1500000.0)
