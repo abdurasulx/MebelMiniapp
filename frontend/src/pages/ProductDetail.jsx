@@ -51,6 +51,74 @@ function Picture({ item, className, sizes, eager = false, alt = "" }) {
 }
 
 /** Mobil ilovadagi kabi: chapga/o'ngga surib o'tiladigan galereya (scroll-snap), nuqtalar va strelkalar. */
+// Mobil ilovadagi kabi izometrik quti: eni / bo'yi / chuqurligi + hajm.
+// Avval modelning haqiqiy o'lchami (bbox), bo'lmasa variantniki; 1×1×1 — "kiritilmagan".
+function resolveDims(model, variant) {
+  let w = parseFloat(model?.bbox_width);
+  let h = parseFloat(model?.bbox_height);
+  let d = parseFloat(model?.bbox_depth);
+  if (![w, h, d].every(Number.isFinite)) {
+    if (!variant) return null;
+    w = parseFloat(variant.width);
+    h = parseFloat(variant.height);
+    d = parseFloat(variant.depth);
+    if (w === 1 && h === 1 && d === 1) return null;
+  }
+  return [w, h, d].every((n) => Number.isFinite(n) && n > 0) ? { w, h, d } : null;
+}
+
+function DimensionBox({ dims, t }) {
+  if (!dims) return null;
+  const { w, h, d } = dims;
+  const cm = (m) => Math.round(m * 100 * 10) / 10;
+  const volume = Math.round(w * h * d * 1000) / 1000;
+  // Qutini nisbatan chizamiz (eng uzun tomon ~120px).
+  const k = 120 / Math.max(w, h, d);
+  const bw = Math.max(w * k, 30);
+  const bh = Math.max(h * k, 30);
+  const bd = Math.max(d * k * 0.6, 20);
+  const ox = 90;
+  const oy = 30 + bd;
+  const front = `${ox},${oy} ${ox + bw},${oy} ${ox + bw},${oy + bh} ${ox},${oy + bh}`;
+  const top = `${ox},${oy} ${ox + bd},${oy - bd} ${ox + bw + bd},${oy - bd} ${ox + bw},${oy}`;
+  const side = `${ox + bw},${oy} ${ox + bw + bd},${oy - bd} ${ox + bw + bd},${oy + bh - bd} ${ox + bw},${oy + bh}`;
+  const vbW = ox + bw + bd + 90;
+  const vbH = oy + bh + 40;
+  const stroke = "var(--brand-cta-bg)";
+  return (
+    <div>
+      <label className="label">{t("dim_title")}</label>
+      <div className="rounded-xl p-3" style={{ border: "1px solid var(--border)", background: "var(--card)" }}>
+        <svg viewBox={`0 0 ${vbW} ${vbH}`} className="mx-auto block w-full max-w-xs" role="img" aria-label={t("dim_title")}>
+          <polygon points={top} fill="var(--bg)" stroke={stroke} strokeWidth="1.5" strokeLinejoin="round" />
+          <polygon points={side} fill="color-mix(in srgb, var(--muted) 25%, transparent)" stroke={stroke} strokeWidth="1.5" strokeLinejoin="round" />
+          <polygon points={front} fill="var(--card)" stroke={stroke} strokeWidth="1.5" strokeLinejoin="round" />
+          <text x={ox + bw / 2} y={oy + bh + 22} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--text)">
+            {t("dim_width")} {cm(w)} sm
+          </text>
+          <text
+            x={ox - 12}
+            y={oy + bh / 2}
+            textAnchor="middle"
+            fontSize="11"
+            fontWeight="600"
+            fill="var(--text)"
+            transform={`rotate(-90 ${ox - 12} ${oy + bh / 2})`}
+          >
+            {t("dim_height")} {cm(h)} sm
+          </text>
+          <text x={ox + bw + bd + 8} y={oy - bd / 2} fontSize="11" fontWeight="600" fill="var(--text)">
+            {t("dim_depth")} {cm(d)} sm
+          </text>
+        </svg>
+        <div className="mt-1 text-center text-xs font-semibold" style={{ color: "var(--muted)" }}>
+          {t("dim_volume")}: {volume} m³
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GalleryCarousel({ items, index, onIndexChange, onOpen, alt, realLabel, openLabel }) {
   const trackRef = useRef(null);
   const programmatic = useRef(false);
@@ -511,6 +579,7 @@ export default function ProductDetail() {
                   )
                 )}
               </div>
+              <DimensionBox dims={resolveDims(activeModel3d, variant)} t={t} />
               {p.description && <p className="text-sm">{p.description}</p>}
               <div>
                 <label className="label">{t("product_qty_label")}</label>

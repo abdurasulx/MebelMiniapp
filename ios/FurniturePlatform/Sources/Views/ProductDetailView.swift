@@ -129,6 +129,14 @@ private var arScaleFactors: SIMD3<Float> {
                             }
                             .pickerStyle(.segmented)
 
+                            // O'lcham chizmasi (quti: eni/bo'yi/chuqurligi + hajm)
+                            if let dims = DimensionBoxView.resolve(model: activeModel3d, variant: selectedVariant) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(locale.t("dim_title")).font(.subheadline).fontWeight(.bold)
+                                    DimensionBoxView(widthM: dims.w, heightM: dims.h, depthM: dims.d)
+                                }
+                            }
+
                             if let description = product.description, !description.isEmpty {
                                 Text(description).font(.subheadline)
                             }
@@ -158,14 +166,6 @@ private var arScaleFactors: SIMD3<Float> {
                             }
 
                             Stepper("\(locale.t("product_qty_label")): \(quantity)", value: $quantity, in: 1...50)
-
-                            // O'lcham chizmasi (quti: eni/bo'yi/chuqurligi + hajm)
-                            if let dims = DimensionBoxView.resolve(model: activeModel3d, variant: selectedVariant) {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(locale.t("dim_title")).font(.subheadline).fontWeight(.bold)
-                                    DimensionBoxView(widthM: dims.w, heightM: dims.h, depthM: dims.d)
-                                }
-                            }
 
                             DeliveryCardView(delivery: product.delivery)
 
