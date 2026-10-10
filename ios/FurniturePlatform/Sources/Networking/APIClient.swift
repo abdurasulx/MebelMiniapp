@@ -26,7 +26,7 @@ enum APIError: LocalizedError, Equatable {
 /// tarmog'i qurilma tarmog'idan farqli bo'lgani uchun), endi hojati yo'q —
 /// domen qayerdan bo'lmasin (Wi-Fi, mobil tarmoq) barqaror ishlaydi.
 enum APIConfig {
-    static let baseURL = URL(string: "https://api.vidamarket.uz/api/v1")!
+    static let baseURL = URL(string: "https://api.qrbite.uz/api/v1")!
 
     /// `baseURL.appendingPathComponent(path)` ishlatilmaydi — u `path`ni
     /// fayl-yo'li segmenti deb hisoblab, `?`/`&` kabi so'rov-satr belgilarini
