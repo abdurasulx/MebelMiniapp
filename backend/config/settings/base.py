@@ -158,6 +158,11 @@ FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 # ANIQ mos kelishi shart).
 BACKEND_URL = env("BACKEND_URL", default="http://127.0.0.1:8000")
 
+# Sign in with Apple: identity token `aud` — ilovaning bundle ID'si (native) va
+# (ixtiyoriy) veb uchun Services ID.
+APPLE_BUNDLE_ID = env("APPLE_BUNDLE_ID", default="uz.vida.burchaksoft")
+APPLE_SERVICE_ID = env("APPLE_SERVICE_ID", default="")
+
 # Eskiz.uz SMS (OTP). Bo'sh bo'lsa SMS yuborilmaydi, kod javobda qaytariladi.
 # Eskiz matni moderatsiyadan o'tmaguncha False: kod SMS bilan yuborilmaydi,
 # javobda `debug_code` sifatida qaytariladi (ilovada ekranda ko'rsatiladi).

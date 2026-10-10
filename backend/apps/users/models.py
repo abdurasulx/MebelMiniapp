@@ -92,6 +92,20 @@ class User(AbstractUser):
         return full or self.phone or self.email
 
 
+class AppleAccount(models.Model):
+    """Apple ID'ni `User`ga bog'lash — Apple `sub` (barqaror foydalanuvchi ID)
+    asosida. Email Apple'ning "Hide My Email" relay manzili bo'lishi mumkin."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey("users.User", on_delete=models.CASCADE, related_name="apple_accounts")
+    apple_sub = models.CharField(max_length=255, unique=True, editable=False)
+    email = models.EmailField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Apple {self.apple_sub} -> {self.user_id}"
+
+
 class GoogleAccount(models.Model):
     """Google hisobini bizning `User`ga bog'lash — Google berilgan `sub`
     (barqaror, o'zgarmas foydalanuvchi ID) asosida.

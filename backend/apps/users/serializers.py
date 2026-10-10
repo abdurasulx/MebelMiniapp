@@ -152,3 +152,10 @@ class CareerEntrySerializer(serializers.Serializer):
     is_active = serializers.BooleanField()
     joined_at = serializers.DateTimeField(source="created_at")
     left_at = serializers.DateTimeField(allow_null=True)
+
+
+class AppleLoginSerializer(serializers.Serializer):
+    identity_token = serializers.CharField(max_length=4096)
+    # Apple ism/familiyani faqat BIRINCHI kirishda, token'dan tashqarida beradi.
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)

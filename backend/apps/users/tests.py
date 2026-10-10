@@ -973,3 +973,59 @@ class EskizSMSTests(TestCase):
 
         self.assertEqual(normalize_phone("+998 88 236-80-06"), "998882368006")
         self.assertEqual(normalize_phone("882368006"), "998882368006")
+
+
+class AppleLoginTests(TestCase):
+    URL = "/api/v1/auth/apple/"
+
+    def _login(self, claims, **extra):
+        with patch("apps.users.views.verify_apple_identity_token", return_value=claims):
+            return self.client.post(
+                self.URL, {"identity_token": "x", **extra}, content_type="application/json"
+            )
+
+    def test_creates_new_customer_and_returns_tokens(self):
+        resp = self._login({"sub": "001.abc", "email": "me@icloud.com", "email_verified": "true"},
+                           first_name="Ali", last_name="Valiyev")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        body = resp.json()
+        self.assertTrue(body["is_new_user"])
+        user = User.objects.get(email="me@icloud.com")
+        self.assertEqual((user.first_name, user.last_name), ("Ali", "Valiyev"))
+        self.assertEqual(user.role, User.Role.CUSTOMER)
+
+        # Ikkinchi kirish — bir xil hisob
+        resp = self._login({"sub": "001.abc"})
+        self.assertFalse(resp.json()["is_new_user"])
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_links_existing_user_by_verified_email_only(self):
+        existing = User.objects.create_user(email="x@y.uz", password="p", role=User.Role.CUSTOMER)
+        resp = self._login({"sub": "s1", "email": "x@y.uz", "email_verified": "false"})
+        self.assertTrue(resp.json()["is_new_user"])  # tasdiqlanmagan email — bog'lanmaydi
+        self.assertEqual(User.objects.filter(email="x@y.uz").count(), 1)
+        resp = self._login({"sub": "s2", "email": "x@y.uz", "email_verified": "true"})
+        self.assertFalse(resp.json()["is_new_user"])
+        from .models import AppleAccount
+        self.assertEqual(AppleAccount.objects.get(apple_sub="s2").user_id, existing.id)
+
+    def test_admin_email_never_logs_in_as_admin(self):
+        User.objects.create_user(email="boss@y.uz", password="p", role=User.Role.PLATFORM_ADMIN)
+        resp = self._login({"sub": "s3", "email": "boss@y.uz", "email_verified": "true"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["is_new_user"])
+        from .models import AppleAccount
+        self.assertNotEqual(AppleAccount.objects.get(apple_sub="s3").user.role, User.Role.PLATFORM_ADMIN)
+
+    def test_deleted_account_cannot_come_back(self):
+        resp = self._login({"sub": "s4", "email": "d@y.uz", "email_verified": "true"})
+        user = User.objects.get(email="d@y.uz")
+        from .views import _anonymize_deleted_user
+        _anonymize_deleted_user(user)
+        resp = self._login({"sub": "s4"})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("kirib bo'lmaydi", resp.content.decode())
+
+    def test_invalid_token_rejected(self):
+        resp = self.client.post(self.URL, {"identity_token": "garbage"}, content_type="application/json")
+        self.assertEqual(resp.status_code, 400)

@@ -24,9 +24,11 @@ from apps.orders.models import Order
 from apps.products.models import Product
 
 from . import sms, telegram_bot
+from .apple_auth import verify_apple_identity_token
 from .google_auth import exchange_google_code, verify_google_credential
-from .models import AccountDeletionRequest, GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession
+from .models import AccountDeletionRequest, AppleAccount, GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession
 from .serializers import (
+    AppleLoginSerializer,
     AccountDeletionRequestSerializer,
     AdminTokenObtainPairSerializer,
     CareerEntrySerializer,
@@ -335,6 +337,67 @@ class GoogleLoginView(APIView):
                 "refresh": str(refresh),
                 "is_new_user": is_new_user,
             }
+        )
+
+
+def _resolve_apple_user(claims: dict, first_name: str = "", last_name: str = "") -> tuple:
+    """Apple claims'dan foydalanuvchini topadi/yaratadi (Google bilan bir xil
+    tartib): `apple_sub` -> tasdiqlangan email bo'yicha mavjud hisob -> yangi
+    mijoz. Platforma admini hech qachon Apple orqali o'z hisobiga kira olmaydi.
+
+    Qaytaradi: `(user, is_new_user)`."""
+    sub = claims["sub"]
+    email = (claims.get("email") or "").strip().lower()
+    verified = str(claims.get("email_verified", "")).lower() == "true"
+
+    link = AppleAccount.objects.select_related("user").filter(apple_sub=sub).first()
+    if link is not None:
+        user = link.user
+        if not user.is_active:
+            raise _inactive_account_error(user)
+        if user.role == "platform_admin":
+            raise ValidationError("Platforma admini uchun Apple orqali kirish o'chirilgan.")
+        return user, False
+
+    same_email = User.objects.filter(email__iexact=email).first() if email else None
+    existing = same_email if (same_email is not None and verified) else None
+    if existing is not None and existing.role != "platform_admin":
+        if not existing.is_active:
+            raise _inactive_account_error(existing)
+        AppleAccount.objects.create(user=existing, apple_sub=sub, email=email)
+        return existing, False
+
+    user = User(
+        email=(f"apple-{sub}@apple.local" if same_email is not None or not email else email),
+        first_name=first_name.strip(),
+        last_name=last_name.strip(),
+        role=User.Role.CUSTOMER,
+        registration_completed=False,
+        phone_verified=False,
+    )
+    user.set_unusable_password()
+    user.save()
+    AppleAccount.objects.create(user=user, apple_sub=sub, email=email)
+    return user, True
+
+
+class AppleLoginView(APIView):
+    """Sign in with Apple (native iOS) — `identity_token` bilan kirish/ro'yxatdan
+    o'tish; javob shakli Google/OTP bilan bir xil."""
+
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        serializer = AppleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        claims = verify_apple_identity_token(data["identity_token"])
+        user, is_new_user = _resolve_apple_user(
+            claims, data.get("first_name", ""), data.get("last_name", "")
+        )
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {"access": str(refresh.access_token), "refresh": str(refresh), "is_new_user": is_new_user}
         )
 
 
