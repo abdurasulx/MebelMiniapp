@@ -92,7 +92,7 @@ class VerifiedBadge extends StatelessWidget {
       return Tooltip(
         message: loc.t('company_verified'),
         child:
-            const Icon(Icons.verified_rounded, size: 14, color: AppColors.info),
+            const Icon(Icons.verified_rounded, size: 16, color: AppColors.info),
       );
     }
     return Container(

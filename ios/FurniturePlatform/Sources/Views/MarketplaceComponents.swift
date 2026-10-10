@@ -39,7 +39,7 @@ struct VerifiedBadgeView: View {
     var body: some View {
         if compact {
             Image(systemName: "checkmark.seal.fill")
-                .font(.caption2).foregroundStyle(Color.appSuccess)
+                .font(.footnote).foregroundStyle(Color.appSuccess)
                 .accessibilityLabel(locale.t("company_verified"))
         } else {
             HStack(spacing: 4) {

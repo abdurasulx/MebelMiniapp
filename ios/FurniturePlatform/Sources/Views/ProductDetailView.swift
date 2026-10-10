@@ -85,17 +85,21 @@ private var arScaleFactors: SIMD3<Float> {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(product.nameUz).font(.title2).bold()
-                        if product.isVerified { VerifiedBadgeView().padding(.vertical, 2) }
                         if let companySlug = product.companySlug {
                             NavigationLink(destination: CompanyShopView(companySlug: companySlug)) {
                                 HStack(spacing: 4) {
                                     Text("🏭 \(product.companyName)")
+                                    if product.isVerified { VerifiedBadgeView(compact: true) }
                                     Image(systemName: "chevron.right").font(.caption2)
                                 }
                                 .foregroundStyle(Color.textSecondary)
                             }
                         } else {
-                            Text("🏭 \(product.companyName)").foregroundStyle(Color.textSecondary)
+                            HStack(spacing: 4) {
+                                Text("🏭 \(product.companyName)")
+                                if product.isVerified { VerifiedBadgeView(compact: true) }
+                            }
+                            .foregroundStyle(Color.textSecondary)
                         }
                         if product.companyViloyatDisplay != nil || (product.companyAddress?.isEmpty == false) {
                             HStack(spacing: 4) {

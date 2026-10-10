@@ -675,18 +675,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  /// Kelajakda tasdiqlangan firma nishoni kabi belgilar shu ro'yxatga qo'shiladi;
-  /// hozir backend bunday maydon bermaydi — ro'yxat bo'sh va hech narsa ko'rinmaydi.
-  List<Widget> _companyBadges(Product p) => [
-        if (p.companyIsVerified) const VerifiedBadge(),
-      ];
-
   Widget _companyCard(BuildContext context, Product p) {
     final location = [
       if (p.companyViloyatDisplay?.isNotEmpty == true) p.companyViloyatDisplay!,
       if (p.companyAddress?.isNotEmpty == true) p.companyAddress!,
     ].join(', ');
-    final badges = _companyBadges(p);
     final card = Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -711,12 +704,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  p.companyName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 14.5),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        p.companyName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 14.5),
+                      ),
+                    ),
+                    if (p.companyIsVerified) ...[
+                      const SizedBox(width: 4),
+                      const VerifiedBadge(compact: true),
+                    ],
+                  ],
                 ),
                 if (location.isNotEmpty)
                   Padding(
@@ -736,11 +739,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         ),
                       ],
                     ),
-                  ),
-                if (badges.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Wrap(spacing: 6, runSpacing: 4, children: badges),
                   ),
               ],
             ),

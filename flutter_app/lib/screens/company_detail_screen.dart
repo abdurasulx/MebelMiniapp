@@ -375,17 +375,23 @@ class _Header extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      company.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            company.name,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (company.isVerified) ...[
+                          const SizedBox(width: 5),
+                          const VerifiedBadge(compact: true),
+                        ],
+                      ],
                     ),
-                    if (company.isVerified) ...[
-                      const SizedBox(height: 4),
-                      const VerifiedBadge(),
-                    ],
                     if (tier != null) ...[
                       const SizedBox(height: 4),
                       Wrap(
