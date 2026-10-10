@@ -13,7 +13,7 @@ shart emas** — `flutter pub get` va `flutter run` yetarli.
 3. `cd flutter_app`
 4. `flutter pub get`
 5. **Ilova haqiqiy domenga ulanadi** — `lib/api_client.dart` —
-   `ApiConfig.baseUrl`, standart qiymat: `https://api.qrbite.uz/api/v1`
+   `ApiConfig.baseUrl`, standart qiymat: `https://api.vidamarket.uz/api/v1`
    (nginx TLS terminatsiya qilib, backend'ga proksi qiladi). Tailscale VPN
    yoki boshqa lokal tarmoq sozlamasi kerak emas — ilova qayerdan (Wi-Fi,
    mobil tarmoq) ishga tushirilmasin, domen barqaror ishlaydi.

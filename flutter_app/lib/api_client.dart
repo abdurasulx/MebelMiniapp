@@ -51,7 +51,7 @@ Future<T> _guardNetwork<T>(Future<T> Function() action) async {
   }
 }
 
-/// Haqiqiy domen (`https://api.qrbite.uz`) — nginx TLS terminatsiya qilib,
+/// Haqiqiy domen (`https://api.vidamarket.uz`) — nginx TLS terminatsiya qilib,
 /// backend'ga proksi qiladi. Avval Tailscale VPN orqali Mac'ning IP'siga
 /// to'g'ridan-to'g'ri ulanardi (Asus noutbuk/Android qurilma boshqa tarmoqda
 /// bo'lsa ham ishlashi uchun), endi hojati yo'q — domen qayerdan bo'lmasin
@@ -60,7 +60,7 @@ Future<T> _guardNetwork<T>(Future<T> Function() action) async {
 class ApiConfig {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.qrbite.uz/api/v1',
+    defaultValue: 'https://api.vidamarket.uz/api/v1',
   );
 }
 

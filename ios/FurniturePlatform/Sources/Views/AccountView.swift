@@ -287,7 +287,7 @@ private struct ProfileView: View {
             }
 
             Section {
-                Link(locale.t("privacy_policy"), destination: URL(string: "https://qrbite.uz/privacy")!)
+                Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
             }
 
             DeleteAccountSection()
@@ -497,7 +497,7 @@ private struct AuthFormView: View {
             .frame(maxWidth: .infinity)
         }
         Section {
-            Link(locale.t("privacy_policy"), destination: URL(string: "https://qrbite.uz/privacy")!)
+            Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
                 .font(.footnote)
         }
     }

@@ -17,6 +17,6 @@ export default defineConfig({
     // aniqlash ishlaydi. qrbite.uz — haqiqiy domen, VPS'dagi nginx Tailscale
     // orqali shu Mac'ga reverse-proxy qiladi (qarang deploy/nginx/qrbite.uz.conf).
     host: true,
-    allowedHosts: ['.lvh.me', '.nip.io', '.sslip.io', '.qrbite.uz'],
+    allowedHosts: ['.lvh.me', '.nip.io', '.sslip.io', '.vidamarket.uz', '.qrbite.uz'],
   },
 })
