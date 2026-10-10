@@ -264,3 +264,46 @@ class VariantModelTests(TestCase):
         self.assertEqual(stats["images"], 2)
         # o'zgarmagan GLB'lar — qayta navbat yo'q
         self.assertIsNone(runner.enqueue(self.product))
+
+
+class StandardizeCommandTests(TestCase):
+    def setUp(self):
+        from django.core.management import call_command
+
+        self.call = call_command
+        owner = User.objects.create_user(email="o3@x.uz", password="x", role=User.Role.COMPANY_OWNER)
+        company = Company.objects.create(owner=owner, name="H", slug="h")
+        cat = Category.objects.create(name_uz="Stul", slug="stul")
+        self.with_model = Product.objects.create(company=company, category=cat, name_uz="Bor", is_published=True)
+        self.no_model = Product.objects.create(company=company, category=cat, name_uz="Yo'q", is_published=True)
+        for prod in (self.with_model, self.no_model):
+            buf = io.BytesIO()
+            Image.new("RGB", (64, 64), "#abcdef").save(buf, "PNG")
+            prod.image.save("old.png", ContentFile(buf.getvalue()), save=False)
+            prod.save()
+        m = Model3D(product=self.with_model)
+        m.glb_file.save("a.glb", ContentFile(make_glb(10)), save=False)
+        m.recompute_status()
+        m.save()
+        RenderJob.objects.all().delete()
+
+    def test_dry_run_changes_nothing(self):
+        self.call("standardize_product_images", stdout=io.StringIO())
+        self.with_model.refresh_from_db()
+        self.assertTrue(self.with_model.image)
+        self.assertEqual(RenderJob.objects.count(), 0)
+
+    def test_apply_replaces_only_products_with_models(self):
+        self.call("standardize_product_images", "--apply", "--yes", stdout=io.StringIO())
+        self.with_model.refresh_from_db()
+        self.no_model.refresh_from_db()
+        self.assertFalse(self.with_model.image)
+        self.assertTrue(self.no_model.image)  # modelsiz mahsulot tegilmadi
+        self.assertEqual(RenderJob.objects.filter(product=self.with_model).count(), 1)
+
+    def test_sync_renders_and_sets_new_image(self):
+        with patch.object(runner, "run_browser", return_value=FAKE_RESULT):
+            self.call("standardize_product_images", "--apply", "--yes", "--sync", stdout=io.StringIO())
+        self.with_model.refresh_from_db()
+        self.assertTrue(self.with_model.image_from_render)
+        self.assertEqual(self.with_model.render_status, Product.RenderStatus.READY)
