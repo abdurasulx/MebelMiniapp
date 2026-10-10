@@ -27,7 +27,7 @@ export default function DeleteAccount() {
             target="_blank"
             rel="noreferrer"
             className="inline-block font-medium underline"
-            style={{ color: "var(--primary)" }}
+            style={{ color: "var(--secondary)" }}
           >
             @Vida_robot
           </a>

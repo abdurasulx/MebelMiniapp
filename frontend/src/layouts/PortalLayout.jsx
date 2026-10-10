@@ -5,6 +5,7 @@ import { useAuth } from "../auth";
 import { POSITIONS, setActivePosition } from "../positions";
 import { useTheme } from "../theme";
 import { BRAND_NAME } from "../portal";
+import BrandLogo from "../components/BrandLogo";
 import ThemeSwitch from "../components/ThemeSwitch";
 import NotificationBell from "../components/NotificationBell";
 
@@ -54,7 +55,7 @@ function UserMenu({ user, dark, onToggleTheme, onLogout }) {
           <button
             onClick={onLogout}
             className="btn-ghost inline-flex items-center gap-1.5 !justify-start text-sm"
-            style={{ color: "#e74c3c", borderTop: "1px solid var(--border)" }}
+            style={{ color: "var(--danger)", borderTop: "1px solid var(--border)" }}
           >
             <LogOut size={15} /> Chiqish
           </button>
@@ -102,13 +103,13 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
         className={`fixed inset-y-0 left-0 z-40 w-64 flex-col overflow-y-auto p-4 transition-transform lg:sticky lg:top-0 lg:flex lg:h-screen lg:translate-x-0 ${
           open ? "flex translate-x-0" : "hidden lg:flex -translate-x-full"
         }`}
-        style={{ background: "var(--brand-surface)" }}
+        style={{ background: "var(--brand-surface)", borderRight: "1px solid var(--border)" }}
       >
         <div className="mb-8 flex items-center gap-2 px-2 pt-2">
           <Sofa size={26} style={{ color: "var(--brand-surface-text)" }} />
           <div>
-            <div className="text-sm font-bold" style={{ color: "var(--brand-surface-text)" }}>
-              {BRAND_NAME}
+            <div className="text-sm" style={{ color: "var(--brand-surface-text)" }}>
+              <BrandLogo />
             </div>
             <div className="text-xs" style={{ color: "var(--brand-surface-muted)" }}>
               {title}

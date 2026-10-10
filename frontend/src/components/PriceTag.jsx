@@ -12,7 +12,7 @@ export default function PriceTag({ variant, suffix = " dan" }) {
         <span className="text-sm font-bold" style={{ color: "var(--secondary)" }}>
           {Number(variant.effective_base_price).toLocaleString()} so'm{suffix}
         </span>
-        <span className="badge" style={{ background: "var(--danger)", color: "#fff" }}>
+        <span className="badge" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
           -{Number(variant.discount_percent)}%
         </span>
       </span>

@@ -108,7 +108,7 @@ export default function PrivacyPolicy() {
               </ul>
             )}
             {s.linkTo && (
-              <a href={s.linkTo} className="font-medium underline" style={{ color: "var(--primary)" }}>
+              <a href={s.linkTo} className="font-medium underline" style={{ color: "var(--secondary)" }}>
                 {s.linkLabel}
               </a>
             )}
@@ -118,7 +118,7 @@ export default function PrivacyPolicy() {
                 target="_blank"
                 rel="noreferrer"
                 className="font-medium underline"
-                style={{ color: "var(--primary)" }}
+                style={{ color: "var(--secondary)" }}
               >
                 {s.linkLabel}
               </a>

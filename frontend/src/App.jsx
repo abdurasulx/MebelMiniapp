@@ -4,6 +4,7 @@ import { useAuth } from "./auth";
 import { useLocale } from "./locale";
 import PortalLayout from "./layouts/PortalLayout";
 import { BRAND_NAME, PORTAL, portalURLFor } from "./portal";
+import BrandLogo from "./components/BrandLogo";
 import { getActivePosition, setActivePosition } from "./positions";
 import RolePicker from "./pages/firma/RolePicker";
 import { useTheme } from "./theme";
@@ -217,10 +218,11 @@ function MarketLayout({ children }) {
           // ko'rinib qoladigan tirqish paydo bo'lardi (viewport-fit=cover
           // bilan birga, qarang index.html).
           paddingTop: "calc(0.75rem + env(safe-area-inset-top))",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         <Link to="/" className="flex items-center gap-2 font-bold">
-          <Sofa size={22} /> {BRAND_NAME}
+          <Sofa size={22} /> <BrandLogo />
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <NavLink to="/" end className={({ isActive }) => `top-link ${isActive ? "active" : ""}`}>
@@ -249,7 +251,7 @@ function MarketLayout({ children }) {
             <NavLink
               to="/cart"
               className={({ isActive }) =>
-                `relative flex items-center rounded-lg p-2 transition hover:bg-black/10 ${isActive ? "active" : ""}`
+                `relative flex items-center rounded-lg p-2 transition hover:bg-[var(--surface-muted)] ${isActive ? "active" : ""}`
               }
               aria-label="Savat"
             >
@@ -257,7 +259,7 @@ function MarketLayout({ children }) {
               {count > 0 && (
                 <span
                   className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
-                  style={{ background: "var(--danger)", color: "#fff" }}
+                  style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                 >
                   {count > 99 ? "99+" : count}
                 </span>
@@ -266,7 +268,7 @@ function MarketLayout({ children }) {
             {user && <NotificationBell surface />}
           </div>
           {user ? (
-            <button onClick={logout} className="rounded-lg px-3 py-1.5 transition hover:bg-black/10">
+            <button onClick={logout} className="rounded-lg px-3 py-1.5 transition hover:bg-[var(--surface-muted)]">
               {t("common_logout")}
             </button>
           ) : (

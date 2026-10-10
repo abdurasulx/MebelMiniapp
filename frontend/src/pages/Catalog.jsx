@@ -189,10 +189,10 @@ export default function Catalog() {
       )}
       {/* Hero */}
       <div
-        className="mb-8 rounded-3xl p-8 sm:p-12"
+        className="mb-8 rounded-2xl p-8 sm:p-12"
         style={{
-          background:
-            "linear-gradient(120deg, var(--brand-surface), color-mix(in srgb, var(--brand-surface) 80%, var(--brand-surface-text)))",
+          background: "var(--brand-surface)",
+          border: "1px solid var(--border)",
           color: "var(--brand-surface-text)",
         }}
       >
@@ -285,7 +285,7 @@ export default function Catalog() {
                 style={
                   cat === ""
                     ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
-                    : { background: "var(--primary)", color: "var(--text)" }
+                    : { background: "var(--surface-muted)", color: "var(--text)" }
                 }
               >
                 <Sofa size={26} />
@@ -304,7 +304,7 @@ export default function Catalog() {
                   style={
                     cat === c.id
                       ? { background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }
-                      : { background: "var(--primary)", color: "var(--text)" }
+                      : { background: "var(--surface-muted)", color: "var(--text)" }
                   }
                 >
                   {(() => {
@@ -354,13 +354,13 @@ export default function Catalog() {
           <Link
             to={`/products/${p.id}`}
             key={p.id}
-            className="card group relative overflow-hidden transition hover:border-[var(--brand-secondary)] hover:shadow-md"
+            className="card group relative overflow-hidden p-3 transition hover:border-[var(--muted)]"
           >
             <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5">
               {p.model3d?.glb_url && (
                 <span
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold shadow"
-                  style={{ background: "var(--brand-cta-bg)", color: "var(--brand-cta-text)" }}
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
+                  style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                   title={t("catalog_ar_badge_title")}
                 >
                   <Box size={12} /> 3D
@@ -369,7 +369,7 @@ export default function Catalog() {
               {user && (
                 <button
                   onClick={(e) => toggleLike(e, p)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full shadow"
+                  className="flex h-7 w-7 items-center justify-center rounded-full"
                   style={{ background: "var(--card)" }}
                   title={p.is_liked ? t("catalog_like_remove") : t("catalog_like_add")}
                 >
@@ -377,32 +377,33 @@ export default function Catalog() {
                 </button>
               )}
             </div>
-            <div className="relative">
+            <div className="relative overflow-hidden rounded-xl">
               {(p.image_url || p.images?.[0]?.image_url) ? (
                 <img
                   src={p.image_url || p.images[0].image_url}
                   alt={p.name_uz}
                   loading="lazy"
-                  className="aspect-[4/3] w-full bg-white object-contain p-3"
+                  className="aspect-[4/3] w-full rounded-xl object-contain p-3 transition-transform duration-200 ease-out group-hover:scale-[1.03]"
+                  style={{ background: "var(--surface-muted)" }}
                 />
               ) : (
                 <div
-                  className="flex aspect-[4/3] w-full items-center justify-center"
-                  style={{ background: "var(--primary)", color: "var(--disabled)" }}
+                  className="flex aspect-[4/3] w-full items-center justify-center rounded-xl"
+                  style={{ background: "var(--surface-muted)", color: "var(--disabled)" }}
                 >
                   <Sofa size={36} />
                 </div>
               )}
               {Number(p.available_quantity) > 0 && (
                 <span
-                  className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-white shadow"
-                  style={{ background: "var(--success)" }}
+                  className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold"
+                  style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                 >
                   <PackageCheck size={13} /> {p.available_quantity}{t("product_stock_available_suffix")}
                 </span>
               )}
             </div>
-            <div className="flex flex-col gap-1 p-4">
+            <div className="flex flex-col gap-1 px-1 pb-1 pt-3">
               <span className="line-clamp-2 text-sm font-semibold leading-snug">{p.name_uz}</span>
               {attributeSummary(p) && (
                 <span className="text-xs font-medium" style={{ color: "var(--brand-secondary)" }}>

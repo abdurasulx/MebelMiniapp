@@ -89,10 +89,10 @@ export default function Shop() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       {/* Do'kon banneri */}
       <div
-        className="mb-8 flex flex-col gap-4 rounded-3xl p-8 sm:flex-row sm:items-center"
+        className="mb-8 flex flex-col gap-4 rounded-2xl p-8 sm:flex-row sm:items-center"
         style={{
-          background:
-            "linear-gradient(120deg, var(--brand-surface), color-mix(in srgb, var(--brand-surface) 80%, var(--brand-surface-text)))",
+          background: "var(--brand-surface)",
+          border: "1px solid var(--border)",
           color: "var(--brand-surface-text)",
         }}
       >

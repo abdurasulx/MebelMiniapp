@@ -4,75 +4,95 @@
 @custom-variant dark (&:where(.dark-mode, .dark-mode *));
 
 /* Design tokens — docs/design_tokens.md (eski mebelweb palitrasi) */
-:root {
-  /* Vida Market — iliq premium palitra (semantik tokenlar, bir joyda) */
-  --primary: #f2e6d8; /* ikkinchi darajali fon / yumshoq ta'kid */
-  --primary-deep: #493027; /* asosiy brend */
-  --secondary: #493027; /* asosiy harakat/havola rangi (avval ko'k edi) */
-  --accent: #c58b5a; /* ta'kid, kamdan-kam */
-  --brand-secondary: #805c46;
-  --bg: #faf5ef;
-  --text: #30231e;
-  --muted: #796b61;
-  --disabled: #a69a90;
-  --disabled-bg: #eee7e0;
-  --card: #ffffff;
-  --border: #e5d7c8;
-  --shadow: 0 1px 3px rgba(48, 35, 30, 0.06);
+:root,
+[data-theme="light"] {
+  /* Vida Market — "Forest + Lime": tokenlar (komponentlarda hex yozilmaydi) */
+  --bg: #eeece6;
+  --card: #ffffff; /* = surface */
+  --surface-muted: #f2f1ec;
+  --text: #1d3a2f;
+  --muted: #5e6a62;
+  --border: #dcdad2;
+  --disabled: #9aa39d;
+  --disabled-bg: #e6e4dc;
+  --shadow: none;
 
-  /* Holat ranglari — barcha sahifalarda shu yerga ishora qilinadi */
-  --success: #27865a;
-  --danger: #c94c4c;
-  --warning: #c58a36;
+  /* Mavjud nomlar: --primary = lime to'ldirish (yumshoq fon/ta'kid),
+     --secondary = harakat/havola rangi (qorong'i o'rmon yashili) */
+  --primary: #d4f06b;
+  --primary-deep: #1d3a2f; /* lime ustidagi matn */
+  --secondary: #1d3a2f;
+  --accent: #d4f06b;
+  --on-accent: #1d3a2f;
+  --accent-hover: #c6e555;
+  --brand-secondary: #5e6a62;
+
+  --success: #2f7d4f;
+  --danger: #c2412d;
+  --warning: #b9801f;
   --info: #3979b7;
 
-  /* Brend yuzalar: LIGHT rejimda yumshoq krem, DARK rejimda jigarrang */
-  --brand-surface: #f2e6d8;
-  --brand-surface-text: #493027;
-  --brand-surface-muted: #796b61;
-  --brand-cta-bg: #493027;
-  --brand-cta-bg-hover: #38231d;
-  --brand-cta-text: #faf5ef;
+  /* Sarlavha/yon panel = surface; faol havola/asosiy tugma = primary */
+  --brand-surface: #ffffff;
+  --brand-surface-text: #1d3a2f;
+  --brand-surface-muted: #5e6a62;
+  --brand-cta-bg: #1d3a2f;
+  --brand-cta-bg-hover: #2a5142;
+  --brand-cta-text: #d4f06b;
 }
 
-.dark-mode {
-  --primary: #3a2a22;
-  --primary-deep: #493027;
-  --secondary: #e8c9a8;
-  --bg: #17110e;
-  --text: #f2e8de;
-  --muted: #a8998d;
-  --card: #221915;
-  --border: rgba(242, 230, 216, 0.12);
-  --shadow: 0 2px 15px rgba(0, 0, 0, 0.5);
+.dark-mode,
+[data-theme="dark"] {
+  --bg: #0e1914;
+  --card: #16241d;
+  --surface-muted: #1e2f26;
+  --text: #ecede6;
+  --muted: #93a398;
+  --border: #26382f;
+  --disabled: #5f7066;
+  --disabled-bg: #1e2f26;
+  --shadow: none;
 
-  --brand-surface: #2f2019;
-  --brand-surface-text: #f2e6d8;
-  --brand-surface-muted: #c9a98d;
-  --brand-cta-bg: #e8c9a8;
-  --brand-cta-bg-hover: #f0d6ba;
-  --brand-cta-text: #30231e;
-  --accent: #c58b5a;
-  --brand-secondary: #c9a98d;
-  --disabled: #7d6f65;
-  --disabled-bg: #2b211c;
-  --success: #3fb27f;
-  --danger: #e07a7a;
-  --warning: #d9a04a;
+  --primary: #d4f06b;
+  --primary-deep: #0e1914;
+  --secondary: #d4f06b;
+  --accent: #d4f06b;
+  --on-accent: #0e1914;
+  --accent-hover: #e0f58a;
+  --brand-secondary: #93a398;
+
+  --success: #6fcf97;
+  --danger: #f07a63;
+  --warning: #e0b052;
   --info: #6aa6dc;
+
+  --brand-surface: #16241d;
+  --brand-surface-text: #ecede6;
+  --brand-surface-muted: #93a398;
+  --brand-cta-bg: #d4f06b;
+  --brand-cta-bg-hover: #e0f58a;
+  --brand-cta-text: #0e1914;
 }
 
 body {
-  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
   background: var(--bg);
   color: var(--text);
   transition: background 0.3s, color 0.3s;
 }
 
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ===== Komponent klasslari ===== */
 
 .btn {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer border-0;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition cursor-pointer border-0;
   background: var(--brand-cta-bg);
   color: var(--brand-cta-text);
   min-height: 44px;
@@ -90,17 +110,17 @@ body {
   color: var(--brand-cta-text);
 }
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition cursor-pointer;
   background: transparent;
   color: var(--secondary);
   border: 1px solid var(--border);
   min-height: 44px;
 }
 .btn-ghost:hover {
-  background: color-mix(in srgb, var(--secondary) 10%, transparent);
+  background: var(--surface-muted);
 }
 .btn-danger {
-  @apply inline-flex items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition cursor-pointer;
+  @apply inline-flex items-center justify-center gap-1.5 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition cursor-pointer;
   background: transparent;
   color: var(--danger);
   border: 1px solid var(--danger);
@@ -110,14 +130,14 @@ body {
 }
 
 .input {
-  @apply w-full rounded-xl px-3.5 py-2.5 text-sm outline-none transition;
+  @apply w-full rounded-[10px] px-3.5 py-2.5 text-sm outline-none transition;
+  min-height: 44px;
   background: var(--card);
   color: var(--text);
   border: 1px solid var(--border);
 }
 .input:focus {
-  border-color: var(--secondary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary) 18%, transparent);
+  border-color: var(--brand-cta-bg);
 }
 
 .label {
@@ -175,11 +195,8 @@ body {
   color: var(--muted);
 }
 .badge-brand {
-  background: color-mix(in srgb, var(--primary) 30%, transparent);
-  color: var(--primary-deep);
-}
-.dark-mode .badge-brand {
-  color: var(--primary);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .table-wrap {
@@ -210,7 +227,7 @@ body {
 
 .error {
   @apply rounded-lg px-3 py-2 text-sm;
-  background: rgba(231, 76, 60, 0.1);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--danger);
 }
 
@@ -220,7 +237,7 @@ body {
   @apply rounded-lg px-3 py-1.5 text-sm font-medium transition;
 }
 .top-link:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--surface-muted);
 }
 .top-link.active {
   background: var(--brand-cta-bg);
@@ -310,13 +327,16 @@ body {
   pointer-events: none;
   box-shadow: var(--shadow);
 }
+.brand-logo b { font-weight: 700; }
+.brand-logo span { font-weight: 400; color: var(--muted); }
+
 .dim-volume {
   position: absolute;
   left: 12px;
   top: 12px;
   border-radius: 999px;
-  background: var(--primary);
-  color: var(--text);
+  background: var(--accent);
+  color: var(--on-accent);
   font-size: 12.5px;
   font-weight: 700;
   padding: 5px 12px;

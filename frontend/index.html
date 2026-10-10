@@ -2,12 +2,28 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#ecc299" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#4c2c24" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#eeece6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0e1914" media="(prefers-color-scheme: dark)" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      // Miltillashsiz tema: CSS yuklanishidan oldin sinf/atribut o'rnatiladi.
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          var dark = t ? t === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var r = document.documentElement;
+          if (dark) r.classList.add("dark-mode");
+          r.setAttribute("data-theme", dark ? "dark" : "light");
+        } catch (e) {}
+      })();
+    </script>
     <title>VIDA</title>
   </head>
   <body>

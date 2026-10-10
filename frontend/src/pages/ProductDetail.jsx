@@ -339,7 +339,7 @@ export default function ProductDetail() {
                   <div className="flex items-center gap-2">
                     <div className="text-xs" style={{ color: "var(--muted)" }}>{t("product_approx_price")}</div>
                     {variant.discount_active && (
-                      <span className="badge" style={{ background: "var(--danger)", color: "#fff" }}>
+                      <span className="badge" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                         -{Number(variant.discount_percent)}%
                       </span>
                     )}

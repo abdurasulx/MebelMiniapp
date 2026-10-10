@@ -138,7 +138,7 @@ export default function Cart() {
                 <div className="flex items-center gap-1.5">
                   <span className="font-semibold">{i.productName}</span>
                   {i.discountPercent > 0 && (
-                    <span className="badge" style={{ background: "var(--danger)", color: "#fff" }}>
+                    <span className="badge" style={{ background: "var(--accent)", color: "var(--on-accent)" }}>
                       -{i.discountPercent}%
                     </span>
                   )}
