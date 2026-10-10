@@ -72,3 +72,42 @@ class GeometryTests(TestCase):
 
     def test_classify_shape_handles_missing_bbox(self):
         self.assertEqual(classify_shape(None), "")
+
+
+class ZipWithoutBlenderTests(TestCase):
+    """ZIP ichidagi tayyor GLB Blender'siz serverda ham `ready` bo'lishi kerak."""
+
+    def _model_from_zip(self, files):
+        import zipfile
+        from io import BytesIO
+
+        from django.core.files.base import ContentFile
+        from django.core.management import call_command
+
+        from apps.assets.models import Model3D
+
+        buf = BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            for name, data in files.items():
+                zf.writestr(name, data)
+        m = Model3D()
+        m.glb_file.save("model.zip", ContentFile(buf.getvalue()), save=False)
+        m.status = Model3D.Status.PROCESSING
+        m.save()
+        from unittest import mock
+
+        with mock.patch("shutil.which", return_value=None):
+            call_command("process_model3d", str(m.id))
+        m.refresh_from_db()
+        return m
+
+    def test_zip_with_glb_becomes_ready_without_blender(self):
+        glb = make_glb([{"min": [0.0, 0.0, 0.0], "max": [0.5, 1.0, 0.3]}]).getvalue()
+        m = self._model_from_zip({"folder/chair.glb": glb, "folder/readme.txt": b"x"})
+        self.assertEqual(m.status, "ready")
+        self.assertTrue(m.glb_file.name.endswith(".glb"))
+        self.assertAlmostEqual(float(m.bbox_height), 1.0, places=2)
+
+    def test_zip_with_only_fbx_fails_with_clear_state_without_blender(self):
+        m = self._model_from_zip({"chair.fbx": b"FBX"})
+        self.assertEqual(m.status, "failed")

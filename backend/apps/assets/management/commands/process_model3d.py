@@ -63,10 +63,10 @@ class Command(BaseCommand):
             self._fail(model, "Fayl yo'q")
             return
 
+        # Blender FAQAT FBX/OBJ/DAE/GLTF -> GLB va GLB -> USDZ uchun kerak. ZIP ichidan
+        # tayyor GLB chiqarish va GLB'ni ishlatish Blender'siz ham ishlaydi (serverda
+        # Blender bo'lmasligi mumkin) — shuning uchun bu yerda darhol to'xtamaymiz.
         blender_bin = shutil.which("blender")
-        if not blender_bin:
-            self._fail(model, "Blender topilmadi (PATH'da yo'q)")
-            return
 
         source_path = Path(model.glb_file.path)
 
@@ -94,7 +94,14 @@ class Command(BaseCommand):
                 archive_texture_dir = extract_dir
 
             glb_path = source_path
-            if source_path.suffix.lower() in SOURCE_FORMATS:
+            if source_path.suffix.lower() in SOURCE_FORMATS + (".gltf",) and not blender_bin:
+                self._fail(
+                    model,
+                    f"{source_path.suffix} faylni GLB'ga o'tkazish uchun serverda Blender kerak "
+                    f"(topilmadi). Tayyor .glb fayl yuklang.",
+                )
+                return
+            if source_path.suffix.lower() in SOURCE_FORMATS + (".gltf",):
                 converted = Path(tmp_dir) / f"{model.id}.glb"
 
                 texture_dir = None
@@ -161,7 +168,9 @@ class Command(BaseCommand):
             model.apply_bbox(bbox)
             bbox_fields = ["bbox_width", "bbox_height", "bbox_depth", "shape_tag"]
 
-            if options["skip_usdz"]:
+            if options["skip_usdz"] or not blender_bin:
+                if not blender_bin:
+                    self.stderr.write("Blender yo'q — USDZ (iOS AR) yaratilmadi, GLB tayyor")
                 model.status = Model3D.Status.READY
                 model.save(update_fields=["status", *bbox_fields])
                 self.stdout.write(self.style.SUCCESS(f"GLB tayyor: {model.id}"))
@@ -171,7 +180,12 @@ class Command(BaseCommand):
             if not self._run_blender(
                 blender_bin, SCRIPTS_DIR / "glb_to_usdz.py", [str(glb_path), str(usdz_tmp_path)]
             ) or not usdz_tmp_path.exists():
-                self._fail(model, "GLB -> USDZ konvertatsiyasi muvaffaqiyatsiz")
+                # GLB tayyor (web/Android/render ishlaydi) — USDZ faqat iOS AR uchun,
+                # shuning uchun modelni yaroqsiz deb belgilamaymiz.
+                self.stderr.write("GLB -> USDZ muvaffaqiyatsiz — USDZ'siz davom etildi (GLB tayyor)")
+                model.status = Model3D.Status.READY
+                model.save(update_fields=["status", *bbox_fields])
+                self.stdout.write(self.style.SUCCESS(f"GLB tayyor (USDZ'siz): {model.id}"))
                 return
 
             with open(usdz_tmp_path, "rb") as f:

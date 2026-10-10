@@ -114,10 +114,17 @@ class Model3DSerializer(StorageStampMixin, serializers.ModelSerializer):
             args.append("--skip-usdz")
         if texture_archive_path:
             args += ["--texture-archive", texture_archive_path]
+        # Xato sababini keyin ko'rish mumkin bo'lsin: logs/process_model3d.log
+        log_dir = Path(settings.BASE_DIR) / "logs"
+        try:
+            log_dir.mkdir(exist_ok=True)
+            log = open(log_dir / "process_model3d.log", "ab")  # noqa: SIM115
+        except OSError:
+            log = subprocess.DEVNULL
         subprocess.Popen(
             args,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=log,
+            stderr=log,
             start_new_session=True,
         )
 
