@@ -7,6 +7,8 @@ import {
   Workflow,
 } from "lucide-react";
 import { api, apiUpload } from "../../api";
+import BlockingLoader from "../../components/BlockingLoader";
+import { captureAndUpload, renderSources, reportRenderFailure } from "../../lib/captureRenders";
 import { portalURLFor } from "../../portal";
 import { POSITIONS } from "../../positions";
 import Model3DPartPicker from "../../components/Model3DPartPicker";
@@ -117,13 +119,51 @@ export default function FirmaProductDetail() {
     }
   };
 
-  if (error) return <div className="error">{error}</div>;
+  // 3D ko'rinishdan skrin olish: model yuklangach (render_stale) avtomatik; ekran bloklanadi.
+  const [capture, setCapture] = useState(null); // { label, percent }
+  const captureBusy = useRef(false);
+  const failedKey = useRef("");
+
+  const runCapture = async () => {
+    if (!product || captureBusy.current) return;
+    captureBusy.current = true;
+    setCapture({ label: "3D ko'rinishdan rasmlar olinmoqda…", percent: 5 });
+    try {
+      const updated = await captureAndUpload(product, ({ stage, done, total, label }) => {
+        const base = stage === "capture" ? 0 : 30;
+        const span = stage === "capture" ? 30 : 70;
+        setCapture({ label, percent: base + (total ? (done / total) * span : 0) });
+      });
+      setProduct(updated);
+      failedKey.current = "";
+    } catch (e) {
+      failedKey.current = product.id + ":" + (product.render_source || "");
+      await reportRenderFailure(product.id, e.message);
+      setError(e.message);
+      setTimeout(load, 0);
+    } finally {
+      captureBusy.current = false;
+      setCapture(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!product || !product.render_stale || captureBusy.current) return;
+    if (renderSources(product).length === 0) return;
+    if (failedKey.current === product.id + ":" + (product.render_source || "")) return; // xatodan keyin qayta-qayta urinmaymiz
+    runCapture();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product]);
+
+  if (error && !product) return <div className="error">{error}</div>;
   if (!product) return <p style={{ color: "var(--muted)" }}>Yuklanmoqda…</p>;
 
   const completeness = computeCompleteness(product, steps);
 
   return (
     <div style={{ background: ENT.bg, margin: "calc(-1 * var(--portal-pad, 24px))", minHeight: "100%" }}>
+      {capture && <BlockingLoader label={capture.label} percent={capture.percent} hint="3D model ko'rinishlaridan rasmlar yaratilmoqda." />}
+      {error && <div className="error" style={{ margin: 16 }}>{error}</div>}
       <div style={{ position: "sticky", top: "calc(-1 * var(--portal-pad, 24px))", zIndex: 30 }}>
         <HeroHeader
           product={product}
@@ -139,7 +179,7 @@ export default function FirmaProductDetail() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 20, padding: "20px 24px 60px", maxWidth: 1400, margin: "0 auto" }} className="ent-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-          {tab === "general" && <RendersCard product={product} onDone={load} />}
+          {tab === "general" && <RendersCard product={product} onCapture={runCapture} />}
           {tab === "general" && <GeneralTab product={product} categories={categories} onDone={load} />}
           {tab === "variants" && <VariantsTab product={product} onDone={load} />}
           {tab === "production" && (
@@ -542,14 +582,6 @@ function VariantsTab({ product: p, onDone }) {
   }, [isProcessing, onDone]);
 
   const [uploadPct, setUploadPct] = useState(0);
-  const renderActive = ["pending", "processing"].includes(p.render_status);
-  // Render tugaguncha (yoki model qayta ishlanayotganda) mahsulotni yangilab turamiz.
-  useEffect(() => {
-    if (!renderActive) return undefined;
-    const t = setInterval(onDone, 4000);
-    return () => clearInterval(t);
-  }, [renderActive, onDone]);
-  const progressStage = busy ? "upload" : isProcessing ? "processing" : renderActive ? "render" : null;
 
   const call = async (fn) => {
     try {
@@ -706,13 +738,11 @@ function VariantsTab({ product: p, onDone }) {
               required
             />
           </div>
-          {busy && <StagedProgress stage="upload" uploadPct={uploadPct} />}
           <EntButton type="submit" disabled={busy}>{busy ? "Yuklanmoqda…" : "Qo'shish"}</EntButton>
         </form>
       )}
-      {!busy && progressStage && (
-        <StagedProgress stage={progressStage} variantCount={p.variants.length} />
-      )}
+      {busy && <BlockingLoader label={`Model yuklanmoqda… ${uploadPct}%`} percent={uploadPct} hint="Yuklash tugagach rasmlar avtomatik olinadi." />}
+      {!busy && isProcessing && <BlockingLoader label="Model qayta ishlanmoqda…" hint="Tayyor bo'lgach rasmlar avtomatik olinadi." />}
       {error && <div className="error" style={{ marginTop: 12 }}>{error}</div>}
     </Card>
   );
@@ -864,7 +894,7 @@ function VariantModelSection({ variant, onDone }) {
       <div style={{ display: "flex", gap: 8 }}>
         <EntButton small onClick={upload} disabled={busy || !file}>{busy ? "Yuklanmoqda…" : m ? "Yangilash" : "Yuklash"}</EntButton>
       </div>
-      {busy && <div style={{ flex: "1 1 100%" }}><StagedProgress stage="upload" uploadPct={pct} /></div>}
+      {busy && <BlockingLoader label={`Model yuklanmoqda… ${pct}%`} percent={pct} hint="Yuklash tugagach rasmlar avtomatik olinadi." />}
       {error && <div className="error">{error}</div>}
     </div>
   );
@@ -1610,93 +1640,35 @@ function ModelShareForm({ model, variantCount, onDone }) {
 // ============================== 3D'dan rasmlar ==============================
 
 const RENDER_PILL = {
-  none: ["Render yo'q", "neutral"],
+  none: ["Rasm yo'q", "neutral"],
   pending: ["Navbatda", "warning"],
-  processing: ["Render qilinmoqda…", "warning"],
+  processing: ["Olinmoqda…", "warning"],
   ready: ["Tayyor", "success"],
   failed: ["Xatolik", "danger"],
 };
 
 /**
- * 3D modeldan avtomatik standart rasmlar. Yakuniy rasmlar FAQAT serverda render
- * qilinadi; bu yerdagi brauzer preview'i faqat sotuvchiga tezkor natijani
- * ko'rsatadi va hech qachon saqlanmaydi.
+ * 3D modeldan standart rasmlar. Rasmlar sotuvchining brauzerida 3D ko'rinishdan
+ * "skrin" qilib olinadi (model yuklangach avtomatik) va serverga yuboriladi;
+ * server ularni standartlab (kvadrat, WebP/AVIF) saqlaydi.
  */
-function RendersCard({ product, onDone }) {
-  const glbUrl = product.model3d?.glb_url;
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [preview, setPreview] = useState(null); // { loading, shots, error }
-  const [frameSrc, setFrameSrc] = useState("");
+function RendersCard({ product, onCapture }) {
   const status = product.render_status || "none";
-  const active = status === "pending" || status === "processing";
+  const hasModel = renderSources(product).length > 0;
+  const [label, tone] = RENDER_PILL[status] || RENDER_PILL.none;
 
-  // Navbatda/jarayonda bo'lsa — natijani kutib turamiz.
-  useEffect(() => {
-    if (!active) return undefined;
-    const t = setInterval(onDone, 5000);
-    return () => clearInterval(t);
-  }, [active, onDone]);
-
-  useEffect(() => {
-    const onMsg = (e) => {
-      if (e.data?.type !== "vida-render") return;
-      setFrameSrc("");
-      if (!e.data.ok) {
-        // WebGL ishlamasa preview o'tkazib yuboriladi — server render baribir ishlaydi.
-        setPreview({ loading: false, shots: [], error: "Brauzerda oldindan ko'rib bo'lmadi (server baribir render qiladi)." });
-        return;
-      }
-      const first = e.data.result.variants?.[0];
-      setPreview({ loading: false, shots: first?.shots || [], error: "", dims: e.data.result.dimensionsCm });
-    };
-    window.addEventListener("message", onMsg);
-    return () => window.removeEventListener("message", onMsg);
-  }, []);
-
-  const startPreview = () => {
-    if (!glbUrl) return;
-    setPreview({ loading: true, shots: [], error: "" });
-    const variants = product.variants
-      .filter((v) => v.color_hex)
-      .map((v) => ({ id: v.id, name: v.name, color: v.color_hex }));
-    const q = new URLSearchParams({
-      src: glbUrl,
-      size: "600",
-      shots: "hero,front,side",
-      auto: "1",
-      variants: JSON.stringify(variants),
-    });
-    setFrameSrc(`/render/index.html?${q}`);
-  };
-
-  const rerender = async () => {
-    setBusy(true);
-    setError("");
-    try {
-      await api(`/products/${product.id}/rerender/`, { method: "POST" });
-      setPreview(null);
-      onDone();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (!glbUrl && status === "none") {
+  if (!hasModel && status === "none") {
     return (
-      <Card title="3D'dan avtomatik rasmlar" description="Model yuklangach, standart mahsulot rasmlari avtomatik yaratiladi." icon={ImageIcon}>
-        <p style={{ fontSize: 13, color: ENT.muted, margin: 0 }}>Avval 3D model (GLB) yuklang.</p>
+      <Card title="3D'dan avtomatik rasmlar" description="Model yuklangach, standart mahsulot rasmlari avtomatik olinadi." icon={ImageIcon}>
+        <p style={{ fontSize: 13, color: ENT.muted, margin: 0 }}>Avval variantga 3D model (GLB) yuklang.</p>
       </Card>
     );
   }
 
-  const [label, tone] = RENDER_PILL[status] || RENDER_PILL.none;
   return (
     <Card
       title="3D'dan avtomatik rasmlar"
-      description="Xaridorlar faqat serverda yaratilgan, bir xil sifatdagi rasmlarni ko'radi."
+      description="Xaridorlar faqat shu standart rasmlarni ko'radi (rakurslar: old, yon, orqa, yuqori)."
       icon={ImageIcon}
       actions={<Pill tone={tone}>{label}</Pill>}
     >
@@ -1730,107 +1702,9 @@ function RendersCard({ product, onDone }) {
         </div>
       ))}
 
-      {preview && (
-        <div style={{ margin: "8px 0 14px" }}>
-          <div style={{ fontSize: 12, color: ENT.muted, marginBottom: 6 }}>
-            Oldindan ko'rish — yakuniy rasmlar serverda yaratiladi.
-          </div>
-          {preview.loading && <p style={{ fontSize: 13, color: ENT.muted, margin: 0 }}>Render qilinmoqda…</p>}
-          {preview.error && <p style={{ fontSize: 12.5, color: ENT.muted, margin: 0 }}>{preview.error}</p>}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {preview.shots.map((sh) => (
-              <img
-                key={sh.key}
-                src={sh.dataUrl}
-                alt={sh.key}
-                style={{ width: 120, height: 120, objectFit: "contain", borderRadius: 10, border: `1px dashed ${ENT.border}`, background: "var(--surface-muted)" }}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {error && <div className="error" style={{ marginBottom: 12 }}>{error}</div>}
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {glbUrl && (
-          <button className="btn-ghost" type="button" onClick={startPreview} disabled={preview?.loading}>
-            Oldindan ko'rish
-          </button>
-        )}
-        <button className="btn" type="button" onClick={rerender} disabled={busy || active || !glbUrl}>
-          {status === "ready" ? "Qayta render qilish" : "Rasmlarni yaratish"}
-        </button>
-      </div>
-
-      {frameSrc && (
-        <iframe
-          title="render-preview"
-          src={frameSrc}
-          style={{ position: "fixed", right: 0, bottom: 0, width: 640, height: 640, opacity: 0.01, pointerEvents: "none", border: 0 }}
-        />
-      )}
+      <button className="btn" type="button" onClick={onCapture} disabled={!hasModel}>
+        {status === "ready" ? "Rasmlarni modeldan qayta olish" : "Rasmlarni modeldan olish"}
+      </button>
     </Card>
-  );
-}
-
-
-// ============================== Yuklash / render progressi ==============================
-
-/**
- * Bosqichli progress: 1) yuklash — HAQIQIY foiz; 2) model qayta ishlash va
- * 3) rasmlarni yaratish — TAXMINIY (silliq to'ldiriladi, haqiqiy holat
- * "tayyor" bo'lganda 100%ga yetadi; sahifa polling bilan holatni biladi).
- * stage: "upload" | "processing" | "render" | "done"
- */
-function StagedProgress({ stage, uploadPct = 0, variantCount = 1 }) {
-  const [elapsed, setElapsed] = useState(0);
-  const stageStart = useRef(Date.now());
-
-  useEffect(() => {
-    stageStart.current = Date.now();
-    setElapsed(0);
-    if (stage === "upload" || stage === "done") return undefined;
-    const t = setInterval(() => setElapsed((Date.now() - stageStart.current) / 1000), 250);
-    return () => clearInterval(t);
-  }, [stage]);
-
-  // Taxminiy bosqichlar: "asimptotik" to'lish — hech qachon 100% ga yetmaydi, lekin to'xtab ham qolmaydi.
-  const approach = (sec, tau) => 1 - Math.exp(-sec / tau);
-  let pct;
-  let label;
-  if (stage === "upload") {
-    pct = uploadPct * 0.4;
-    label = `Model yuklanmoqda… ${uploadPct}%`;
-  } else if (stage === "processing") {
-    pct = 40 + approach(elapsed, 8) * 20; // 40 -> 60
-    label = "Model qayta ishlanmoqda…";
-  } else if (stage === "render") {
-    pct = 60 + approach(elapsed, 12 * Math.max(1, variantCount)) * 35; // 60 -> 95
-    label = "Rasmlar yaratilmoqda va joylashtirilmoqda…";
-  } else {
-    pct = 100;
-    label = "Tayyor ✓";
-  }
-  const hint =
-    stage === "render" ? "Odatda 20–60 soniya. Sahifani yopsangiz ham jarayon davom etadi." : null;
-
-  return (
-    <div role="status" aria-live="polite" style={{ margin: "10px 0" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 6, color: ENT.text }}>
-        <span>{label}</span>
-        <span style={{ color: ENT.muted }}>{Math.round(pct)}%</span>
-      </div>
-      <div style={{ height: 8, borderRadius: 999, background: "var(--surface-muted)", overflow: "hidden" }}>
-        <div
-          style={{
-            width: `${pct}%`, height: "100%", borderRadius: 999,
-            background: stage === "done" ? "var(--success)" : "var(--brand-cta-bg)",
-            transition: "width .35s ease",
-          }}
-        />
-      </div>
-      {hint && <div style={{ fontSize: 11.5, color: ENT.muted, marginTop: 6 }}>{hint}</div>}
-    </div>
   );
 }

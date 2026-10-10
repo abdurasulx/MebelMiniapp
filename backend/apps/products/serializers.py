@@ -220,6 +220,18 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
         Faqat render tayyor bo'lganda to'ldiriladi."""
         if obj.render_status != Product.RenderStatus.READY:
             return []
+        request = self.context.get("request")
+
+        def absolutize(urls):
+            # Saqlangan URL'lar nisbiy (`/media/...`) — frontend/mobil boshqa domenda, shuning uchun absolut.
+            if request is None:
+                return urls
+            return {
+                size: {fmt: (request.build_absolute_uri(u) if isinstance(u, str) and u.startswith("/") else u)
+                       for fmt, u in fmts.items()}
+                for size, fmts in urls.items()
+            }
+
         groups = {}
         for r in obj.renders.all():
             if r.is_deleted:
@@ -229,7 +241,7 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
                 {"variant": r.variant_name, "slug": r.variant_slug,
                  "variant_id": str(r.variant_id) if r.variant_id else None, "shots": []},
             )
-            g["shots"].append({"key": r.shot, "urls": r.urls})
+            g["shots"].append({"key": r.shot, "urls": absolutize(r.urls)})
         return list(groups.values())
 
     def get_pricing(self, obj):

@@ -150,3 +150,12 @@ class ClientRenderApiTests(TestCase):
         resp = self.client.post(f"{self.url}/approve-moderation/")
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.json()["needs_moderation"])
+
+
+class AbsoluteUrlTests(ClientRenderApiTests):
+    def test_render_urls_are_absolute(self):
+        self._shot("hero", self.v1)
+        self.client.post(f"{self.url}/render-complete/", {}, format="json")
+        data = self.client.get(f"{self.url}/").json()
+        url = data["renders"][0]["shots"][0]["urls"]["400"]["webp"]
+        self.assertTrue(url.startswith("http"), url)
