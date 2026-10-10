@@ -40,6 +40,7 @@ struct HomeView: View {
     @EnvironmentObject private var locale: LocaleStore
     @EnvironmentObject private var location: LocationStore
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showShowcase = false
     @State private var products: [Product] = []
     @State private var categories: [Category] = []
     @State private var isLoading = true
@@ -126,8 +127,10 @@ struct HomeView: View {
                         } else if !isFiltering && products.isEmpty && errorMessage == nil {
                             stateMessage(
                                 icon: "storefront",
-                                title: locale.t("loc_no_firms"),
-                                body: locale.t("loc_no_firms_hint")
+                                title: locale.t("showcase_prompt_title"),
+                                body: locale.t("showcase_prompt_body"),
+                                actionTitle: locale.t("showcase_prompt_button"),
+                                action: { showShowcase = true }
                             )
                         } else {
                             if !isFiltering {
@@ -149,6 +152,7 @@ struct HomeView: View {
                 }
                 .background(Color.appBackground)
                 .navigationTitle("")
+                .navigationDestination(isPresented: $showShowcase) { ShowcaseView() }
                 .navigationBarHidden(true)
                 .task(id: location.hasFix ? "\(location.lat ?? 0),\(location.lng ?? 0)" : "") {
                     await load()
