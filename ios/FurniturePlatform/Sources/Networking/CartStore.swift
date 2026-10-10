@@ -94,7 +94,7 @@ final class CartStore: ObservableObject {
                 companyId: product.company, companyName: product.companyName,
                 variantId: variant.id, variantName: variant.name,
                 width: variant.widthValue, height: variant.heightValue, depth: variant.depthValue,
-                unitM3Price: variant.basePriceValue, qty: qty
+                unitM3Price: variant.effectivePriceValue, qty: qty
             )
             items.append(item)
             persist()

@@ -66,6 +66,24 @@ struct Category: Codable, Identifiable {
     let slug: String
 }
 
+/// Backend hisoblagan narx bloki (`pricing`): chegirmani klient O'ZI hisoblamaydi.
+struct PricingInfo: Codable {
+    let originalPrice: Double
+    let discountPercent: Double
+    let discountAmount: Double
+    let finalPrice: Double
+
+    var hasDiscount: Bool { discountAmount > 0 && finalPrice < originalPrice }
+}
+
+/// Firmaning yetkazib berish shartlari; sozlanmagan bo'lsa backend `null` beradi.
+struct DeliveryInfo: Codable {
+    let free: Bool
+    let price: Double
+    let minDays: Int
+    let maxDays: Int
+}
+
 struct Variant: Codable, Identifiable {
     let id: String
     let name: String
@@ -91,7 +109,26 @@ struct Variant: Codable, Identifiable {
     let discountActive: Bool?
     let effectiveBasePrice: String?
     let discountPercent: String?
+    /// Backend `pricing` bloki (bo'lsa — yagona haqiqat manbai).
+    let pricing: PricingInfo?
 
+    /// `pricing` bor bo'lsa shu, aks holda eski maydonlardan yig'iladi (orqaga moslik).
+    var effectivePricing: PricingInfo {
+        if let pricing { return pricing }
+        let original = basePriceValue
+        guard discountActive == true, let eff = effectiveBasePrice.flatMap(Double.init), eff < original else {
+            return PricingInfo(originalPrice: original, discountPercent: 0, discountAmount: 0, finalPrice: original)
+        }
+        return PricingInfo(
+            originalPrice: original,
+            discountPercent: discountPercent.flatMap(Double.init) ?? 0,
+            discountAmount: original - eff,
+            finalPrice: eff
+        )
+    }
+
+    /// Chegirma hisobga olingan yakuniy narx (1 m³ uchun) — hisob-kitoblarda shu ishlatiladi.
+    var effectivePriceValue: Double { effectivePricing.finalPrice }
     var basePriceValue: Double { Double(basePrice) ?? 0 }
     var widthValue: Double { Double(width) ?? 1 }
     var heightValue: Double { Double(height) ?? 1 }
@@ -212,8 +249,18 @@ struct Product: Codable, Identifiable {
     // tayyor turgan dona soni — kartochkada belgisi uchun (qarang backend
     // ProductSerializer.get_available_quantity).
     let availableQuantity: Int?
+    // Marketplace maydonlari (backend: pricing/company_is_verified/delivery/category_image_url).
+    let pricing: PricingInfo?
+    let companyIsVerified: Bool?
+    let delivery: DeliveryInfo?
+    let categoryImageUrl: String?
 
     var liked: Bool { isLiked ?? false }
+    var isVerified: Bool { companyIsVerified ?? false }
+
+    /// Kartochka/sahifada ko'rsatiladigan narx: backend `pricing` (eng arzon variant),
+    /// bo'lmasa birinchi variantdan.
+    var displayPricing: PricingInfo? { pricing ?? variants.first?.effectivePricing }
 
     /// Kartochkada nomdan keyin ko'rsatiladigan qisqa xususiyat qatori —
     /// masalan "kulrang · 60×90×60 sm".

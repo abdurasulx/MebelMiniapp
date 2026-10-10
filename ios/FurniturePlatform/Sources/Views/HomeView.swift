@@ -79,9 +79,9 @@ struct HomeView: View {
         case .popular, .top:
             break
         case .priceLow:
-            list.sort { ($0.variants.first?.basePriceValue ?? 0) < ($1.variants.first?.basePriceValue ?? 0) }
+            list.sort { ($0.displayPricing?.finalPrice ?? 0) < ($1.displayPricing?.finalPrice ?? 0) }
         case .priceHigh:
-            list.sort { ($0.variants.first?.basePriceValue ?? 0) > ($1.variants.first?.basePriceValue ?? 0) }
+            list.sort { ($0.displayPricing?.finalPrice ?? 0) > ($1.displayPricing?.finalPrice ?? 0) }
         case .nameAZ:
             list.sort { $0.nameUz.localizedCaseInsensitiveCompare($1.nameUz) == .orderedAscending }
         }

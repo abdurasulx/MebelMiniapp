@@ -26,7 +26,7 @@ struct ProductDetailView: View {
         guard let variant = selectedVariant,
               let w = Double(width), let h = Double(height), let d = Double(depth),
               w > 0, h > 0, d > 0 else { return nil }
-        return variant.basePriceValue * w * h * d * Double(quantity)
+        return variant.effectivePriceValue * w * h * d * Double(quantity)
     }
 
     /// Kiritilgan eni/bo'yi/chuqurlikning variant standart o'lchamiga nisbati —
@@ -85,6 +85,7 @@ private var arScaleFactors: SIMD3<Float> {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(product.nameUz).font(.title2).bold()
+                        if product.isVerified { VerifiedBadgeView().padding(.vertical, 2) }
                         if let companySlug = product.companySlug {
                             NavigationLink(destination: CompanyShopView(companySlug: companySlug)) {
                                 HStack(spacing: 4) {
@@ -117,6 +118,10 @@ private var arScaleFactors: SIMD3<Float> {
 
                     if !product.variants.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
+                            if let variant = selectedVariant {
+                                PriceBlockView(pricing: variant.effectivePricing)
+                            }
+
                             // 1) Avval variant (rang/material) tanlanadi
                             Text(locale.t("product_variant_field_label")).font(.caption).foregroundStyle(Color.textSecondary)
                             Picker("Variant", selection: $selectedVariant) {
@@ -153,6 +158,16 @@ private var arScaleFactors: SIMD3<Float> {
 
                             Stepper("\(locale.t("product_qty_label")): \(quantity)", value: $quantity, in: 1...50)
 
+                            // O'lcham chizmasi (quti: eni/bo'yi/chuqurligi + hajm)
+                            if let dims = DimensionBoxView.resolve(model: activeModel3d, variant: selectedVariant) {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(locale.t("dim_title")).font(.subheadline).fontWeight(.bold)
+                                    DimensionBoxView(widthM: dims.w, heightM: dims.h, depthM: dims.d)
+                                }
+                            }
+
+                            DeliveryCardView(delivery: product.delivery)
+
                             if let price {
                                 VStack(alignment: .leading) {
                                     Text(locale.t("product_approx_price")).font(.caption).foregroundStyle(Color.textSecondary)
@@ -172,8 +187,8 @@ private var arScaleFactors: SIMD3<Float> {
                                         Text("\(qty) dona omborda mavjud").font(.caption).bold()
                                     }
                                     .padding(.horizontal, 11).padding(.vertical, 6)
-                                    .background(Color.appSuccess)
-                                    .foregroundStyle(.white)
+                                    .background(Color.accent)
+                                    .foregroundStyle(Color.onAccent)
                                     .clipShape(Capsule())
                                 } else {
                                     Text(locale.t("product_out_of_stock"))
@@ -193,8 +208,8 @@ private var arScaleFactors: SIMD3<Float> {
                                 Text("📦 \(locale.t("cart_submit"))")
                                     .frame(maxWidth: .infinity)
                                     .padding()
-                                    .background(price == nil ? Color.gray.opacity(0.4) : Color.brandSecondary)
-                                    .foregroundStyle(.white)
+                                    .background(price == nil ? Color.disabledBackground : Color.brand)
+                                    .foregroundStyle(price == nil ? Color.textDisabled : Color.onBrand)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                             .disabled(price == nil)

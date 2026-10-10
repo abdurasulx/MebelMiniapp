@@ -30,6 +30,14 @@ struct CartView: View {
         }
     }
 
+    private var companyGroups: [(id: String, name: String, items: [CartItem], subtotal: Double)] {
+        cart.byCompany
+            .map { id, items in
+                (id: id, name: items.first?.companyName ?? "", items: items, subtotal: items.reduce(0) { $0 + $1.subtotal })
+            }
+            .sorted { $0.name < $1.name }
+    }
+
     private var empty: some View {
         VStack(spacing: 8) {
             Image(systemName: "cart").font(.largeTitle).foregroundStyle(Color.textSecondary)
@@ -41,9 +49,25 @@ struct CartView: View {
 
     private var content: some View {
         Form {
-            Section(locale.t("cart_products_section")) {
-                ForEach(cart.items) { item in
-                    cartRow(item)
+            // Firma bo'yicha guruhlangan: har firma alohida buyurtma bo'ladi.
+            ForEach(companyGroups, id: \.id) { group in
+                Section {
+                    ForEach(group.items) { item in cartRow(item) }
+                    HStack {
+                        Label(locale.t("delivery_title"), systemImage: "shippingbox")
+                            .font(.footnote).foregroundStyle(Color.textSecondary)
+                        Spacer()
+                        Text(locale.t("cart_delivery_note"))
+                            .font(.footnote).foregroundStyle(Color.textSecondary)
+                    }
+                    HStack {
+                        Text(locale.t("cart_total")).font(.footnote)
+                        Spacer()
+                        Text("\(String(format: "%.0f", group.subtotal).formattedSom) so'm")
+                            .font(.footnote).bold()
+                    }
+                } header: {
+                    Text(group.name).font(.subheadline).bold().foregroundStyle(Color.textPrimary)
                 }
             }
             Section {
@@ -62,8 +86,8 @@ struct CartView: View {
                 }
                 .disabled(busy)
                 .frame(maxWidth: .infinity)
-                .listRowBackground(Color.brandDeep)
-                .foregroundStyle(Color.brandPrimary)
+                .listRowBackground(Color.brand)
+                .foregroundStyle(Color.onBrand)
             }
         }
         .alert(locale.t("cart_order_success_title"), isPresented: $didSucceed) {
@@ -90,7 +114,7 @@ struct CartView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.productName).font(.subheadline).bold().lineLimit(1)
-                Text("\(item.variantName) · \(item.companyName)")
+                Text(item.variantName)
                     .font(.caption2).foregroundStyle(Color.textSecondary).lineLimit(1)
                 Text("\(String(format: "%.0f", item.subtotal).formattedSom) so'm")
                     .font(.caption).bold()

@@ -22,15 +22,15 @@ struct ProductCardView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: imageHeight)
-                .background(Color.appCard)
+                .background(Color.appBackgroundAlt)
                 .clipped()
 
                 if let qty = product.availableQuantity, qty > 0 {
                     Text("\(qty) dona")
                         .font(.caption2).bold()
                         .padding(.horizontal, 9).padding(.vertical, 4)
-                        .background(Color.appSuccess)
-                        .foregroundStyle(.white)
+                        .background(Color.accent)
+                        .foregroundStyle(Color.onAccent)
                         .clipShape(Capsule())
                         .padding(8)
                 }
@@ -48,12 +48,15 @@ struct ProductCardView: View {
                         .foregroundStyle(Color.brandMuted)
                         .lineLimit(1)
                 }
-                Text(product.companyName)
-                    .font(.caption)
-                    .foregroundStyle(Color.textSecondary)
-                    .lineLimit(1)
-                if let first = product.variants.first {
-                    priceView(first).padding(.top, 3)
+                HStack(spacing: 3) {
+                    Text(product.companyName)
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary)
+                        .lineLimit(1)
+                    if product.isVerified { VerifiedBadgeView(compact: true) }
+                }
+                if let pricing = product.displayPricing {
+                    PriceBlockView(pricing: pricing, fromSuffix: true).padding(.top, 3)
                 }
             }
             .padding(10)
@@ -72,36 +75,6 @@ struct ProductCardView: View {
             Image(systemName: "sofa.fill")
                 .font(.system(size: 34))
                 .foregroundStyle(Color.textDisabled)
-        }
-    }
-
-    @ViewBuilder
-    private func priceView(_ v: Variant) -> some View {
-        if v.discountActive == true, let effective = v.effectiveBasePrice {
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text("\(v.basePrice.formattedSom) so'm")
-                        .font(.caption2).strikethrough()
-                        .foregroundStyle(Color.textSecondary)
-                    if let pct = v.discountPercent, let value = Double(pct), value > 0 {
-                        Text("-\(Int(value.rounded()))%")
-                            .font(.caption2).bold()
-                            .padding(.horizontal, 5).padding(.vertical, 1)
-                            .background(Color.appError)
-                            .foregroundStyle(.white)
-                            .clipShape(Capsule())
-                    }
-                }
-                Text("\(effective.formattedSom) so'm dan")
-                    .font(.subheadline).fontWeight(.bold)
-                    .foregroundStyle(Color.brand)
-                    .lineLimit(1)
-            }
-        } else {
-            Text("\(v.basePrice.formattedSom) so'm dan")
-                .font(.subheadline).fontWeight(.bold)
-                .foregroundStyle(Color.brand)
-                .lineLimit(1)
         }
     }
 }
