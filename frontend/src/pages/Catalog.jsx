@@ -9,6 +9,7 @@ import { coordsParams, useGeolocation } from "../location";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
 import PriceTag from "../components/PriceTag";
+import VerifiedCheck from "../components/VerifiedCheck";
 import { PORTAL, portalForUser, portalURLFor } from "../portal";
 
 // Kartochkada nomdan keyin ko'rsatiladigan qisqa xususiyat qatori — masalan
@@ -417,7 +418,10 @@ export default function Catalog() {
                   {attributeSummary(p)}
                 </span>
               )}
-              <span className="text-xs" style={{ color: "var(--muted)" }}>{p.company_name}</span>
+              <span className="inline-flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
+                {p.company_name}
+                <VerifiedCheck verified={p.company_is_verified} size={13} />
+              </span>
               <PriceTag variant={p.variants[0]} />
             </div>
           </Link>

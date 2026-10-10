@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Heart, Sofa } from "lucide-react";
 import { api } from "../api";
 import { useLocale } from "../locale";
+import VerifiedCheck from "../components/VerifiedCheck";
 import PriceTag from "../components/PriceTag";
 
 export default function Liked() {
@@ -69,7 +70,10 @@ export default function Liked() {
               )}
               <div className="flex flex-col gap-1 p-4">
                 <span className="font-semibold">{p.name_uz}</span>
-                <span className="text-xs" style={{ color: "var(--muted)" }}>{p.company_name}</span>
+                <span className="inline-flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
+                  {p.company_name}
+                  <VerifiedCheck verified={p.company_is_verified} size={13} />
+                </span>
                 <PriceTag variant={p.variants[0]} />
               </div>
             </Link>

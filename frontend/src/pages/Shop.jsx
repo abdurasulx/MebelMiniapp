@@ -6,6 +6,7 @@ import { coordsParams, requestCoords } from "../location";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
 import CompanyBadge from "../components/CompanyBadge";
+import VerifiedCheck from "../components/VerifiedCheck";
 
 const SOCIAL_LINKS = [
   { key: "instagram_url", icon: AtSign, label: "Instagram" },
@@ -108,7 +109,10 @@ export default function Shop() {
         )}
         <div>
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold">{company.name}</h1>
+            <h1 className="inline-flex items-center gap-2 text-2xl font-bold">
+              {company.name}
+              <VerifiedCheck verified={company.is_verified} size={22} />
+            </h1>
             <CompanyBadge tier={company.tier} />
           </div>
           {company.description && <p className="max-w-xl text-sm opacity-80">{company.description}</p>}

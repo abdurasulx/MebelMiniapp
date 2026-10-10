@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { Heart, Factory, Sofa, Image, Box, Sparkles, ShoppingBag, ArrowRight, PackageCheck } from "lucide-react";
 import { api } from "../api";
 import { addToCart } from "../cart";
+import VerifiedCheck from "../components/VerifiedCheck";
 import ImageLightbox from "../components/ImageLightbox";
 import ModelViewer from "../components/ModelViewer";
 import CompanyBadge from "../components/CompanyBadge";
@@ -427,7 +428,10 @@ export default function ProductDetail() {
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold">{p.company_name}</span>
+            <span className="inline-flex items-center gap-1 text-sm font-semibold">
+              {p.company_name}
+              <VerifiedCheck verified={p.company_is_verified} />
+            </span>
             <CompanyBadge tier={companyTier} size="sm" />
           </div>
           <span className="inline-flex items-center gap-0.5 text-xs" style={{ color: "var(--secondary)" }}>
