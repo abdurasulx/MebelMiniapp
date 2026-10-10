@@ -9,6 +9,28 @@ import CompanyBadge from "../components/CompanyBadge";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
 
+const slugify = (v) =>
+  String(v || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+/** Server render qilgan rasmlar guruhidan tanlangan variantga mosini topadi. */
+function pickRenderGroup(renders, variant) {
+  if (!renders?.length) return null;
+  if (variant) {
+    return (
+      renders.find((g) => g.variant_id === variant.id) ||
+      renders.find((g) => g.slug === slugify(variant.name)) ||
+      renders[0]
+    );
+  }
+  return renders[0];
+}
+
+const SHOT_ORDER = ["hero", "front", "side", "back", "top"];
+
 export default function ProductDetail() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -41,7 +63,13 @@ export default function ProductDetail() {
       .then((d) => {
         setP(d);
         setLiked(!!d.is_liked);
-        if (d.variants[0]) setVariantId(d.variants[0].id);
+        if (d.variants[0]) {
+          const wanted = new URLSearchParams(window.location.search).get("variant");
+          const match = wanted
+            ? d.variants.find((v) => v.id === wanted || slugify(v.name) === wanted)
+            : null;
+          setVariantId((match || d.variants[0]).id);
+        }
         if (d.company_slug) {
           api(`/companies/${d.company_slug}/`)
             .then((c) => setCompanyTier(c.tier))
@@ -119,7 +147,49 @@ export default function ProductDetail() {
     }
   };
 
-  const gallery = [...new Set([p?.image_url, ...(p?.images || []).map((im) => im.image_url)].filter(Boolean))];
+  // Galereya: avval server render (hero -> front -> side -> back -> top), keyin sotuvchining haqiqiy fotolari.
+  const renderGroup = pickRenderGroup(p?.renders, variant);
+  const renderItems = (renderGroup?.shots || [])
+    .slice()
+    .sort((a, b) => SHOT_ORDER.indexOf(a.key) - SHOT_ORDER.indexOf(b.key))
+    .map((sh) => ({
+      key: sh.key,
+      src: sh.urls?.["1600"]?.webp,
+      sets: sh.urls,
+      real: false,
+    }))
+    .filter((it) => it.src);
+  const realItems = [...new Set([p?.image_url, ...(p?.images || []).map((im) => im.image_url)].filter(Boolean))]
+    // render hero avtomatik Product.image ga ham yoziladi — takrorlanmasin
+    .filter((src) => !renderItems.length || src !== p?.image_url)
+    .map((src) => ({ key: src, src, sets: null, real: true }));
+  const items = [...renderItems, ...realItems];
+  const gallery = items.map((it) => it.src);
+
+  // URL'ni tanlangan variant bilan sinxronlash (?variant=slug), sahifani qayta yuklamasdan.
+  useEffect(() => {
+    if (!variant) return;
+    const url = new URL(window.location.href);
+    const slug = slugify(variant.name);
+    if (url.searchParams.get("variant") === slug) return;
+    url.searchParams.set("variant", slug);
+    window.history.replaceState(null, "", url);
+  }, [variant]);
+
+  const srcSet = (sets, fmt) =>
+    sets
+      ? ["400", "800", "1600"].filter((w) => sets[w]?.[fmt]).map((w) => `${sets[w][fmt]} ${w}w`).join(", ")
+      : undefined;
+  const Picture = ({ item, className, sizes, eager = false, alt = "" }) =>
+    item.sets ? (
+      <picture>
+        <source type="image/avif" srcSet={srcSet(item.sets, "avif")} sizes={sizes} />
+        <source type="image/webp" srcSet={srcSet(item.sets, "webp")} sizes={sizes} />
+        <img src={item.src} alt={alt} className={className} loading={eager ? "eager" : "lazy"} />
+      </picture>
+    ) : (
+      <img src={item.src} alt={alt} className={className} loading={eager ? "eager" : "lazy"} />
+    );
 
   if (error && !p)
     return (
@@ -209,7 +279,23 @@ export default function ProductDetail() {
                 aria-label={t("gallery_open")}
                 className="block w-full cursor-zoom-in"
               >
-                <img src={gallery[imgIdx] || gallery[0]} alt={p.name_uz} className="card w-full object-cover" />
+                <div className="relative" style={{ background: "var(--card)" }}>
+                  <Picture
+                    item={items[imgIdx] || items[0]}
+                    alt={p.name_uz}
+                    sizes="(min-width: 1024px) 600px, 100vw"
+                    eager
+                    className={`card w-full ${(items[imgIdx] || items[0]).real ? "object-cover" : "object-contain"}`}
+                  />
+                  {(items[imgIdx] || items[0]).real && (
+                    <span
+                      className="absolute left-2 top-2 rounded-full px-2.5 py-1 text-xs font-semibold"
+                      style={{ background: "var(--accent)", color: "var(--on-accent)" }}
+                    >
+                      {t("product_real_photo")}
+                    </span>
+                  )}
+                </div>
               </button>
             ) : (
               <div
@@ -251,9 +337,9 @@ export default function ProductDetail() {
 
           {gallery.length > 1 && (
             <div className="mt-3 flex flex-wrap gap-2">
-              {gallery.map((src, i) => (
+              {items.map((item, i) => (
                 <button
-                  key={src}
+                  key={item.key + i}
                   type="button"
                   onClick={() => setImgIdx(i)}
                   aria-label={`${i + 1} / ${gallery.length}`}
@@ -264,7 +350,11 @@ export default function ProductDetail() {
                     opacity: i === imgIdx ? 1 : 0.7,
                   }}
                 >
-                  <img src={src} alt="" loading="lazy" className="h-20 w-20 object-cover" />
+                  <Picture
+                    item={item}
+                    sizes="80px"
+                    className={`h-20 w-20 ${item.real ? "object-cover" : "object-contain"}`}
+                  />
                 </button>
               ))}
             </div>

@@ -1,0 +1,24 @@
+# /etc/systemd/system/vida-render-worker.service
+# 3D modeldan rasm render navbati ishchisi (concurrency = 1).
+# Sayt/API ga 2 yadro qoldirish uchun CPUQuota=400% (6 yadroli serverda 4 yadro) va past ustuvorlik.
+[Unit]
+Description=Vida product image render worker (Playwright/Chromium)
+After=network.target mysql.service vida-backend.service
+
+[Service]
+User=vida
+Group=vida
+WorkingDirectory=/srv/vida/app/backend
+Environment="DJANGO_SETTINGS_MODULE=config.settings.prod"
+Environment="PATH=/srv/vida/app/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PLAYWRIGHT_BROWSERS_PATH=/srv/vida/playwright"
+ExecStart=/srv/vida/app/backend/venv/bin/python manage.py render_worker
+Nice=19
+IOSchedulingClass=idle
+CPUQuota=400%
+MemoryMax=3G
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

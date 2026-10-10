@@ -139,6 +139,7 @@ export default function FirmaProductDetail() {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 20, padding: "20px 24px 60px", maxWidth: 1400, margin: "0 auto" }} className="ent-grid">
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+          {tab === "general" && <RendersCard product={product} onDone={load} />}
           {tab === "general" && <GeneralTab product={product} categories={categories} onDone={load} />}
           {tab === "variants" && <VariantsTab product={product} onDone={load} />}
           {tab === "production" && (
@@ -1746,5 +1747,173 @@ function ModelShareForm({ model, variantCount, onDone }) {
       {error && <div className="error">{error}</div>}
       {msg && <Pill tone="success" icon={Check}>{msg}</Pill>}
     </form>
+  );
+}
+
+
+// ============================== 3D'dan rasmlar ==============================
+
+const RENDER_PILL = {
+  none: ["Render yo'q", "neutral"],
+  pending: ["Navbatda", "warning"],
+  processing: ["Render qilinmoqda…", "warning"],
+  ready: ["Tayyor", "success"],
+  failed: ["Xatolik", "danger"],
+};
+
+/**
+ * 3D modeldan avtomatik standart rasmlar. Yakuniy rasmlar FAQAT serverda render
+ * qilinadi; bu yerdagi brauzer preview'i faqat sotuvchiga tezkor natijani
+ * ko'rsatadi va hech qachon saqlanmaydi.
+ */
+function RendersCard({ product, onDone }) {
+  const glbUrl = product.model3d?.glb_url;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [preview, setPreview] = useState(null); // { loading, shots, error }
+  const [frameSrc, setFrameSrc] = useState("");
+  const status = product.render_status || "none";
+  const active = status === "pending" || status === "processing";
+
+  // Navbatda/jarayonda bo'lsa — natijani kutib turamiz.
+  useEffect(() => {
+    if (!active) return undefined;
+    const t = setInterval(onDone, 5000);
+    return () => clearInterval(t);
+  }, [active, onDone]);
+
+  useEffect(() => {
+    const onMsg = (e) => {
+      if (e.data?.type !== "vida-render") return;
+      setFrameSrc("");
+      if (!e.data.ok) {
+        // WebGL ishlamasa preview o'tkazib yuboriladi — server render baribir ishlaydi.
+        setPreview({ loading: false, shots: [], error: "Brauzerda oldindan ko'rib bo'lmadi (server baribir render qiladi)." });
+        return;
+      }
+      const first = e.data.result.variants?.[0];
+      setPreview({ loading: false, shots: first?.shots || [], error: "", dims: e.data.result.dimensionsCm });
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  const startPreview = () => {
+    if (!glbUrl) return;
+    setPreview({ loading: true, shots: [], error: "" });
+    const variants = product.variants
+      .filter((v) => v.color_hex)
+      .map((v) => ({ id: v.id, name: v.name, color: v.color_hex }));
+    const q = new URLSearchParams({
+      src: glbUrl,
+      size: "600",
+      shots: "hero,front,side",
+      auto: "1",
+      variants: JSON.stringify(variants),
+    });
+    setFrameSrc(`/render/index.html?${q}`);
+  };
+
+  const rerender = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/products/${product.id}/rerender/`, { method: "POST" });
+      setPreview(null);
+      onDone();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!glbUrl && status === "none") {
+    return (
+      <Card title="3D'dan avtomatik rasmlar" description="Model yuklangach, standart mahsulot rasmlari avtomatik yaratiladi." icon={ImageIcon}>
+        <p style={{ fontSize: 13, color: ENT.muted, margin: 0 }}>Avval 3D model (GLB) yuklang.</p>
+      </Card>
+    );
+  }
+
+  const [label, tone] = RENDER_PILL[status] || RENDER_PILL.none;
+  return (
+    <Card
+      title="3D'dan avtomatik rasmlar"
+      description="Xaridorlar faqat serverda yaratilgan, bir xil sifatdagi rasmlarni ko'radi."
+      icon={ImageIcon}
+      actions={<Pill tone={tone}>{label}</Pill>}
+    >
+      {product.render_error && status === "failed" && <div className="error" style={{ marginBottom: 12 }}>{product.render_error}</div>}
+      {product.needs_moderation && (
+        <div className="error" style={{ marginBottom: 12 }}>
+          ⚠ {product.moderation_note || "O'lcham modeldan farq qiladi."} Moderator ko'rib chiqadi.
+        </div>
+      )}
+      {product.model_dims_cm && (
+        <p style={{ fontSize: 12.5, color: ENT.muted, margin: "0 0 12px" }}>
+          Modelning haqiqiy o'lchami: {product.model_dims_cm.w} × {product.model_dims_cm.h} × {product.model_dims_cm.d} sm
+        </p>
+      )}
+
+      {(product.renders || []).map((g) => (
+        <div key={g.slug} style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6, color: ENT.text }}>{g.variant}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {g.shots.map((sh) => (
+              <img
+                key={sh.key}
+                src={sh.urls?.["400"]?.webp}
+                alt={sh.key}
+                title={sh.key}
+                loading="lazy"
+                style={{ width: 96, height: 96, objectFit: "contain", borderRadius: 10, border: `1px solid ${ENT.border}`, background: "var(--surface-muted)" }}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {preview && (
+        <div style={{ margin: "8px 0 14px" }}>
+          <div style={{ fontSize: 12, color: ENT.muted, marginBottom: 6 }}>
+            Oldindan ko'rish — yakuniy rasmlar serverda yaratiladi.
+          </div>
+          {preview.loading && <p style={{ fontSize: 13, color: ENT.muted, margin: 0 }}>Render qilinmoqda…</p>}
+          {preview.error && <p style={{ fontSize: 12.5, color: ENT.muted, margin: 0 }}>{preview.error}</p>}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {preview.shots.map((sh) => (
+              <img
+                key={sh.key}
+                src={sh.dataUrl}
+                alt={sh.key}
+                style={{ width: 120, height: 120, objectFit: "contain", borderRadius: 10, border: `1px dashed ${ENT.border}`, background: "var(--surface-muted)" }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {error && <div className="error" style={{ marginBottom: 12 }}>{error}</div>}
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {glbUrl && (
+          <button className="btn-ghost" type="button" onClick={startPreview} disabled={preview?.loading}>
+            Oldindan ko'rish
+          </button>
+        )}
+        <button className="btn" type="button" onClick={rerender} disabled={busy || active || !glbUrl}>
+          {status === "ready" ? "Qayta render qilish" : "Rasmlarni yaratish"}
+        </button>
+      </div>
+
+      {frameSrc && (
+        <iframe
+          title="render-preview"
+          src={frameSrc}
+          style={{ position: "fixed", right: 0, bottom: 0, width: 640, height: 640, opacity: 0.01, pointerEvents: "none", border: 0 }}
+        />
+      )}
+    </Card>
   );
 }

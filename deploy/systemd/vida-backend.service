@@ -1,0 +1,27 @@
+# /etc/systemd/system/vida-backend.service
+# Yoqish:  systemctl daemon-reload && systemctl enable --now vida-backend
+[Unit]
+Description=Vida ERP / Vida Market Django backend (Gunicorn + Uvicorn ASGI worker)
+After=network.target mysql.service redis-server.service docker.service
+Wants=redis-server.service
+
+[Service]
+User=vida
+Group=vida
+WorkingDirectory=/srv/vida/app/backend
+Environment="DJANGO_SETTINGS_MODULE=config.settings.prod"
+Environment="PATH=/srv/vida/app/backend/venv/bin:/usr/local/bin:/usr/bin:/bin"
+# CLIP modelini internetsiz (kesh bo'yicha) yuklash — birinchi marta backfill'da yuklab olinadi.
+Environment="HF_HUB_OFFLINE=1"
+# .env ni Django (environ) o'zi o'qiydi: /srv/vida/app/backend/.env
+ExecStart=/srv/vida/app/backend/venv/bin/gunicorn config.asgi:application \
+    -k uvicorn.workers.UvicornWorker \
+    -b 127.0.0.1:8180 \
+    --workers 3 --timeout 120 --graceful-timeout 30
+Restart=always
+RestartSec=3
+# 3 worker x ~2 GB (CLIP) — kamida 8 GB RAM tavsiya etiladi.
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

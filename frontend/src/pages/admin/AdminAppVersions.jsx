@@ -267,7 +267,7 @@ export default function AdminAppVersions() {
             </span>
             <input
               className="input" type="url"
-              placeholder={{ android: "https://play.google.com/store/apps/details?id=...", ios: "https://apps.apple.com/app/id...", web: "https://qrbite.uz" }[p]}
+              placeholder={{ android: "https://play.google.com/store/apps/details?id=...", ios: "https://apps.apple.com/app/id...", web: "https://vidamarket.uz" }[p]}
               value={links[p] || ""}
               onChange={(e) => setLinks({ ...links, [p]: e.target.value })}
             />
