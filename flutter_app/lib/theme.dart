@@ -1,42 +1,45 @@
 import 'package:flutter/material.dart';
 
-/// Vida Market dizayn tokenlari — iliq, premium mebel marketpleysi uslubi.
+/// Vida Market dizayn tokenlari — "Forest + Lime" (web `index.css` bilan bir xil).
 /// Ranglar FAQAT shu yerda aniqlanadi; ekranlarda `AppColors.*` (semantik
 /// nomlar) ishlatiladi, qattiq yozilgan hex qiymatlar emas.
 class AppColors {
   // Fonlar
-  static const background = Color(0xFFFAF5EF); // asosiy fon
-  static const backgroundAlt = Color(0xFFF2E6D8); // ikkinchi darajali fon
+  static const background = Color(0xFFEEECE6); // sahifa foni (issiq greige)
+  static const backgroundAlt = Color(0xFFF2F1EC); // surface-muted
   static const card = Color(0xFFFFFFFF);
 
-  // Brend
-  static const brand = Color(0xFF493027); // asosiy brend rangi
-  static const brandPressed = Color(0xFF38231D);
-  static const brandSecondary = Color(0xFF805C46);
-  static const accent = Color(0xFFC58B5A); // ta'kid uchun, kamdan-kam
+  // Brend — "Forest + Lime"
+  static const brand = Color(0xFF1D3A2F); // asosiy: to'q o'rmon yashili
+  static const brandPressed = Color(0xFF2A5142);
+  static const brandSecondary = Color(0xFF5E6A62);
+  static const accent = Color(0xFFD4F06B); // lime: FAQAT to'ldirish (fill)
+  static const onAccent = Color(0xFF1D3A2F); // lime ustidagi matn
+  static const accentPressed = Color(0xFFC6E555);
+  static const star = Color(0xFFD9A21B); // reyting yulduzchasi
 
   // Matn
-  static const textPrimary = Color(0xFF30231E);
-  static const textSecondary = Color(0xFF796B61);
-  static const textDisabled = Color(0xFFA69A90);
-  static const onBrand = Color(0xFFFAF5EF); // brend rangi ustidagi matn/ikonka
+  static const textPrimary = Color(0xFF1D3A2F);
+  static const textSecondary = Color(0xFF5E6A62);
+  static const textDisabled = Color(0xFF9AA39D);
+  static const onBrand = Color(0xFFD4F06B); // brend rangi ustidagi matn/ikonka
 
   // Chegara va ajratgichlar
-  static const border = Color(0xFFE5D7C8);
-  static const disabledBackground = Color(0xFFEEE7E0);
+  static const border = Color(0xFFDCDAD2);
+  static const disabledBackground = Color(0xFFE6E4DC);
 
   // Holatlar
-  static const success = Color(0xFF27865A);
-  static const warning = Color(0xFFC58A36);
-  static const error = Color(0xFFC94C4C);
+  static const success = Color(0xFF2F7D4F);
+  static const warning = Color(0xFFB9801F);
+  static const error = Color(0xFFC2412D);
   static const info = Color(0xFF3979B7);
-  static const errorSurface = Color(0xFFFBECEC); // xato bloki foni
-  static const errorBorder = Color(0xFFF0C4C4);
-  static const errorDark = Color(0xFF8F2F2F); // xato matni (quyuq)
+  static const errorSurface = Color(0xFFFBECE8); // xato bloki foni
+  static const errorBorder = Color(0xFFF0C4BA);
+  static const errorDark = Color(0xFF8A2E1F); // xato matni (quyuq)
 
   // --- Eski nomlar (mavjud ekranlar buzilmasligi uchun; yangi kodda ishlatmang) ---
   /// Brend rangi ustidagi och rang (tugma matni, belgi) — avval "cream".
-  static const primary = backgroundAlt;
+  static const primary = onBrand;
   static const deep = brand;
   static const secondary = brandSecondary;
   static const surface = background;
@@ -86,6 +89,7 @@ ThemeData buildAppTheme() {
       onPrimary: AppColors.onBrand,
       secondary: AppColors.brandSecondary,
       tertiary: AppColors.accent,
+      onTertiary: AppColors.onAccent,
       surface: AppColors.background,
       onSurface: AppColors.textPrimary,
       error: AppColors.error,

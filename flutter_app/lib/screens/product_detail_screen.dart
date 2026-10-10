@@ -1225,7 +1225,7 @@ class _Model3DViewerSheetState extends State<_Model3DViewerSheet>
                     child: CircularProgressIndicator(
                       strokeWidth: 3.5,
                       valueColor: AlwaysStoppedAnimation<Color>(AppColors.deep),
-                      backgroundColor: Color(0x33ECC299),
+                      backgroundColor: AppColors.backgroundAlt,
                     ),
                   ),
                   ScaleTransition(
@@ -1277,7 +1277,7 @@ class _Model3DViewerSheetState extends State<_Model3DViewerSheet>
               width: 140,
               height: 6,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3EAE1),
+                color: AppColors.backgroundAlt,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: FractionallySizedBox(
@@ -1285,9 +1285,7 @@ class _Model3DViewerSheetState extends State<_Model3DViewerSheet>
                 widthFactor: _downloadProgress.clamp(0.02, 1.0),
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.deep],
-                    ),
+                    color: AppColors.brand,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -1299,7 +1297,7 @@ class _Model3DViewerSheetState extends State<_Model3DViewerSheet>
               style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
-                color: Color(0xFF8C6E63),
+                color: AppColors.textSecondary,
               ),
             ),
           ],

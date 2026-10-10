@@ -103,7 +103,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
         (i) => Icon(
           i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
           size: size,
-          color: i < rating ? AppColors.accent : AppColors.border,
+          color: i < rating ? AppColors.star : AppColors.border,
         ),
       ),
     );
@@ -289,7 +289,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                         ? Icons.star_rounded
                         : Icons.star_outline_rounded,
                     size: 34,
-                    color: i < _rating ? AppColors.accent : AppColors.border,
+                    color: i < _rating ? AppColors.star : AppColors.border,
                   ),
                 ),
               ),
@@ -416,7 +416,7 @@ class _Header extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(Icons.star_rounded,
-                                    size: 15, color: AppColors.accent),
+                                    size: 15, color: AppColors.star),
                                 const SizedBox(width: 2),
                                 Text(
                                   '${tier.rating!.toStringAsFixed(1)} (${tier.reviewCount})',

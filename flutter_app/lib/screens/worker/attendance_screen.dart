@@ -45,7 +45,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         child: Column(
           children: [
             const SizedBox(height: 24),
-            Icon(Icons.access_time_filled, size: 64, color: Colors.brown.shade700),
+            Icon(Icons.access_time_filled, size: 64, color: AppColors.brand),
             const SizedBox(height: 24),
             if (_busy) const CircularProgressIndicator(),
             if (_error != null)

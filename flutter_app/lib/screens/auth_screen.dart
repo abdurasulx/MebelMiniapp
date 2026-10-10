@@ -241,7 +241,7 @@ class _AuthScreenState extends State<AuthScreen> {
             height: 68,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF6A4237), AppColors.deep],
+                colors: [AppColors.brandPressed, AppColors.deep],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
