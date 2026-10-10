@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Heart, Factory, Sofa, Image, Box, Sparkles, ShoppingBasket, ArrowRight, PackageCheck } from "lucide-react";
+import { Heart, Factory, Sofa, Image, Box, Sparkles, ShoppingBag, ArrowRight, PackageCheck } from "lucide-react";
 import { api } from "../api";
 import { addToCart } from "../cart";
 import ImageLightbox from "../components/ImageLightbox";
@@ -488,7 +488,6 @@ export default function ProductDetail() {
 
         {/* Kalkulyator */}
         <div className="card flex h-fit flex-col gap-4 p-6">
-          {p.description && <p className="text-sm">{p.description}</p>}
           {p.variants.length > 0 ? (
             <>
               <div>
@@ -539,6 +538,7 @@ export default function ProductDetail() {
                   )
                 )}
               </div>
+              {p.description && <p className="text-sm">{p.description}</p>}
               <div>
                 <label className="label">{t("product_qty_label")}</label>
                 <input
@@ -580,7 +580,7 @@ export default function ProductDetail() {
               {added ? (
                 <div className="flex gap-2">
                   <Link to="/cart" className="btn btn-brand inline-flex flex-1 items-center justify-center gap-1.5">
-                    <ShoppingBasket size={15} /> {t("product_go_to_cart")}
+                    <ShoppingBag size={15} /> {t("product_go_to_cart")}
                   </Link>
                   <button className="btn-ghost" onClick={() => setAdded(false)}>{t("product_add_more")}</button>
                 </div>
@@ -609,7 +609,7 @@ export default function ProductDetail() {
                     setAdded(true);
                   }}
                 >
-                  <ShoppingBasket size={15} /> {t("product_add_to_cart")}
+                  <ShoppingBag size={15} /> {t("product_add_to_cart")}
                 </button>
               )}
               {error && <div className="error">{error}</div>}

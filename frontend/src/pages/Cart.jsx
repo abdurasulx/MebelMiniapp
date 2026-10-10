@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingBasket, Sofa, X, Package } from "lucide-react";
+import { ShoppingBag, Sofa, X, Package } from "lucide-react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
@@ -108,7 +108,7 @@ export default function Cart() {
   if (items.length === 0)
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <ShoppingBasket className="mx-auto mb-2" size={40} style={{ color: "var(--muted)" }} />
+        <ShoppingBag className="mx-auto mb-2" size={40} style={{ color: "var(--muted)" }} />
         <h1 className="mb-2 text-xl font-bold">{t("cart_empty_title")}</h1>
         <p className="mb-4 text-sm" style={{ color: "var(--muted)" }}>
           {t("cart_empty_subtitle")}
