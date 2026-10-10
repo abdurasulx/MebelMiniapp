@@ -286,10 +286,23 @@ private var arScaleFactors: SIMD3<Float> {
                         galleryImage(url).tag(i)
                     }
                 }
-                .tabViewStyle(.page)
+                .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(maxWidth: .infinity)
                 .aspectRatio(1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(alignment: .bottom) {
+                    // Standart nuqtalar och fonda ko'rinmaydi — brend rangida o'zimiznikini chizamiz.
+                    HStack(spacing: 6) {
+                        ForEach(0..<urls.count, id: \.self) { i in
+                            Capsule()
+                                .fill(i == galleryIndex ? Color.brand : Color.appBorder)
+                                .frame(width: i == galleryIndex ? 18 : 6, height: 6)
+                        }
+                    }
+                    .padding(.bottom, 10)
+                    .animation(.easeOut(duration: 0.2), value: galleryIndex)
+                    .allowsHitTesting(false)
+                }
             } else {
                 galleryImage(urls.first ?? "")
                     .frame(maxWidth: .infinity)
@@ -311,7 +324,7 @@ private var arScaleFactors: SIMD3<Float> {
     /// Rasm kesilmaydi (`fit`): kvadrat kadrda butun mebel ko'rinadi.
     private func galleryImage(_ url: String) -> some View {
         ZStack {
-            Color.brandPrimary.opacity(0.15)
+            Color.appBackground
             AsyncImage(url: URL(string: url)) { phase in
                 if let image = phase.image {
                     image.resizable().aspectRatio(contentMode: .fit)

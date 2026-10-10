@@ -465,7 +465,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
         Container(
           height: height,
           width: double.infinity,
-          color: AppColors.card,
+          color: AppColors.background,
           child: urls.isEmpty
               ? const Center(
                   child: Icon(Icons.chair_rounded,
