@@ -160,6 +160,8 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
     company_is_verified = serializers.BooleanField(source="company.is_verified", read_only=True)
     delivery = serializers.SerializerMethodField()
     category_image_url = serializers.SerializerMethodField()
+    renders = serializers.SerializerMethodField()
+    model_dims_cm = serializers.JSONField(read_only=True)
 
     class Meta:
         model = Product
@@ -190,9 +192,36 @@ class ProductSerializer(StorageStampMixin, serializers.ModelSerializer):
             "company_is_verified",
             "delivery",
             "category_image_url",
+            "render_status",
+            "render_error",
+            "model_dims_cm",
+            "needs_moderation",
+            "moderation_note",
+            "renders",
             "created_at",
         )
-        read_only_fields = ("id", "company", "slug", "created_at")
+        read_only_fields = (
+            "id", "company", "slug", "created_at",
+            "render_status", "render_error", "needs_moderation", "moderation_note",
+        )
+
+    def get_renders(self, obj):
+        """Server render qilgan rasmlar variantlar bo'yicha guruhlangan:
+        [{"variant": nom, "slug": ..., "variant_id": ..., "shots": [{"key", "urls"}]}].
+        Faqat render tayyor bo'lganda to'ldiriladi."""
+        if obj.render_status != Product.RenderStatus.READY:
+            return []
+        groups = {}
+        for r in obj.renders.all():
+            if r.is_deleted:
+                continue
+            g = groups.setdefault(
+                r.variant_slug,
+                {"variant": r.variant_name, "slug": r.variant_slug,
+                 "variant_id": str(r.variant_id) if r.variant_id else None, "shots": []},
+            )
+            g["shots"].append({"key": r.shot, "urls": r.urls})
+        return list(groups.values())
 
     def get_pricing(self, obj):
         """Mahsulot narxi = eng arzon (yakuniy narx bo'yicha) variant narxi — "dan"

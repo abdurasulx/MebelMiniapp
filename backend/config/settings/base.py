@@ -18,6 +18,8 @@ TESTING = "test" in sys.argv
 SECRET_KEY = env("SECRET_KEY", default="insecure-dev-key-change-me")
 DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+# Django admin/HTTPS formalar uchun (masalan https://api.vidamarket.uz).
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 INSTALLED_APPS = [
     # `daphne` ENG BOSHIDA turishi shart — shunda `manage.py runserver`

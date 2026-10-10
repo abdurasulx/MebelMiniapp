@@ -227,8 +227,8 @@ class WebPlatformAndBulkTests(TestCase):
         self.client.force_authenticate(self.admin)
 
     def test_web_platform_resolves(self):
-        make("1.0.0", "web", url="https://qrbite.uz")
-        make("1.1.0", "web", url="https://qrbite.uz")
+        make("1.0.0", "web", url="https://vidamarket.uz")
+        make("1.1.0", "web", url="https://vidamarket.uz")
         r = APIClient().get(URL, HTTP_X_APP_VERSION="1.0.0", HTTP_X_APP_PLATFORM="web")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["latest_version"], "1.1.0")
@@ -260,7 +260,7 @@ class WebPlatformAndBulkTests(TestCase):
 
     def test_cors_preflight_allows_version_headers(self):
         r = APIClient().options(
-            "/api/v1/products/", HTTP_ORIGIN="https://qrbite.uz",
+            "/api/v1/products/", HTTP_ORIGIN="https://vidamarket.uz",
             HTTP_ACCESS_CONTROL_REQUEST_METHOD="GET",
             HTTP_ACCESS_CONTROL_REQUEST_HEADERS="x-app-version,x-app-platform",
         )

@@ -1,4 +1,6 @@
 from datetime import timedelta
+
+from django.conf import settings
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -342,7 +344,7 @@ class GoogleLoginCallbackTests(TestCase):
         ):
             resp = self._callback()
         self.assertEqual(resp.status_code, 302)
-        self.assertTrue(resp.url.startswith("https://qrbite.uz/?access="))
+        self.assertTrue(resp.url.startswith(f"{settings.FRONTEND_URL}/?access="))
         self.assertIn("refresh=", resp.url)
         self.assertTrue(User.objects.filter(email="user@example.com").exists())
 
@@ -353,18 +355,18 @@ class GoogleLoginCallbackTests(TestCase):
         ):
             resp = self._callback(state="wrong-state")
         self.assertEqual(resp.status_code, 302)
-        self.assertTrue(resp.url.startswith("https://qrbite.uz/login?error="))
+        self.assertTrue(resp.url.startswith(f"{settings.FRONTEND_URL}/login?error="))
         self.assertFalse(User.objects.filter(email="user@example.com").exists())
 
     def test_missing_state_cookie_rejected(self):
         resp = self._callback(set_cookie=False, state="anything")
         self.assertEqual(resp.status_code, 302)
-        self.assertTrue(resp.url.startswith("https://qrbite.uz/login?error="))
+        self.assertTrue(resp.url.startswith(f"{settings.FRONTEND_URL}/login?error="))
 
     def test_google_error_param_redirects_to_login(self):
         resp = self.client.get(reverse("google-login-callback"), {"error": "access_denied"})
         self.assertEqual(resp.status_code, 302)
-        self.assertTrue(resp.url.startswith("https://qrbite.uz/login?error="))
+        self.assertTrue(resp.url.startswith(f"{settings.FRONTEND_URL}/login?error="))
 
     def test_invalid_credential_redirects_to_login_with_error(self):
         from rest_framework.exceptions import ValidationError
@@ -378,7 +380,7 @@ class GoogleLoginCallbackTests(TestCase):
         ):
             resp = self._callback()
         self.assertEqual(resp.status_code, 302)
-        self.assertTrue(resp.url.startswith("https://qrbite.uz/login?error="))
+        self.assertTrue(resp.url.startswith(f"{settings.FRONTEND_URL}/login?error="))
 
 
 class AdminOnlyPasswordLoginTests(TestCase):
@@ -704,7 +706,7 @@ class GoogleLinkWebFlowTests(AccountLinkTestMixin, TestCase):
                 reverse("google-link-callback"), {"code": "fake-code", "state": state}
             )
         self.assertEqual(callback.status_code, 302)
-        self.assertTrue(callback.url.startswith("https://qrbite.uz/profile?linked=google"))
+        self.assertTrue(callback.url.startswith(f"{settings.FRONTEND_URL}/profile?linked=google"))
         self.assertTrue(
             GoogleAccount.objects.filter(user=user, google_sub="google-sub-2").exists()
         )
@@ -714,7 +716,7 @@ class GoogleLinkWebFlowTests(AccountLinkTestMixin, TestCase):
             reverse("google-link-callback"), {"code": "fake-code", "state": "not-a-real-signed-value"}
         )
         self.assertEqual(resp.status_code, 302)
-        self.assertTrue(resp.url.startswith("https://qrbite.uz/profile?link_error="))
+        self.assertTrue(resp.url.startswith(f"{settings.FRONTEND_URL}/profile?link_error="))
 
 
 class TelegramLinkSessionTests(AccountLinkTestMixin, TestCase):

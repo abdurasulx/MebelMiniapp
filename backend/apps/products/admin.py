@@ -1,6 +1,15 @@
 from django.contrib import admin
 
-from .models import Category, Product, ProductImage, ShowcaseImage, ShowcaseProduct, Variant
+from .models import (
+    Category,
+    Product,
+    ProductImage,
+    RenderedImage,
+    RenderJob,
+    ShowcaseImage,
+    ShowcaseProduct,
+    Variant,
+)
 
 
 class VariantInline(admin.TabularInline):
@@ -21,8 +30,8 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name_uz", "company", "category", "is_published", "created_at")
-    list_filter = ("is_published", "category")
+    list_display = ("name_uz", "company", "category", "is_published", "render_status", "needs_moderation", "created_at")
+    list_filter = ("is_published", "category", "render_status", "needs_moderation")
     search_fields = ("name_uz", "name_ru")
     inlines = (VariantInline, ProductImageInline)
 
@@ -37,3 +46,16 @@ class ShowcaseProductAdmin(admin.ModelAdmin):
     list_display = ("__str__", "category", "price_from", "sort_order", "is_published")
     list_filter = ("is_published", "category")
     inlines = (ShowcaseImageInline,)
+
+
+@admin.register(RenderJob)
+class RenderJobAdmin(admin.ModelAdmin):
+    list_display = ("product", "status", "attempts", "duration_s", "finished_at")
+    list_filter = ("status",)
+    readonly_fields = ("error",)
+
+
+@admin.register(RenderedImage)
+class RenderedImageAdmin(admin.ModelAdmin):
+    list_display = ("product", "variant_name", "shot", "sort_order")
+    list_filter = ("shot",)

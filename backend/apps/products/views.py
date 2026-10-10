@@ -182,7 +182,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Product.objects.filter(is_deleted=False).select_related(
             "company", "company__delivery_settings", "category"
-        ).prefetch_related("variants", "images")
+        ).prefetch_related("variants", "images", "renders")
         user = self.request.user
         if user.is_authenticated:
             if user.role == "platform_admin":
@@ -268,6 +268,38 @@ class ProductViewSet(viewsets.ModelViewSet):
         if company is None:
             raise PermissionDenied("Avval kompaniya yarating yoki kompaniyaga xodim bo'ling")
         serializer.save(company=company)
+
+    def perform_update(self, serializer):
+        extra = {}
+        if "image" in serializer.validated_data:
+            # Sotuvchi o'z rasmini yuklasa — render uni endi avtomatik almashtirmaydi.
+            extra["image_from_render"] = False
+        serializer.save(**extra)
+
+    @action(detail=True, methods=["post"], url_path="rerender")
+    def rerender(self, request, pk=None):
+        """3D modeldan rasmlarni qayta render qilishni navbatga qo'yadi (firma yoki admin)."""
+        from .rendering.runner import enqueue
+
+        product = self.get_object()
+        if not can_manage(request.user, product.company):
+            raise PermissionDenied("Bu mahsulot sizniki emas")
+        job = enqueue(product, force=True)
+        if job is None:
+            raise ValidationError("Mahsulotda render uchun GLB model yo'q.")
+        product.refresh_from_db()
+        return Response(ProductSerializer(product, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"], url_path="approve-moderation")
+    def approve_moderation(self, request, pk=None):
+        """Moderator o'lcham farqini ko'rib chiqib tasdiqlaydi (faqat platforma admini)."""
+        if not (request.user.is_authenticated and request.user.role == "platform_admin"):
+            raise PermissionDenied("Faqat platforma admini")
+        product = self.get_object()
+        product.needs_moderation = False
+        product.moderation_note = ""
+        product.save(update_fields=["needs_moderation", "moderation_note", "updated_at"])
+        return Response(ProductSerializer(product, context={"request": request}).data)
 
     @action(detail=True, methods=["post"], url_path="set-primary-image")
     def set_primary_image(self, request, pk=None):

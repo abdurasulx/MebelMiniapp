@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <title>VIDA render</title>
+  <!-- Yagona render sahifa: sotuvchi brauzerida PREVIEW va serverda (Playwright)
+       YAKUNIY rasmlar uchun. Ilova chrome'i yo'q; parametrlar URL orqali:
+       ?src=<glb>&size=1600&shots=hero,front,side,back,top&variants=<json> -->
+  <style>
+    html, body { margin: 0; background: transparent; }
+    /* Canvas display:none EMAS — layout saqlanishi kerak (aks holda WebGL kanvas 0x0). */
+    /* Viewport ICHIDA, lekin ko'rinmas: model-viewer IntersectionObserver orqali ko'rinuvchanlikni
+       tekshiradi — ekrandan tashqarida (left:-10000px) yuklash/render umuman boshlanmaydi. */
+    #stage { position: fixed; left: 0; top: 0; opacity: 0; pointer-events: none; z-index: -1; }
+    model-viewer { --poster-color: transparent; background: transparent; }
+  </style>
+  <script type="module" src="./vendor/model-viewer.min.js"></script>
+</head>
+<body>
+  <div id="stage"></div>
+  <script type="module">
+    const params = new URLSearchParams(location.search);
+    const SRC = params.get("src");
+    const SIZE = Math.min(2048, Math.max(256, parseInt(params.get("size") || "1600", 10)));
+    const ORBITS = {
+      hero: "35deg 75deg auto", // 3/4 old ko'rinish — HAR DOIM #1
+      front: "0deg 85deg auto",
+      side: "90deg 85deg auto",
+      back: "180deg 85deg auto",
+      top: "30deg 30deg auto",
+    };
+    const ORDER = ["hero", "front", "side", "back", "top"];
+    const wanted = (params.get("shots") || ORDER.join(",")).split(",").map((s) => s.trim()).filter((s) => ORBITS[s]);
+    const shots = ORDER.filter((s) => wanted.includes(s));
+    let dbVariants = [];
+    try {
+      dbVariants = JSON.parse(params.get("variants") || "[]");
+    } catch (_) { /* e'tiborsiz */ }
+
+    window.__renderDone = false;
+    window.__renderError = null;
+
+    const frames = (n = 2) => new Promise((res) => {
+      const step = () => (n-- <= 0 ? res() : requestAnimationFrame(step));
+      step();
+    });
+    // Fon tab'larda rAF to'xtashi mumkin — timeout bilan zaxira.
+    const settle = () => Promise.race([frames(2), new Promise((r) => setTimeout(r, 400))]);
+
+    function hexToRgba(hex) {
+      const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+      if (!m) return null;
+      const n = parseInt(m[1], 16);
+      return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, 1];
+    }
+
+    function blobToDataUrl(blob) {
+      return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+    }
+
+    async function mount() {
+      const mv = document.createElement("model-viewer");
+      mv.setAttribute("src", SRC);
+      mv.setAttribute("crossorigin", "anonymous");
+      mv.setAttribute("loading", "eager");
+      mv.setAttribute("reveal", "auto");
+      mv.setAttribute("environment-image", "neutral"); // model-viewer ichki neytral studiya (ref. faylsiz, doimiy)
+      mv.setAttribute("exposure", "1.0");
+      mv.setAttribute("shadow-intensity", "1");
+      mv.setAttribute("shadow-softness", "0.8");
+      mv.setAttribute("tone-mapping", "agx");
+      mv.setAttribute("field-of-view", "30deg");
+      mv.setAttribute("camera-orbit", ORBITS.hero);
+      mv.setAttribute("interaction-prompt", "none");
+      mv.style.width = SIZE + "px";
+      mv.style.height = SIZE + "px";
+      document.getElementById("stage").appendChild(mv);
+      await new Promise((res, rej) => {
+        mv.addEventListener("load", res, { once: true });
+        mv.addEventListener("error", (e) => rej(new Error("Model yuklanmadi: " + (e.detail?.sourceError?.message || "xato"))), { once: true });
+      });
+      return mv;
+    }
+
+    async function shootAll(mv) {
+      const out = [];
+      for (const key of shots) {
+        mv.cameraOrbit = ORBITS[key];
+        mv.jumpCameraToGoal();
+        await settle();
+        const blob = await mv.toBlob({ mimeType: "image/png", idealAspect: true });
+        out.push({ key, dataUrl: await blobToDataUrl(blob) });
+      }
+      return out;
+    }
+
+    window.renderAll = async function renderAll() {
+      try {
+        const mv = await mount();
+        const dims = mv.getDimensions(); // metr
+        const dimensionsCm = {
+          w: Math.round(dims.x * 1000) / 10,
+          h: Math.round(dims.y * 1000) / 10,
+          d: Math.round(dims.z * 1000) / 10,
+        };
+        const variants = [];
+        const glbVariants = mv.availableVariants || [];
+        if (glbVariants.length) {
+          for (const name of glbVariants) {
+            mv.variantName = name;
+            await settle();
+            variants.push({ name, source: "glb", shots: await shootAll(mv) });
+          }
+        } else if (dbVariants.length) {
+          const materials = mv.model?.materials || [];
+          for (const v of dbVariants) {
+            const rgba = hexToRgba(v.color);
+            if (rgba) materials.forEach((m) => m.pbrMetallicRoughness.setBaseColorFactor(rgba));
+            await settle();
+            variants.push({ name: v.name, id: v.id ?? null, source: "db", shots: await shootAll(mv) });
+          }
+        } else {
+          variants.push({ name: "default", source: "default", shots: await shootAll(mv) });
+        }
+        const result = { dimensionsCm, variants };
+        window.__renderResult = result;
+        window.__renderDone = true;
+        return result;
+      } catch (err) {
+        window.__renderError = String(err && err.message ? err.message : err);
+        throw err;
+      }
+    };
+
+    window.__ready = true;
+    // Iframe rejimida (sotuvchi preview) — ota oynaga natijani yuboradi.
+    if (window.parent !== window && params.get("auto") === "1") {
+      window.renderAll()
+        .then((r) => window.parent.postMessage({ type: "vida-render", ok: true, result: r }, "*"))
+        .catch((e) => window.parent.postMessage({ type: "vida-render", ok: false, error: String(e.message || e) }, "*"));
+    }
+  </script>
+</body>
+</html>

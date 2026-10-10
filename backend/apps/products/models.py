@@ -50,6 +50,27 @@ class Product(BaseModel, StoredFileMixin):
     # narsa yozmasa ham "oq stul" kabi so'rovlar ishlashi uchun.
     color_tag = models.CharField(max_length=20, blank=True, editable=False)
 
+    # 3D modeldan avtomatik rasm (apps/products/rendering) holati.
+    class RenderStatus(models.TextChoices):
+        NONE = "none", "Render yo'q"
+        PENDING = "pending", "Navbatda"
+        PROCESSING = "processing", "Render qilinmoqda"
+        READY = "ready", "Tayyor"
+        FAILED = "failed", "Xatolik"
+
+    render_status = models.CharField(
+        max_length=12, choices=RenderStatus.choices, default=RenderStatus.NONE, db_index=True
+    )
+    render_error = models.TextField(blank=True)
+    # Modelning haqiqiy o'lchami (sm): {"w":..,"h":..,"d":..}
+    model_dims_cm = models.JSONField(null=True, blank=True)
+    # Sotuvchi kiritgan o'lcham modeldan >10% farq qilsa — moderator ko'rib chiqadi.
+    needs_moderation = models.BooleanField(default=False)
+    moderation_note = models.CharField(max_length=300, blank=True)
+    # `image` render'dan avtomatik qo'yilgan bo'lsa True (sotuvchi o'z rasmini
+    # yuklasa render uni almashtirmaydi).
+    image_from_render = models.BooleanField(default=False, editable=False)
+
     class Meta:
         ordering = ("-created_at",)
         unique_together = ("company", "slug")
@@ -240,3 +261,45 @@ class ShowcaseImage(BaseModel, StoredFileMixin):
 
     class Meta:
         ordering = ("sort_order",)
+
+
+class RenderJob(BaseModel):
+    """3D modeldan rasm render qilish navbati (apps/products/rendering/worker).
+    Bir vaqtda bitta job (concurrency 1) — `render_worker` buyrug'i."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Navbatda"
+        PROCESSING = "processing", "Jarayonda"
+        DONE = "done", "Tayyor"
+        FAILED = "failed", "Xatolik"
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="render_jobs")
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    # Render qilingan GLB fayl nomi — o'zgarmagan fayl qayta render qilinmasin.
+    source_name = models.CharField(max_length=300, blank=True)
+    error = models.TextField(blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    duration_s = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("created_at",)
+
+
+class RenderedImage(BaseModel):
+    """Server render qilgan yakuniy rasm (bir shot uchun barcha o'lcham/formatlar).
+    `urls` = {"400": {"webp": url, "avif": url}, "800": {...}, "1600": {...}}"""
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="renders")
+    variant = models.ForeignKey(
+        Variant, on_delete=models.SET_NULL, null=True, blank=True, related_name="renders"
+    )
+    variant_name = models.CharField(max_length=100, blank=True)
+    variant_slug = models.SlugField(max_length=120, blank=True)
+    shot = models.CharField(max_length=10)  # hero|front|side|back|top
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    urls = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ("variant_slug", "sort_order")
