@@ -70,7 +70,7 @@ struct PhoneVerifySheet: View {
 
                         HStack {
                             Text(country.dialCode).foregroundStyle(Color.textSecondary)
-                            TextField("Telefon", text: $phone)
+                            TextField(locale.t("auth_phone_hint"), text: $phone)
                                 .keyboardType(.numberPad)
                                 .onChange(of: phone) { _, newValue in
                                     let digits = newValue.filter(\.isNumber)
@@ -78,7 +78,7 @@ struct PhoneVerifySheet: View {
                                 }
                         }
                         if !phone.isEmpty && !phoneValid {
-                            Text("Telefon raqami noto'g'ri").font(.caption).foregroundStyle(Color.appError)
+                            Text(locale.t("auth_phone_invalid")).font(.caption).foregroundStyle(Color.appError)
                         }
                     }
                 } else {
@@ -104,7 +104,7 @@ struct PhoneVerifySheet: View {
                             Text(resendSeconds > 0 ? "Qayta yuborish (\(resendSeconds)s)" : "Qayta yuborish")
                         }
                         .disabled(resendSeconds > 0 || busy)
-                        Button("Raqamni o'zgartirish") { codeSent = false }
+                        Button(locale.t("auth_change_number")) { codeSent = false }
                             .font(.caption)
                     }
                 }
@@ -117,7 +117,7 @@ struct PhoneVerifySheet: View {
                             if busy {
                                 ProgressView()
                             } else {
-                                Text("Kod yuborish").bold()
+                                Text(locale.t("auth_send_code")).bold()
                             }
                         }
                         .disabled(busy || !phoneValid)

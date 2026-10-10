@@ -5,10 +5,10 @@ private let monthNames = [
     "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr",
 ]
 
-private func periodLabel(_ period: String) -> String {
+@MainActor private func periodLabel(_ period: String, _ locale: LocaleStore) -> String {
     let parts = period.split(separator: "-")
     guard parts.count >= 2, let m = Int(parts[1]), m >= 1, m <= 12 else { return period }
-    return "\(monthNames[m - 1]) \(parts[0])"
+    return "\(locale.t("month_\(m)")) \(parts[0])"
 }
 
 /// To'lov turiga mos asosiy summa tavsifi — web'dagi `payBreakdown()`
@@ -36,6 +36,7 @@ private func payBreakdown(_ p: Payslip) -> String {
 /// Xodimning o'z oylik ish haqi ro'yxati — web'dagi `MyPayslips`
 /// (FirmaPayroll.jsx) bilan bir xil ko'rinish.
 struct PayslipsView: View {
+    @EnvironmentObject private var locale: LocaleStore
     @State private var payslips: [Payslip] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -55,7 +56,7 @@ struct PayslipsView: View {
             } else if let errorMessage {
                 Text(errorMessage).foregroundStyle(Color.appError).padding()
             } else if payslips.isEmpty {
-                Text("Hali hisoblangan oylik yo'q.").foregroundStyle(Color.textSecondary)
+                Text(locale.t("payslip_empty")).foregroundStyle(Color.textSecondary)
             } else {
                 List(payslips) { p in
                     PayslipRow(payslip: p)
@@ -64,7 +65,7 @@ struct PayslipsView: View {
                 .listStyle(.plain)
             }
         }
-        .navigationTitle("Ish haqim")
+        .navigationTitle(locale.t("worker_payslip_tab"))
         .task { await load() }
         .refreshable { await load() }
     }
@@ -88,6 +89,8 @@ struct PayslipsView: View {
 }
 
 private struct PayslipRow: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     let payslip: Payslip
 
     @State private var expanded = false
@@ -112,7 +115,7 @@ private struct PayslipRow: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(periodLabel(payslip.period)).bold()
+                    Text(periodLabel(payslip.period, locale)).bold()
                     Text(extras).font(.caption).foregroundStyle(Color.textSecondary)
                     if !payslip.isPaid && paidTotal > 0 {
                         Text("\(String(format: "%.0f", paidTotal).formattedSom) avans olingan")
@@ -122,7 +125,7 @@ private struct PayslipRow: View {
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("\(payslip.totalAmount.formattedSom) so'm").bold()
-                    Text(payslip.isPaid ? "To'landi" : "Kutilmoqda")
+                    Text(payslip.isPaid ? locale.t("payslip_paid") : locale.t("payslip_pending"))
                         .font(.caption2)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(payslip.isPaid ? Color.appSuccess.opacity(0.15) : Color.appWarning.opacity(0.15))
@@ -139,7 +142,7 @@ private struct PayslipRow: View {
                 } else if let errorMessage {
                     Text(errorMessage).font(.caption).foregroundStyle(Color.appError)
                 } else if (payments ?? []).isEmpty {
-                    Text("Hali to'lov qilinmagan.").font(.caption).foregroundStyle(Color.textSecondary)
+                    Text(locale.t("payslip_no_payments")).font(.caption).foregroundStyle(Color.textSecondary)
                 } else {
                     ForEach(payments ?? []) { pm in
                         HStack(alignment: .top) {

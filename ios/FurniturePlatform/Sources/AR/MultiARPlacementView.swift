@@ -151,6 +151,8 @@ private struct ModelTray: View {
 }
 
 private struct MultiARLoadingOverlay: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     let progress: Double
     let errorMessage: String?
 
@@ -160,14 +162,14 @@ private struct MultiARLoadingOverlay: View {
             if let errorMessage {
                 VStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle").font(.title2).foregroundStyle(.white)
-                    Text("3D modellarni yuklab bo'lmadi").bold().foregroundStyle(.white)
+                    Text(locale.t("ar_models_failed")).bold().foregroundStyle(.white)
                     Text(errorMessage).font(.caption).foregroundStyle(.white.opacity(0.7)).multilineTextAlignment(.center)
                 }
                 .padding(24)
             } else {
                 VStack(spacing: 14) {
                     ProgressView().tint(.white)
-                    Text("3D modellar yuklanmoqda… \(Int(progress * 100))%")
+                    Text(locale.tf("ar_models_loading", Int(progress * 100)))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.white.opacity(0.85))
                 }

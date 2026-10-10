@@ -51,6 +51,7 @@ private struct CreateOrderBody: Encodable {
 /// baribir yaratiladi, lekin backend firma egasiga xabar beradi (Davomat
 /// check-in bilan bir xil `is_mock` naqshi, qarang AttendanceView.swift).
 struct CreateCustomOrderView: View {
+    @EnvironmentObject private var locale: LocaleStore
     @EnvironmentObject private var auth: AuthStore
     @Environment(\.dismiss) private var dismiss
 
@@ -65,34 +66,34 @@ struct CreateCustomOrderView: View {
     var body: some View {
         Form {
             Section {
-                TextField("Mijoz qidiruvchi ID", text: $customerWorkerId)
+                TextField(locale.t("custom_order_customer_id"), text: $customerWorkerId)
                     .keyboardType(.numberPad)
-                Text("Mijoz shu ID orqali o'z ilovasida buyurtmani kuzatib borishi mumkin bo'ladi.")
+                Text(locale.t("custom_order_customer_id_helper"))
                     .font(.caption).foregroundStyle(Color.textSecondary)
             }
             ForEach($items) { $item in
                 Section {
-                    Picker("Mahsulot", selection: $item.productId) {
-                        Text("— tanlang —").tag(String?.none)
+                    Picker(locale.t("product_title"), selection: $item.productId) {
+                        Text(locale.t("sel_choose")).tag(String?.none)
                         ForEach(products) { p in
                             Text(p.nameUz).tag(Optional(p.id))
                         }
                     }
                     HStack {
-                        TextField("Eni", text: $item.width).keyboardType(.decimalPad)
-                        TextField("Bo'yi", text: $item.height).keyboardType(.decimalPad)
-                        TextField("Chuquri", text: $item.depth).keyboardType(.decimalPad)
+                        TextField(locale.t("dim_width"), text: $item.width).keyboardType(.decimalPad)
+                        TextField(locale.t("dim_height"), text: $item.height).keyboardType(.decimalPad)
+                        TextField(locale.t("custom_order_depth"), text: $item.depth).keyboardType(.decimalPad)
                     }
                     HStack {
-                        TextField("Soni", text: $item.quantity).keyboardType(.numberPad)
-                        Toggle("Narx keyinroq", isOn: $item.isCustomSize)
+                        TextField(locale.t("custom_order_quantity"), text: $item.quantity).keyboardType(.numberPad)
+                        Toggle(locale.t("custom_order_price_later"), isOn: $item.isCustomSize)
                     }
                 }
             }
             Button {
                 items.append(OrderItemDraft())
             } label: {
-                Label("Band qo'shish", systemImage: "plus")
+                Label(locale.t("custom_order_add_item"), systemImage: "plus")
             }
 
             if let errorMessage {
@@ -102,11 +103,11 @@ struct CreateCustomOrderView: View {
             Button {
                 Task { await submit() }
             } label: {
-                Text(isBusy ? "Yaratilmoqda…" : "Buyurtma yaratish")
+                Text(isBusy ? locale.t("custom_order_submitting") : locale.t("custom_order_submit"))
             }
             .disabled(isBusy)
         }
-        .navigationTitle("Individual loyiha")
+        .navigationTitle(locale.t("worker_custom_order_tooltip"))
         .task { await loadProducts() }
     }
 

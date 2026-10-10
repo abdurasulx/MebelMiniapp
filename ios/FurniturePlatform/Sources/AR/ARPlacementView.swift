@@ -29,6 +29,7 @@ enum ARLayoutFix {
 /// Boshqaruv paneli "frosted glass" (glassmorphism) uslubida: kamera ko'rinishi
 /// panellar ortidan aniq ko'rinib tursin deb yuqori shaffoflik ishlatiladi.
 struct ARPlacementView: View {
+    @EnvironmentObject private var locale: LocaleStore
     let usdzURL: URL
     let title: String
     var colorHex: String? = nil
@@ -63,7 +64,7 @@ struct ARPlacementView: View {
                             .padding(.bottom, 24)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     } else {
-                        Text("Tekislikni toping, so'ng bosib mebelni joylashtiring.\nBir vaqtda faqat bitta buyum qo'yiladi — boshqa joyga bossangiz, o'sha yerga ko'chadi.")
+                        Text(locale.t("ar_place_hint"))
                             .font(.caption)
                             .multilineTextAlignment(.center)
                             .padding(10)
@@ -110,6 +111,7 @@ struct ARPlacementView: View {
 /// matn. Model tayyor bo'lgach (`bridge.isModelReady`) `ARPlacementView`
 /// buni `.opacity` bilan silliq yo'qotadi (fade-out).
 private struct ARLoadingOverlay: View {
+    @EnvironmentObject private var locale: LocaleStore
     let progress: Double
     let errorMessage: String?
 
@@ -134,7 +136,7 @@ private struct ARLoadingOverlay: View {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.title2)
                         .foregroundStyle(.white)
-                    Text("3D modelni yuklab bo'lmadi").bold().foregroundStyle(.white)
+                    Text(locale.t("ar_model_failed")).bold().foregroundStyle(.white)
                     Text(errorMessage)
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.7))

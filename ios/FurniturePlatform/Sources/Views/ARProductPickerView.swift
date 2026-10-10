@@ -52,7 +52,7 @@ struct ARProductPickerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Yopish") { dismiss() }
+                    Button(locale.t("common_close")) { dismiss() }
                 }
             }
             .task { await load() }

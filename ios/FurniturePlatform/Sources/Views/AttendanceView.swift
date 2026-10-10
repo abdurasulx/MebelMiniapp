@@ -31,6 +31,7 @@ private struct AttendanceResult: Decodable {
 /// haqi va davomat tizimi" §13-14). Android'dagi `AttendanceScreen` bilan
 /// bir xil oqim.
 struct AttendanceView: View {
+    @EnvironmentObject private var locale: LocaleStore
     private let locationManager = AttendanceLocationManager()
     @State private var isBusy = false
     @State private var result: AttendanceResult?
@@ -60,7 +61,7 @@ struct AttendanceView: View {
                 Button {
                     Task { await submit(endpoint: "check_in", action: "check_in") }
                 } label: {
-                    Label("Ishga keldim", systemImage: "arrow.right.to.line")
+                    Label(locale.t("attendance_check_in"), systemImage: "arrow.right.to.line")
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Color.brandDeep)
@@ -72,7 +73,7 @@ struct AttendanceView: View {
                 Button {
                     Task { await submit(endpoint: "check_out", action: "check_out") }
                 } label: {
-                    Label("Ishni tugatdim", systemImage: "arrow.left.to.line")
+                    Label(locale.t("attendance_check_out"), systemImage: "arrow.left.to.line")
                         .frame(maxWidth: .infinity)
                         .padding()
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brandDeep, lineWidth: 1.5))
@@ -84,7 +85,7 @@ struct AttendanceView: View {
             Spacer()
         }
         .padding()
-        .navigationTitle("Davomat")
+        .navigationTitle(locale.t("worker_attendance_tooltip"))
     }
 
     private func submit(endpoint: String, action: String) async {
@@ -93,7 +94,7 @@ struct AttendanceView: View {
         result = nil
         defer { isBusy = false }
         if JailbreakDetector.isJailbroken {
-            errorMessage = "Qurilma xavfsizligi tekshiruvidan o'tmadi"
+            errorMessage = locale.t("w_device_check_failed")
             return
         }
         do {

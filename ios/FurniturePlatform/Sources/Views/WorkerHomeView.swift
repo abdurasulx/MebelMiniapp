@@ -4,6 +4,7 @@ import SwiftUI
 /// modellari) ko'rinadi — mijoz sifatida butun bozorni emas, uyni loyihalashda
 /// faqat o'z firmasi mahsulotlaridan foydalanadi.
 struct WorkerHomeView: View {
+    @EnvironmentObject private var locale: LocaleStore
     @EnvironmentObject private var auth: AuthStore
     @State private var products: [Product] = []
     @State private var isLoading = false
@@ -18,7 +19,7 @@ struct WorkerHomeView: View {
                     ContentUnavailableFallback()
                 }
             }
-            .navigationTitle("Usta paneli")
+            .navigationTitle(locale.t("worker_panel_tab"))
             .toolbar {
                 // Davomat (check-in/check-out) faqat soatbay (payType ==
                 // "hourly") xodimlar uchun mantiqiy — backend ham mustaqil
@@ -55,17 +56,17 @@ struct WorkerHomeView: View {
         List {
             Section {
                 Text(companyName).font(.headline)
-                Text("Faqat shu firma mahsulotlari — uy loyihalashda ishlatiladi.")
+                Text(locale.t("worker_company_products_note"))
                     .font(.caption).foregroundStyle(Color.textSecondary)
             }
 
-            Section("Mahsulotlar") {
+            Section(locale.t("shop_products")) {
                 if isLoading {
                     ProgressView()
                 } else if let errorMessage {
                     Text(errorMessage).foregroundStyle(Color.appError)
                 } else if products.isEmpty {
-                    Text("Bu firmada hali mahsulot yo'q").foregroundStyle(Color.textSecondary)
+                    Text(locale.t("worker_no_products")).foregroundStyle(Color.textSecondary)
                 } else {
                     ForEach(products) { product in
                         NavigationLink {
@@ -106,10 +107,12 @@ struct WorkerHomeView: View {
 }
 
 private struct ContentUnavailableFallback: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: "building.2").font(.largeTitle).foregroundStyle(Color.textSecondary)
-            Text("Siz hali biror firmada ishlamayapsiz").foregroundStyle(Color.textSecondary)
+            Text(locale.t("worker_no_company")).foregroundStyle(Color.textSecondary)
         }
     }
 }

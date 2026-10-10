@@ -3,6 +3,7 @@ import SwiftUI
 /// Faqat ko'rish uchun ombor ro'yxati — boshqaruv (kirim/chiqim, varaq
 /// kirim qilish, material qo'shish) hozircha faqat veb-portalda.
 struct WarehousesView: View {
+    @EnvironmentObject private var locale: LocaleStore
     @State private var warehouses: [Warehouse] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -21,7 +22,7 @@ struct WarehousesView: View {
             } else if let errorMessage {
                 Text(errorMessage).foregroundStyle(Color.appError).padding()
             } else if warehouses.isEmpty {
-                Text("Hali ombor yo'q.").foregroundStyle(Color.textSecondary)
+                Text(locale.t("warehouses_empty")).foregroundStyle(Color.textSecondary)
             } else {
                 List(warehouses) { w in
                     NavigationLink(destination: WarehouseDetailView(warehouse: w)) {
@@ -34,7 +35,7 @@ struct WarehousesView: View {
                 .listStyle(.plain)
             }
         }
-        .navigationTitle("Omborlar")
+        .navigationTitle(locale.t("worker_warehouses_tooltip"))
         .task { await load() }
         .refreshable { await load() }
     }
@@ -58,6 +59,8 @@ struct WarehousesView: View {
 }
 
 struct WarehouseDetailView: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     let warehouse: Warehouse
 
     @State private var stocks: [MaterialStock] = []
@@ -77,13 +80,13 @@ struct WarehouseDetailView: View {
             } else if let errorMessage {
                 Text(errorMessage).foregroundStyle(Color.appError).padding()
             } else if !isRawMaterial {
-                Text("Tayyor mahsulot ombori tafsilotlari veb-portalda ko'rinadi.")
+                Text(locale.t("warehouse_ready_goods_note"))
                     .foregroundStyle(Color.textSecondary).multilineTextAlignment(.center).padding()
             } else {
                 List {
-                    Section("Qoldiqlar") {
+                    Section(locale.t("warehouse_stocks")) {
                         if stocks.isEmpty {
-                            Text("Hali qoldiq yo'q.").font(.caption).foregroundStyle(Color.textSecondary)
+                            Text(locale.t("warehouse_no_stocks")).font(.caption).foregroundStyle(Color.textSecondary)
                         }
                         ForEach(stocks) { s in
                             HStack {
@@ -93,9 +96,9 @@ struct WarehouseDetailView: View {
                             }
                         }
                     }
-                    Section("Qoldiqlar (offcut) va varaqlar") {
+                    Section(locale.t("warehouse_offcuts_sheets")) {
                         if remnants.isEmpty {
-                            Text("Hali bo'lak/varaq yo'q.").font(.caption).foregroundStyle(Color.textSecondary)
+                            Text(locale.t("warehouse_no_offcuts")).font(.caption).foregroundStyle(Color.textSecondary)
                         }
                         ForEach(remnants) { r in
                             HStack {

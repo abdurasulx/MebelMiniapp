@@ -27,7 +27,7 @@ struct OfflineView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button(action: onRetry) {
-                Label("Qayta urinish", systemImage: "arrow.clockwise")
+                Label(locale.t("loc_retry"), systemImage: "arrow.clockwise")
                     .font(.subheadline).bold()
                     .padding(.horizontal, 18).padding(.vertical, 10)
                     .background(Color.brandDeep)

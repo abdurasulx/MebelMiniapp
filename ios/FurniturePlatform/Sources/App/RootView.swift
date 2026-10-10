@@ -63,16 +63,16 @@ struct RootView: View {
             if auth.appMode == .worker, let slug = auth.user?.company?.slug {
                 WorkerHomeView()
                     .appScreenBackground()
-                    .tabItem { Label("Usta paneli", systemImage: "hammer.fill") }
+                    .tabItem { Label(locale.t("worker_panel_tab"), systemImage: "hammer.fill") }
 
                 NavigationStack {
                     LoyihalarimView(companySlug: slug)
                 }
-                .tabItem { Label("Loyihalar", systemImage: "arkit") }
+                .tabItem { Label(locale.t("tab_projects"), systemImage: "arkit") }
 
                 WorkerOrdersView()
                     .appScreenBackground()
-                    .tabItem { Label("Buyurtmalar", systemImage: "list.bullet.clipboard.fill") }
+                    .tabItem { Label(locale.t("worker_orders_tab"), systemImage: "list.bullet.clipboard.fill") }
             } else {
                 HomeView()
                     .appScreenBackground()

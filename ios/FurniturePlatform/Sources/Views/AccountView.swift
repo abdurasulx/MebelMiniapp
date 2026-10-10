@@ -127,7 +127,7 @@ private struct ProfileView: View {
                     Text("Google")
                     Spacer()
                     if user.hasGoogle ?? false {
-                        Label("Bog'langan", systemImage: "checkmark.circle.fill")
+                        Label(locale.t("profile_linked"), systemImage: "checkmark.circle.fill")
                             .labelStyle(.titleAndIcon)
                             .font(.caption).foregroundStyle(Color.appSuccess)
                     } else if linkingGoogle {
@@ -148,7 +148,7 @@ private struct ProfileView: View {
                     Text("Telegram")
                     Spacer()
                     if user.hasTelegram ?? false {
-                        Label("Bog'langan", systemImage: "checkmark.circle.fill")
+                        Label(locale.t("profile_linked"), systemImage: "checkmark.circle.fill")
                             .labelStyle(.titleAndIcon)
                             .font(.caption).foregroundStyle(Color.appSuccess)
                     } else if linkingTelegram {
@@ -199,7 +199,7 @@ private struct ProfileView: View {
             if auth.appMode == .worker {
                 Section {
                     NavigationLink(destination: PayslipsView()) {
-                        Label("Ish haqim", systemImage: "banknote.fill")
+                        Label(locale.t("worker_payslip_tab"), systemImage: "banknote.fill")
                     }
                 }
             }
@@ -219,12 +219,12 @@ private struct ProfileView: View {
                         }
                     )) {
                         Text(locale.t("Xaridor")).tag(AppMode.customer)
-                        Text(positions.count == 1 ? "\(positionInfo(positions[0]).label) bilan kirish" : "Xodim sifatida kirish")
+                        Text(positions.count == 1 ? "\(locale.position(positions[0]).label)\(locale.t("profile_worker_mode_with_label"))" : locale.t("profile_worker_mode_generic"))
                             .tag(AppMode.worker)
                     }
                     .pickerStyle(.segmented)
                     if auth.appMode == .worker, let active = auth.activePosition {
-                        Text(locale.tf("Hozir: %@", positionInfo(active).label))
+                        Text(locale.tf("Hozir: %@", locale.position(active).label))
                             .font(.caption).foregroundStyle(Color.textSecondary)
                     }
                 }
@@ -241,7 +241,7 @@ private struct ProfileView: View {
                     ForEach(invitations) { inv in
                         VStack(alignment: .leading, spacing: 6) {
                             Text(inv.companyName).bold()
-                            Text(inv.positions.joined(separator: ", "))
+                            Text(inv.positions.map { locale.position($0).label }.joined(separator: ", "))
                                 .font(.caption).foregroundStyle(Color.textSecondary)
                             if inv.status == "pending" {
                                 HStack {
@@ -254,7 +254,7 @@ private struct ProfileView: View {
                                 .disabled(busyInvitationId == inv.id)
                                 .font(.caption)
                             } else {
-                                Text(inv.statusDisplay)
+                                Text(locale.display("is", inv.status, fallback: inv.statusDisplay))
                                     .font(.caption).bold()
                                     .foregroundStyle(inv.status == "accepted" ? .green : .red)
                             }
@@ -274,7 +274,7 @@ private struct ProfileView: View {
                                     Text(locale.t("hozir")).font(.caption2).foregroundStyle(Color.appSuccess)
                                 }
                             }
-                            Text(entry.positions.joined(separator: ", "))
+                            Text(entry.positions.map { locale.position($0).label }.joined(separator: ", "))
                                 .font(.caption).foregroundStyle(Color.textSecondary)
                         }
                     }
@@ -282,7 +282,7 @@ private struct ProfileView: View {
             }
 
             Section {
-                Button("Chiqish", role: .destructive) { auth.logout() }
+                Button(locale.t("common_logout"), role: .destructive) { auth.logout() }
             }
 
             DeleteAccountSection()
@@ -301,7 +301,7 @@ private struct ProfileView: View {
                                 Text(order.companyName).bold()
                                 Text("\(order.totalPrice.formattedSom) so'm")
                                     .font(.subheadline)
-                                Text(order.statusDisplay)
+                                Text(locale.display("os", order.status, fallback: order.statusDisplay))
                                     .font(.caption)
                                     .padding(.horizontal, 8).padding(.vertical, 2)
                                     .background(Color.brandPrimary.opacity(0.3))
@@ -610,6 +610,7 @@ private struct AuthFormView: View {
 struct OrderSummary: Codable, Identifiable {
     let id: String
     let companyName: String
+    let status: String?
     let statusDisplay: String
     let totalPrice: String
     let progressPercent: Int?
@@ -636,7 +637,7 @@ struct CustomerOrderDetailView: View {
         List {
             Section {
                 Text("\(order.totalPrice.formattedSom) so'm").font(.title3).bold()
-                Text(order.statusDisplay)
+                Text(locale.display("os", order.status, fallback: order.statusDisplay))
                     .font(.caption)
                     .padding(.horizontal, 8).padding(.vertical, 2)
                     .background(Color.brandPrimary.opacity(0.3))
@@ -655,7 +656,7 @@ struct CustomerOrderDetailView: View {
                                 Circle().fill(statusColor(step.status)).frame(width: 8, height: 8)
                                 Text(step.name).bold()
                                 Spacer()
-                                Text(step.statusDisplay)
+                                Text(locale.display("ss", step.status, fallback: step.statusDisplay))
                                     .font(.caption2)
                                     .foregroundStyle(statusColor(step.status))
                             }

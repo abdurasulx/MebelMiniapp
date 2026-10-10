@@ -5,6 +5,7 @@ import SwiftUI
 /// rasm tanlashni so'raydi, tanlangach JPEG `Data` sifatida qaytaradi.
 /// `HomeView`da ishlatiladi (endi katalog vazifasini ham shu bajaradi).
 struct ImageSearchButton: View {
+    @EnvironmentObject private var locale: LocaleStore
     var onImagePicked: (Data) -> Void
 
     @State private var showSourceDialog = false
@@ -23,14 +24,14 @@ struct ImageSearchButton: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
         }
         .confirmationDialog("Rasm bilan qidirish", isPresented: $showSourceDialog, titleVisibility: .visible) {
-            Button("Kamera") { showCamera = true }
-            Button("Galereya") {
+            Button(locale.t("home_camera")) { showCamera = true }
+            Button(locale.t("home_gallery")) {
                 // PhotosPicker o'zi tugma emas, shuning uchun `.photosPicker`
                 // modifikatori pastda alohida biriktirilgan — bu yerda faqat
                 // uni ko'rsatishga signal beramiz.
                 showGalleryPicker = true
             }
-            Button("Bekor qilish", role: .cancel) {}
+            Button(locale.t("profile_delete_account_cancel"), role: .cancel) {}
         }
         .fullScreenCover(isPresented: $showCamera) {
             CameraImagePicker { image in

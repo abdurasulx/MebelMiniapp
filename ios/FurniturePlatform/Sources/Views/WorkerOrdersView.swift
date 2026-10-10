@@ -9,6 +9,7 @@ import SwiftUI
 /// o'ziniki bo'lmagan bosqichlarni ko'rishdan avtomatik cheklaydi
 /// (qarang apps/workflow/views.py get_queryset).
 struct WorkerOrdersView: View {
+    @EnvironmentObject private var locale: LocaleStore
     @State private var orders: [Order] = []
     @State private var myTasks: [WorkflowStepInstance] = []
     @State private var openTasks: [WorkflowStepInstance] = []
@@ -36,7 +37,7 @@ struct WorkerOrdersView: View {
         NavigationStack {
             if isOffline && orders.isEmpty && myTasks.isEmpty && !isLoading {
                 OfflineView(onRetry: { Task { await load() } })
-                    .navigationTitle("Buyurtmalar")
+                    .navigationTitle(locale.t("worker_orders_tab"))
             } else {
                 Group {
                     if isLoading {
@@ -44,7 +45,7 @@ struct WorkerOrdersView: View {
                     } else if let errorMessage {
                         Text(errorMessage).foregroundStyle(Color.appError).padding()
                     } else if activeOrders.isEmpty && manualTasks.isEmpty && openTasks.isEmpty {
-                        Text("Hozircha vazifa yo'q").foregroundStyle(Color.textSecondary)
+                        Text(locale.t("worker_no_tasks")).foregroundStyle(Color.textSecondary)
                     } else {
                         List {
                             if !openTasks.isEmpty {
@@ -53,13 +54,13 @@ struct WorkerOrdersView: View {
                                         OpenTaskRowView(step: step, onApplied: { await load() })
                                     }
                                 } header: {
-                                    Text("Erkin topshiriqlar")
+                                    Text(locale.t("worker_open_tasks"))
                                 } footer: {
-                                    Text("Bu bosqichlarga hali usta biriktirilmagan — zayavka yuboring, firma egasi tasdiqlasa sizga o'tadi.")
+                                    Text(locale.t("w_open_desc2"))
                                 }
                             }
                             if !manualTasks.isEmpty {
-                                Section("Qo'shimcha vazifalar") {
+                                Section(locale.t("worker_manual_tasks")) {
                                     ForEach(manualTasks) { step in
                                         StepRowView(step: step, onChanged: { Task { await load() } })
                                     }
@@ -73,7 +74,7 @@ struct WorkerOrdersView: View {
                         .listStyle(.plain)
                     }
                 }
-                .navigationTitle("Buyurtmalar")
+                .navigationTitle(locale.t("worker_orders_tab"))
                 .task { await load() }
                 .refreshable { await load() }
             }
@@ -105,6 +106,8 @@ struct WorkerOrdersView: View {
 }
 
 private struct OrderCardView: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     let order: Order
     let mySteps: [WorkflowStepInstance]
     let onChanged: () -> Void
@@ -117,7 +120,7 @@ private struct OrderCardView: View {
             HStack {
                 Text(order.phone).bold()
                 Spacer()
-                Text(order.statusDisplay).font(.caption)
+                Text(locale.display("os", order.status, fallback: order.statusDisplay)).font(.caption)
             }
             Text(order.address).font(.caption).foregroundStyle(Color.textSecondary)
             Text("\(order.totalPrice.formattedSom) so'm").bold()
@@ -179,6 +182,7 @@ private struct OrderCardView: View {
 /// ochilardi, endi alohida sahifada (qarang git tarixi: buyurtmalar
 /// ro'yxati toza qolishi uchun so'ralgan o'zgarish).
 private struct OrderStepsView: View {
+    @EnvironmentObject private var locale: LocaleStore
     let order: Order
     let steps: [WorkflowStepInstance]
     let onChanged: () -> Void
@@ -190,7 +194,7 @@ private struct OrderStepsView: View {
             }
         }
         .listStyle(.plain)
-        .navigationTitle("Buyurtma \(order.phone)")
+        .navigationTitle("\(locale.t("order_word")) \(order.phone)")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
@@ -204,6 +208,7 @@ private struct OrderStepsView: View {
 /// to'g'ridan-to'g'ri tugma bo'lardi, endi ochiq tanlov aniqroq bo'lishi
 /// uchun alohida sahifaga ko'chirildi.
 private struct OpenTaskRowView: View {
+    @EnvironmentObject private var locale: LocaleStore
     let step: WorkflowStepInstance
     let onApplied: () async -> Void
 
@@ -215,14 +220,14 @@ private struct OpenTaskRowView: View {
                     Text(cuttingInstruction).font(.caption).fontWeight(.semibold).foregroundStyle(.teal)
                 }
                 Text(
-                    [step.orderDisplay.map { "Buyurtma \($0)" }, step.roleDisplay]
+                    [step.orderDisplay.map { "\(locale.t("order_word")) \($0)" }, locale.localizedRole(step.roleDisplay)]
                         .compactMap { $0 }.joined(separator: " · ")
                 )
                 .font(.caption2).foregroundStyle(Color.textSecondary)
             }
             Spacer()
             if step.myApplicationStatus == "pending" {
-                Text("Kutilmoqda")
+                Text(locale.t("payslip_pending"))
                     .font(.caption2)
                     .padding(.horizontal, 8).padding(.vertical, 4)
                     .background(Color(.secondarySystemBackground))
@@ -247,6 +252,8 @@ private struct OpenTaskRowView: View {
 }
 
 private struct OpenTaskDetailView: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     let step: WorkflowStepInstance
     let onApplied: () async -> Void
 
@@ -260,7 +267,7 @@ private struct OpenTaskDetailView: View {
                 Text(cuttingInstruction).font(.subheadline).fontWeight(.semibold).foregroundStyle(.teal)
             }
             Text(
-                [step.orderDisplay.map { "Buyurtma \($0)" }, step.roleDisplay]
+                [step.orderDisplay.map { "\(locale.t("order_word")) \($0)" }, locale.localizedRole(step.roleDisplay)]
                     .compactMap { $0 }.joined(separator: " · ")
             )
             .foregroundStyle(Color.textSecondary)
@@ -273,7 +280,7 @@ private struct OpenTaskDetailView: View {
             // holatni ko'rsatamiz (avval bu holatda ekranga umuman kirib
             // bo'lmasdi).
             if step.myApplicationStatus == "pending" {
-                Text("Zayavkangiz yuborilgan — firma egasi tasdiqlashini kutmoqda.")
+                Text(locale.t("w_request_sent"))
                     .multilineTextAlignment(.center)
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
@@ -282,7 +289,7 @@ private struct OpenTaskDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             } else {
                 HStack(spacing: 12) {
-                    Button("O'tkazib yuborish") { dismiss() }
+                    Button(locale.t("worker_skip")) { dismiss() }
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity)
                         .disabled(busy)
@@ -290,7 +297,7 @@ private struct OpenTaskDetailView: View {
                         Task { await apply() }
                     } label: {
                         Group {
-                            if busy { ProgressView() } else { Text("Qabul qilish") }
+                            if busy { ProgressView() } else { Text(locale.t("profile_offer_accept")) }
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -324,6 +331,8 @@ private struct OpenTaskDetailView: View {
 }
 
 private struct StepRowView: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     let step: WorkflowStepInstance
     let onChanged: () -> Void
 
@@ -371,7 +380,7 @@ private struct StepRowView: View {
                 }
                 Text(subtitle).font(.caption2).foregroundStyle(step.isOverdue ? .red : .secondary)
                 if canRelease {
-                    Button(releasing ? "..." : "Topshiriqdan voz kechish", role: .destructive) {
+                    Button(releasing ? "..." : locale.t("w_release"), role: .destructive) {
                         confirmRelease = true
                     }
                     .font(.caption2)
@@ -386,8 +395,8 @@ private struct StepRowView: View {
                     .font(.caption)
                     .disabled(starting)
             } else if canAct {
-                Button("Yangilash") { completing = false; showSheet = true }.font(.caption)
-                Button("Yakunlash") { completing = true; showSheet = true }.font(.caption).bold()
+                Button(locale.t("update_button")) { completing = false; showSheet = true }.font(.caption)
+                Button(locale.t("w_finish")) { completing = true; showSheet = true }.font(.caption).bold()
             }
         }
         .padding(.vertical, 4)
@@ -395,13 +404,13 @@ private struct StepRowView: View {
             StepUpdateSheet(step: step, isCompletion: completing, onDone: onChanged)
         }
         .confirmationDialog(
-            "Bu bosqichdan voz kechasizmi? U boshqa ustalarga qayta ko'rinadi.",
+            locale.t("w_release_confirm"),
             isPresented: $confirmRelease, titleVisibility: .visible
         ) {
-            Button("Voz kechish", role: .destructive) { Task { await release() } }
-            Button("Bekor", role: .cancel) {}
+            Button(locale.t("w_release_action"), role: .destructive) { Task { await release() } }
+            Button(locale.t("Bekor"), role: .cancel) {}
         }
-        .alert("Xatolik", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
+        .alert(locale.t("w_error"), isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(actionError ?? "")
@@ -436,8 +445,8 @@ private struct StepRowView: View {
     }
 
     private var subtitle: String {
-        var parts = [step.stageDisplay ?? "", step.roleDisplay ?? "", step.statusDisplay]
-        if let deadline = step.deadline { parts.append("muddat: \(deadline)") }
+        var parts = [step.stageDisplay ?? "", locale.localizedRole(step.roleDisplay) ?? "", locale.display("ss", step.status, fallback: step.statusDisplay)]
+        if let deadline = step.deadline { parts.append("\(locale.t("w_deadline")) \(deadline)") }
         return parts.filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
@@ -463,6 +472,8 @@ private struct StepRowView: View {
 }
 
 private struct StepUpdateSheet: View {
+
+    @EnvironmentObject private var locale: LocaleStore
     let step: WorkflowStepInstance
     let isCompletion: Bool
     let onDone: () -> Void
@@ -488,11 +499,11 @@ private struct StepUpdateSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section(isCompletion ? "Bosqichni yakunlash" : "Yangilanish qo'shish") {
-                    TextField(commentRequired ? "Izoh (majburiy)" : "Izoh (ixtiyoriy)", text: $comment, axis: .vertical)
+                Section(isCompletion ? locale.t("worker_finish_step") : locale.t("w_add_update")) {
+                    TextField(commentRequired ? locale.t("w_comment_required") : locale.t("Izoh (ixtiyoriy)"), text: $comment, axis: .vertical)
                         .lineLimit(3, reservesSpace: true)
                     if commentMissing {
-                        Text("Bu bosqichni yakunlash uchun izoh majburiy")
+                        Text(locale.t("worker_comment_required_note"))
                             .font(.caption)
                             .foregroundStyle(Color.appError)
                     }
@@ -507,7 +518,7 @@ private struct StepUpdateSheet: View {
                         Label(photoData == nil ? "Kamerani ochish" : "Rasm olindi ✓", systemImage: "camera")
                     }
                 } header: {
-                    if photoMissing { Text("Bu bosqichni yakunlash uchun rasm majburiy") }
+                    if photoMissing { Text(locale.t("worker_photo_required_note")) }
                 }
                 if let errorMessage {
                     Section { Text(errorMessage).foregroundStyle(Color.appError) }
@@ -517,10 +528,10 @@ private struct StepUpdateSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Bekor") { dismiss() }
+                    Button(locale.t("Bekor")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(busy ? "..." : "Yuborish") { Task { await submit() } }.disabled(busy || !canSubmit)
+                    Button(busy ? "..." : locale.t("w_submit")) { Task { await submit() } }.disabled(busy || !canSubmit)
                 }
             }
             .fullScreenCover(isPresented: $showCamera) {
@@ -534,11 +545,11 @@ private struct StepUpdateSheet: View {
 
     private func submit() async {
         if photoRequired && photoData == nil {
-            errorMessage = "Bu bosqich uchun rasm majburiy"
+            errorMessage = locale.t("w_photo_required")
             return
         }
         if commentRequired && comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            errorMessage = "Bu bosqich uchun izoh majburiy"
+            errorMessage = locale.t("w_comment_required_msg")
             return
         }
         busy = true

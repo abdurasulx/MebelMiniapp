@@ -3,6 +3,7 @@ import SwiftUI
 /// Bir nechta kasbi bor xodim uchun — bugun qaysi rolda ishlashini tanlaydi
 /// (web/Flutter'dagi RolePicker bilan bir xil vazifa).
 struct RolePickerSheet: View {
+    @EnvironmentObject private var locale: LocaleStore
     let positions: [String]
     let onPicked: (String) -> Void
 
@@ -27,7 +28,7 @@ struct RolePickerSheet: View {
                     .foregroundStyle(.primary)
                 }
             }
-            .navigationTitle("Bugun qaysi rolda ishlaysiz?")
+            .navigationTitle(locale.t("profile_role_picker_title"))
             .navigationBarTitleDisplayMode(.inline)
         }
         .presentationDetents([.medium])
