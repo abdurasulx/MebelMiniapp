@@ -1038,3 +1038,38 @@ String formatSom(String raw) {
   }
   return buffer.toString();
 }
+
+
+/// Vitrina (demo) mahsuloti — firmasiz, faqat ko'rish uchun (`/showcase/products/`).
+/// `name`/`description` so'ralgan til (`?lang=`) bo'yicha backend tomonidan tayyorlanadi.
+class ShowcaseProduct {
+  final String id;
+  final String name;
+  final String description;
+  final String? imageUrl;
+  final List<String> images;
+  final double? priceFrom;
+  const ShowcaseProduct({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.imageUrl,
+    required this.images,
+    required this.priceFrom,
+  });
+
+  /// Bosh rasm + qo'shimcha rasmlar (takrorsiz).
+  List<String> get gallery {
+    final all = <String>[if (imageUrl != null) imageUrl!, ...images];
+    return all.toSet().toList();
+  }
+
+  factory ShowcaseProduct.fromJson(Map<String, dynamic> j) => ShowcaseProduct(
+        id: j['id'].toString(),
+        name: (j['name'] as String?) ?? '',
+        description: (j['description'] as String?) ?? '',
+        imageUrl: j['image_url'] as String?,
+        images: ((j['images'] as List?) ?? const []).whereType<String>().toList(),
+        priceFrom: j['price_from'] == null ? null : double.tryParse(j['price_from'].toString()),
+      );
+}

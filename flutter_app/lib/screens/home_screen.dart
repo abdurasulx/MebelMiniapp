@@ -10,6 +10,7 @@ import '../category_icons.dart';
 import '../theme.dart';
 import '../widgets/offline_view.dart';
 import '../widgets/product_card.dart';
+import 'showcase_screen.dart';
 
 /// Bosh sahifa — endi alohida "Katalog" tabi yo'q, bu ekranning o'zi
 /// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha), "Top"
@@ -402,8 +403,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 if (!_isFiltering && _products.isEmpty && _error == null)
                   _stateMessage(
                     icon: Icons.storefront_outlined,
-                    title: loc.t('loc_no_firms'),
-                    body: loc.t('loc_no_firms_hint'),
+                    title: loc.t('showcase_prompt_title'),
+                    body: loc.t('showcase_prompt_body'),
+                    actionLabel: loc.t('showcase_prompt_button'),
+                    onAction: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ShowcaseScreen()),
+                    ),
                   )
                 else
                   _productsSection(loc),
