@@ -68,11 +68,20 @@ def _serve(directory: Path):
 
 
 def _variant_payload(product: Product):
-    return [
-        {"id": str(v.id), "name": v.name, "color": v.color_hex or ""}
-        for v in product.variants.filter(is_deleted=False).order_by("created_at")
-        if v.color_hex
-    ]
+    """Hamma faol variantlar: rang (`color`) va/yoki tekstura fayli (`texture_path`).
+    Rangi ham, teksturasi ham yo'q variant tint'siz (asl material) render qilinadi."""
+    payload = []
+    for v in product.variants.filter(is_deleted=False).order_by("created_at"):
+        texture_path = ""
+        if v.texture:
+            try:
+                texture_path = v.texture.path
+            except (NotImplementedError, ValueError):
+                texture_path = ""
+        payload.append(
+            {"id": str(v.id), "name": v.name, "color": v.color_hex or "", "texture_path": texture_path}
+        )
+    return payload
 
 
 def run_browser(glb_path: Path, variants: list, size: int = 1600, shots=SHOTS) -> dict:
@@ -83,6 +92,15 @@ def run_browser(glb_path: Path, variants: list, size: int = 1600, shots=SHOTS) -
     try:
         shutil.copytree(render_page_dir(), work / "render")
         shutil.copy(glb_path, work / "model.glb")
+        page_variants = []
+        for i, v in enumerate(variants):
+            item = {k: val for k, val in v.items() if k != "texture_path"}
+            tp = v.get("texture_path")
+            if tp and Path(tp).exists():
+                ext = Path(tp).suffix or ".png"
+                shutil.copy(tp, work / f"tex-{i}{ext}")
+                item["texture"] = f"/tex-{i}{ext}"
+            page_variants.append(item)
         server, port = _serve(work)
         try:
             query = urllib.parse.urlencode(
@@ -90,7 +108,7 @@ def run_browser(glb_path: Path, variants: list, size: int = 1600, shots=SHOTS) -
                     "src": f"http://127.0.0.1:{port}/model.glb",
                     "size": size,
                     "shots": ",".join(shots),
-                    "variants": json.dumps(variants),
+                    "variants": json.dumps(page_variants),
                 }
             )
             with sync_playwright() as pw:
@@ -174,6 +192,7 @@ def process_job(job: RenderJob) -> dict:
         dims = results[0][1]["dimensionsCm"]
 
         variants_by_name = {v.name: v for v in product.variants.filter(is_deleted=False)}
+        variants_by_id = {str(v.id): v for v in variants_by_name.values()}
         RenderedImage.objects.filter(product=product).delete()
         saved = 0
         hero_png = None
@@ -183,7 +202,11 @@ def process_job(job: RenderJob) -> dict:
             for variant in result["variants"]:
                 # O'z modeli bor variantda nom — variantning o'zi; "default" guruh ham shu nom bilan.
                 vname = owner_variant.name if is_variant_source else variant["name"]
-                db_variant = owner_variant if is_variant_source else variants_by_name.get(vname)
+                db_variant = (
+                    owner_variant
+                    if is_variant_source
+                    else variants_by_id.get(str(variant.get("id") or "")) or variants_by_name.get(vname)
+                )
                 slug = slugify(vname) or "default"
                 while slug in seen_slugs:  # bir xil nomli guruhlar to'qnashmasin
                     slug += "-2"

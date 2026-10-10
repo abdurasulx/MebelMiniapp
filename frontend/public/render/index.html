@@ -118,9 +118,32 @@
           }
         } else if (dbVariants.length) {
           const materials = mv.model?.materials || [];
+          // Materiallar "lazy" yuklanadi — o'qish/yozishdan oldin ensureLoaded() shart.
+          await Promise.all(materials.map((m) => m.ensureLoaded()));
+          // Asl (tint'siz) holatni saqlaymiz — rang/teksturasiz variant ham to'g'ri chiqsin.
+          const originals = materials.map((m) => ({
+            factor: m.pbrMetallicRoughness.baseColorFactor.slice(),
+            texture: m.pbrMetallicRoughness.baseColorTexture?.texture || null,
+          }));
+          const restore = () =>
+            materials.forEach((m, i) => {
+              m.pbrMetallicRoughness.setBaseColorFactor(originals[i].factor);
+              m.pbrMetallicRoughness.baseColorTexture?.setTexture(originals[i].texture);
+            });
           for (const v of dbVariants) {
-            const rgba = hexToRgba(v.color);
-            if (rgba) materials.forEach((m) => m.pbrMetallicRoughness.setBaseColorFactor(rgba));
+            restore();
+            if (v.texture) {
+              try {
+                const tex = await mv.createTexture(new URL(v.texture, location.origin).href);
+                materials.forEach((m) => {
+                  m.pbrMetallicRoughness.setBaseColorFactor([1, 1, 1, 1]);
+                  m.pbrMetallicRoughness.baseColorTexture?.setTexture(tex);
+                });
+              } catch (_) { /* tekstura yuklanmasa — tint'siz qoladi */ }
+            } else {
+              const rgba = hexToRgba(v.color);
+              if (rgba) materials.forEach((m) => m.pbrMetallicRoughness.setBaseColorFactor(rgba));
+            }
             await settle();
             variants.push({ name: v.name, id: v.id ?? null, source: "db", shots: await shootAll(mv) });
           }
