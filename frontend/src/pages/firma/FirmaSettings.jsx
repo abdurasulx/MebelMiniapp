@@ -146,22 +146,24 @@ export default function FirmaSettings() {
               onChange={(p) => setForm((f) => ({ ...f, ...p }))}
             />
             <div className="mt-3">
-              <label className="label">Viloyat</label>
-              <RegionField
-                multiple
-                value={form.service_viloyatlar}
-                placeholder="Viloyatni tanlang"
-                onOpen={() => setRegionModal("served")}
-                disabled={!isOwner}
-              />
-            </div>
-            <div className="mt-3">
               <label className="label">Xizmat rejimi</label>
               <select className="input" value={form.service_mode} onChange={set("service_mode")} disabled={!isOwner}>
                 <option value="radius">Radius bo'yicha (nuqtadan N km)</option>
                 <option value="viloyat">Viloyat bo'yicha (tanlangan viloyatlar)</option>
               </select>
             </div>
+            {form.service_mode === "viloyat" && (
+              <div className="mt-3">
+                <label className="label">Xizmat ko'rsatadigan viloyatlar</label>
+                <RegionField
+                  multiple
+                  value={form.service_viloyatlar}
+                  placeholder="Viloyatni tanlang"
+                  onOpen={() => setRegionModal("served")}
+                  disabled={!isOwner}
+                />
+              </div>
+            )}
             <RegionPickerModal
               open={regionModal === "served"}
               onClose={() => setRegionModal(null)}
