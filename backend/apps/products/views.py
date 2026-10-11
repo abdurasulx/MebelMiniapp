@@ -107,11 +107,8 @@ def _companies_for_viloyat(viloyat):
     for c in Company.objects.filter(is_active=True).only(
         "id", "service_mode", "viloyat", "service_viloyatlar"
     ):
-        if c.service_mode == "viloyat":
-            served = c.served_viloyatlar()
-            if not served or viloyat in served:
-                ids.append(c.id)
-        elif not c.viloyat or c.viloyat == viloyat:
+        served = c.served_viloyatlar()
+        if not served or viloyat in served:
             ids.append(c.id)
     return ids
 

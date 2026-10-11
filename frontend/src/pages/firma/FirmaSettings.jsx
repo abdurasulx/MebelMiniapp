@@ -38,7 +38,7 @@ export default function FirmaSettings() {
             service_radius_km: c.service_radius_km ?? "",
             viloyat: c.viloyat || "",
             service_mode: c.service_mode || "radius",
-            service_viloyatlar: c.service_viloyatlar || [],
+            service_viloyatlar: c.service_viloyatlar?.length ? c.service_viloyatlar : c.viloyat ? [c.viloyat] : [],
             instagram_url: c.instagram_url || "",
             telegram_url: c.telegram_url || "",
             facebook_url: c.facebook_url || "",
@@ -145,54 +145,34 @@ export default function FirmaSettings() {
               value={{ address: form.address, latitude: form.latitude, longitude: form.longitude }}
               onChange={(p) => setForm((f) => ({ ...f, ...p }))}
             />
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="label">Xizmat rejimi</label>
-                <select className="input" value={form.service_mode} onChange={set("service_mode")}>
-                  <option value="radius">Radius bo'yicha (nuqtadan N km)</option>
-                  <option value="viloyat">Viloyat bo'yicha (butun viloyat)</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Firma joylashgan viloyat</label>
-                <RegionField
-                  value={form.viloyat}
-                  placeholder="Viloyatni tanlang"
-                  onOpen={() => setRegionModal("home")}
-                  disabled={!isOwner}
-                />
-              </div>
+            <div className="mt-3">
+              <label className="label">Viloyat</label>
+              <RegionField
+                multiple
+                value={form.service_viloyatlar}
+                placeholder="Viloyatni tanlang"
+                onOpen={() => setRegionModal("served")}
+                disabled={!isOwner}
+              />
             </div>
-            {form.service_mode === "viloyat" && (
-              <div className="mt-3">
-                <label className="label">Xizmat ko'rsatadigan viloyatlar (bir nechta tanlash mumkin)</label>
-                <RegionField
-                  multiple
-                  value={form.service_viloyatlar}
-                  placeholder="Qo'shimcha viloyatlarni tanlang"
-                  onOpen={() => setRegionModal("served")}
-                  disabled={!isOwner}
-                />
-              </div>
-            )}
-            <RegionPickerModal
-              open={regionModal === "home"}
-              onClose={() => setRegionModal(null)}
-              title="Firma joylashgan viloyat"
-              value={form.viloyat}
-              onChange={(v) => setForm((f) => ({ ...f, viloyat: v }))}
-            />
+            <div className="mt-3">
+              <label className="label">Xizmat rejimi</label>
+              <select className="input" value={form.service_mode} onChange={set("service_mode")} disabled={!isOwner}>
+                <option value="radius">Radius bo'yicha (nuqtadan N km)</option>
+                <option value="viloyat">Viloyat bo'yicha (tanlangan viloyatlar)</option>
+              </select>
+            </div>
             <RegionPickerModal
               open={regionModal === "served"}
               onClose={() => setRegionModal(null)}
-              title="Xizmat ko'rsatadigan viloyatlar"
+              title="Viloyat"
               multiple
               value={form.service_viloyatlar}
-              onChange={(v) => setForm((f) => ({ ...f, service_viloyatlar: v }))}
+              onChange={(v) => setForm((f) => ({ ...f, service_viloyatlar: v, viloyat: v[0] || "" }))}
             />
             <p className="mb-1.5 mt-3 text-xs" style={{ color: "var(--muted)" }}>
               {form.service_mode === "viloyat"
-                ? "Mahsulotlaringiz firma viloyatidagi va quyida tanlangan viloyatlardagi hamma foydalanuvchiga ko'rinadi (radius ishlatilmaydi)."
+                ? "Mahsulotlaringiz tanlangan viloyatlardagi hamma foydalanuvchiga ko'rinadi (radius ishlatilmaydi)."
                 : "Shu nuqtadan necha km radiusda mijozlarga xizmat qilishingiz — mahsulotlaringiz shu radius ichidagi foydalanuvchilarga ko'rinadi. Bo'sh qoldirilsa, hamma joyda ko'rinadi."}
             </p>
             {form.service_mode !== "viloyat" && (
