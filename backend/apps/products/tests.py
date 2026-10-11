@@ -215,6 +215,23 @@ class DistanceVisibilityTests(APITestCase):
         # Radius rejimidagi firma viloyat tanlanganda ham cheklangan (aniq nuqta noma'lum).
         self.assertNotIn(str(self.near_product.id), {p["id"] for p in by_region.data["results"]})
 
+    def test_viloyat_mode_multiple_regions(self):
+        owner = User.objects.create_user(email="m@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        company = Company.objects.create(
+            owner=owner, name="Ko'p viloyat", slug="kop-viloyat", viloyat="andijon",
+            service_mode="viloyat", service_viloyatlar=["namangan", "fargona"],
+        )
+        product = Product.objects.create(
+            company=company, category=self.category, name_uz="Ko'p stuli", is_published=True,
+        )
+        for region, expected in (("andijon", True), ("namangan", True), ("fargona", True), ("buxoro", False)):
+            resp = self.client.get(f"/api/v1/products/?viloyat={region}")
+            ids = {p["id"] for p in resp.data["results"]}
+            self.assertEqual(str(product.id) in ids, expected, region)
+        # GPS: Namangan shahri (41.0, 71.67) — eng yaqin viloyat markazi namangan.
+        gps = self.client.get("/api/v1/products/?lat=41.0&lng=71.67")
+        self.assertIn(str(product.id), {p["id"] for p in gps.data["results"]})
+
     def test_invalid_coordinates_are_treated_as_missing(self):
         resp = self.client.get("/api/v1/products/?lat=abc&lng=999")
         ids = {p["id"] for p in resp.data["results"]}

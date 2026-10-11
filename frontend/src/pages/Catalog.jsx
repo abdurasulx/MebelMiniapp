@@ -7,6 +7,7 @@ import {
 import { api } from "../api";
 import { coordsParams, useGeolocation } from "../location";
 import { safeLocal } from "../storage";
+import { RegionField, RegionPickerModal } from "../components/RegionPicker";
 import { VILOYATLAR } from "../lib/viloyat";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
@@ -79,6 +80,7 @@ export default function Catalog() {
     safeLocal.setItem("vida.viloyat", v);
     setViloyatState(v);
   };
+  const [regionOpen, setRegionOpen] = useState(false);
   const geoDone = geo.status === "granted";
   // Mahsulot so'rovlari uchun parametr: GPS bo'lsa lat/lng, bo'lmasa tanlangan viloyat.
   const locParam = (prefix) =>
@@ -224,6 +226,14 @@ export default function Catalog() {
         </p>
       </div>
 
+      <RegionPickerModal
+        open={regionOpen}
+        onClose={() => setRegionOpen(false)}
+        title={t("loc_pick_region_placeholder")}
+        value={viloyat}
+        onChange={setViloyat}
+        searchLabel={t("catalog_search_hint")}
+      />
       {!hasLocation ? (
         <>
         <StateMessage
@@ -237,16 +247,11 @@ export default function Catalog() {
         {geo.status !== "loading" && (
           <div className="mx-auto mt-2 max-w-sm text-center">
             <label className="label">{t("loc_pick_region")}</label>
-            <select
-              className="input"
+            <RegionField
               value={viloyat}
-              onChange={(e) => setViloyat(e.target.value)}
-            >
-              <option value="">{t("loc_pick_region_placeholder")}</option>
-              {VILOYATLAR.map(([v, n]) => (
-                <option key={v} value={v}>{n}</option>
-              ))}
-            </select>
+              placeholder={t("loc_pick_region_placeholder")}
+              onOpen={() => setRegionOpen(true)}
+            />
           </div>
         )}
         </>
@@ -255,16 +260,9 @@ export default function Catalog() {
       {!geoDone && (
         <div className="mb-3 flex items-center gap-2 text-sm">
           <MapPinOff size={14} style={{ color: "var(--muted)" }} />
-          <select
-            className="input !w-auto !py-1.5"
-            value={viloyat}
-            onChange={(e) => setViloyat(e.target.value)}
-            aria-label={t("loc_pick_region")}
-          >
-            {VILOYATLAR.map(([v, n]) => (
-              <option key={v} value={v}>{n}</option>
-            ))}
-          </select>
+          <div className="min-w-0 flex-1 sm:max-w-xs">
+            <RegionField value={viloyat} placeholder={t("loc_pick_region_placeholder")} onOpen={() => setRegionOpen(true)} />
+          </div>
           <button className="text-xs underline" style={{ color: "var(--muted)" }} onClick={geo.retry}>
             {t("loc_retry")}
           </button>

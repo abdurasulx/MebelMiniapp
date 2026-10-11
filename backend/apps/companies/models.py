@@ -101,6 +101,16 @@ class Company(BaseModel, StoredFileMixin):
     service_mode = models.CharField(
         max_length=10, choices=ServiceMode.choices, default=ServiceMode.RADIUS
     )
+    # `viloyat` rejimida xizmat ko'rsatiladigan viloyatlar (bir nechta bo'lishi mumkin).
+    # Bo'sh bo'lsa — faqat firmaning o'z `viloyat`i.
+    service_viloyatlar = models.JSONField(default=list, blank=True)
+
+    def served_viloyatlar(self):
+        """`viloyat` rejimida firma xizmat qiladigan viloyatlar to'plami (bo'sh = cheklanmagan)."""
+        items = {v for v in (self.service_viloyatlar or []) if v}
+        if self.viloyat:
+            items.add(self.viloyat)
+        return items
     logo = models.ImageField(upload_to="companies/logos/", blank=True, null=True)
     # Ijtimoiy tarmoq/veb-sahifa havolalari — firma profilida (Do'kon sahifasi)
     # bosiladigan ikonka sifatida ko'rsatiladi. Barchasi ixtiyoriy.

@@ -3,7 +3,44 @@ from rest_framework import serializers
 
 from common.serializers import StorageStampMixin, visible_file_url
 
-from .models import Company, CompanyDeliverySettings, Employee, EmployeeInvitation, Review, TariffPlan
+from .models import (
+    Company,
+    CompanyDeliverySettings,
+    Employee,
+    EmployeeInvitation,
+    Review,
+    TariffPlan,
+    Viloyat,
+)
+
+
+class ViloyatListField(serializers.Field):
+    """Viloyatlar ro'yxati: JSON massiv yoki (multipart'da) JSON satr / vergul bilan ajratilgan matn."""
+
+    def to_internal_value(self, data):
+        import json
+
+        if isinstance(data, str):
+            text = data.strip()
+            if not text:
+                return []
+            try:
+                data = json.loads(text) if text.startswith("[") else [x.strip() for x in text.split(",")]
+            except ValueError as exc:
+                raise serializers.ValidationError("Noto'g'ri format.") from exc
+        if not isinstance(data, (list, tuple)):
+            raise serializers.ValidationError("Ro'yxat kutilgan.")
+        valid = {v for v, _ in Viloyat.choices}
+        out = []
+        for item in data:
+            if item not in valid:
+                raise serializers.ValidationError(f"Noma'lum viloyat: {item}")
+            if item not in out:
+                out.append(item)
+        return out
+
+    def to_representation(self, value):
+        return list(value or [])
 
 User = get_user_model()
 
@@ -31,6 +68,7 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
     billing_summary = serializers.SerializerMethodField()
     can_review = serializers.SerializerMethodField()
     # Faqat o'qish uchun: tasdiqlashni platforma admini maxsus action orqali belgilaydi.
+    service_viloyatlar = ViloyatListField(required=False)
     is_verified = serializers.BooleanField(read_only=True)
     verified_at = serializers.DateTimeField(read_only=True)
     delivery = serializers.SerializerMethodField()
@@ -97,6 +135,7 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
             "longitude",
             "service_radius_km",
             "service_mode",
+            "service_viloyatlar",
             "logo",
             "logo_url",
             "instagram_url",
@@ -121,7 +160,9 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
     # (anonim yoki boshqa foydalanuvchi) buni ko'rmaydi, faqat firma egasi va
     # platforma admini (sozlamalar sahifasi uchun). Mahsulotlarni hududga
     # qarab filtrlash serverning o'zida bajariladi (apps/products/views.py).
-    _SERVICE_AREA_FIELDS = ("latitude", "longitude", "service_radius_km", "service_mode")
+    _SERVICE_AREA_FIELDS = (
+        "latitude", "longitude", "service_radius_km", "service_mode", "service_viloyatlar",
+    )
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

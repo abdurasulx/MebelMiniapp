@@ -85,14 +85,33 @@ def _companies_within_radius(lat, lng):
     user_viloyat = nearest_viloyat(lat, lng)
     ids = []
     for c in Company.objects.filter(is_active=True).only(
-        "id", "latitude", "longitude", "service_radius_km", "service_mode", "viloyat"
+        "id", "latitude", "longitude", "service_radius_km", "service_mode", "viloyat",
+        "service_viloyatlar",
     ):
         if c.service_mode == "viloyat":
-            if not c.viloyat or c.viloyat == user_viloyat:
+            served = c.served_viloyatlar()
+            if not served or user_viloyat in served:
                 ids.append(c.id)
         elif c.latitude is None or c.longitude is None or c.service_radius_km is None:
             ids.append(c.id)
         elif haversine_km(lat, lng, float(c.latitude), float(c.longitude)) <= c.service_radius_km:
+            ids.append(c.id)
+    return ids
+
+
+def _companies_for_viloyat(viloyat):
+    """Foydalanuvchi qo'lda viloyat tanlaganda (GPS yo'q) ko'rinadigan firmalar:
+    `viloyat` rejimidagilar — xizmat viloyatlari ichida bo'lsa (yoki cheklanmagan);
+    radius rejimidagilar — eski qoida (firma viloyati mos yoki bo'sh)."""
+    ids = []
+    for c in Company.objects.filter(is_active=True).only(
+        "id", "service_mode", "viloyat", "service_viloyatlar"
+    ):
+        if c.service_mode == "viloyat":
+            served = c.served_viloyatlar()
+            if not served or viloyat in served:
+                ids.append(c.id)
+        elif not c.viloyat or c.viloyat == viloyat:
             ids.append(c.id)
     return ids
 
@@ -244,7 +263,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         else:
             viloyat = self.request.query_params.get("viloyat")
             if viloyat:
-                qs = qs.filter(Q(company__viloyat=viloyat) | Q(company__viloyat=""))
+                qs = qs.filter(company_id__in=_companies_for_viloyat(viloyat))
             # Joylashuv yuborilmagan bo'lsa — xizmat radiusi sozlangan firmalar
             # mahsulotlari qaytarilmaydi (foydalanuvchi o'zining hududida
             # ekanini bilib bo'lmaydi). Radiussiz firmalar hammaga ochiq;

@@ -3,7 +3,7 @@ import { Building2, MapPin, AtSign, Send, Link as LinkIcon, Globe } from "lucide
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import LocationPicker from "../../components/LocationPicker";
-import { VILOYATLAR } from "../../lib/viloyat";
+import { RegionField, RegionPickerModal } from "../../components/RegionPicker";
 
 export default function FirmaSettings() {
   const { user } = useAuth();
@@ -11,10 +11,11 @@ export default function FirmaSettings() {
   const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState({
     name: "", phone: "", address: "", description: "", employment_contract_template: "",
-    latitude: "", longitude: "", service_radius_km: "", viloyat: "", service_mode: "radius",
+    latitude: "", longitude: "", service_radius_km: "", viloyat: "", service_mode: "radius", service_viloyatlar: [],
     instagram_url: "", telegram_url: "", facebook_url: "", website_url: "",
   });
   const [logo, setLogo] = useState(null);
+  const [regionModal, setRegionModal] = useState(null); // "home" | "served" | null
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -37,6 +38,7 @@ export default function FirmaSettings() {
             service_radius_km: c.service_radius_km ?? "",
             viloyat: c.viloyat || "",
             service_mode: c.service_mode || "radius",
+            service_viloyatlar: c.service_viloyatlar || [],
             instagram_url: c.instagram_url || "",
             telegram_url: c.telegram_url || "",
             facebook_url: c.facebook_url || "",
@@ -63,7 +65,7 @@ export default function FirmaSettings() {
         // Bo'sh raqamli maydonlarni yubormaymiz — aks holda backend "valid
         // number kerak" deb rad etadi (lat/lng/radius ixtiyoriy).
         if (["latitude", "longitude", "service_radius_km"].includes(k) && v === "") return;
-        fd.append(k, v);
+        fd.append(k, k === "service_viloyatlar" ? JSON.stringify(v) : v);
       });
       if (logo) fd.append("logo", logo);
       if (company) {
@@ -152,18 +154,45 @@ export default function FirmaSettings() {
                 </select>
               </div>
               <div>
-                <label className="label">Viloyat</label>
-                <select className="input" value={form.viloyat} onChange={set("viloyat")}>
-                  <option value="">— tanlanmagan —</option>
-                  {VILOYATLAR.map(([v, n]) => (
-                    <option key={v} value={v}>{n}</option>
-                  ))}
-                </select>
+                <label className="label">Firma joylashgan viloyat</label>
+                <RegionField
+                  value={form.viloyat}
+                  placeholder="Viloyatni tanlang"
+                  onOpen={() => setRegionModal("home")}
+                  disabled={!isOwner}
+                />
               </div>
             </div>
+            {form.service_mode === "viloyat" && (
+              <div className="mt-3">
+                <label className="label">Xizmat ko'rsatadigan viloyatlar (bir nechta tanlash mumkin)</label>
+                <RegionField
+                  multiple
+                  value={form.service_viloyatlar}
+                  placeholder="Qo'shimcha viloyatlarni tanlang"
+                  onOpen={() => setRegionModal("served")}
+                  disabled={!isOwner}
+                />
+              </div>
+            )}
+            <RegionPickerModal
+              open={regionModal === "home"}
+              onClose={() => setRegionModal(null)}
+              title="Firma joylashgan viloyat"
+              value={form.viloyat}
+              onChange={(v) => setForm((f) => ({ ...f, viloyat: v }))}
+            />
+            <RegionPickerModal
+              open={regionModal === "served"}
+              onClose={() => setRegionModal(null)}
+              title="Xizmat ko'rsatadigan viloyatlar"
+              multiple
+              value={form.service_viloyatlar}
+              onChange={(v) => setForm((f) => ({ ...f, service_viloyatlar: v }))}
+            />
             <p className="mb-1.5 mt-3 text-xs" style={{ color: "var(--muted)" }}>
               {form.service_mode === "viloyat"
-                ? "Mahsulotlaringiz tanlangan viloyatdagi hamma foydalanuvchiga ko'rinadi (radius ishlatilmaydi)."
+                ? "Mahsulotlaringiz firma viloyatidagi va quyida tanlangan viloyatlardagi hamma foydalanuvchiga ko'rinadi (radius ishlatilmaydi)."
                 : "Shu nuqtadan necha km radiusda mijozlarga xizmat qilishingiz — mahsulotlaringiz shu radius ichidagi foydalanuvchilarga ko'rinadi. Bo'sh qoldirilsa, hamma joyda ko'rinadi."}
             </p>
             {form.service_mode !== "viloyat" && (
