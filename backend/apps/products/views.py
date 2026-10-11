@@ -89,8 +89,9 @@ def _companies_within_radius(lat, lng):
         "service_viloyatlar",
     ):
         if c.service_mode == "viloyat":
+            # Chet eldagi foydalanuvchi (user_viloyat None) — viloyat rejimi qo'llanmaydi.
             served = c.served_viloyatlar()
-            if not served or user_viloyat in served:
+            if user_viloyat is not None and (not served or user_viloyat in served):
                 ids.append(c.id)
         elif c.latitude is None or c.longitude is None or c.service_radius_km is None:
             ids.append(c.id)

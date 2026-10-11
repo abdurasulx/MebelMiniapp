@@ -36,5 +36,18 @@ VILOYAT_CENTERS = {
 }
 
 
+# O'zbekiston chegarasini o'rab turuvchi taxminiy to'rtburchak.
+_UZ_LAT = (37.1, 45.7)
+_UZ_LNG = (55.9, 73.2)
+
+
+def in_uzbekistan(lat, lng):
+    return _UZ_LAT[0] <= lat <= _UZ_LAT[1] and _UZ_LNG[0] <= lng <= _UZ_LNG[1]
+
+
 def nearest_viloyat(lat, lng):
+    """Nuqta O'zbekiston ichida bo'lsa — eng yaqin viloyat markazi kaliti, aks holda None
+    (chet eldagi foydalanuvchiga viloyat bo'yicha xizmat qo'llanmaydi, faqat radius)."""
+    if not in_uzbekistan(lat, lng):
+        return None
     return min(VILOYAT_CENTERS, key=lambda k: haversine_km(lat, lng, *VILOYAT_CENTERS[k]))

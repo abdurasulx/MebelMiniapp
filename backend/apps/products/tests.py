@@ -232,6 +232,23 @@ class DistanceVisibilityTests(APITestCase):
         gps = self.client.get("/api/v1/products/?lat=41.0&lng=71.67")
         self.assertIn(str(product.id), {p["id"] for p in gps.data["results"]})
 
+    def test_viloyat_mode_not_applied_outside_uzbekistan(self):
+        owner = User.objects.create_user(email="o@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        company = Company.objects.create(
+            owner=owner, name="Viloyat firma", slug="viloyat-firma", viloyat="toshkent_shahri",
+            service_mode="viloyat",
+        )
+        product = Product.objects.create(
+            company=company, category=self.category, name_uz="Viloyat stuli", is_published=True,
+        )
+        # Moskva — chet el: viloyat rejimidagi firma ko'rinmaydi, faqat radiusdagilar.
+        resp = self.client.get("/api/v1/products/?lat=55.75&lng=37.62")
+        ids = {p["id"] for p in resp.data["results"]}
+        self.assertNotIn(str(product.id), ids)
+        # Toshkentda esa ko'rinadi.
+        resp = self.client.get("/api/v1/products/?lat=41.3111&lng=69.2797")
+        self.assertIn(str(product.id), {p["id"] for p in resp.data["results"]})
+
     def test_invalid_coordinates_are_treated_as_missing(self):
         resp = self.client.get("/api/v1/products/?lat=abc&lng=999")
         ids = {p["id"] for p in resp.data["results"]}
