@@ -3,6 +3,7 @@ import { Building2, MapPin, AtSign, Send, Link as LinkIcon, Globe } from "lucide
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import LocationPicker from "../../components/LocationPicker";
+import { VILOYATLAR } from "../../lib/viloyat";
 
 export default function FirmaSettings() {
   const { user } = useAuth();
@@ -10,7 +11,7 @@ export default function FirmaSettings() {
   const [loaded, setLoaded] = useState(false);
   const [form, setForm] = useState({
     name: "", phone: "", address: "", description: "", employment_contract_template: "",
-    latitude: "", longitude: "", service_radius_km: "",
+    latitude: "", longitude: "", service_radius_km: "", viloyat: "", service_mode: "radius",
     instagram_url: "", telegram_url: "", facebook_url: "", website_url: "",
   });
   const [logo, setLogo] = useState(null);
@@ -34,6 +35,8 @@ export default function FirmaSettings() {
             latitude: c.latitude ?? "",
             longitude: c.longitude ?? "",
             service_radius_km: c.service_radius_km ?? "",
+            viloyat: c.viloyat || "",
+            service_mode: c.service_mode || "radius",
             instagram_url: c.instagram_url || "",
             telegram_url: c.telegram_url || "",
             facebook_url: c.facebook_url || "",
@@ -140,14 +143,35 @@ export default function FirmaSettings() {
               value={{ address: form.address, latitude: form.latitude, longitude: form.longitude }}
               onChange={(p) => setForm((f) => ({ ...f, ...p }))}
             />
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">Xizmat rejimi</label>
+                <select className="input" value={form.service_mode} onChange={set("service_mode")}>
+                  <option value="radius">Radius bo'yicha (nuqtadan N km)</option>
+                  <option value="viloyat">Viloyat bo'yicha (butun viloyat)</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Viloyat</label>
+                <select className="input" value={form.viloyat} onChange={set("viloyat")}>
+                  <option value="">— tanlanmagan —</option>
+                  {VILOYATLAR.map(([v, n]) => (
+                    <option key={v} value={v}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <p className="mb-1.5 mt-3 text-xs" style={{ color: "var(--muted)" }}>
-              Shu nuqtadan necha km radiusda mijozlarga xizmat qilishingiz — mahsulotlaringiz shu radius
-              ichidagi foydalanuvchilarga ko'rinadi. Bo'sh qoldirilsa, hamma joyda ko'rinadi.
+              {form.service_mode === "viloyat"
+                ? "Mahsulotlaringiz tanlangan viloyatdagi hamma foydalanuvchiga ko'rinadi (radius ishlatilmaydi)."
+                : "Shu nuqtadan necha km radiusda mijozlarga xizmat qilishingiz — mahsulotlaringiz shu radius ichidagi foydalanuvchilarga ko'rinadi. Bo'sh qoldirilsa, hamma joyda ko'rinadi."}
             </p>
-            <input
-              className="input" type="number" min="1" placeholder="Radius (km)"
-              value={form.service_radius_km} onChange={set("service_radius_km")}
-            />
+            {form.service_mode !== "viloyat" && (
+              <input
+                className="input" type="number" min="1" placeholder="Radius (km)"
+                value={form.service_radius_km} onChange={set("service_radius_km")}
+              />
+            )}
           </fieldset>
         </div>
 

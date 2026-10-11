@@ -191,6 +191,30 @@ class DistanceVisibilityTests(APITestCase):
         self.assertNotIn(str(self.far_product.id), ids)
         self.assertIn(str(self.unset_product.id), ids)
 
+    def test_viloyat_mode_company_serves_whole_region(self):
+        owner = User.objects.create_user(email="v@shop.uz", password="pass12345", role=User.Role.COMPANY_OWNER)
+        company = Company.objects.create(
+            owner=owner, name="Andijon firma", slug="andijon-firma", viloyat="andijon",
+            latitude=40.7821, longitude=72.3442, service_radius_km=3, service_mode="viloyat",
+        )
+        product = Product.objects.create(
+            company=company, category=self.category, name_uz="Andijon stuli", is_published=True,
+        )
+        # Radius 3 km, lekin viloyat rejimi: Andijon viloyatidagi (~40 km) foydalanuvchiga ko'rinadi.
+        in_region = self.client.get("/api/v1/products/?lat=40.9&lng=72.6")
+        self.assertIn(str(product.id), {p["id"] for p in in_region.data["results"]})
+        # Toshkentdagi foydalanuvchiga ko'rinmaydi.
+        other = self.client.get("/api/v1/products/?lat=41.3111&lng=69.2797")
+        self.assertNotIn(str(product.id), {p["id"] for p in other.data["results"]})
+        # Joylashuvsiz, viloyat tanlangan: ko'rinadi (radius cheklovi qo'llanmaydi).
+        by_region = self.client.get("/api/v1/products/?viloyat=andijon")
+        self.assertIn(str(product.id), {p["id"] for p in by_region.data["results"]})
+        # Boshqa viloyat tanlansa — ko'rinmaydi.
+        wrong = self.client.get("/api/v1/products/?viloyat=buxoro")
+        self.assertNotIn(str(product.id), {p["id"] for p in wrong.data["results"]})
+        # Radius rejimidagi firma viloyat tanlanganda ham cheklangan (aniq nuqta noma'lum).
+        self.assertNotIn(str(self.near_product.id), {p["id"] for p in by_region.data["results"]})
+
     def test_invalid_coordinates_are_treated_as_missing(self):
         resp = self.client.get("/api/v1/products/?lat=abc&lng=999")
         ids = {p["id"] for p in resp.data["results"]}

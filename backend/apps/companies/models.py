@@ -90,6 +90,17 @@ class Company(BaseModel, StoredFileMixin):
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     service_radius_km = models.PositiveIntegerField(null=True, blank=True)
+
+    class ServiceMode(models.TextChoices):
+        RADIUS = "radius", "Radius bo'yicha"
+        VILOYAT = "viloyat", "Viloyat bo'yicha"
+
+    # Firma qanday xizmat qiladi: `radius` — joylashuv + xizmat radiusi (foydalanuvchi
+    # shu doira ichida bo'lsa ko'rinadi); `viloyat` — firma viloyatidagi hamma mijozga
+    # (foydalanuvchi viloyati joylashuvdan yoki qo'lda tanlovdan aniqlanadi).
+    service_mode = models.CharField(
+        max_length=10, choices=ServiceMode.choices, default=ServiceMode.RADIUS
+    )
     logo = models.ImageField(upload_to="companies/logos/", blank=True, null=True)
     # Ijtimoiy tarmoq/veb-sahifa havolalari — firma profilida (Do'kon sahifasi)
     # bosiladigan ikonka sifatida ko'rsatiladi. Barchasi ixtiyoriy.

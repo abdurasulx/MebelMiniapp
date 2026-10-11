@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { api } from "../api";
 import { coordsParams, useGeolocation } from "../location";
+import { safeLocal } from "../storage";
+import { VILOYATLAR } from "../lib/viloyat";
 import { useAuth } from "../auth";
 import { useLocale } from "../locale";
 import PriceTag from "../components/PriceTag";
@@ -68,6 +70,20 @@ export default function Catalog() {
   const fileInputRef = useRef(null);
   const geo = useGeolocation();
   const [productsLoaded, setProductsLoaded] = useState(false);
+  // Joylashuv aniqlanmasa/ruxsat berilmasa — foydalanuvchi viloyatini qo'lda tanlaydi.
+  const [viloyat, setViloyatState] = useState(() => {
+    const v = safeLocal.getItem("vida.viloyat") || "";
+    return VILOYATLAR.some(([k]) => k === v) ? v : "";
+  });
+  const setViloyat = (v) => {
+    safeLocal.setItem("vida.viloyat", v);
+    setViloyatState(v);
+  };
+  const geoDone = geo.status === "granted";
+  // Mahsulot so'rovlari uchun parametr: GPS bo'lsa lat/lng, bo'lmasa tanlangan viloyat.
+  const locParam = (prefix) =>
+    geoDone ? coordsParams(geo, prefix) : viloyat ? `${prefix}viloyat=${encodeURIComponent(viloyat)}` : "";
+  const hasLocation = geoDone || Boolean(viloyat);
 
   useEffect(() => {
     const q = search.trim();
@@ -77,14 +93,14 @@ export default function Catalog() {
     }
     setSearching(true);
     const timer = setTimeout(() => {
-      api(`/products/?search=${encodeURIComponent(q)}${coordsParams(geo, "&")}`)
+      api(`/products/?search=${encodeURIComponent(q)}${locParam("&")}`)
         .then((d) => setSearchResults(d.results || []))
         .catch((e) => setError(e.message))
         .finally(() => setSearching(false));
     }, 350);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, geo.status, geo.lat, geo.lng]);
+  }, [search, geo.status, geo.lat, geo.lng, viloyat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const backToHome = () => {
     setSearch("");
@@ -107,6 +123,8 @@ export default function Catalog() {
       if (geo.status === "granted") {
         fd.append("lat", geo.lat);
         fd.append("lng", geo.lng);
+      } else if (viloyat) {
+        fd.append("viloyat", viloyat);
       }
       const results = await api("/products/search-by-image/", { method: "POST", body: fd, isForm: true });
       setImageResults(results || []);
@@ -149,17 +167,17 @@ export default function Catalog() {
   // filtrlanadi) — joylashuv aniqlanmaguncha yoki ruxsat berilmaguncha
   // so'rov yuborilmaydi va mahsulotlar ko'rsatilmaydi.
   useEffect(() => {
-    if (geo.status !== "granted") {
+    if (!hasLocation) {
       setProducts([]);
       setProductsLoaded(false);
       return;
     }
     setProductsLoaded(false);
-    api(`/products/${coordsParams(geo)}`)
+    api(`/products/${locParam("?")}`)
       .then((d) => setProducts(d.results || []))
       .catch((e) => setError(e.message))
       .finally(() => setProductsLoaded(true));
-  }, [geo.status, geo.lat, geo.lng]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [geo.status, geo.lat, geo.lng, viloyat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isSearching = Boolean(imageResults || searchResults !== null);
   const shown = imageResults ?? searchResults ?? (cat ? products.filter((p) => p.category === cat) : products);
@@ -206,7 +224,8 @@ export default function Catalog() {
         </p>
       </div>
 
-      {geo.status !== "granted" ? (
+      {!hasLocation ? (
+        <>
         <StateMessage
           icon={geo.status === "loading" ? null : MapPinOff}
           title={t(geo.status === "loading" ? "loc_checking" : geo.status === "denied" ? "loc_required_title" : "loc_unavailable_title")}
@@ -215,8 +234,42 @@ export default function Catalog() {
           actionLabel={geo.status === "loading" ? null : t(geo.status === "denied" ? "loc_allow" : "loc_retry")}
           onAction={geo.retry}
         />
+        {geo.status !== "loading" && (
+          <div className="mx-auto mt-2 max-w-sm text-center">
+            <label className="label">{t("loc_pick_region")}</label>
+            <select
+              className="input"
+              value={viloyat}
+              onChange={(e) => setViloyat(e.target.value)}
+            >
+              <option value="">{t("loc_pick_region_placeholder")}</option>
+              {VILOYATLAR.map(([v, n]) => (
+                <option key={v} value={v}>{n}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        </>
       ) : (
       <>
+      {!geoDone && (
+        <div className="mb-3 flex items-center gap-2 text-sm">
+          <MapPinOff size={14} style={{ color: "var(--muted)" }} />
+          <select
+            className="input !w-auto !py-1.5"
+            value={viloyat}
+            onChange={(e) => setViloyat(e.target.value)}
+            aria-label={t("loc_pick_region")}
+          >
+            {VILOYATLAR.map(([v, n]) => (
+              <option key={v} value={v}>{n}</option>
+            ))}
+          </select>
+          <button className="text-xs underline" style={{ color: "var(--muted)" }} onClick={geo.retry}>
+            {t("loc_retry")}
+          </button>
+        </div>
+      )}
       {/* Qidiruv */}
       <div className="mb-4 flex items-center gap-2">
         {isSearching && (

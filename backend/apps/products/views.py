@@ -63,6 +63,9 @@ def _radius_limited_q(own_company=None, user=None):
         company__latitude__isnull=False,
         company__longitude__isnull=False,
         company__service_radius_km__isnull=False,
+        # Viloyat bo'yicha xizmat qiladigan firmalar joylashuvsiz ham (viloyat tanlansa)
+        # ko'rinadi — faqat radius rejimidagilar cheklanadi.
+        company__service_mode="radius",
     )
     if own_company is not None:
         q &= ~Q(company=own_company)
@@ -74,12 +77,20 @@ def _radius_limited_q(own_company=None, user=None):
 def _companies_within_radius(lat, lng):
     """Foydalanuvchi nuqtasidan (`lat`, `lng`) firma o'zi sozlagan xizmat
     radiusi ichida bo'lgan (yoki lokatsiya/radius umuman sozlanmagan —
-    ya'ni hammaga ochiq) kompaniyalar ID'lari."""
+    ya'ni hammaga ochiq) kompaniyalar ID'lari. `viloyat` rejimidagi firmalar —
+    foydalanuvchi eng yaqin viloyati firma viloyati bilan bir xil bo'lsa
+    (yoki firma viloyati ko'rsatilmagan bo'lsa)."""
+    from common.geo import nearest_viloyat
+
+    user_viloyat = nearest_viloyat(lat, lng)
     ids = []
     for c in Company.objects.filter(is_active=True).only(
-        "id", "latitude", "longitude", "service_radius_km"
+        "id", "latitude", "longitude", "service_radius_km", "service_mode", "viloyat"
     ):
-        if c.latitude is None or c.longitude is None or c.service_radius_km is None:
+        if c.service_mode == "viloyat":
+            if not c.viloyat or c.viloyat == user_viloyat:
+                ids.append(c.id)
+        elif c.latitude is None or c.longitude is None or c.service_radius_km is None:
             ids.append(c.id)
         elif haversine_km(lat, lng, float(c.latitude), float(c.longitude)) <= c.service_radius_km:
             ids.append(c.id)

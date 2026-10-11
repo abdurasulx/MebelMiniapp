@@ -96,6 +96,7 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
             "latitude",
             "longitude",
             "service_radius_km",
+            "service_mode",
             "logo",
             "logo_url",
             "instagram_url",
@@ -120,7 +121,7 @@ class CompanySerializer(StorageStampMixin, serializers.ModelSerializer):
     # (anonim yoki boshqa foydalanuvchi) buni ko'rmaydi, faqat firma egasi va
     # platforma admini (sozlamalar sahifasi uchun). Mahsulotlarni hududga
     # qarab filtrlash serverning o'zida bajariladi (apps/products/views.py).
-    _SERVICE_AREA_FIELDS = ("latitude", "longitude", "service_radius_km")
+    _SERVICE_AREA_FIELDS = ("latitude", "longitude", "service_radius_km", "service_mode")
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
