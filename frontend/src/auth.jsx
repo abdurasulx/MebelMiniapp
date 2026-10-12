@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { api, setTokens } from "./api";
+import { api, getTokens, setTokens } from "./api";
 import { setActivePosition } from "./positions";
 import { initPush } from "./push";
 
@@ -10,6 +10,14 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Token bo'lmasa (mehmon) profil so'ralmaydi — aks holda har ochilganda
+    // konsolda keraksiz 401 chiqardi.
+    const t = getTokens();
+    if (!t?.access && !t?.refresh) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
     api("/users/me/")
       .then(setUser)
       .catch(() => setUser(null))
