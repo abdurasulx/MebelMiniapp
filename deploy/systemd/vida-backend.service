@@ -2,8 +2,7 @@
 # Yoqish:  systemctl daemon-reload && systemctl enable --now vida-backend
 [Unit]
 Description=Vida ERP / Vida Market Django backend (Uvicorn ASGI, 3 worker)
-After=network.target mysql.service redis-server.service docker.service
-Wants=redis-server.service
+After=network.target mysql.service mysqld.service docker.service
 
 [Service]
 User=vida
