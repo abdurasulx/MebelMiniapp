@@ -8,7 +8,7 @@ set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "root sifatida ishga tushiring"; exit 1; }
 DB_NAME="${DB_NAME:-furniture_platform}"
 DB_USER="${DB_USER:-vida}"
-DB_PASS="${DB_PASS:?DB_PASS='<parol>' ko'rsating (faqat harf va raqam tavsiya etiladi)}"
+DB_PASS="${DB_PASS:?DB_PASS=parol korsating (faqat harf va raqam)}"
 export DEBIAN_FRONTEND=noninteractive
 
 echo ">> 1/8 tizim yangilash va asosiy paketlar"
