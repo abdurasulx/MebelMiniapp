@@ -4,7 +4,7 @@
 # Oldindan: MySQL o'rnatilgan, `furniture_platform` bazasi va `vida` foydalanuvchisi yaratilgan,
 # loyiha /srv/vida/app ga klonlangan.
 set -euo pipefail
-BACKUP="${BACKUP:?BACKUP=<papka> ko'rsating}"
+BACKUP="${BACKUP:?BACKUP=<papka> korsating}"
 APP="${APP:-/srv/vida/app}"
 DB_NAME="${DB_NAME:-furniture_platform}"
 DB_USER="${DB_USER:-root}"
@@ -12,8 +12,14 @@ DB_USER="${DB_USER:-root}"
 echo ">> DB tiklash"
 gunzip -c "$BACKUP/db.sql.gz" | mysql -u "$DB_USER" -p --default-character-set=utf8mb4 "$DB_NAME"
 
-echo ">> media"
-tar -C "$APP/backend" -xzf "$BACKUP/media.tar.gz"
+command -v unzip >/dev/null || { echo "unzip o'rnatilmagan: apt install -y zip unzip"; exit 1; }
+mkdir -p "$APP/backend/media"
+
+echo ">> media: rasmlar"
+[ -f "$BACKUP/media-images.zip" ] && unzip -qo "$BACKUP/media-images.zip" -d "$APP/backend/media" || echo "(media-images.zip yo'q)"
+
+echo ">> media: 3D fayllar"
+[ -f "$BACKUP/media-3d.zip" ] && unzip -qo "$BACKUP/media-3d.zip" -d "$APP/backend/media" || echo "(media-3d.zip yo'q)"
 chown -R vida:vida "$APP/backend/media"
 
 echo ">> .env va firebase"

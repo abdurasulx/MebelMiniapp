@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Eski serverda ishga tushiriladi: DB + media + (ixtiyoriy) Qdrant snapshot.
+# Eski serverda ishga tushiriladi: DB (sql.gz) + rasmlar (zip) + 3D fayllar (zip) + sozlamalar.
 #   APP=/www/wwwroot/qrbite.uz/MebelMiniapp ./backup.sh   -> /root/vida-backup-YYYYmmdd-HHMM/
 # DB parolini so'raydi (mysqldump -p). Natija papkasini yangi serverga rsync qiling.
 set -euo pipefail
@@ -12,8 +12,18 @@ mkdir -p "$OUT"
 echo ">> MySQL dump"
 mysqldump -u "$DB_USER" -p --single-transaction --routines --default-character-set=utf8mb4 "$DB_NAME" | gzip > "$OUT/db.sql.gz"
 
-echo ">> media"
-tar -C "$APP/backend" -czf "$OUT/media.tar.gz" media
+command -v zip >/dev/null || { echo "zip o'rnatilmagan: apt install -y zip unzip"; exit 1; }
+MEDIA="$APP/backend/media"
+
+echo ">> media: rasmlar (3D'dan tashqari hamma narsa) -> media-images.zip"
+( cd "$MEDIA" && zip -qr "$OUT/media-images.zip" . -x "assets/*" )
+
+echo ">> media: 3D fayllar (glb/usdz/tekstura arxivlari) -> media-3d.zip"
+if [ -d "$MEDIA/assets" ]; then
+  ( cd "$MEDIA" && zip -qr "$OUT/media-3d.zip" assets )
+else
+  echo "(assets/ papkasi yo'q — 3D fayl yo'q)"
+fi
 
 echo ">> maxfiy fayllar (.env, firebase)"
 cp "$APP/backend/.env" "$OUT/backend.env"

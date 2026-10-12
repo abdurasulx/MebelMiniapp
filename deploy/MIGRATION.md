@@ -93,23 +93,42 @@ GRANT ALL ON furniture_platform.* TO 'vida'@'localhost';
 
 ### 3. Ma'lumotlarni ko'chirish (cutover paytida)
 
+Eski serverdan **4 ta alohida narsa** olinadi: kod (git), SQL, rasmlar (zip), 3D fayllar (zip).
+
+| Narsa | Qanday | Hajm/izoh |
+|---|---|---|
+| Kod | `git clone` yangi serverda | serverdan nusxa shart emas |
+| SQL | `db.sql.gz` | `mysqldump` |
+| Rasmlar | `media-images.zip` | `products/`, `companies/`, `variants/`, `categories/`, render rasmlari va h.k. (`assets/`dan tashqari hammasi) |
+| 3D fayllar | `media-3d.zip` | `assets/glb`, `assets/usdz`, `assets/textures` |
+| Sozlamalar | `backend.env`, `firebase-credentials.json` | maxfiy — chatga/gitga qo'ymang |
+
 **Eski serverda:**
 
 ```bash
-sudo systemctl stop qrbite-backend            # yozishni to'xtatish
-cd /www/wwwroot/qrbite.uz/MebelMiniapp/deploy/scripts && sudo ./backup.sh   # → /root/vida-backup-YYYYmmdd-HHMM/
-rsync -avz --progress /root/vida-backup-*/ vida@<YANGI_IP>:/srv/vida/backup/
+apt install -y zip unzip                       # bir marta
+sudo systemctl stop qrbite-backend             # yozishni to'xtatish (yangi buyurtma tushmasin)
+cd /www/wwwroot/qrbite.uz/MebelMiniapp && git pull
+cd deploy/scripts && sudo ./backup.sh          # MySQL parolini so'raydi → /root/vida-backup-YYYYmmdd-HHMM/
+ls -lh /root/vida-backup-*/                    # db.sql.gz, media-images.zip, media-3d.zip, backend.env ...
+rsync -avz --progress /root/vida-backup-*/ root@<YANGI_IP>:/srv/vida/backup/
 ```
 
-**Yangi serverda:**
+**Yangi serverda** (kod git orqali):
 
 ```bash
+apt install -y zip unzip
+git clone <repo-url> /srv/vida/app
 cd /srv/vida/app/deploy/scripts
-sudo BACKUP=/srv/vida/backup DB_USER=root ./restore.sh
+sudo BACKUP=/srv/vida/backup DB_USER=root ./restore.sh    # DB + rasmlar + 3D + .env
 cd /srv/vida/app/backend
-sudo -u vida venv/bin/python manage.py migrate          # eski dump'da yo'q migratsiyalar bo'lsa
+sudo -u vida venv/bin/python manage.py migrate            # dump'dan keyingi migratsiyalar
 sudo -u vida venv/bin/python manage.py collectstatic --noinput
 ```
+
+> `restore.sh` `.env` ni eski serverdan nusxalaydi — **domenlarni yangilashni unutmang**
+> (`ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`, `FRONTEND_URL`, `BACKEND_URL`,
+> `TELEGRAM_WEBHOOK_URL`: `qrbite.uz` → `vidamarket.uz`). `SECRET_KEY` va `DEVICE_HMAC_SECRET` o'zgarmasin.
 
 **Qdrant (rasm qidiruvi):**
 
@@ -176,7 +195,7 @@ Admin panelda "Versiya nazorati" orqali eski versiyalarni majburiy yangilashni (
 
 - [ ] `smoke_test.sh vidamarket.uz` — hammasi 200/400/301.
 - [ ] Login: telefon OTP, Google, Telegram (web va mobil).
-- [ ] Katalog, mahsulot rasmlari (media rsync to'liqmi), 3D/AR.
+- [ ] Katalog, mahsulot rasmlari (media-images.zip to'liq tiklanganmi), 3D/AR (media-3d.zip).
 - [ ] Rasm bilan qidiruv (Qdrant).
 - [ ] Bildirishnomalar WebSocket (`wss://api.vidamarket.uz/ws/`) va push.
 - [ ] Buyurtma yaratish, firma ERP, admin panel.
