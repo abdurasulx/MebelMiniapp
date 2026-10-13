@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Company, CompanyDeliverySettings, Employee, Review, TariffPlan
+from .models import Company, CompanyDeliverySettings, Employee, Review, ReviewReport, TariffPlan, UserBlock
 
 
 @admin.register(Company)
@@ -42,5 +42,39 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ("company", "customer", "rating", "created_at")
-    list_filter = ("rating",)
+    list_display = ("company", "customer", "rating", "is_hidden", "created_at")
+    list_filter = ("is_hidden", "rating")
+    search_fields = ("comment", "company__name")
+    actions = ("hide", "unhide")
+
+    @admin.action(description="Tanlangan sharhlarni yashirish")
+    def hide(self, request, queryset):
+        queryset.update(is_hidden=True, hidden_reason="Admin tomonidan")
+
+    @admin.action(description="Tanlangan sharhlarni qaytarish")
+    def unhide(self, request, queryset):
+        queryset.update(is_hidden=False, hidden_reason="")
+
+
+@admin.register(ReviewReport)
+class ReviewReportAdmin(admin.ModelAdmin):
+    list_display = ("review", "reporter", "reason", "status", "created_at")
+    list_filter = ("status", "reason")
+    actions = ("hide_reviewed", "dismiss")
+
+    @admin.action(description="Sharhni yashirish va shikoyatni 'choralar ko'rildi' deb belgilash")
+    def hide_reviewed(self, request, queryset):
+        for report in queryset.select_related("review"):
+            report.review.is_hidden = True
+            report.review.hidden_reason = f"Shikoyat: {report.reason}"
+            report.review.save(update_fields=["is_hidden", "hidden_reason", "updated_at"])
+        queryset.update(status=ReviewReport.Status.ACTIONED)
+
+    @admin.action(description="Shikoyatni rad etish")
+    def dismiss(self, request, queryset):
+        queryset.update(status=ReviewReport.Status.DISMISSED)
+
+
+@admin.register(UserBlock)
+class UserBlockAdmin(admin.ModelAdmin):
+    list_display = ("blocker", "blocked", "created_at")

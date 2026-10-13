@@ -182,6 +182,9 @@ SMS_ALLOWED_PREFIXES = env.list("SMS_ALLOWED_PREFIXES", default=["998"])
 # App Store/Play review demo raqami: SMS yuborilmaydi, kod doim APP_REVIEW_OTP.
 APP_REVIEW_PHONE = env("APP_REVIEW_PHONE", default="")
 APP_REVIEW_OTP = env("APP_REVIEW_OTP", default="")
+# UGC: shikoyat bog'lanish manzili va sharh avtomatik yashirilishi uchun shikoyatlar soni.
+SUPPORT_EMAIL = env("SUPPORT_EMAIL", default="support@vidamarket.uz")
+REVIEW_AUTOHIDE_REPORTS = env.int("REVIEW_AUTOHIDE_REPORTS", default=3)
 
 # Telegram bot login (webhook) — qarang apps/users/telegram_bot.py.
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")

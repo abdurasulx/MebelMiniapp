@@ -1,3 +1,4 @@
+from apps.companies.models import Company, Review, ReviewReport
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -205,3 +206,82 @@ class EmployeeInvitationNotificationTests(APITestCase):
             recipient=self.owner, notif_type=NotificationType.EMPLOYEE_INVITATION_DECLINED
         )
         self.assertIn("rad etdi", notif.body)
+
+
+class UGCModerationTests(APITestCase):
+    """Sharhlarga shikoyat, avtomatik yashirish, bloklash va kontent filtri (Apple 1.2)."""
+
+    def setUp(self):
+        from rest_framework.test import APIClient
+
+        User = get_user_model()
+        owner = User.objects.create_user(email="o@u.uz", password="x", role=User.Role.COMPANY_OWNER)
+        self.company = Company.objects.create(owner=owner, name="Firma", slug="firma-ugc")
+        self.author = User.objects.create_user(email="a@u.uz", password="x", role=User.Role.CUSTOMER)
+        self.viewer = User.objects.create_user(email="v@u.uz", password="x", role=User.Role.CUSTOMER)
+        self.review = Review.objects.create(
+            company=self.company, customer=self.author, rating=1, comment="Yomon xizmat"
+        )
+        self.client = APIClient()
+        self.User = User
+
+    def _list(self, user=None):
+        if user:
+            self.client.force_authenticate(user)
+        resp = self.client.get(f"/api/v1/reviews/?company={self.company.slug}")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        return data["results"] if isinstance(data, dict) else data
+
+    def test_report_requires_login_and_creates_once(self):
+        url = f"/api/v1/reviews/{self.review.id}/report/"
+        self.assertEqual(self.client.post(url, {"reason": "spam"}, format="json").status_code, 401)
+        self.client.force_authenticate(self.viewer)
+        first = self.client.post(url, {"reason": "spam"}, format="json")
+        self.assertEqual(first.status_code, 201)
+        self.assertIn("support_email", first.json())
+        self.client.post(url, {"reason": "spam"}, format="json")
+        self.assertEqual(ReviewReport.objects.filter(review=self.review).count(), 1)
+
+    def test_cannot_report_own_review(self):
+        self.client.force_authenticate(self.author)
+        resp = self.client.post(f"/api/v1/reviews/{self.review.id}/report/", {"reason": "spam"}, format="json")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_autohide_after_threshold(self):
+        with self.settings(REVIEW_AUTOHIDE_REPORTS=2):
+            for i in range(2):
+                u = self.User.objects.create_user(email=f"r{i}@u.uz", password="x", role=self.User.Role.CUSTOMER)
+                self.client.force_authenticate(u)
+                self.client.post(f"/api/v1/reviews/{self.review.id}/report/", {"reason": "abusive"}, format="json")
+        self.review.refresh_from_db()
+        self.assertTrue(self.review.is_hidden)
+        self.client.force_authenticate(None)
+        self.assertEqual(self._list(), [])
+
+    def test_blocked_author_hidden_for_blocker_only(self):
+        self.assertEqual(len(self._list()), 1)
+        self.client.force_authenticate(self.viewer)
+        resp = self.client.post("/api/v1/blocks/", {"user": str(self.author.id)}, format="json")
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(self._list(self.viewer), [])
+        other = self.User.objects.create_user(email="x@u.uz", password="x", role=self.User.Role.CUSTOMER)
+        self.assertEqual(len(self._list(other)), 1)
+        # blokdan chiqarish
+        self.client.force_authenticate(self.viewer)
+        self.assertEqual(self.client.delete(f"/api/v1/blocks/{self.author.id}/").status_code, 204)
+        self.assertEqual(len(self._list(self.viewer)), 1)
+
+    def test_cannot_block_self(self):
+        self.client.force_authenticate(self.viewer)
+        resp = self.client.post("/api/v1/blocks/", {"user": str(self.viewer.id)}, format="json")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_objectionable_comment_rejected(self):
+        from .moderation import contains_objectionable, looks_like_spam
+
+        self.assertTrue(contains_objectionable("bu yer shit joy"))
+        self.assertFalse(contains_objectionable("Yaxshi xizmat, rahmat"))
+        self.assertTrue(looks_like_spam("qo'ng'iroq qiling +998 90 123 45 67"))
+        self.assertTrue(looks_like_spam("t.me/spam_kanal"))
+        self.assertFalse(looks_like_spam("Mebel 5 kunda tayyor bo'ldi"))

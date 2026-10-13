@@ -7,13 +7,22 @@ from apps.notifications.services import (
     notify_invitation_accepted,
     notify_invitation_declined,
 )
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Company, CompanyDeliverySettings, Employee, EmployeeInvitation, Review, TariffPlan
+from .models import (
+    Company,
+    CompanyDeliverySettings,
+    Employee,
+    EmployeeInvitation,
+    Review,
+    ReviewReport,
+    TariffPlan,
+    UserBlock,
+)
 from .serializers import (
     CompanyDeliverySettingsSerializer,
     CompanySerializer,
@@ -399,8 +408,76 @@ class ReviewViewSet(viewsets.ModelViewSet):
     http_method_names = ("get", "post", "head", "options")
 
     def get_queryset(self):
-        qs = Review.objects.filter(is_deleted=False).select_related("customer")
+        qs = Review.objects.filter(is_deleted=False, is_hidden=False).select_related("customer")
         company = self.request.query_params.get("company")
         if company:
             qs = qs.filter(company__slug=company)
+        user = self.request.user
+        if user.is_authenticated:
+            # Men bloklagan foydalanuvchilarning sharhlari ko'rinmaydi.
+            qs = qs.exclude(customer_id__in=UserBlock.objects.filter(blocker=user).values("blocked_id"))
         return qs
+
+    @action(detail=True, methods=["post"], permission_classes=(permissions.IsAuthenticated,))
+    def report(self, request, pk=None):
+        """Sharhga shikoyat. Bir foydalanuvchi bitta sharhga bir marta; yetarli shikoyat
+        yig'ilsa sharh avtomatik yashiriladi (admin keyin ko'rib chiqadi)."""
+        from django.conf import settings as dj_settings
+
+        review = self.get_object()
+        if review.customer_id == request.user.id:
+            raise ValidationError("O'z sharhingizga shikoyat qila olmaysiz")
+        reason = request.data.get("reason", ReviewReport.Reason.OTHER)
+        if reason not in ReviewReport.Reason.values:
+            raise ValidationError("Noma'lum sabab")
+        details = str(request.data.get("details", ""))[:500]
+        ReviewReport.objects.get_or_create(
+            review=review, reporter=request.user, defaults={"reason": reason, "details": details}
+        )
+        count = review.reports.count()
+        if count >= dj_settings.REVIEW_AUTOHIDE_REPORTS and not review.is_hidden:
+            review.is_hidden = True
+            review.hidden_reason = f"Avtomatik: {count} ta shikoyat"
+            review.save(update_fields=["is_hidden", "hidden_reason", "updated_at"])
+        return Response(
+            {
+                "detail": "Shikoyatingiz qabul qilindi. 24 soat ichida ko'rib chiqiladi.",
+                "support_email": dj_settings.SUPPORT_EMAIL,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class UserBlockView(APIView):
+    """`/blocks/` — GET: men bloklaganlar; POST {"user": <id>}: bloklash;
+    DELETE `/blocks/<user_id>/` (UserBlockDetailView): blokdan chiqarish."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        rows = UserBlock.objects.filter(blocker=request.user).select_related("blocked")
+        return Response(
+            [{"user": str(b.blocked_id), "name": b.blocked.first_name or ""} for b in rows]
+        )
+
+    def post(self, request):
+        target = request.data.get("user")
+        if not target:
+            raise ValidationError("user kerak")
+        User = get_user_model()
+        try:
+            user = User.objects.get(pk=target)
+        except (User.DoesNotExist, ValueError, TypeError, Exception):
+            raise ValidationError("Foydalanuvchi topilmadi")
+        if user.pk == request.user.pk:
+            raise ValidationError("O'zingizni bloklab bo'lmaydi")
+        UserBlock.objects.get_or_create(blocker=request.user, blocked=user)
+        return Response({"detail": "Foydalanuvchi bloklandi"}, status=status.HTTP_201_CREATED)
+
+
+class UserBlockDetailView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, user_id):
+        UserBlock.objects.filter(blocker=request.user, blocked_id=user_id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

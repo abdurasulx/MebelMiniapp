@@ -21,6 +21,8 @@ from apps.companies.views import (
     EmployeeViewSet,
     ReviewViewSet,
     TariffPlanViewSet,
+    UserBlockDetailView,
+    UserBlockView,
     WorkerLookupView,
 )
 from apps.inventory.views import (
@@ -162,6 +164,8 @@ ar_collection_item_list = ARCollectionItemViewSet.as_view({"get": "list", "post"
 ar_collection_item_detail = ARCollectionItemViewSet.as_view({"delete": "destroy"})
 
 urlpatterns = [
+    path("blocks/", UserBlockView.as_view(), name="user-blocks"),
+    path("blocks/<uuid:user_id>/", UserBlockDetailView.as_view(), name="user-block-detail"),
     path("auth/token/", AdminTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("auth/token/firma/", FirmaTokenObtainPairView.as_view(), name="firma_token_obtain_pair"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

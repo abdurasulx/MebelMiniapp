@@ -229,6 +229,9 @@ class Review(BaseModel):
     )
     rating = models.PositiveSmallIntegerField()
     comment = models.TextField(blank=True)
+    # UGC moderatsiya: shikoyatlar yetarli bo'lsa avtomatik, yoki admin tomonidan yashiriladi.
+    is_hidden = models.BooleanField(default=False)
+    hidden_reason = models.CharField(max_length=200, blank=True)
 
     class Meta:
         unique_together = ("company", "customer")
@@ -236,6 +239,54 @@ class Review(BaseModel):
 
     def __str__(self):
         return f"{self.customer} → {self.company}: {self.rating}★"
+
+
+class ReviewReport(BaseModel):
+    """Foydalanuvchi sharhga qilgan shikoyat (Apple 1.2 — UGC report)."""
+
+    class Reason(models.TextChoices):
+        SPAM = "spam", "Spam yoki reklama"
+        ABUSIVE = "abusive", "Haqorat yoki nafrat"
+        INAPPROPRIATE = "inappropriate", "Nomaqbul kontent"
+        FALSE = "false", "Yolg'on ma'lumot"
+        OTHER = "other", "Boshqa"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Ko'rib chiqilmoqda"
+        ACTIONED = "actioned", "Choralar ko'rildi"
+        DISMISSED = "dismissed", "Rad etildi"
+
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="reports")
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="review_reports"
+    )
+    reason = models.CharField(max_length=20, choices=Reason.choices)
+    details = models.CharField(max_length=500, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+
+    class Meta:
+        unique_together = ("review", "reporter")
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.reporter} → review {self.review_id}: {self.reason}"
+
+
+class UserBlock(BaseModel):
+    """Foydalanuvchi boshqa foydalanuvchini bloklaydi: uning sharhlari bloklagan kishiga ko'rinmaydi."""
+
+    blocker = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="blocks_made"
+    )
+    blocked = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="blocked_by"
+    )
+
+    class Meta:
+        unique_together = ("blocker", "blocked")
+
+    def __str__(self):
+        return f"{self.blocker} ⊘ {self.blocked}"
 
 
 class PayType(models.TextChoices):

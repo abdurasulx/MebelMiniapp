@@ -242,11 +242,21 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     customer_name = serializers.CharField(source="customer.first_name", read_only=True)
+    author_id = serializers.UUIDField(source="customer_id", read_only=True)
 
     class Meta:
         model = Review
-        fields = ("id", "company", "customer_name", "rating", "comment", "created_at")
-        read_only_fields = ("id", "customer_name", "created_at")
+        fields = ("id", "company", "customer_name", "author_id", "rating", "comment", "created_at")
+        read_only_fields = ("id", "customer_name", "author_id", "created_at")
+
+    def validate_comment(self, value):
+        from .moderation import contains_objectionable, looks_like_spam
+
+        if contains_objectionable(value):
+            raise serializers.ValidationError("Izohda nomaqbul so'zlar bor. Iltimos, tahrir qiling")
+        if looks_like_spam(value):
+            raise serializers.ValidationError("Izohda havola yoki telefon raqam bo'lishi mumkin emas")
+        return value
 
     def validate_rating(self, value):
         if not 1 <= value <= 5:
