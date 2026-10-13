@@ -11,6 +11,9 @@ import 'profile_screen.dart';
 
 enum _Step { phone, code, profile }
 
+/// Kod/ism bosqichida pastki menyu yashirilsin (qarang root_screen.dart).
+final ValueNotifier<bool> authFlowActive = ValueNotifier<bool>(false);
+
 // Har bir tugma faqat O'ZI bosilganda spinner ko'rsatishi uchun — bitta
 // umumiy `_busy` bo'lsa, masalan Google bosilganda "Kod yuborish" tugmasi
 // ham (aslida bosilmagan bo'lsa-da) spinner'ga aylanib qolardi (barcha
@@ -56,6 +59,7 @@ class _AuthScreenState extends State<AuthScreen> {
     _phoneController.removeListener(_onTextChanged);
     _firstNameController.removeListener(_onTextChanged);
     _resendTimer?.cancel();
+    authFlowActive.value = false;
     _phoneController.dispose();
     _codeController.dispose();
     _firstNameController.dispose();
@@ -158,6 +162,12 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthStore>();
     final loc = context.watch<LocaleStore>();
+    final flowActive = _step != _Step.phone;
+    if (authFlowActive.value != flowActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) authFlowActive.value = flowActive;
+      });
+    }
     return Scaffold(
       appBar: AppBar(
         title:

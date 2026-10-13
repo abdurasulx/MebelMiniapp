@@ -430,6 +430,10 @@ private struct AuthFormView: View {
             }
         }
         .onDisappear { resendTimer?.invalidate() }
+        // Kod/ism bosqichida pastki menyu yashiriladi — foydalanuvchi boshqa tabga
+        // o'tib ketmasin (qaytish: "Raqamni o'zgartirish").
+        .toolbar(step == .phone ? .automatic : .hidden, for: .tabBar)
+        .animation(.easeOut(duration: 0.2), value: step)
     }
 
     @ViewBuilder

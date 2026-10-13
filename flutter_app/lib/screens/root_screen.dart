@@ -5,6 +5,7 @@ import '../cart_store.dart';
 import '../locale_store.dart';
 import 'cart_screen.dart';
 import 'home_screen.dart';
+import 'auth_screen.dart' show authFlowActive;
 import 'likes_screen.dart';
 import 'profile_screen.dart';
 import 'worker/worker_home_screen.dart';
@@ -61,7 +62,8 @@ class _RootScreenState extends State<RootScreen> {
               icon: const Icon(Icons.payments_outlined),
               label: loc.t('worker_payslip_tab'),
             ),
-            BottomNavigationBarItem(icon: const Icon(Icons.person), label: loc.t('nav_profile')),
+            BottomNavigationBarItem(
+                icon: const Icon(Icons.person), label: loc.t('nav_profile')),
           ]
         : [
             BottomNavigationBarItem(
@@ -90,10 +92,19 @@ class _RootScreenState extends State<RootScreen> {
 
     return Scaffold(
       body: IndexedStack(index: safeIndex, children: tabs),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: safeIndex,
-        onTap: (i) => setState(() => _index = i),
-        items: items,
+      // Telefon+OTP kod/ism bosqichida pastki menyu yashiriladi (boshqa tabga
+      // o'tib ketmasin); "Raqamni o'zgartirish" bilan qaytiladi.
+      bottomNavigationBar: ValueListenableBuilder<bool>(
+        valueListenable: authFlowActive,
+        builder: (context, active, _) {
+          final isProfileTab = safeIndex == tabs.length - 1;
+          if (active && isProfileTab) return const SizedBox.shrink();
+          return BottomNavigationBar(
+            currentIndex: safeIndex,
+            onTap: (i) => setState(() => _index = i),
+            items: items,
+          );
+        },
       ),
     );
   }
