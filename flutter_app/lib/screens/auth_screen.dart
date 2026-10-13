@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
@@ -537,7 +538,7 @@ class _AuthScreenState extends State<AuthScreen> {
       children: [
         // SMS provayder hali ulanmagan — dev rejimda kod shu yerda ko'rsatiladi.
         Text(
-          _debugCode != null
+          (kDebugMode && _debugCode != null)
               ? '${loc.t('auth_sms_sent')} ($_debugCode)'
               : loc.t('auth_sms_sent'),
           textAlign: TextAlign.center,

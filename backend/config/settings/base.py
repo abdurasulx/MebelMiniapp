@@ -172,6 +172,16 @@ ESKIZ_ENABLED = env.bool("ESKIZ_ENABLED", default=False)
 ESKIZ_EMAIL = env("ESKIZ_EMAIL", default="")
 ESKIZ_PASSWORD = env("ESKIZ_PASSWORD", default="")
 ESKIZ_FROM = env("ESKIZ_FROM", default="4546")
+# OTP xavfsizligi/xarajati: `debug_code` faqat DEBUG yoki shu bayroq yoqilganda (prod'da HECH QACHON).
+OTP_DEBUG_RETURN = env.bool("OTP_DEBUG_RETURN", default=False)
+# SMS xarajatini cheklash: bir IP'dan soatiga va butun tizim bo'yicha kuniga.
+SMS_IP_HOURLY_LIMIT = env.int("SMS_IP_HOURLY_LIMIT", default=15)
+SMS_DAILY_LIMIT = env.int("SMS_DAILY_LIMIT", default=500)
+# Haqiqiy SMS faqat shu prefiksdagi raqamlarga (vergul bilan); bo'sh = cheklov yo'q.
+SMS_ALLOWED_PREFIXES = env.list("SMS_ALLOWED_PREFIXES", default=["998"])
+# App Store/Play review demo raqami: SMS yuborilmaydi, kod doim APP_REVIEW_OTP.
+APP_REVIEW_PHONE = env("APP_REVIEW_PHONE", default="")
+APP_REVIEW_OTP = env("APP_REVIEW_OTP", default="")
 
 # Telegram bot login (webhook) — qarang apps/users/telegram_bot.py.
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")

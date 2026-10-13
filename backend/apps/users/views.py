@@ -1,3 +1,4 @@
+import logging
 import random
 import secrets
 import threading
@@ -7,6 +8,7 @@ from uuid import UUID
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core import signing
 from django.http import HttpResponseBadRequest, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
@@ -189,7 +191,7 @@ class PhoneVerifyRequestView(APIView):
         serializer = OTPRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone = serializer.validated_data["phone"].strip()
-        return Response(_request_otp(phone))
+        return Response(_request_otp(phone, request))
 
 
 class PhoneVerifyConfirmView(APIView):
@@ -876,10 +878,19 @@ class TelegramBotInfoView(APIView):
         return Response({"username": username})
 
 
+logger = logging.getLogger(__name__)
+
 MAX_OTP_PER_HOUR = 5
 
 
-def _request_otp(phone: str) -> dict:
+def _client_ip(request) -> str:
+    if request is None:
+        return ""
+    fwd = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    return (fwd.split(",")[0].strip() if fwd else request.META.get("REMOTE_ADDR", "")) or ""
+
+
+def _request_otp(phone: str, request=None) -> dict:
     """SMS kod yaratadi va suiiste'moldan himoya qiladi (rate-limit) — OTP
     orqali kirish (OTPRequestView) va allaqachon autentifikatsiyalangan
     foydalanuvchi telefon tasdiqlashi (PhoneVerifyRequestView) ikkalasi
@@ -905,9 +916,36 @@ def _request_otp(phone: str) -> dict:
     if recent_count >= MAX_OTP_PER_HOUR:
         raise ValidationError("Juda ko'p urinish. Bir soatdan so'ng qayta urinib ko'ring")
 
+    response = {"detail": "SMS yuborildi", "resend_after": PhoneOTP.RESEND_COOLDOWN_SECONDS}
+
+    # App Review demo raqami: SMS yuborilmaydi, kod o'zgarmas (env orqali).
+    review_phone = sms.normalize_phone(settings.APP_REVIEW_PHONE)
+    if review_phone and settings.APP_REVIEW_OTP and sms.normalize_phone(phone) == review_phone:
+        PhoneOTP.objects.create(phone=phone, code=settings.APP_REVIEW_OTP)
+        return response
+
+    if sms.is_configured():
+        # Haqiqiy SMS xarajati: davlat prefiksi, IP va kunlik chegara.
+        prefixes = [p.strip() for p in settings.SMS_ALLOWED_PREFIXES if p.strip()]
+        if prefixes and not sms.normalize_phone(phone).startswith(tuple(prefixes)):
+            raise ValidationError("Bu raqamga SMS yuborib bo'lmaydi. Boshqa kirish usulidan foydalaning")
+        ip = _client_ip(request)
+        if ip:
+            ip_key = f"otp_ip:{ip}"
+            count = cache.get(ip_key, 0)
+            if count >= settings.SMS_IP_HOURLY_LIMIT:
+                raise ValidationError("Juda ko'p urinish. Birozdan so'ng qayta urinib ko'ring")
+            cache.set(ip_key, count + 1, 3600)
+        day_ago = timezone.now() - timedelta(hours=24)
+        if PhoneOTP.objects.filter(created_at__gte=day_ago).count() >= settings.SMS_DAILY_LIMIT:
+            logger.warning("SMS kunlik chegarasiga yetildi (%s)", settings.SMS_DAILY_LIMIT)
+            raise ValidationError("Xizmat vaqtincha band. Keyinroq qayta urinib ko'ring")
+    elif not (settings.DEBUG or settings.OTP_DEBUG_RETURN):
+        # SMS provayder yo'q va debug ruxsat etilmagan — kodni HECH QACHON ochiq qaytarmaymiz.
+        raise ValidationError("SMS xizmati hozircha mavjud emas. Boshqa kirish usulidan foydalaning")
+
     code = "".join(random.choices("0123456789", k=6))
     otp = PhoneOTP.objects.create(phone=phone, code=code)
-    response = {"detail": "SMS yuborildi", "resend_after": PhoneOTP.RESEND_COOLDOWN_SECONDS}
     if sms.is_configured():
         try:
             sms.send_otp(phone, code)
@@ -961,7 +999,7 @@ class OTPRequestView(APIView):
         serializer = OTPRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         phone = serializer.validated_data["phone"].strip()
-        return Response(_request_otp(phone))
+        return Response(_request_otp(phone, request))
 
 
 class OTPVerifyView(APIView):

@@ -401,6 +401,14 @@ private struct AuthFormView: View {
 
     private var phoneValid: Bool { country.isValid(phone) }
 
+    /// "Kod yuborildi" matni. Test kodi (debug_code) faqat DEBUG build'da ko'rsatiladi.
+    private var smsSentText: String {
+        #if DEBUG
+        if let debugCode { return "\(locale.t("auth_sms_sent")) (\(debugCode))" }
+        #endif
+        return locale.t("auth_sms_sent")
+    }
+
     var body: some View {
         Form {
             switch step {
@@ -519,7 +527,7 @@ private struct AuthFormView: View {
     private var codeSection: some View {
         Section {
             // SMS provayder hali ulanmagan — dev rejimda kod shu yerda ko'rsatiladi.
-            Text(debugCode != nil ? "\(locale.t("auth_sms_sent")) (\(debugCode!))" : locale.t("auth_sms_sent"))
+            Text(smsSentText)
                 .font(.caption).foregroundStyle(Color.textSecondary)
                 .accessibilityIdentifier("authDebugCodeLabel")
             OtpBoxInput(code: $otpCode, length: Self.otpLength) { code in

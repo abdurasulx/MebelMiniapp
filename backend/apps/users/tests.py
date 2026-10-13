@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken
@@ -11,6 +11,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from .models import GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession, User
 
 
+@override_settings(OTP_DEBUG_RETURN=True)
 class OTPFlowTests(TestCase):
     """Telefon-OTP orqali kirish oqimi — shu jumladan avvalroq topilgan ikkita
     real bug uchun regressiya testlari: (1) cooldown ishlatilgan kodni ham
@@ -784,6 +785,7 @@ class TelegramLinkSessionTests(AccountLinkTestMixin, TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+@override_settings(OTP_DEBUG_RETURN=True)
 class PhoneVerifyTests(TestCase):
     """Google/Telegram orqali kirgan (`phone_verified=False`) foydalanuvchi
     checkout paytida telefonini SMS-kod bilan tasdiqlashi — qarang
@@ -940,15 +942,55 @@ class EskizSMSTests(TestCase):
             reverse("otp-request"), {"phone": phone}, content_type="application/json"
         )
 
-    def test_not_configured_returns_debug_code(self):
-        resp = self._request()
+    def test_not_configured_returns_debug_code_only_when_explicitly_allowed(self):
+        with self.settings(OTP_DEBUG_RETURN=True):
+            resp = self._request()
         self.assertEqual(resp.status_code, 200)
         self.assertIn("debug_code", resp.json())
 
-    def test_credentials_without_enabled_flag_still_return_debug_code(self):
-        with self.settings(ESKIZ_ENABLED=False, ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"):
+    def test_not_configured_in_production_never_exposes_code(self):
+        with self.settings(DEBUG=False, OTP_DEBUG_RETURN=False):
             resp = self._request()
-        self.assertIn("debug_code", resp.json())
+        self.assertEqual(resp.status_code, 400)
+        self.assertNotIn("debug_code", resp.json())
+        self.assertFalse(PhoneOTP.objects.filter(phone="+998901234567").exists())
+
+    def test_credentials_without_enabled_flag_do_not_leak_code_in_production(self):
+        with self.settings(
+            DEBUG=False, OTP_DEBUG_RETURN=False, ESKIZ_ENABLED=False, ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"
+        ):
+            resp = self._request()
+        self.assertEqual(resp.status_code, 400)
+        self.assertNotIn("debug_code", resp.json())
+
+    def test_review_phone_uses_fixed_code_without_sms(self):
+        with self.settings(
+            DEBUG=False, ESKIZ_ENABLED=True, ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x",
+            APP_REVIEW_PHONE="+998900000000", APP_REVIEW_OTP="123456",
+        ), patch("apps.users.sms.send_otp") as send:
+            resp = self._request("+998900000000")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotIn("debug_code", resp.json())
+        send.assert_not_called()
+        self.assertEqual(PhoneOTP.objects.get(phone="+998900000000").code, "123456")
+
+    def test_foreign_numbers_not_sent_real_sms(self):
+        with self.settings(
+            ESKIZ_ENABLED=True, ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x", SMS_ALLOWED_PREFIXES=["998"]
+        ), patch("apps.users.sms.send_otp") as send:
+            resp = self._request("+79991234567")
+        self.assertEqual(resp.status_code, 400)
+        send.assert_not_called()
+
+    def test_daily_limit_blocks_sms(self):
+        for i in range(3):
+            PhoneOTP.objects.create(phone=f"+99890000000{i}", code="111111")
+        with self.settings(
+            ESKIZ_ENABLED=True, ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x", SMS_DAILY_LIMIT=3
+        ), patch("apps.users.sms.send_otp") as send:
+            resp = self._request()
+        self.assertEqual(resp.status_code, 400)
+        send.assert_not_called()
 
     def test_configured_sends_sms_and_hides_code(self):
         with self.settings(ESKIZ_ENABLED=True, ESKIZ_EMAIL="a@b.c", ESKIZ_PASSWORD="x"), patch(
