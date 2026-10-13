@@ -87,7 +87,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
   /// UGC: sharhga shikoyat (Apple 1.2) — sabab tanlanadi, server 24 soat ichida ko'radi.
   Future<void> _reportReview(Review r, LocaleStore loc) async {
     if (!context.read<AuthStore>().isAuthenticated) {
-      _toast(loc.t('checkout_login_required'));
+      _toast(loc.t('cart_login_hint'));
       return;
     }
     const reasons = [
@@ -134,7 +134,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
 
   Future<void> _blockAuthor(Review r, LocaleStore loc) async {
     if (!context.read<AuthStore>().isAuthenticated) {
-      _toast(loc.t('checkout_login_required'));
+      _toast(loc.t('cart_login_hint'));
       return;
     }
     final author = r.authorId;
