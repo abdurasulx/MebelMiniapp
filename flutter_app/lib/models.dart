@@ -359,6 +359,7 @@ class Company {
 
 class Review {
   final String id;
+  final String? authorId;
   final String? customerName;
   final int rating;
   final String? comment;
@@ -366,6 +367,7 @@ class Review {
 
   Review({
     required this.id,
+    this.authorId,
     this.customerName,
     required this.rating,
     this.comment,
@@ -374,6 +376,7 @@ class Review {
 
   factory Review.fromJson(Map<String, dynamic> j) => Review(
         id: j['id'],
+        authorId: j['author_id'],
         customerName: j['customer_name'],
         rating: j['rating'],
         comment: j['comment'],

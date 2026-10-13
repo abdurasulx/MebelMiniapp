@@ -16,6 +16,10 @@ struct CompanyShopView: View {
     @State private var comment = ""
     @State private var submitBusy = false
     @State private var submitMessage: String?
+    // UGC moderatsiya (Apple 1.2): shikoyat va bloklash.
+    @State private var reportTarget: Review?
+    @State private var blockTarget: Review?
+    @State private var ugcMessage: String?
 
     var body: some View {
         ScrollView {
@@ -137,6 +141,16 @@ struct CompanyShopView: View {
                                 Text(r.customerName?.isEmpty == false ? r.customerName! : locale.t("shop_anonymous_customer")).font(.subheadline).bold()
                                 Spacer()
                                 Text(String(repeating: "⭐", count: r.rating)).font(.caption)
+                                Menu {
+                                    Button(role: .destructive) { startReport(r) } label: {
+                                        Label(locale.t("review_report"), systemImage: "flag")
+                                    }
+                                    Button(role: .destructive) { startBlock(r) } label: {
+                                        Label(locale.t("review_block_user"), systemImage: "hand.raised")
+                                    }
+                                } label: {
+                                    Image(systemName: "ellipsis").padding(.leading, 6).foregroundStyle(Color.textSecondary)
+                                }
                             }
                             if let comment = r.comment, !comment.isEmpty {
                                 Text(comment).font(.caption).foregroundStyle(Color.textSecondary)
@@ -150,6 +164,75 @@ struct CompanyShopView: View {
                 }
                 .padding(.horizontal)
             }
+        }
+        .confirmationDialog(
+            locale.t("review_report_title"),
+            isPresented: Binding(get: { reportTarget != nil }, set: { if !$0 { reportTarget = nil } }),
+            titleVisibility: .visible
+        ) {
+            ForEach([
+                ("spam", "review_reason_spam"), ("abusive", "review_reason_abusive"),
+                ("inappropriate", "review_reason_inappropriate"), ("false", "review_reason_false"),
+                ("other", "review_reason_other"),
+            ], id: \.0) { reason, key in
+                Button(locale.t(key)) {
+                    if let target = reportTarget { Task { await sendReport(target, reason: reason) } }
+                }
+            }
+            Button(locale.t("common_close"), role: .cancel) {}
+        }
+        .alert(
+            locale.t("review_block_user"),
+            isPresented: Binding(get: { blockTarget != nil }, set: { if !$0 { blockTarget = nil } })
+        ) {
+            Button(locale.t("review_block_user"), role: .destructive) {
+                if let target = blockTarget { Task { await block(target) } }
+            }
+            Button(locale.t("common_close"), role: .cancel) {}
+        } message: {
+            Text(locale.t("review_block_confirm"))
+        }
+        .alert(
+            "",
+            isPresented: Binding(get: { ugcMessage != nil }, set: { if !$0 { ugcMessage = nil } })
+        ) {
+            Button("OK") {}
+        } message: {
+            Text(ugcMessage ?? "")
+        }
+    }
+
+    private func startReport(_ r: Review) {
+        guard auth.isAuthenticated else { ugcMessage = locale.t("checkout_login_required"); return }
+        reportTarget = r
+    }
+
+    private func startBlock(_ r: Review) {
+        guard auth.isAuthenticated else { ugcMessage = locale.t("checkout_login_required"); return }
+        blockTarget = r
+    }
+
+    private func sendReport(_ r: Review, reason: String) async {
+        struct Body: Encodable { let reason: String }
+        struct Resp: Decodable { let detail: String? }
+        do {
+            let _: Resp = try await APIClient.shared.post("/reviews/\(r.id)/report/", body: Body(reason: reason), auth: true)
+            ugcMessage = locale.t("review_reported")
+        } catch {
+            ugcMessage = error.localizedDescription
+        }
+    }
+
+    private func block(_ r: Review) async {
+        guard let author = r.authorId else { return }
+        struct Body: Encodable { let user: String }
+        struct Resp: Decodable { let detail: String? }
+        do {
+            let _: Resp = try await APIClient.shared.post("/blocks/", body: Body(user: author), auth: true)
+            reviews.removeAll { $0.authorId == author }
+            ugcMessage = locale.t("review_blocked")
+        } catch {
+            ugcMessage = error.localizedDescription
         }
     }
 

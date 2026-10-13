@@ -79,6 +79,94 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
     }
   }
 
+  void _toast(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// UGC: sharhga shikoyat (Apple 1.2) — sabab tanlanadi, server 24 soat ichida ko'radi.
+  Future<void> _reportReview(Review r, LocaleStore loc) async {
+    if (!context.read<AuthStore>().isAuthenticated) {
+      _toast(loc.t('checkout_login_required'));
+      return;
+    }
+    const reasons = [
+      ['spam', 'review_reason_spam'],
+      ['abusive', 'review_reason_abusive'],
+      ['inappropriate', 'review_reason_inappropriate'],
+      ['false', 'review_reason_false'],
+      ['other', 'review_reason_other'],
+    ];
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(loc.t('review_report_title'),
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+            for (final item in reasons)
+              ListTile(
+                title: Text(loc.t(item[1])),
+                onTap: () => Navigator.of(ctx).pop(item[0]),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (reason == null) return;
+    try {
+      await ApiClient.instance.post(
+        '/reviews/${r.id}/report/',
+        (j) => j,
+        body: {'reason': reason},
+      );
+      _toast(loc.t('review_reported'));
+    } catch (e) {
+      _toast(e.toString());
+    }
+  }
+
+  Future<void> _blockAuthor(Review r, LocaleStore loc) async {
+    if (!context.read<AuthStore>().isAuthenticated) {
+      _toast(loc.t('checkout_login_required'));
+      return;
+    }
+    final author = r.authorId;
+    if (author == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(loc.t('review_block_user')),
+        content: Text(loc.t('review_block_confirm')),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(loc.t('common_close'))),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(loc.t('review_block_user'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ApiClient.instance
+          .post('/blocks/', (j) => j, body: {'user': author});
+      if (mounted) {
+        setState(() => _reviews.removeWhere((x) => x.authorId == author));
+      }
+      _toast(loc.t('review_blocked'));
+    } catch (e) {
+      _toast(e.toString());
+    }
+  }
+
   Future<void> _submitReview() async {
     final company = _company;
     if (company == null) return;
@@ -223,6 +311,24 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
                                   ),
                                 ),
                                 _stars(r.rating),
+                                PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_horiz,
+                                      size: 20, color: AppColors.textSecondary),
+                                  padding: EdgeInsets.zero,
+                                  onSelected: (v) => v == 'report'
+                                      ? _reportReview(r, loc)
+                                      : _blockAuthor(r, loc),
+                                  itemBuilder: (_) => [
+                                    PopupMenuItem(
+                                      value: 'report',
+                                      child: Text(loc.t('review_report')),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'block',
+                                      child: Text(loc.t('review_block_user')),
+                                    ),
+                                  ],
+                                ),
                               ],
                             ),
                             if (r.comment?.isNotEmpty == true) ...[

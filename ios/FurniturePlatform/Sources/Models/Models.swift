@@ -214,6 +214,7 @@ struct Company: Codable, Identifiable {
 struct Review: Codable, Identifiable {
     let id: String
     let customerName: String?
+    let authorId: String?
     let rating: Int
     let comment: String?
     let createdAt: String
