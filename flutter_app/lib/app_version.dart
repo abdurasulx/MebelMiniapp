@@ -30,7 +30,8 @@ class AppVersionPolicy {
 
   /// Noto'g'ri (Map bo'lmagan) kirishda `FormatException` tashlaydi.
   factory AppVersionPolicy.fromJson(dynamic j) {
-    if (j is! Map) throw const FormatException('Versiya javobi JSON obyekt emas');
+    if (j is! Map)
+      throw const FormatException('Versiya javobi JSON obyekt emas');
     String s(String k) => (j[k] ?? '').toString();
     bool b(String k) => j[k] == true;
     return AppVersionPolicy(
@@ -58,9 +59,20 @@ class AppVersionPolicy {
         'message': message,
       };
 
-  /// Majburiy yangilash: BLOCKED, yoki UPDATE_REQUIRED + force_update.
+  /// Do'kon manzili haqiqiy http(s) URL'mi. Aks holda majburiy ekranda hech narsa
+  /// qilib bo'lmaydi (foydalanuvchi qamalib qoladi), shuning uchun bloklanmaydi.
+  bool get hasValidStoreUrl {
+    final uri = Uri.tryParse(storeUrl.trim());
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
+  }
+
+  /// Majburiy yangilash: BLOCKED, yoki UPDATE_REQUIRED + force_update — faqat
+  /// yaroqli do'kon manzili bo'lganda.
   bool get isForced =>
-      status == 'BLOCKED' || (status == 'UPDATE_REQUIRED' && forceUpdate);
+      (status == 'BLOCKED' || (status == 'UPDATE_REQUIRED' && forceUpdate)) &&
+      hasValidStoreUrl;
 }
 
 enum UpdateAction { proceed, optional, forced }

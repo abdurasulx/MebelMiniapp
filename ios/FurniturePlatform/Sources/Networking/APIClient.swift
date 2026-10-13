@@ -303,7 +303,8 @@ actor APIClient {
         // 3s juda tez edi — mobil tarmoqda oddiy kechikish ham "oflayn" deb
         // noto'g'ri aniqlanardi (endi zararsiz bo'lsa ham — RootView'ni
         // yo'q qilmaydi — keraksiz to'liq ekranli uzilishlarni oldini olamiz).
-        request.timeoutInterval = 6
+        // Sekin (3G/Wi-Fi) tarmoqda ham asosiy oqim yopilmasin deb 15s.
+        request.timeoutInterval = 15
         Self.applyAppHeaders(&request)
         if let body {
             request.httpBody = body
@@ -434,7 +435,7 @@ actor APIClient {
     /// e'lon qilinadi (`ConnectivityStore` shuni tinglaydi).
     func probeConnectivity() async {
         var request = URLRequest(url: APIConfig.url(for: "/categories/"))
-        request.timeoutInterval = 2.5
+        request.timeoutInterval = 6
         do {
             _ = try await URLSession.shared.data(for: request)
             NotificationCenter.default.post(name: .connectivityChanged, object: true)

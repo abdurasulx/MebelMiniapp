@@ -22,7 +22,11 @@ enum AppVersionDecision: Equatable {
 
     static func make(policy: AppVersionPolicy) -> AppVersionDecision {
         let status = policy.status.uppercased()
-        if status == "BLOCKED" || (status == "UPDATE_REQUIRED" && policy.forceUpdate == true) {
+        // Do'kon manzili yaroqsiz/bo'sh bo'lsa majburiy ekran foydalanuvchini qamab qo'yadi —
+        // shuning uchun faqat haqiqiy http(s) URL bo'lganda bloklaymiz.
+        let storeURL = policy.storeUrl.flatMap { URL(string: $0.trimmingCharacters(in: .whitespaces)) }
+        let validStore = storeURL.map { ["http", "https"].contains($0.scheme?.lowercased() ?? "") && ($0.host?.isEmpty == false) } ?? false
+        if validStore && (status == "BLOCKED" || (status == "UPDATE_REQUIRED" && policy.forceUpdate == true)) {
             return .forced(policy)
         }
         if policy.updateAvailable == true {

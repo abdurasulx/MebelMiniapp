@@ -44,10 +44,10 @@ class NetworkException implements Exception {
 Future<T> _guardNetwork<T>(Future<T> Function() action) async {
   try {
     final result = await action();
-    ApiClient.instance.isOffline.value = false;
+    ApiClient.instance.noteNetworkSuccess();
     return result;
   } catch (_) {
-    ApiClient.instance.isOffline.value = true;
+    ApiClient.instance.noteNetworkFailure();
     throw NetworkException();
   }
 }
@@ -179,12 +179,31 @@ class ApiClient {
   /// bilan birga) o'rniga to'liq ekranli [OfflineView]ni ko'rsatadi.
   final ValueNotifier<bool> isOffline = ValueNotifier(false);
 
+  // Bitta sekin/uzilgan so'rov butun ilovani "oflayn" ekran bilan yopib qo'ymasin:
+  // ketma-ket [_offlineThreshold] marta muvaffaqiyatsiz bo'lgandagina oflayn deb
+  // e'lon qilinadi; bitta muvaffaqiyat darhol tiklaydi.
+  static const int _offlineThreshold = 3;
+  int _netFailures = 0;
+
+  void noteNetworkSuccess() {
+    _netFailures = 0;
+    isOffline.value = false;
+  }
+
+  void noteNetworkFailure({bool definitive = false}) {
+    _netFailures = definitive ? _offlineThreshold : _netFailures + 1;
+    if (_netFailures >= _offlineThreshold) isOffline.value = true;
+  }
+
   /// Qayta ulanishni tekshirish uchun yengil so'rov — natijasidan qat'iy
   /// nazar [isOffline] `_guardNetwork` orqali avtomatik yangilanadi.
   Future<void> checkConnectivity() async {
+    // Foydalanuvchi "Qayta urinish" bosdi: muvaffaqiyatsiz bo'lsa darhol oflayn holati saqlanadi.
     try {
       await get('/categories/', (j) => j, auth: false);
-    } catch (_) {}
+    } catch (_) {
+      noteNetworkFailure(definitive: true);
+    }
   }
 
   /// Ilova ochilishida (splash paytida) darhol chaqiriladi — oddiy
@@ -200,11 +219,11 @@ class ApiClient {
       final resp = await http
           .get(Uri.parse('${ApiConfig.baseUrl}/categories/'),
               headers: _appHeaders)
-          .timeout(const Duration(seconds: 2, milliseconds: 500));
+          .timeout(const Duration(seconds: 6));
       _checkUpdateRequired(resp);
-      isOffline.value = false;
+      noteNetworkSuccess();
     } catch (_) {
-      isOffline.value = true;
+      noteNetworkFailure();
     }
   }
 
