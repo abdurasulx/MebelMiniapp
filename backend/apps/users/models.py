@@ -100,6 +100,9 @@ class AppleAccount(models.Model):
     user = models.ForeignKey("users.User", on_delete=models.CASCADE, related_name="apple_accounts")
     apple_sub = models.CharField(max_length=255, unique=True, editable=False)
     email = models.EmailField(blank=True)
+    # Hisob o'chirilganda Apple tokenini bekor qilish uchun (kirishda authorization_code
+    # almashtirib olinadi). Maxfiy — API'da hech qachon qaytarilmaydi.
+    refresh_token = models.TextField(blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

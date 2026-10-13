@@ -621,8 +621,10 @@ private struct AuthFormView: View {
         else { return } // bekor qilindi yoki xato — jim
         busyAction = .google
         Task {
+            let authCode = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
             await auth.loginWithApple(
                 identityToken: token,
+                authorizationCode: authCode,
                 firstName: credential.fullName?.givenName ?? "",
                 lastName: credential.fullName?.familyName ?? ""
             )

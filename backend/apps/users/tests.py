@@ -1043,6 +1043,49 @@ class AppleLoginTests(TestCase):
         self.assertFalse(resp.json()["is_new_user"])
         self.assertEqual(User.objects.count(), 1)
 
+    def test_authorization_code_exchanged_and_stored_for_revocation(self):
+        from .models import AppleAccount
+
+        with patch("apps.users.views.exchange_authorization_code", return_value="apple-refresh-1") as ex:
+            resp = self._login({"sub": "sub-rev", "email": "r@icloud.com", "email_verified": "true"},
+                               authorization_code="code-123")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        ex.assert_called_once_with("code-123")
+        self.assertEqual(AppleAccount.objects.get(apple_sub="sub-rev").refresh_token, "apple-refresh-1")
+        # Token hech qachon API javobida chiqmaydi
+        self.assertNotIn("apple-refresh-1", resp.content.decode())
+
+    def test_login_works_without_authorization_code_or_when_exchange_fails(self):
+        with patch("apps.users.views.exchange_authorization_code", return_value=None):
+            resp = self._login({"sub": "sub-x", "email": "x@icloud.com", "email_verified": "true"},
+                               authorization_code="bad")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_exchange_and_revoke_skip_when_not_configured(self):
+        from .apple_auth import exchange_authorization_code, revoke_refresh_token
+
+        with self.settings(APPLE_TEAM_ID="", APPLE_KEY_ID="", APPLE_PRIVATE_KEY_PATH=""):
+            self.assertIsNone(exchange_authorization_code("c"))
+            self.assertFalse(revoke_refresh_token("t"))
+
+    def test_deletion_approval_revokes_apple_token(self):
+        from .models import AccountDeletionRequest, AppleAccount
+
+        admin = User.objects.create_user(email="adm@y.uz", password="p", role=User.Role.PLATFORM_ADMIN)
+        user = User.objects.create_user(email="del@y.uz", password="p", role=User.Role.CUSTOMER)
+        AppleAccount.objects.create(user=user, apple_sub="sub-del", refresh_token="rt-1")
+        req = AccountDeletionRequest.objects.create(user=user, reason="kerak emas")
+        self.client.force_login(admin)
+        from rest_framework.test import APIClient
+
+        api = APIClient()
+        api.force_authenticate(admin)
+        with patch("apps.users.views.revoke_refresh_token", return_value=True) as rv:
+            resp = api.post(f"/api/v1/admin/deletion-requests/{req.id}/approve/")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        rv.assert_called_once_with("rt-1")
+        self.assertEqual(AppleAccount.objects.get(apple_sub="sub-del").refresh_token, "")
+
     def test_links_existing_user_by_verified_email_only(self):
         existing = User.objects.create_user(email="x@y.uz", password="p", role=User.Role.CUSTOMER)
         resp = self._login({"sub": "s1", "email": "x@y.uz", "email_verified": "false"})

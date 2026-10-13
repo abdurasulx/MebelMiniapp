@@ -164,6 +164,10 @@ BACKEND_URL = env("BACKEND_URL", default="http://127.0.0.1:8000")
 # (ixtiyoriy) veb uchun Services ID.
 APPLE_BUNDLE_ID = env("APPLE_BUNDLE_ID", default="uz.vida.burchaksoft")
 APPLE_SERVICE_ID = env("APPLE_SERVICE_ID", default="")
+# Sign in with Apple server kaliti (token almashtirish va revocation uchun). `.p8` faylni git'ga qo'shmang.
+APPLE_TEAM_ID = env("APPLE_TEAM_ID", default="")
+APPLE_KEY_ID = env("APPLE_KEY_ID", default="")
+APPLE_PRIVATE_KEY_PATH = env("APPLE_PRIVATE_KEY_PATH", default="")
 
 # Eskiz.uz SMS (OTP). Bo'sh bo'lsa SMS yuborilmaydi, kod javobda qaytariladi.
 # Eskiz matni moderatsiyadan o'tmaguncha False: kod SMS bilan yuborilmaydi,

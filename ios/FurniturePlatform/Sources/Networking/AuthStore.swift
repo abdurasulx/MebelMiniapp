@@ -189,18 +189,19 @@ final class AuthStore: ObservableObject {
 
     /// Sign in with Apple — Apple bergan `identityToken` serverda tekshiriladi
     /// (`/auth/apple/`). Ism/familiya Apple tomonidan faqat birinchi kirishda beriladi.
-    func loginWithApple(identityToken: String, firstName: String, lastName: String) async {
+    func loginWithApple(identityToken: String, authorizationCode: String? = nil, firstName: String, lastName: String) async {
         errorMessage = nil
         do {
             struct Body: Encodable {
                 let identityToken: String
+                let authorizationCode: String?
                 let firstName: String
                 let lastName: String
             }
             struct Resp: Decodable { let access: String; let refresh: String; let isNewUser: Bool }
             let resp: Resp = try await APIClient.shared.post(
                 "/auth/apple/",
-                body: Body(identityToken: identityToken, firstName: firstName, lastName: lastName),
+                body: Body(identityToken: identityToken, authorizationCode: authorizationCode, firstName: firstName, lastName: lastName),
                 auth: false
             )
             let tokens = TokenPair(access: resp.access, refresh: resp.refresh)

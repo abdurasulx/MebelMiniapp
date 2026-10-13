@@ -156,6 +156,8 @@ class CareerEntrySerializer(serializers.Serializer):
 
 class AppleLoginSerializer(serializers.Serializer):
     identity_token = serializers.CharField(max_length=4096)
+    # Apple bergan bir martalik kod: serverda refresh tokenga almashtiriladi (revocation uchun).
+    authorization_code = serializers.CharField(max_length=2048, required=False, allow_blank=True)
     # Apple ism/familiyani faqat BIRINCHI kirishda, token'dan tashqarida beradi.
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)

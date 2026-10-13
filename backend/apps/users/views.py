@@ -26,7 +26,7 @@ from apps.orders.models import Order
 from apps.products.models import Product
 
 from . import sms, telegram_bot
-from .apple_auth import verify_apple_identity_token
+from .apple_auth import exchange_authorization_code, revoke_refresh_token, verify_apple_identity_token
 from .google_auth import exchange_google_code, verify_google_credential
 from .models import AccountDeletionRequest, AppleAccount, GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession
 from .serializers import (
@@ -397,6 +397,11 @@ class AppleLoginView(APIView):
         user, is_new_user = _resolve_apple_user(
             claims, data.get("first_name", ""), data.get("last_name", "")
         )
+        code = data.get("authorization_code", "")
+        if code:
+            apple_refresh = exchange_authorization_code(code)
+            if apple_refresh:
+                AppleAccount.objects.filter(apple_sub=claims["sub"]).update(refresh_token=apple_refresh)
         refresh = RefreshToken.for_user(user)
         return Response(
             {"access": str(refresh.access_token), "refresh": str(refresh), "is_new_user": is_new_user}
@@ -1138,6 +1143,11 @@ class AdminAccountDeletionApproveView(APIView):
         # Anonimlashtirishdan OLDIN — aks holda bildirishnoma allaqachon
         # bloklangan/anonim hisobga "yetib bormay" qolishi mumkin edi.
         notify_deletion_reviewed(deletion_request)
+        # Apple Sign In bog'langan bo'lsa tokenni Apple'da ham bekor qilamiz (App Store talabi).
+        for account in AppleAccount.objects.filter(user=deletion_request.user).exclude(refresh_token=""):
+            revoke_refresh_token(account.refresh_token)
+            account.refresh_token = ""
+            account.save(update_fields=["refresh_token"])
         _anonymize_deleted_user(deletion_request.user)
         return Response(AccountDeletionRequestSerializer(deletion_request).data)
 
