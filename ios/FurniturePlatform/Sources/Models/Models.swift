@@ -596,14 +596,16 @@ struct APIErrorPayload: Decodable {
             return
         }
         let container = try decoder.container(keyedBy: DynamicCodingKey.self)
-        if let key = DynamicCodingKey(stringValue: "detail") {
-            if let text = try? container.decode(String.self, forKey: key) {
-                detail = text
-                return
-            }
-            if let list = try? container.decode([String].self, forKey: key), let first = list.first {
-                detail = first
-                return
+        for keyName in ["detail", "message", "error"] {
+            if let key = DynamicCodingKey(stringValue: keyName) {
+                if let text = try? container.decode(String.self, forKey: key) {
+                    detail = text
+                    return
+                }
+                if let list = try? container.decode([String].self, forKey: key), let first = list.first {
+                    detail = first
+                    return
+                }
             }
         }
         var parts: [String] = []

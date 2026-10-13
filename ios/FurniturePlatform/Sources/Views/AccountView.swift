@@ -165,9 +165,6 @@ private struct ProfileView: View {
                         .font(.caption)
                     }
                 }
-                if let error = auth.errorMessage {
-                    Text(error).font(.caption).foregroundStyle(Color.appError)
-                }
             }
 
             Section {
@@ -287,7 +284,14 @@ private struct ProfileView: View {
             }
 
             Section {
-                Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
+                HStack {
+                    Spacer()
+                    Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
+                        .font(.footnote)
+                        .foregroundStyle(Color.textSecondary)
+                    Spacer()
+                }
+                .listRowBackground(Color.clear)
             }
 
             DeleteAccountSection()
@@ -322,6 +326,7 @@ private struct ProfileView: View {
                 }
             }
         }
+        .errorAlert(message: $auth.errorMessage)
         .task {
             // `TabView`da bu ekran har safar tab qayta faol bo'lganda emas,
             // faqat BIR MARTA (birinchi ochilganda) yuklanishi kerak — aks
@@ -404,10 +409,18 @@ private struct AuthFormView: View {
             case .profile: profileSection
             }
 
-            if let error = auth.errorMessage {
-                Section { Text(error).foregroundStyle(Color.appError) }
+            Section {
+                HStack {
+                    Spacer()
+                    Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
+                        .font(.footnote)
+                        .foregroundStyle(Color.textSecondary)
+                    Spacer()
+                }
+                .listRowBackground(Color.clear)
             }
         }
+        .errorAlert(message: $auth.errorMessage)
         .confirmationDialog(locale.t("auth_select_country"), isPresented: $showCountryPicker) {
             ForEach(cisCountries) { c in
                 Button("\(c.flag) \(c.name) (\(c.dialCode))") {
@@ -495,10 +508,6 @@ private struct AuthFormView: View {
             }
             .disabled(busy)
             .frame(maxWidth: .infinity)
-        }
-        Section {
-            Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
-                .font(.footnote)
         }
     }
 

@@ -61,7 +61,7 @@ Future<T> _guardNetwork<T>(Future<T> Function() action) async {
 class ApiConfig {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.qrbite.uz/api/v1',
+    defaultValue: 'https://api.vidamarket.uz/api/v1',
   );
 }
 

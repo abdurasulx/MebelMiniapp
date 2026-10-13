@@ -96,10 +96,6 @@ struct CreateCustomOrderView: View {
                 Label(locale.t("custom_order_add_item"), systemImage: "plus")
             }
 
-            if let errorMessage {
-                Text(errorMessage).foregroundStyle(Color.appError)
-            }
-
             Button {
                 Task { await submit() }
             } label: {
@@ -107,6 +103,7 @@ struct CreateCustomOrderView: View {
             }
             .disabled(isBusy)
         }
+        .errorAlert(message: $errorMessage)
         .navigationTitle(locale.t("worker_custom_order_tooltip"))
         .task { await loadProducts() }
     }

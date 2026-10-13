@@ -10,6 +10,7 @@ struct RootView: View {
     @EnvironmentObject private var connectivity: ConnectivityStore
     @EnvironmentObject private var locale: LocaleStore
     @EnvironmentObject private var appVersion: AppVersionStore
+    @AppStorage("hasCompletedLocationOnboarding") private var hasCompletedLocationOnboarding = false
     @State private var showSplash = true
 
     var body: some View {
@@ -24,6 +25,10 @@ struct RootView: View {
                         await check
                         withAnimation { showSplash = false }
                     }
+            } else if !hasCompletedLocationOnboarding {
+                WelcomeLocationView {
+                    withAnimation { hasCompletedLocationOnboarding = true }
+                }
             } else {
                 // `mainTabs` doim daraxtda qoladi (hech qachon yo'q
                 // qilinmaydi) — oflaynda `OfflineView` faqat USTIDAN

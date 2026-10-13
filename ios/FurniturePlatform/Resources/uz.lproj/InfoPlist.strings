@@ -1,0 +1,4 @@
+/* Uzbek InfoPlist.strings */
+"NSLocationWhenInUseUsageDescription" = "Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak.";
+"NSCameraUsageDescription" = "Mebelni AR orqali xonangizda ko'rish uchun kamera kerak.";
+"NSMicrophoneUsageDescription" = "Mahsulot va ish jarayoni videosini ovoz bilan yozib olish uchun mikrofon kerak.";

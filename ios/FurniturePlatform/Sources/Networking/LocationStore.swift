@@ -38,16 +38,25 @@ final class LocationStore: NSObject, ObservableObject, CLLocationManagerDelegate
         manager.delegate = self
     }
 
+    var authorizationStatus: CLAuthorizationStatus {
+        manager.authorizationStatus
+    }
+
     func bootstrap() {
-        // Saqlangan viloyat (savat/yetkazib berish uchun) tiklanadi, lekin
-        // KOORDINATA emas — mahsulotlar ko'rinishi har safar ilova ochilganda
-        // yangi GPS o'lchovi bilan hal qilinadi (eskirgan joy bilan boshqa
-        // shahardagi firma mahsulotlari ko'rinib qolmasligi uchun).
         viloyat = UserDefaults.standard.string(forKey: Self.prefKey)
-        detectFromGps()
+        let authStatus = manager.authorizationStatus
+        if authStatus == .authorizedWhenInUse || authStatus == .authorizedAlways {
+            detectFromGps()
+        } else {
+            status = (authStatus == .denied || authStatus == .restricted) ? .denied : .idle
+        }
     }
 
     func detectFromGps() {
+        guard CLLocationManager.locationServicesEnabled() else {
+            status = .unavailable
+            return
+        }
         status = .loading
         lat = nil
         lng = nil
@@ -108,6 +117,10 @@ final class LocationStore: NSObject, ObservableObject, CLLocationManagerDelegate
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        // `locationUnknown` vaqtinchalik holat: iOS keyingi koordinatani o'zi
+        // yuborishi mumkin, shuning uchun onboardingni darhol xato holatiga
+        // o'tkazmaymiz.
+        if (error as? CLError)?.code == .locationUnknown { return }
         Task { @MainActor in status = .unavailable }
     }
 }

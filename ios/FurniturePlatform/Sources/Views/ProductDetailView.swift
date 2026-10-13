@@ -202,10 +202,6 @@ private var arScaleFactors: SIMD3<Float> {
                                 }
                             }
 
-                            if let errorMessage {
-                                Text(errorMessage).foregroundStyle(Color.appError).font(.caption)
-                            }
-
                             Button {
                                 if auth.isAuthenticated { showOrderSheet = true }
                                 else { errorMessage = locale.t("checkout_login_required") }
@@ -242,6 +238,7 @@ private var arScaleFactors: SIMD3<Float> {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        .errorAlert(message: $errorMessage)
         .alert(locale.t("product_added_alert_title"), isPresented: $addedToCart) {
             Button("OK") {}
         }

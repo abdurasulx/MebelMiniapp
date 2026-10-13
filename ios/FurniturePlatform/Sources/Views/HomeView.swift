@@ -52,6 +52,7 @@ struct HomeView: View {
     @State private var sort: SortOption = .popular
     @State private var onlyWithAR = false
     @State private var showFilters = false
+    @State private var showViloyatPicker = false
 
     @State private var imageResults: [Product]?
     @State private var isImageSearching = false
@@ -99,10 +100,7 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            if !location.hasFix {
-                locationGate
-                    .navigationBarHidden(true)
-            } else if isOffline && products.isEmpty && !isLoading {
+            if isOffline && products.isEmpty && !isLoading {
                 OfflineView(onRetry: { Task { await load() } })
                     .navigationBarHidden(true)
             } else {
@@ -110,17 +108,6 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         searchBar
                         toolbarRow
-
-                        if let errorMessage {
-                            Text(errorMessage).foregroundStyle(Color.appError).padding(.horizontal)
-                        }
-                        if let imageSearchError {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(imageSearchError).foregroundStyle(Color.appError)
-                                Button(locale.t("common_close")) { self.imageSearchError = nil }
-                            }
-                            .padding(.horizontal)
-                        }
 
                         if isLoading {
                             ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
@@ -154,52 +141,15 @@ struct HomeView: View {
                 .navigationTitle("")
                 .navigationDestination(isPresented: $showShowcase) { ShowcaseView() }
                 .navigationBarHidden(true)
-                .task(id: location.hasFix ? "\(location.lat ?? 0),\(location.lng ?? 0)" : "") {
+                .task(id: "\(location.hasFix ? 1 : 0)-\(location.lat ?? 0),\(location.lng ?? 0)-\(location.viloyat ?? "")") {
                     await load()
                 }
                 .refreshable { await load() }
                 .onChange(of: sort) { _, _ in Task { await load() } }
                 .sheet(isPresented: $showFilters) { filterSheet }
-            }
-        }
-    }
-
-    // MARK: - Joylashuv
-
-    /// Joylashuv aniqlanmagan / ruxsat yo'q / GPS o'chiq holati — mahsulotlar
-    /// firma xizmat radiusiga bog'liq bo'lgani uchun joylashuvsiz ko'rsatilmaydi.
-    private var locationGate: some View {
-        Group {
-            switch location.status {
-            case .idle, .loading:
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .granted:
-                // Ruxsat bor, koordinata hali kelmayapti.
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            case .denied, .unavailable:
-                let gpsOff = location.status == .unavailable
-                stateMessage(
-                    icon: "location.slash",
-                    title: locale.t(gpsOff ? "loc_gps_off_title" : "loc_required_title"),
-                    body: locale.t(gpsOff ? "loc_gps_off_body" : "loc_required_body"),
-                    actionTitle: locale.t(location.needsSettings || gpsOff ? "loc_open_settings" : "loc_allow"),
-                    action: {
-                        if location.needsSettings || gpsOff,
-                           let url = URL(string: UIApplication.openSettingsURLString) {
-                            UIApplication.shared.open(url)
-                        } else {
-                            location.detectFromGps()
-                        }
-                    },
-                    secondaryTitle: locale.t("loc_retry"),
-                    secondary: { location.detectFromGps() }
-                )
-            }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            // Tizim sozlamalaridan ruxsat berib qaytsa — avtomatik qayta aniqlanadi.
-            if phase == .active, !location.hasFix, location.status != .loading {
-                location.detectFromGps()
+                .sheet(isPresented: $showViloyatPicker) { viloyatPickerSheet }
+                .errorAlert(message: $errorMessage)
+                .errorAlert(message: $imageSearchError)
             }
         }
     }
@@ -266,6 +216,7 @@ struct HomeView: View {
 
     private var toolbarRow: some View {
         HStack(spacing: 8) {
+            viloyatChip
             Spacer()
             if imageResults == nil {
                 sortMenu
@@ -278,6 +229,113 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal)
+    }
+
+    private var viloyatChip: some View {
+        Button {
+            showViloyatPicker = true
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: location.hasFix ? "location.fill" : (location.viloyat != nil ? "mappin.circle.fill" : "globe"))
+                    .font(.caption)
+                    .foregroundStyle(location.hasFix ? Color.brand : Color.textSecondary)
+
+                Text(location.hasFix ? (location.viloyat != nil ? viloyatLabel(location.viloyat) : "GPS") : (location.viloyat != nil ? viloyatLabel(location.viloyat) : locale.t("home_viloyat_all")))
+                    .font(.caption).bold()
+                    .lineLimit(1)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.appCard)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule().stroke(Color.appBorder, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var viloyatPickerSheet: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Button {
+                        showViloyatPicker = false
+                        location.detectFromGps()
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "location.fill")
+                                .foregroundStyle(Color.brand)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Joylashuvimni aniqlash (GPS)")
+                                    .font(.body).bold()
+                                    .foregroundStyle(Color.textPrimary)
+                                Text("Eng yaqin mebellarni avtomatik ko'rsatish")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                            Spacer()
+                            if location.hasFix {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.brand)
+                            }
+                        }
+                    }
+                }
+
+                Section {
+                    Button {
+                        location.setViloyat(nil)
+                        showViloyatPicker = false
+                    } label: {
+                        HStack {
+                            Image(systemName: "globe")
+                                .foregroundStyle(Color.brandSecondary)
+                            Text(locale.t("home_viloyat_all"))
+                                .foregroundStyle(Color.textPrimary)
+                            Spacer()
+                            if location.viloyat == nil && !location.hasFix {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.brand)
+                            }
+                        }
+                    }
+
+                    ForEach(viloyatlar) { v in
+                        Button {
+                            location.setViloyat(v.code)
+                            showViloyatPicker = false
+                        } label: {
+                            HStack {
+                                Text(v.label)
+                                    .foregroundStyle(Color.textPrimary)
+                                Spacer()
+                                if location.viloyat == v.code && !location.hasFix {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(Color.brand)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("O'zbekiston viloyatlari")
+                }
+            }
+            .navigationTitle("Viloyatni tanlang")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(locale.t("common_close")) {
+                        showViloyatPicker = false
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 
     private var sortMenu: some View {
@@ -506,11 +564,13 @@ struct HomeView: View {
         isLoading = true
         errorMessage = nil
         isOffline = false
-        guard location.hasFix, let lat = location.lat, let lng = location.lng else {
-            isLoading = false
-            return
+        var params: [String] = []
+        if location.hasFix, let lat = location.lat, let lng = location.lng {
+            params.append("lat=\(lat)")
+            params.append("lng=\(lng)")
+        } else if let viloyat = location.viloyat {
+            params.append("viloyat=\(viloyat)")
         }
-        var params: [String] = ["lat=\(lat)", "lng=\(lng)"]
         if sort == .top {
             params.append("ordering=top")
         }

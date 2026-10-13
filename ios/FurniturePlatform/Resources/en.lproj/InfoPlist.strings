@@ -1,0 +1,4 @@
+/* English InfoPlist.strings */
+"NSLocationWhenInUseUsageDescription" = "We need your location to show available furniture products and delivery options in your region.";
+"NSCameraUsageDescription" = "Camera access is required to view 3D furniture models in your room using Augmented Reality.";
+"NSMicrophoneUsageDescription" = "Microphone access is required to record video with audio for product showcases and workshops.";

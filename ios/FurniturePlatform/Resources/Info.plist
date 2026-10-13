@@ -34,11 +34,11 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>Mebelni AR orqali xonangizda ko'rish uchun kamera kerak.</string>
+	<string>Camera access is required to view 3D furniture models in your room using Augmented Reality.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak.</string>
+	<string>Joylashuvingiz yaqin mebel takliflari va yetkazib berish imkoniyatlarini ko‘rsatish uchun ishlatiladi.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Mahsulot va ish jarayoni videosini ovoz bilan yozib olish uchun mikrofon kerak.</string>
+	<string>Microphone access is required to record video with audio for product showcases and workshops.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

@@ -36,9 +36,6 @@ struct LikesView: View {
                     )
                 } else {
                     ScrollView {
-                        if let errorMessage {
-                            Text(errorMessage).foregroundStyle(Color.appError).padding()
-                        }
                         LazyVGrid(columns: [GridItem(.flexible(), spacing: 14), GridItem(.flexible())], spacing: 14) {
                             ForEach(likes.likedProducts) { product in
                                 // LikeButton `NavigationLink`ning label'i ICHIDA emas, sibling
@@ -64,7 +61,7 @@ struct LikesView: View {
                     }
                 }
             }
-            .background(Color.appBackground)
+            .errorAlert(message: $errorMessage)
             .navigationTitle(locale.t("likes_title"))
             .task {
                 isLoading = true

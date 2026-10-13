@@ -26,7 +26,7 @@ enum APIError: LocalizedError, Equatable {
 /// tarmog'i qurilma tarmog'idan farqli bo'lgani uchun), endi hojati yo'q —
 /// domen qayerdan bo'lmasin (Wi-Fi, mobil tarmoq) barqaror ishlaydi.
 enum APIConfig {
-    static let baseURL = URL(string: "https://api.qrbite.uz/api/v1")!
+    static let baseURL = URL(string: "https://api.vidamarket.uz/api/v1")!
 
     /// `baseURL.appendingPathComponent(path)` ishlatilmaydi — u `path`ni
     /// fayl-yo'li segmenti deb hisoblab, `?`/`&` kabi so'rov-satr belgilarini
@@ -194,7 +194,7 @@ actor APIClient {
         handleUpdateRequired(data, status: http.statusCode)
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil
-            throw APIError.server(message ?? "Xatolik (\(http.statusCode))", statusCode: http.statusCode)
+            throw APIError.server(message ?? friendlyServerErrorMessage(status: http.statusCode), statusCode: http.statusCode)
         }
         do {
             return try decoder.decode(T.self, from: data)
@@ -377,9 +377,22 @@ actor APIClient {
         handleUpdateRequired(data, status: http.statusCode)
         guard (200..<300).contains(http.statusCode) else {
             let message = (try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil
-            throw APIError.server(message ?? "Xatolik (\(http.statusCode))", statusCode: http.statusCode)
+            throw APIError.server(message ?? friendlyServerErrorMessage(status: http.statusCode), statusCode: http.statusCode)
         }
         return data
+    }
+
+    private func friendlyServerErrorMessage(status: Int) -> String {
+        switch status {
+        case 400: return "So'rov noto'g'ri yuborildi"
+        case 401: return "Avval tizimga kiring"
+        case 403: return "Ruxsat berilmagan"
+        case 404: return "Ma'lumot topilmadi"
+        case 409: return "Ma'lumotlar to'qnashuvi yuz berdi"
+        case 429: return "So'rovlar ko'payib ketdi. Birozdan so'ng qayta urining"
+        case 500...599: return "Serverda vaqtinchalik xatolik. Birozdan so'ng qayta urining"
+        default: return "Xatolik yuz berdi (\(status))"
+        }
     }
 
     /// `true` — yangilandi. `false` — refresh tokeni haqiqatan ham yaroqsiz

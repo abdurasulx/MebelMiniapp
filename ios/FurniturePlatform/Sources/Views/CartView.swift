@@ -77,9 +77,6 @@ struct CartView: View {
                     Text("\(String(format: "%.0f", cart.total).formattedSom) so'm").bold()
                 }
             }
-            if let errorMessage {
-                Section { Text(errorMessage).foregroundStyle(Color.appError) }
-            }
             Section {
                 Button(action: checkout) {
                     if busy { ProgressView() } else { Text(locale.t("cart_submit")).bold() }
@@ -90,6 +87,7 @@ struct CartView: View {
                 .foregroundStyle(Color.onBrand)
             }
         }
+        .errorAlert(message: $errorMessage)
         .alert(locale.t("cart_order_success_title"), isPresented: $didSucceed) {
             Button("OK") {}
         } message: {

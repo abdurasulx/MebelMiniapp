@@ -22,6 +22,9 @@ targets:
       - path: Resources/Assets.xcassets
       - path: Resources/GoogleService-Info.plist
       - path: Resources/PrivacyInfo.xcprivacy
+      - path: Resources/en.lproj
+      - path: Resources/uz.lproj
+      - path: Resources/ru.lproj
     dependencies:
       - package: GoogleSignIn
         product: GoogleSignIn
@@ -39,9 +42,9 @@ targets:
       properties:
         UILaunchScreen:
           UIColorName: LaunchBackground
-        NSCameraUsageDescription: "Mebelni AR orqali xonangizda ko'rish uchun kamera kerak."
-        NSLocationWhenInUseUsageDescription: "Sizga yaqin viloyatdagi mahsulotlarni ko'rsatish uchun joylashuvingiz kerak."
-        NSMicrophoneUsageDescription: "Mahsulot va ish jarayoni videosini ovoz bilan yozib olish uchun mikrofon kerak."
+        NSCameraUsageDescription: "Camera access is required to view 3D furniture models in your room using Augmented Reality."
+        NSLocationWhenInUseUsageDescription: "Joylashuvingiz yaqin mebel takliflari va yetkazib berish imkoniyatlarini ko‘rsatish uchun ishlatiladi."
+        NSMicrophoneUsageDescription: "Microphone access is required to record video with audio for product showcases and workshops."
         CFBundleDisplayName: "VIDA Market"
         ITSAppUsesNonExemptEncryption: false
         UIBackgroundModes:
