@@ -26,7 +26,12 @@ from apps.orders.models import Order
 from apps.products.models import Product
 
 from . import sms, telegram_bot
-from .apple_auth import exchange_authorization_code, revoke_refresh_token, verify_apple_identity_token
+from .apple_auth import (
+    exchange_authorization_code,
+    revoke_refresh_token,
+    verify_apple_event_token,
+    verify_apple_identity_token,
+)
 from .google_auth import exchange_google_code, verify_google_credential
 from .models import AccountDeletionRequest, AppleAccount, GoogleAccount, PhoneOTP, TelegramAccount, TelegramLoginSession
 from .serializers import (
@@ -406,6 +411,38 @@ class AppleLoginView(APIView):
         return Response(
             {"access": str(refresh.access_token), "refresh": str(refresh), "is_new_user": is_new_user}
         )
+
+
+class AppleNotificationView(APIView):
+    """Apple server-to-server bildirishnomalari (App ID sozlamalaridagi endpoint).
+
+    - `consent-revoked` — foydalanuvchi ilovaga Apple ID'ni ishlatishni bekor qildi:
+      Apple bog'lanishi va saqlangan token o'chiriladi.
+    - `account-delete` — Apple akkaunti o'chirildi: hisobni o'chirish so'rovi yaratiladi
+      (admin ko'rib chiqadi). `email-enabled/disabled` — e'tiborsiz."""
+
+    permission_classes = (permissions.AllowAny,)
+    authentication_classes = ()
+
+    def post(self, request):
+        token = request.data.get("payload", "")
+        events = verify_apple_event_token(token)
+        kind = events.get("type", "")
+        sub = events.get("sub", "")
+        account = AppleAccount.objects.filter(apple_sub=sub).select_related("user").first() if sub else None
+        if account is not None:
+            if kind == "consent-revoked":
+                account.delete()
+            elif kind == "account-delete":
+                if not AccountDeletionRequest.objects.filter(
+                    user=account.user, status=AccountDeletionRequest.Status.PENDING
+                ).exists():
+                    AccountDeletionRequest.objects.create(
+                        user=account.user, reason="Apple hisobi o'chirildi (Apple bildirishnomasi)"
+                    )
+                account.refresh_token = ""
+                account.save(update_fields=["refresh_token"])
+        return Response({"detail": "ok"})
 
 
 def _link_google_account(user, claims: dict) -> None:

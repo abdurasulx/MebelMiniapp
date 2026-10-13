@@ -1086,6 +1086,24 @@ class AppleLoginTests(TestCase):
         rv.assert_called_once_with("rt-1")
         self.assertEqual(AppleAccount.objects.get(apple_sub="sub-del").refresh_token, "")
 
+    def test_apple_notification_consent_revoked_and_account_delete(self):
+        from .models import AccountDeletionRequest, AppleAccount
+
+        user = User.objects.create_user(email="n@y.uz", password="p", role=User.Role.CUSTOMER)
+        AppleAccount.objects.create(user=user, apple_sub="sub-n", refresh_token="rt")
+        url = "/api/v1/auth/apple/notifications/"
+        with patch("apps.users.views.verify_apple_event_token", return_value={"type": "account-delete", "sub": "sub-n"}):
+            resp = self.client.post(url, {"payload": "jwt"}, content_type="application/json")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(AccountDeletionRequest.objects.filter(user=user).exists())
+        with patch("apps.users.views.verify_apple_event_token", return_value={"type": "consent-revoked", "sub": "sub-n"}):
+            self.client.post(url, {"payload": "jwt"}, content_type="application/json")
+        self.assertFalse(AppleAccount.objects.filter(apple_sub="sub-n").exists())
+
+    def test_apple_notification_rejects_invalid_token(self):
+        resp = self.client.post("/api/v1/auth/apple/notifications/", {"payload": "garbage"}, content_type="application/json")
+        self.assertEqual(resp.status_code, 400)
+
     def test_links_existing_user_by_verified_email_only(self):
         existing = User.objects.create_user(email="x@y.uz", password="p", role=User.Role.CUSTOMER)
         resp = self._login({"sub": "s1", "email": "x@y.uz", "email_verified": "false"})

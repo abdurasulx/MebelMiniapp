@@ -119,3 +119,20 @@ def revoke_refresh_token(refresh_token: str) -> bool:
     except Exception:  # noqa: BLE001
         logger.exception("Apple revoke xatosi")
         return False
+
+
+def verify_apple_event_token(token: str) -> dict:
+    """Server-to-server bildirishnoma JWT'si (Apple imzosi, `aud` = bizning bundle/service ID).
+    `events` maydoni JSON satr — ochib, `dict` qaytariladi."""
+    import json
+
+    audiences = [a for a in (settings.APPLE_BUNDLE_ID, settings.APPLE_SERVICE_ID) if a]
+    try:
+        signing_key = _jwk_client.get_signing_key_from_jwt(token)
+        claims = jwt.decode(
+            token, signing_key.key, algorithms=["RS256"], audience=audiences, issuer=APPLE_ISSUER
+        )
+        events = claims.get("events")
+        return json.loads(events) if isinstance(events, str) else (events or {})
+    except Exception as exc:  # noqa: BLE001
+        raise ValidationError("Apple bildirishnomasi yaroqsiz") from exc
