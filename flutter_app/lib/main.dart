@@ -15,6 +15,7 @@ import 'screens/splash_screen.dart';
 import 'screens/update_screen.dart';
 import 'theme.dart';
 import 'widgets/offline_view.dart';
+import 'screens/welcome_location_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -166,6 +167,9 @@ class _AppGateState extends State<_AppGate> {
     if (context.watch<AppVersionStore>().isForced) {
       return const UpdateScreen();
     }
+    final location = context.watch<LocationStore>();
+    if (!location.onboardingLoaded) return const SplashScreen();
+    if (!location.onboardingDone) return const WelcomeLocationScreen();
     return Stack(
       children: [
         const RootScreen(),
@@ -175,7 +179,8 @@ class _AppGateState extends State<_AppGate> {
             if (!offline) return const SizedBox.shrink();
             return Scaffold(
               body: SafeArea(
-                child: OfflineView(onRetry: ApiClient.instance.checkConnectivity),
+                child:
+                    OfflineView(onRetry: ApiClient.instance.checkConnectivity),
               ),
             );
           },

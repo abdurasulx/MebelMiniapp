@@ -14,6 +14,11 @@ class LocationStore extends ChangeNotifier {
   static const _prefKey = 'selected_viloyat';
   static const _latKey = 'gps_lat';
   static const _lngKey = 'gps_lng';
+  static const _onboardingKey = 'location_onboarding_done';
+
+  /// Birinchi ishga tushirishdagi joylashuv/viloyat tanlash ekrani o'tilganmi.
+  bool onboardingLoaded = false;
+  bool onboardingDone = false;
 
   String? _viloyat; // null = "Barchasi" (filtrsiz)
   double? _lat;
@@ -29,8 +34,10 @@ class LocationStore extends ChangeNotifier {
   double? get lng => _lng;
   LocationStatus get status => _status;
   bool get permanentlyDenied => _permanentlyDenied;
+
   /// Mahsulotlarni ko'rsatish uchun yangi GPS koordinatasi bor.
-  bool get hasFix => _status == LocationStatus.granted && _lat != null && _lng != null;
+  bool get hasFix =>
+      _status == LocationStatus.granted && _lat != null && _lng != null;
 
   /// Ruxsat berilmagan/GPS o'chiq holatda tegishli tizim sozlamasini ochadi.
   Future<void> openSettings() async {
@@ -40,16 +47,37 @@ class LocationStore extends ChangeNotifier {
       await Geolocator.openAppSettings();
     }
   }
+
   String viloyatLabelText(LocaleStore loc) => viloyatLabel(_viloyat, loc);
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    // Saqlangan viloyatni (savat/yetkazib berish uchun) tiklaymiz, lekin
-    // KOORDINATANI emas — mahsulotlar ko'rinishi har safar ilova ochilganda
-    // yangi GPS o'lchovi bilan hal qilinadi (eskirgan joy bilan boshqa
-    // shahardagi firma mahsulotlari ko'rinib qolmasligi uchun).
     _viloyat = prefs.getString(_prefKey);
-    await detectFromGps();
+    onboardingDone = prefs.getBool(_onboardingKey) ?? false;
+    onboardingLoaded = true;
+    notifyListeners();
+    // GPS faqat ruxsat ALLAQACHON berilgan bo'lsa avtomatik aniqlanadi;
+    // ruxsat so'rash onboardingda (yoki foydalanuvchi tugma bosganda) bo'ladi.
+    await refreshIfPermitted();
+  }
+
+  /// Ruxsat berilgan bo'lsa jim qayta aniqlaydi (so'rov ko'rsatmaydi).
+  Future<void> refreshIfPermitted() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return;
+      final p = await Geolocator.checkPermission();
+      if (p == LocationPermission.whileInUse ||
+          p == LocationPermission.always) {
+        await detectFromGps();
+      }
+    } catch (_) {/* jim */}
+  }
+
+  Future<void> completeOnboarding() async {
+    onboardingDone = true;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_onboardingKey, true);
   }
 
   Future<void> detectFromGps() async {
@@ -81,7 +109,8 @@ class LocationStore extends ChangeNotifier {
         ),
       );
       final nearest = nearestViloyat(position.latitude, position.longitude);
-      await setViloyat(nearest.code, lat: position.latitude, lng: position.longitude);
+      await setViloyat(nearest.code,
+          lat: position.latitude, lng: position.longitude);
       _status = LocationStatus.granted;
     } catch (_) {
       _status = LocationStatus.unavailable;

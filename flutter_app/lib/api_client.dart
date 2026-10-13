@@ -497,9 +497,37 @@ class ApiClient {
   // EMAS, ro'yxat sifatida qaytaradi (`{"detail": ["xabar"]}` — DRF'ning
   // o'zi shunday normallashtiradi). Shuni hisobga olmasa, xato matni
   // o'rniga "[xabar]" kabi qavsli chiqindi ko'rinardi.
+  static String _friendlyStatus(int status) {
+    switch (status) {
+      case 400:
+        return "So'rov noto'g'ri yuborildi";
+      case 401:
+        return 'Avval tizimga kiring';
+      case 403:
+        return 'Ruxsat berilmagan';
+      case 404:
+        return "Ma'lumot topilmadi";
+      case 409:
+        return "Ma'lumotlar to'qnashuvi yuz berdi";
+      case 429:
+        return "So'rovlar ko'payib ketdi. Birozdan so'ng qayta urining";
+      default:
+        return status >= 500
+            ? "Serverda vaqtinchalik xatolik. Birozdan so'ng qayta urining"
+            : 'Xatolik yuz berdi ($status)';
+    }
+  }
+
   String _extractError(String body, int statusCode) {
     try {
       final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        for (final k in const ['message', 'error']) {
+          if (decoded[k] is String && (decoded[k] as String).isNotEmpty) {
+            return decoded[k] as String;
+          }
+        }
+      }
       if (decoded is Map && decoded['detail'] != null) {
         final detail = decoded['detail'];
         if (detail is List && detail.isNotEmpty) return detail.first.toString();
@@ -521,7 +549,7 @@ class ApiClient {
     // Body JSON emas (masalan noto'g'ri host/proxy xatosida server oddiy
     // HTML sahifa qaytarishi mumkin) — foydalanuvchiga xom status kodi
     // o'rniga hech bo'lmasa nima qilish kerakligini aytamiz.
-    return 'Server xatosi ($statusCode) — birozdan keyin qayta urinib ko\'ring';
+    return _friendlyStatus(statusCode);
   }
 
   /// `true` — yangilandi. `false` — refresh tokeni haqiqatan ham yaroqsiz

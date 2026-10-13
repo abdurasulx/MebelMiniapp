@@ -28,3 +28,5 @@ logs/
 backend/qdrant_data/
 google-services.json
 vida-market-firebase-adminsdk-fbsvc-4f2c655892.json
+# Swift/Xcode build keshi
+ios/FurniturePlatform/.build/

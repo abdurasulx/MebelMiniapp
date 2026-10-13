@@ -12,6 +12,7 @@ import '../widgets/offline_view.dart';
 import '../widgets/product_card.dart';
 import 'showcase_screen.dart';
 import '../net_image.dart';
+import '../viloyat.dart';
 
 /// Bosh sahifa — endi alohida "Katalog" tabi yo'q, bu ekranning o'zi
 /// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha), "Top"
@@ -78,33 +79,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         loc != null &&
         !loc.hasFix &&
         loc.status != LocationStatus.loading) {
-      loc.detectFromGps();
+      loc.refreshIfPermitted();
     }
   }
 
-  /// Joylashuv aniqlanganda (yoki o'zgarganda) ro'yxatni qayta yuklaydi.
+  /// Joylashuv (GPS yoki tanlangan viloyat) o'zgarganda ro'yxatni qayta yuklaydi.
+  String _locationKey(LocationStore l) =>
+      l.hasFix ? '${l.lat},${l.lng}' : 'v:${l.viloyat ?? ''}';
+
   void _onLocationChanged() {
     final loc = _location;
     if (!mounted || loc == null) return;
-    if (loc.hasFix && _loadedFor != '${loc.lat},${loc.lng}') {
-      _load();
-    } else if (!loc.hasFix && _products.isNotEmpty) {
-      setState(() => _products = []);
-      _loadedFor = null;
-    }
+    if (loc.status == LocationStatus.loading) return;
+    if (_loadedFor != _locationKey(loc)) _load();
   }
 
   Future<void> _load() async {
     final location = _location;
-    // Joylashuvsiz mahsulotlar ko'rsatilmaydi (firmalar xizmat radiusi
-    // bor) — GPS aniqlanguncha yoki ruxsat berilmaguncha so'rov yuborilmaydi.
-    if (location == null || !location.hasFix) {
-      setState(() {
-        _loading = false;
-        _error = null;
-      });
-      return;
-    }
+    if (location == null) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -112,10 +104,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     try {
       final params = <String, String>{
         if (_topOnly) 'ordering': 'top',
-        'lat': location.lat!.toString(),
-        'lng': location.lng!.toString(),
+        if (location.hasFix) 'lat': location.lat!.toString(),
+        if (location.hasFix) 'lng': location.lng!.toString(),
+        if (!location.hasFix && location.viloyat != null)
+          'viloyat': location.viloyat!,
       };
-      final loadedFor = '${location.lat},${location.lng}';
+      final loadedFor = _locationKey(location);
       _loadedFor = loadedFor;
       final query = params.isEmpty
           ? ''
@@ -380,10 +374,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final loc = context.watch<LocaleStore>();
     final location = context.watch<LocationStore>();
 
-    if (!location.hasFix) {
-      return Scaffold(body: SafeArea(child: _locationGate(loc, location)));
-    }
-
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
@@ -392,6 +382,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             padding: const EdgeInsets.only(bottom: 24, top: 8),
             children: [
               _searchBar(loc),
+              _regionChip(loc, location),
               _filterChips(loc),
               if (_error != null &&
                   !OfflineView.isNetworkError(_error) &&
@@ -469,34 +460,79 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   IconData _categoryIcon(_Category c) =>
       categoryIcon(slug: c.slug, name: c.nameUz);
 
-  /// Joylashuv hali aniqlanmagan / ruxsat yo'q / GPS o'chiq holati.
-  Widget _locationGate(LocaleStore loc, LocationStore location) {
-    final checking = location.status == LocationStatus.idle ||
-        location.status == LocationStatus.loading ||
-        (location.status == LocationStatus.granted && !location.hasFix);
-    if (checking) {
-      return const Center(
-          child: CircularProgressIndicator(color: AppColors.deep));
-    }
-    final gpsOff = location.status == LocationStatus.unavailable;
-    return _stateMessage(
-      icon: Icons.location_off_outlined,
-      title: loc.t(gpsOff ? 'loc_gps_off_title' : 'loc_required_title'),
-      body: loc.t(gpsOff ? 'loc_gps_off_body' : 'loc_required_body'),
-      actionLabel: loc.t(
-        gpsOff || location.permanentlyDenied
-            ? 'loc_open_settings'
-            : 'loc_allow',
+  /// Joriy hudud (GPS yoki tanlangan viloyat) — bosilsa tanlash oynasi ochiladi.
+  Widget _regionChip(LocaleStore loc, LocationStore location) {
+    final label = location.hasFix
+        ? (location.viloyat != null
+            ? viloyatLabel(location.viloyat, loc)
+            : 'GPS')
+        : viloyatLabel(location.viloyat, loc);
+    final icon = location.hasFix
+        ? Icons.my_location_rounded
+        : (location.viloyat != null
+            ? Icons.location_on_rounded
+            : Icons.public_rounded);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ActionChip(
+          avatar: Icon(icon, size: 16, color: AppColors.brand),
+          label:
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          onPressed: () => _pickRegion(loc, location),
+        ),
       ),
-      onAction: () async {
-        if (gpsOff || location.permanentlyDenied) {
-          await location.openSettings();
-        } else {
-          await location.detectFromGps();
-        }
-      },
-      secondaryLabel: loc.t('loc_retry'),
-      onSecondary: location.detectFromGps,
+    );
+  }
+
+  Future<void> _pickRegion(LocaleStore loc, LocationStore location) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        builder: (_, controller) => ListView(
+          controller: controller,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.my_location_rounded),
+              title: Text(loc.t('welcome_use_location')),
+              trailing:
+                  location.hasFix ? const Icon(Icons.check_rounded) : null,
+              onTap: () {
+                Navigator.of(ctx).pop();
+                location.detectFromGps();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.public_rounded),
+              title: Text(loc.t('home_all')),
+              trailing: (!location.hasFix && location.viloyat == null)
+                  ? const Icon(Icons.check_rounded)
+                  : null,
+              onTap: () {
+                Navigator.of(ctx).pop();
+                location.setViloyat(null);
+              },
+            ),
+            for (final v in viloyatlar)
+              ListTile(
+                leading: const Icon(Icons.location_on_outlined),
+                title: Text(v.label),
+                trailing: (!location.hasFix && location.viloyat == v.code)
+                    ? const Icon(Icons.check_rounded)
+                    : null,
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  location.setViloyat(v.code);
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 
