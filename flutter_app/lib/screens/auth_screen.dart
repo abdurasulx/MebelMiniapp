@@ -248,7 +248,7 @@ class _AuthScreenState extends State<AuthScreen> {
     return Center(
       child: TextButton(
         onPressed: () => launchUrl(
-          Uri.parse('https://vidamarket.uz/privacy'),
+          Uri.parse('https://vidamarket.uz/privacy?lang=${loc.code}'),
           mode: LaunchMode.externalApplication,
         ),
         child: Text(loc.t('privacy_policy')),

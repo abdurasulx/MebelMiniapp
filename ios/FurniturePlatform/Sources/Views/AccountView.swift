@@ -302,7 +302,7 @@ private struct ProfileView: View {
             Section {
                 HStack {
                     Spacer()
-                    Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
+                    Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy?lang=\(locale.code)")!)
                         .font(.footnote)
                         .foregroundStyle(Color.textSecondary)
                     Spacer()
@@ -403,7 +403,7 @@ private struct AuthFormView: View {
             Section {
                 HStack {
                     Spacer()
-                    Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
+                    Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy?lang=\(locale.code)")!)
                         .font(.footnote)
                         .foregroundStyle(Color.textSecondary)
                     Spacer()

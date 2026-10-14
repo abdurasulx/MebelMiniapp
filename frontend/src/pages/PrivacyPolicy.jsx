@@ -1,99 +1,52 @@
+import { useEffect } from "react";
+import { useLocale } from "../locale";
+import { SUPPORTED_LOCALES } from "../l10n/strings";
+import { PRIVACY } from "../l10n/privacy";
+
 const SUPPORT_URL = "https://t.me/Vida_robot";
+const CONTACT_LABEL = "@Vida_robot";
 
-const SECTIONS = [
-  {
-    title: "1. Umumiy ma'lumot",
-    body: [
-      `VIDA Market ("biz", "ilova") — mebel ishlab chiqaruvchilari va xaridorlarni
-      bog'laydigan platforma. Ushbu sahifa ilova (Android, iOS) va vebsayt orqali
-      qanday ma'lumot to'planishi, qanday ishlatilishi va qanday himoyalanishini
-      tushuntiradi.`,
-    ],
-  },
-  {
-    title: "2. To'playdigan ma'lumotlarimiz",
-    list: [
-      "Ism va telefon raqami — ro'yxatdan o'tish va buyurtma bilan bog'lanish uchun.",
-      "Google/Telegram orqali kirishda — hisob identifikatori, ism va (agar berilgan bo'lsa) email.",
-      "Geolokatsiya (GPS) — sizga yaqin viloyatdagi mahsulot va ustalarni ko'rsatish uchun; faqat ruxsat bergan holatda va faqat ilova ochiq paytida so'raladi.",
-      "Kamera/rasmlar — mahsulotni AR (kengaytirilgan reallik) orqali xonangizda ko'rish va rasm bo'yicha mahsulot qidirish funksiyalari uchun; qidiruv uchun yuklangan rasm faqat natija topish uchun ishlatiladi.",
-      "Push-bildirishnoma tokeni (Firebase Cloud Messaging) — buyurtma holati haqida xabar yuborish uchun.",
-      "Buyurtmalar, sevimlilar va savat tarixi — xizmatni ko'rsatish uchun.",
-      "Qurilma va ilova ishlatilishi haqidagi texnik ma'lumot (masalan xatolik hisobotlari) — ilovani barqaror ishlashini ta'minlash uchun.",
-    ],
-  },
-  {
-    title: "3. Ma'lumotlardan qanday foydalanamiz",
-    list: [
-      "Hisobingizni yaratish va buyurtmalarni amalga oshirish uchun.",
-      "Sizga yaqin mahsulot/ustalarni ko'rsatish uchun.",
-      "Buyurtma holati va boshqa muhim voqealar haqida bildirishnoma yuborish uchun.",
-      "Xizmatni yaxshilash va texnik nosozliklarni bartaraf etish uchun.",
-    ],
-  },
-  {
-    title: "4. Uchinchi tomon xizmatlari",
-    body: [
-      `Ilova quyidagi xizmatlardan foydalanadi, ular o'z maxfiylik siyosatiga ega:`,
-    ],
-    list: [
-      "Google Sign-In — hisobga kirish uchun.",
-      "Firebase (Google) — push-bildirishnoma yetkazish uchun.",
-      "Telegram — bot orqali hisobga kirish/bog'lanish uchun.",
-    ],
-  },
-  {
-    title: "5. Ma'lumotni saqlash muddati",
-    body: [
-      `Hisobingiz faol bo'lgan davomida ma'lumotlaringiz saqlanadi. Hisobni
-      o'chirishni so'raganingizda, qonun talab qiladigan hisobot/buxgalteriya
-      yozuvlaridan (masalan yakunlangan buyurtmalar) tashqari, shaxsiy
-      ma'lumotlaringiz o'chiriladi — batafsil: `,
-    ],
-    linkTo: "/delete-account",
-    linkLabel: "Hisobni o'chirish sahifasi",
-  },
-  {
-    title: "6. Sizning huquqlaringiz",
-    list: [
-      "Profilingizdagi ma'lumotlarni istalgan vaqtda ko'rish va tahrirlash.",
-      "Hisobingiz va unga bog'liq shaxsiy ma'lumotlarni o'chirishni so'rash.",
-      "Push-bildirishnomalarni qurilma sozlamalaridan o'chirib qo'yish.",
-    ],
-  },
-  {
-    title: "7. Bolalar maxfiyligi",
-    body: [
-      `Ilova 13 yoshdan kichik bolalar uchun mo'ljallanmagan va ularning
-      ma'lumotlarini ataylab to'plamaydi.`,
-    ],
-  },
-  {
-    title: "8. O'zgarishlar",
-    body: [
-      `Ushbu siyosat vaqti-vaqti bilan yangilanishi mumkin — muhim o'zgarishlar
-      bo'lsa ilova ichida xabar beramiz.`,
-    ],
-  },
-  {
-    title: "9. Bog'lanish",
-    body: [`Savol yoki so'rovlaringiz bo'lsa, Telegram orqali murojaat qiling:`],
-    linkHref: SUPPORT_URL,
-    linkLabel: "@Vida_robot",
-  },
-];
-
+/** Maxfiylik siyosati — 9 tilda; til `?lang=xx` (mobil ilovadan) yoki tanlovdan olinadi. */
 export default function PrivacyPolicy() {
+  const { code, setLocale } = useLocale();
+
+  // Ilovadan `.../privacy?lang=ru` bilan ochilsa, shu tilga o'tadi.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("lang");
+    if (q && PRIVACY[q] && q !== code) setLocale(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const doc = PRIVACY[code] || PRIVACY.uz;
+  const last = doc.sections.length - 1;
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="mb-2 text-2xl font-bold">Maxfiylik siyosati</h1>
+      <div className="mb-6 flex flex-wrap items-center gap-2" role="group" aria-label={doc.language}>
+        <span className="text-sm" style={{ color: "var(--muted)" }}>
+          {doc.language}:
+        </span>
+        {SUPPORTED_LOCALES.map((l) => (
+          <button
+            key={l.code}
+            type="button"
+            onClick={() => setLocale(l.code)}
+            aria-pressed={l.code === code}
+            className={l.code === code ? "btn !px-3 !py-1.5 text-sm" : "btn-ghost !px-3 !py-1.5 text-sm"}
+          >
+            {l.flag} {l.nativeName}
+          </button>
+        ))}
+      </div>
+
+      <h1 className="mb-2 text-2xl font-bold">{doc.title}</h1>
       <p className="mb-8 text-sm" style={{ color: "var(--muted)" }}>
-        Oxirgi yangilanish: 2026-yil
+        {doc.updated}
       </p>
 
       <div className="flex flex-col gap-7">
-        {SECTIONS.map((s) => (
-          <section key={s.title}>
+        {doc.sections.map((s, idx) => (
+          <section key={idx}>
             <h2 className="mb-2 text-lg font-semibold">{s.title}</h2>
             {s.body?.map((p, i) => (
               <p key={i} className="mb-2 leading-relaxed" style={{ color: "var(--text)" }}>
@@ -107,20 +60,20 @@ export default function PrivacyPolicy() {
                 ))}
               </ul>
             )}
-            {s.linkTo && (
-              <a href={s.linkTo} className="font-medium underline" style={{ color: "var(--secondary)" }}>
-                {s.linkLabel}
+            {idx === 4 && (
+              <a href="/delete-account" className="font-medium underline" style={{ color: "var(--secondary)" }}>
+                {doc.deleteLabel}
               </a>
             )}
-            {s.linkHref && (
+            {idx === last && (
               <a
-                href={s.linkHref}
+                href={SUPPORT_URL}
                 target="_blank"
                 rel="noreferrer"
                 className="font-medium underline"
                 style={{ color: "var(--secondary)" }}
               >
-                {s.linkLabel}
+                {CONTACT_LABEL}
               </a>
             )}
           </section>
