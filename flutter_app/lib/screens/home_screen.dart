@@ -370,7 +370,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return Scaffold(body: SafeArea(child: OfflineView(onRetry: _load)));
     }
 
-    final loc = context.watch<LocaleStore>();
     final location = context.watch<LocationStore>();
 
     return Scaffold(
