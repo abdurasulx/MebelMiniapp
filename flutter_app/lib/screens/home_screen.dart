@@ -12,7 +12,6 @@ import '../widgets/offline_view.dart';
 import '../widgets/product_card.dart';
 import 'showcase_screen.dart';
 import '../net_image.dart';
-import '../viloyat.dart';
 
 /// Bosh sahifa — endi alohida "Katalog" tabi yo'q, bu ekranning o'zi
 /// katalog vazifasini bajaradi: qidiruv (nom yoki rasm bo'yicha), "Top"
@@ -382,7 +381,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             padding: const EdgeInsets.only(bottom: 24, top: 8),
             children: [
               _searchBar(loc),
-              _regionChip(loc, location),
               _filterChips(loc),
               if (_error != null &&
                   !OfflineView.isNetworkError(_error) &&
@@ -459,82 +457,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// maydoni yo'q); topilmasa — umumiy mebel ikonkasi.
   IconData _categoryIcon(_Category c) =>
       categoryIcon(slug: c.slug, name: c.nameUz);
-
-  /// Joriy hudud (GPS yoki tanlangan viloyat) — bosilsa tanlash oynasi ochiladi.
-  Widget _regionChip(LocaleStore loc, LocationStore location) {
-    final label = location.hasFix
-        ? (location.viloyat != null
-            ? viloyatLabel(location.viloyat, loc)
-            : 'GPS')
-        : viloyatLabel(location.viloyat, loc);
-    final icon = location.hasFix
-        ? Icons.my_location_rounded
-        : (location.viloyat != null
-            ? Icons.location_on_rounded
-            : Icons.public_rounded);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: ActionChip(
-          avatar: Icon(icon, size: 16, color: AppColors.brand),
-          label:
-              Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-          onPressed: () => _pickRegion(loc, location),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickRegion(LocaleStore loc, LocationStore location) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.7,
-        builder: (_, controller) => ListView(
-          controller: controller,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.my_location_rounded),
-              title: Text(loc.t('welcome_use_location')),
-              trailing:
-                  location.hasFix ? const Icon(Icons.check_rounded) : null,
-              onTap: () {
-                Navigator.of(ctx).pop();
-                location.detectFromGps();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.public_rounded),
-              title: Text(loc.t('home_all')),
-              trailing: (!location.hasFix && location.viloyat == null)
-                  ? const Icon(Icons.check_rounded)
-                  : null,
-              onTap: () {
-                Navigator.of(ctx).pop();
-                location.setViloyat(null);
-              },
-            ),
-            for (final v in viloyatlar)
-              ListTile(
-                leading: const Icon(Icons.location_on_outlined),
-                title: Text(v.label),
-                trailing: (!location.hasFix && location.viloyat == v.code)
-                    ? const Icon(Icons.check_rounded)
-                    : null,
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  location.setViloyat(v.code);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _stateMessage({
     required IconData icon,

@@ -52,7 +52,6 @@ struct HomeView: View {
     @State private var sort: SortOption = .popular
     @State private var onlyWithAR = false
     @State private var showFilters = false
-    @State private var showViloyatPicker = false
 
     @State private var imageResults: [Product]?
     @State private var isImageSearching = false
@@ -147,7 +146,6 @@ struct HomeView: View {
                 .refreshable { await load() }
                 .onChange(of: sort) { _, _ in Task { await load() } }
                 .sheet(isPresented: $showFilters) { filterSheet }
-                .sheet(isPresented: $showViloyatPicker) { viloyatPickerSheet }
                 .errorAlert(message: $errorMessage)
                 .errorAlert(message: $imageSearchError)
             }
@@ -216,7 +214,6 @@ struct HomeView: View {
 
     private var toolbarRow: some View {
         HStack(spacing: 8) {
-            viloyatChip
             Spacer()
             if imageResults == nil {
                 sortMenu
@@ -229,113 +226,6 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal)
-    }
-
-    private var viloyatChip: some View {
-        Button {
-            showViloyatPicker = true
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: location.hasFix ? "location.fill" : (location.viloyat != nil ? "mappin.circle.fill" : "globe"))
-                    .font(.caption)
-                    .foregroundStyle(location.hasFix ? Color.brand : Color.textSecondary)
-
-                Text(location.hasFix ? (location.viloyat != nil ? viloyatLabel(location.viloyat) : "GPS") : (location.viloyat != nil ? viloyatLabel(location.viloyat) : locale.t("home_viloyat_all")))
-                    .font(.caption).bold()
-                    .lineLimit(1)
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(Color.textSecondary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(Color.appCard)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule().stroke(Color.appBorder, lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var viloyatPickerSheet: some View {
-        NavigationStack {
-            List {
-                Section {
-                    Button {
-                        showViloyatPicker = false
-                        location.detectFromGps()
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "location.fill")
-                                .foregroundStyle(Color.brand)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Joylashuvimni aniqlash (GPS)")
-                                    .font(.body).bold()
-                                    .foregroundStyle(Color.textPrimary)
-                                Text("Eng yaqin mebellarni avtomatik ko'rsatish")
-                                    .font(.caption)
-                                    .foregroundStyle(Color.textSecondary)
-                            }
-                            Spacer()
-                            if location.hasFix {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.brand)
-                            }
-                        }
-                    }
-                }
-
-                Section {
-                    Button {
-                        location.setViloyat(nil)
-                        showViloyatPicker = false
-                    } label: {
-                        HStack {
-                            Image(systemName: "globe")
-                                .foregroundStyle(Color.brandSecondary)
-                            Text(locale.t("home_viloyat_all"))
-                                .foregroundStyle(Color.textPrimary)
-                            Spacer()
-                            if location.viloyat == nil && !location.hasFix {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color.brand)
-                            }
-                        }
-                    }
-
-                    ForEach(viloyatlar) { v in
-                        Button {
-                            location.setViloyat(v.code)
-                            showViloyatPicker = false
-                        } label: {
-                            HStack {
-                                Text(v.label)
-                                    .foregroundStyle(Color.textPrimary)
-                                Spacer()
-                                if location.viloyat == v.code && !location.hasFix {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(Color.brand)
-                                }
-                            }
-                        }
-                    }
-                } header: {
-                    Text("O'zbekiston viloyatlari")
-                }
-            }
-            .navigationTitle("Viloyatni tanlang")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(locale.t("common_close")) {
-                        showViloyatPicker = false
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
     }
 
     private var sortMenu: some View {
