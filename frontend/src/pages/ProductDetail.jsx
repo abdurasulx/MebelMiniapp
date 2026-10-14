@@ -506,16 +506,15 @@ export default function ProductDetail() {
               >
                 <Box size={13} /> 3D
               </button>
-              {arSupported !== false && (
-                <button
-                  className="btn-ghost inline-flex items-center gap-1 !px-3 !py-1.5 text-xs"
-                  disabled={!modelReady}
-                  onClick={startAR}
-                >
-                  <Sparkles size={13} />
-                  {modelReady ? "AR" : t("product_ar_loading")}
-                </button>
-              )}
+              {/* AR vaqtincha o'chirilgan ("Yaqinda"): web'da barqaror ishlamayapti. */}
+              <button
+                className="btn-ghost inline-flex cursor-not-allowed items-center gap-1 !px-3 !py-1.5 text-xs opacity-60"
+                disabled
+                title={t("product_ar_soon")}
+              >
+                <Sparkles size={13} />
+                AR · {t("product_ar_soon")}
+              </button>
             </div>
           )}
           {arError && <div className="error mt-2">{arError}</div>}
