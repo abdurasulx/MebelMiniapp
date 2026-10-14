@@ -145,6 +145,24 @@ private struct ProfileView: View {
                     }
                 }
                 HStack {
+                    Image(systemName: "apple.logo").frame(width: 20, height: 20)
+                    Text("Apple")
+                    Spacer()
+                    if user.hasApple ?? false {
+                        Label(locale.t("profile_linked"), systemImage: "checkmark.circle.fill")
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption).foregroundStyle(Color.appSuccess)
+                    } else {
+                        SignInWithAppleButton(.continue, onRequest: { request in
+                            request.requestedScopes = [.email]
+                        }, onCompletion: { result in
+                            handleAppleLink(result)
+                        })
+                        .signInWithAppleButtonStyle(.black)
+                        .frame(width: 110, height: 30)
+                    }
+                }
+                HStack {
                     Image("telegram_logo").resizable().scaledToFit().frame(width: 20, height: 20)
                     Text("Telegram")
                     Spacer()
@@ -366,6 +384,16 @@ private struct ProfileView: View {
                 // jim turamiz — ro'yxat baribir yangilanadi keyingi safar
             }
         }
+    }
+
+    private func handleAppleLink(_ result: Result<ASAuthorization, Error>) {
+        guard case .success(let authorization) = result,
+              let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+              let tokenData = credential.identityToken,
+              let token = String(data: tokenData, encoding: .utf8)
+        else { return } // bekor qilindi — jim
+        let code = credential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
+        Task { await auth.linkApple(identityToken: token, authorizationCode: code) }
     }
 }
 

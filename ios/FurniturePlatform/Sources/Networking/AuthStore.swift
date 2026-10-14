@@ -305,6 +305,25 @@ final class AuthStore: ObservableObject {
         }
     }
 
+    /// Profildan Apple ID'ni BOG'LASH (login emas) — `identityToken` serverda tekshiriladi.
+    @discardableResult
+    func linkApple(identityToken: String, authorizationCode: String?) async -> Bool {
+        errorMessage = nil
+        do {
+            struct Body: Encodable { let identityToken: String; let authorizationCode: String? }
+            let me: User = try await APIClient.shared.post(
+                "/users/me/apple/link/",
+                body: Body(identityToken: identityToken, authorizationCode: authorizationCode),
+                auth: true
+            )
+            user = me
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     /// Profildan Telegram hisobini BOG'LASH — `loginWithTelegram` bilan
     /// bir xil deep-link+poll naqshi, lekin authenticated "link"
     /// endpointlariga so'rov yuboradi (login emas, joriy hisobga

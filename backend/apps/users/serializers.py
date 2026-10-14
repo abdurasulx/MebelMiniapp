@@ -45,6 +45,7 @@ class UserSerializer(serializers.ModelSerializer):
     positions = serializers.SerializerMethodField()
     has_google = serializers.SerializerMethodField()
     has_telegram = serializers.SerializerMethodField()
+    has_apple = serializers.SerializerMethodField()
     pay_type = serializers.SerializerMethodField()
     pay_type_display = serializers.SerializerMethodField()
 
@@ -53,12 +54,12 @@ class UserSerializer(serializers.ModelSerializer):
         fields = (
             "id", "email", "first_name", "last_name", "phone", "role",
             "worker_id", "company", "positions", "is_active", "date_joined",
-            "registration_completed", "phone_verified", "has_google", "has_telegram",
+            "registration_completed", "phone_verified", "has_google", "has_telegram", "has_apple",
             "pay_type", "pay_type_display",
         )
         read_only_fields = (
             "id", "email", "role", "worker_id", "company", "positions", "is_active", "date_joined",
-            "registration_completed", "phone_verified", "has_google", "has_telegram",
+            "registration_completed", "phone_verified", "has_google", "has_telegram", "has_apple",
             "pay_type", "pay_type_display",
         )
 
@@ -67,6 +68,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_has_telegram(self, obj):
         return obj.telegram_accounts.exists()
+
+    def get_has_apple(self, obj):
+        return obj.apple_accounts.exists()
 
     def get_company(self, obj):
         from apps.companies.views import user_company

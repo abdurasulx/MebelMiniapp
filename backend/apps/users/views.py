@@ -481,6 +481,35 @@ class GoogleLinkView(APIView):
         return Response(UserSerializer(request.user, context={"request": request}).data)
 
 
+class AppleLinkView(APIView):
+    """Profildan "Apple'ni bog'lash" (login EMAS): autentifikatsiyalangan foydalanuvchiga
+    Apple ID qo'shimcha kirish usuli sifatida ulanadi."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request):
+        serializer = AppleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        claims = verify_apple_identity_token(data["identity_token"])
+        sub = claims["sub"]
+        existing = AppleAccount.objects.filter(apple_sub=sub).first()
+        if existing is not None and existing.user_id != request.user.id:
+            raise ValidationError("Bu Apple hisobi allaqachon boshqa foydalanuvchiga bog'langan")
+        if request.user.role == "platform_admin":
+            raise ValidationError("Platforma admini Apple hisobini bog'lay olmaydi")
+        account = existing or AppleAccount.objects.create(
+            user=request.user, apple_sub=sub, email=(claims.get("email") or "").strip().lower()
+        )
+        code = data.get("authorization_code", "")
+        if code:
+            apple_refresh = exchange_authorization_code(code)
+            if apple_refresh:
+                account.refresh_token = apple_refresh
+                account.save(update_fields=["refresh_token"])
+        return Response(UserSerializer(request.user, context={"request": request}).data)
+
+
 def _google_redirect_uri() -> str:
     return f"{settings.BACKEND_URL.rstrip('/')}/api/v1/auth/google/callback/"
 

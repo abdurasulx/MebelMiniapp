@@ -29,6 +29,7 @@ struct User: Codable {
     let phoneVerified: Bool?
     let hasGoogle: Bool?
     let hasTelegram: Bool?
+    let hasApple: Bool?
     // Faol ish o'rnining to'lov turi (fixed/fixed_bonus/commission/hourly/
     // piecework) — Davomat (check-in/check-out) faqat "hourly" (soatbay)
     // xodimlar uchun ko'rsatiladi (qarang WorkerHomeView.swift).

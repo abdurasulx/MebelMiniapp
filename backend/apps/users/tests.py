@@ -1104,6 +1104,24 @@ class AppleLoginTests(TestCase):
         resp = self.client.post("/api/v1/auth/apple/notifications/", {"payload": "garbage"}, content_type="application/json")
         self.assertEqual(resp.status_code, 400)
 
+    def test_link_apple_from_profile_sets_has_apple(self):
+        from rest_framework.test import APIClient
+
+        user = User.objects.create_user(email="lnk@y.uz", password="p", role=User.Role.CUSTOMER)
+        api = APIClient()
+        api.force_authenticate(user)
+        self.assertFalse(api.get("/api/v1/users/me/").json()["has_apple"])
+        with patch("apps.users.views.verify_apple_identity_token", return_value={"sub": "sub-link", "email": "L@icloud.com"}):
+            resp = api.post("/api/v1/users/me/apple/link/", {"identity_token": "x"}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertTrue(resp.json()["has_apple"])
+        # Boshqa foydalanuvchi shu Apple hisobini bog'lay olmaydi
+        other = User.objects.create_user(email="oth@y.uz", password="p", role=User.Role.CUSTOMER)
+        api.force_authenticate(other)
+        with patch("apps.users.views.verify_apple_identity_token", return_value={"sub": "sub-link"}):
+            bad = api.post("/api/v1/users/me/apple/link/", {"identity_token": "x"}, format="json")
+        self.assertEqual(bad.status_code, 400)
+
     def test_links_existing_user_by_verified_email_only(self):
         existing = User.objects.create_user(email="x@y.uz", password="p", role=User.Role.CUSTOMER)
         resp = self._login({"sub": "s1", "email": "x@y.uz", "email_verified": "false"})
