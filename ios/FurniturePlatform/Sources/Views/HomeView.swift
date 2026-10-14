@@ -494,7 +494,10 @@ struct HomeView: View {
             categories = c.results
             likes.sync(from: p.results)
         } catch {
-            if OfflineView.isOffline(error) {
+            // Hech narsa yuklanmagan bo'lsa (internet uzilgan/sekin) "faol firma
+            // yo'q" emas, qayta urinish ekrani ko'rsatiladi — aks holda xato
+            // oynasi yopilgach bo'sh holat yolg'on xabar berardi.
+            if OfflineView.isOffline(error) || products.isEmpty {
                 isOffline = true
             } else {
                 errorMessage = error.localizedDescription
