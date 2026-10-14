@@ -159,6 +159,7 @@ private struct ProfileView: View {
                             handleAppleLink(result)
                         })
                         .signInWithAppleButtonStyle(.black)
+                        .environment(\.locale, Locale(identifier: locale.code))
                         .frame(width: 110, height: 30)
                     }
                 }
@@ -297,23 +298,6 @@ private struct ProfileView: View {
                 }
             }
 
-            Section {
-                Button(locale.t("common_logout"), role: .destructive) { auth.logout() }
-            }
-
-            Section {
-                HStack {
-                    Spacer()
-                    Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
-                        .font(.footnote)
-                        .foregroundStyle(Color.textSecondary)
-                    Spacer()
-                }
-                .listRowBackground(Color.clear)
-            }
-
-            DeleteAccountSection()
-
             Section(locale.t("So'nggi buyurtmalar")) {
                 if isLoading {
                     ProgressView()
@@ -343,6 +327,24 @@ private struct ProfileView: View {
                     }
                 }
             }
+
+            Section {
+                Button(locale.t("common_logout"), role: .destructive) { auth.logout() }
+            }
+
+            Section {
+                HStack {
+                    Spacer()
+                    Link(locale.t("privacy_policy"), destination: URL(string: "https://vidamarket.uz/privacy")!)
+                        .font(.footnote)
+                        .foregroundStyle(Color.textSecondary)
+                    Spacer()
+                }
+                .listRowBackground(Color.clear)
+            }
+
+            DeleteAccountSection()
+
         }
         .errorAlert(message: $auth.errorMessage)
         .task {
@@ -531,6 +533,7 @@ private struct AuthFormView: View {
                 handleApple(result)
             }
             .signInWithAppleButtonStyle(.black)
+            .environment(\.locale, Locale(identifier: locale.code))
             .frame(height: 44)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .disabled(busy)

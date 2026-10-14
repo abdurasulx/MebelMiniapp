@@ -496,15 +496,6 @@ class _ProfileBodyState extends State<_ProfileBody> {
             const SizedBox(height: 20),
           ],
 
-          OutlinedButton(
-            onPressed: () => context.read<AuthStore>().logout(),
-            style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
-            child: Text(loc.t('common_logout')),
-          ),
-          const _PrivacyLink(),
-          const DeleteAccountSection(),
-          const SizedBox(height: 20),
-
           Text(
             loc.t('orders_recent_title'),
             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -581,6 +572,16 @@ class _ProfileBodyState extends State<_ProfileBody> {
                 ),
               ),
           ],
+          const SizedBox(height: 20),
+
+          OutlinedButton(
+            onPressed: () => context.read<AuthStore>().logout(),
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
+            child: Text(loc.t('common_logout')),
+          ),
+          const _PrivacyLink(),
+          const DeleteAccountSection(),
+          const SizedBox(height: 20),
         ],
       ),
     );
