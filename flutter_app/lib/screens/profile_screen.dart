@@ -72,11 +72,9 @@ class _ProfileBody extends StatefulWidget {
 }
 
 class _ProfileBodyState extends State<_ProfileBody> {
-  List<EmployeeInvitation> _invitations = [];
   List<CareerEntry> _career = [];
   List<Order> _orders = [];
   bool _loading = true;
-  String? _busyInvitationId;
 
   @override
   void initState() {
@@ -87,14 +85,6 @@ class _ProfileBodyState extends State<_ProfileBody> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final invPage = await ApiClient.instance.get(
-        '/employee-invitations/?received=1',
-        (j) => Paginated<EmployeeInvitation>.fromJson(
-          j,
-          EmployeeInvitation.fromJson,
-        ),
-        auth: true,
-      );
       final careerPage = await ApiClient.instance.get(
         '/users/me/career/',
         (j) => Paginated<CareerEntry>.fromJson(j, CareerEntry.fromJson),
@@ -106,7 +96,6 @@ class _ProfileBodyState extends State<_ProfileBody> {
         auth: true,
       );
       setState(() {
-        _invitations = invPage.results;
         _career = careerPage.results;
         _orders = ordersPage.results;
       });
@@ -117,32 +106,11 @@ class _ProfileBodyState extends State<_ProfileBody> {
     }
   }
 
-  Future<void> _respond(EmployeeInvitation inv, bool accept) async {
-    setState(() => _busyInvitationId = inv.id);
-    try {
-      await ApiClient.instance.post(
-        '/employee-invitations/${inv.id}/${accept ? 'accept' : 'decline'}/',
-        (j) => j,
-        auth: true,
-      );
-      if (mounted) {
-        await context.read<AuthStore>().refreshUser();
-        await _load();
-      }
-    } catch (_) {
-      // jim turamiz
-    } finally {
-      if (mounted) setState(() => _busyInvitationId = null);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
     final auth = context.watch<AuthStore>();
     final loc = context.watch<LocaleStore>();
-    final pendingInvitations =
-        _invitations.where((i) => i.status == 'pending').toList();
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -420,55 +388,6 @@ class _ProfileBodyState extends State<_ProfileBody> {
           ],
 
           if (_loading) const Center(child: CircularProgressIndicator()),
-
-          if (pendingInvitations.isNotEmpty) ...[
-            Text(
-              loc.t('profile_job_offers'),
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ...pendingInvitations.map(
-              (inv) => Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        inv.companyName,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        inv.positions
-                            .map((p) => positionInfo(p, loc).label)
-                            .join(', '),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          ElevatedButton(
-                            onPressed: _busyInvitationId == inv.id
-                                ? null
-                                : () => _respond(inv, true),
-                            child: Text(loc.t('profile_offer_accept')),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton(
-                            onPressed: _busyInvitationId == inv.id
-                                ? null
-                                : () => _respond(inv, false),
-                            child: Text(loc.t('profile_offer_decline')),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
 
           if (_career.isNotEmpty) ...[
             Text(

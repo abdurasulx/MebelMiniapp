@@ -75,6 +75,7 @@ struct NotificationsView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var isOffline = false
+    @State private var showInvitations = false
 
     var body: some View {
         NavigationStack {
@@ -89,7 +90,10 @@ struct NotificationsView: View {
                     Text(locale.t("Hali xabarnoma yo'q.")).foregroundStyle(Color.textSecondary)
                 } else {
                     List(items) { n in
-                        NotificationRow(notification: n, onTap: { Task { await markRead(n) } })
+                        NotificationRow(notification: n, onTap: {
+                            Task { await markRead(n) }
+                            if n.notifType == "employee_invited" { showInvitations = true }
+                        })
                     }
                     .listStyle(.plain)
                 }
@@ -106,6 +110,7 @@ struct NotificationsView: View {
             }
             .task { await load() }
             .refreshable { await load() }
+            .sheet(isPresented: $showInvitations) { EmployeeInvitationSheet() }
         }
     }
 

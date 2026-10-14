@@ -57,11 +57,9 @@ private struct ProfileView: View {
     @EnvironmentObject private var auth: AuthStore
     @EnvironmentObject private var locale: LocaleStore
     @State private var orders: [OrderSummary] = []
-    @State private var invitations: [EmployeeInvitation] = []
     @State private var career: [CareerEntry] = []
     @State private var isLoading = false
     @State private var didLoadOnce = false
-    @State private var busyInvitationId: String?
     @State private var showLanguagePicker = false
     @State private var showRolePicker = false
     @State private var showPhoneVerify = false
@@ -253,34 +251,6 @@ private struct ProfileView: View {
                 }
             }
 
-            if !invitations.isEmpty {
-                Section(locale.t("Ish takliflari")) {
-                    ForEach(invitations) { inv in
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(inv.companyName).bold()
-                            Text(inv.positions.map { locale.position($0).label }.joined(separator: ", "))
-                                .font(.caption).foregroundStyle(Color.textSecondary)
-                            if inv.status == "pending" {
-                                HStack {
-                                    Button(locale.t("Qabul qilish")) { respond(inv, accept: true) }
-                                        .buttonStyle(.borderedProminent)
-                                        .tint(.brandDeep)
-                                    Button(locale.t("Rad etish"), role: .destructive) { respond(inv, accept: false) }
-                                        .buttonStyle(.bordered)
-                                }
-                                .disabled(busyInvitationId == inv.id)
-                                .font(.caption)
-                            } else {
-                                Text(locale.display("is", inv.status, fallback: inv.statusDisplay))
-                                    .font(.caption).bold()
-                                    .foregroundStyle(inv.status == "accepted" ? .green : .red)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-            }
-
             if !career.isEmpty {
                 Section(locale.t("Ish tarixi (karyera)")) {
                     ForEach(career) { entry in
@@ -366,26 +336,9 @@ private struct ProfileView: View {
         isLoading = true
         defer { isLoading = false }
         async let ordersPage: Paginated<OrderSummary>? = try? APIClient.shared.get("/orders/", auth: true)
-        async let invitationsPage: Paginated<EmployeeInvitation>? = try? APIClient.shared.get("/employee-invitations/?received=1", auth: true)
         async let careerPage: Paginated<CareerEntry>? = try? APIClient.shared.get("/users/me/career/", auth: true)
         orders = await ordersPage?.results ?? []
-        invitations = await invitationsPage?.results ?? []
         career = await careerPage?.results ?? []
-    }
-
-    private func respond(_ inv: EmployeeInvitation, accept: Bool) {
-        busyInvitationId = inv.id
-        Task {
-            defer { busyInvitationId = nil }
-            do {
-                let path = "/employee-invitations/\(inv.id)/\(accept ? "accept" : "decline")/"
-                let _: EmployeeInvitation = try await APIClient.shared.post(path, auth: true)
-                await auth.refreshUser()
-                await loadAll()
-            } catch {
-                // jim turamiz — ro'yxat baribir yangilanadi keyingi safar
-            }
-        }
     }
 
     private func handleAppleLink(_ result: Result<ASAuthorization, Error>) {
