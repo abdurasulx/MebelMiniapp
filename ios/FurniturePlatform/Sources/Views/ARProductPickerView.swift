@@ -18,7 +18,14 @@ struct ARProductPickerView: View {
     @State private var errorMessage: String?
     @State private var addingProductId: String?
 
-    private var arReadyProducts: [Product] { products.filter { $0.model3d?.usdzUrl != nil } }
+    // 3D model mahsulot darajasida YOKI (ko'pincha) variant darajasida
+    // bo'lishi mumkin — ikkalasi ham hisobga olinadi.
+    private var arReadyProducts: [Product] {
+        products.filter { p in
+            p.model3d?.usdzUrl != nil
+                || p.variants.contains { $0.model3d?.usdzUrl != nil }
+        }
+    }
 
     var body: some View {
         NavigationStack {

@@ -34,7 +34,9 @@ struct ARCollectionDetailView: View {
 
     private func effectiveModel3d(for item: ARCollectionItem) -> Model3D? {
         if let variant = effectiveVariant(for: item), let vm = variant.model3d, vm.status == "ready" { return vm }
-        return item.product.model3d
+        if let m = item.product.model3d, m.usdzUrl != nil { return m }
+        // Mahsulot darajasida model yo'q — birinchi tayyor variant modeli.
+        return item.product.variants.compactMap { $0.model3d }.first { $0.usdzUrl != nil }
     }
 
     private var arModels: [ARModelItem] {
