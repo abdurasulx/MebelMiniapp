@@ -372,7 +372,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (!_loading && OfflineView.isNetworkError(_error) && _products.isEmpty) {
+    // Yuklanmagan (xato) va bo'sh ro'yxat — "firma yo'q" emas, qayta urinish.
+    if (!_loading && _error != null && _products.isEmpty) {
       return Scaffold(body: SafeArea(child: OfflineView(onRetry: _load)));
     }
 
