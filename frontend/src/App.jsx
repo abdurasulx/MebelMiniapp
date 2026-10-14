@@ -224,7 +224,7 @@ function MarketLayout({ children }) {
         }}
       >
         <Link to="/" className="flex items-center gap-2 font-bold">
-          <Sofa size={22} /> <BrandLogo />
+          <img src="/logo-mark.png" alt="" width={26} height={26} className="rounded-md" /> <BrandLogo />
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <NavLink to="/" end className={({ isActive }) => `top-link ${isActive ? "active" : ""}`}>

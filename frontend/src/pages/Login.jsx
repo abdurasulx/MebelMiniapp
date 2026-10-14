@@ -67,7 +67,7 @@ function AdminLogin() {
     <div className="flex min-h-[70vh] items-center justify-center p-4">
       <form className="card flex w-full max-w-sm flex-col gap-4 p-8" onSubmit={submit}>
         <div className="text-center">
-          <Sofa className="mx-auto mb-1" size={30} style={{ color: "var(--secondary)" }} />
+          <img src="/logo-mark.png" alt="" width={44} height={44} className="mx-auto mb-1 rounded-lg" />
           <h1 className="text-lg font-bold">Platforma boshqaruviga kirish</h1>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
             Hisobingizga kiring
@@ -261,7 +261,7 @@ function FirmaLogin() {
     <div className="flex min-h-[70vh] items-center justify-center p-4">
       <div className="card flex w-full max-w-sm flex-col gap-4 p-8">
         <div className="text-center">
-          <Sofa className="mx-auto mb-1" size={30} style={{ color: "var(--secondary)" }} />
+          <img src="/logo-mark.png" alt="" width={44} height={44} className="mx-auto mb-1 rounded-lg" />
           <h1 className="text-lg font-bold">Firma kabinetiga kirish</h1>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
             Firma egasi — email/parol, xodimlar — Google yoki Telegram bilan kiring.
@@ -300,7 +300,7 @@ function MarketLogin() {
     <div className="flex min-h-[70vh] items-center justify-center p-4">
       <div className="card flex w-full max-w-sm flex-col gap-4 p-8">
         <div className="text-center">
-          <Sofa className="mx-auto mb-1" size={30} style={{ color: "var(--secondary)" }} />
+          <img src="/logo-mark.png" alt="" width={44} height={44} className="mx-auto mb-1 rounded-lg" />
           <h1 className="text-lg font-bold">{t("login_welcome_title")}</h1>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
             {t("login_welcome_subtitle")}

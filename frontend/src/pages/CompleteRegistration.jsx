@@ -50,7 +50,7 @@ export default function CompleteRegistration() {
     <div className="flex min-h-[70vh] items-center justify-center p-4">
       <form className="card flex w-full max-w-md flex-col gap-4 p-8" onSubmit={submit}>
         <div className="text-center">
-          <Sofa className="mx-auto mb-1" size={30} style={{ color: "var(--secondary)" }} />
+          <img src="/logo-mark.png" alt="" width={44} height={44} className="mx-auto mb-1 rounded-lg" />
           <h1 className="text-lg font-bold">Ro'yxatdan o'tishni yakunlang</h1>
           <p className="text-xs" style={{ color: "var(--muted)" }}>
             Bir necha ma'lumot — va tayyor

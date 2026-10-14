@@ -106,7 +106,7 @@ export default function PortalLayout({ title, menu, activePosition, onSwitchPosi
         style={{ background: "var(--brand-surface)", borderRight: "1px solid var(--border)" }}
       >
         <div className="mb-8 flex items-center gap-2 px-2 pt-2">
-          <Sofa size={26} style={{ color: "var(--brand-surface-text)" }} />
+          <img src="/logo-mark.png" alt="" width={30} height={30} className="rounded-md" />
           <div>
             <div className="text-sm" style={{ color: "var(--brand-surface-text)" }}>
               <BrandLogo />

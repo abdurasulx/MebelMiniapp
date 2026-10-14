@@ -131,9 +131,10 @@ struct WelcomeLocationView: View {
 
     private var brandMark: some View {
         HStack {
-            Image(systemName: "sofa.fill")
-                .font(.title2)
-                .foregroundStyle(Color.onBrand)
+            Image("BrandMark")
+                .resizable()
+                .scaledToFit()
+                .padding(8)
                 .frame(width: 52, height: 52)
                 .background(Color.brand, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
