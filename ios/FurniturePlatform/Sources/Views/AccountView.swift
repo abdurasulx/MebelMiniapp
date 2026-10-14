@@ -151,14 +151,11 @@ private struct ProfileView: View {
                             .labelStyle(.titleAndIcon)
                             .font(.caption).foregroundStyle(Color.appSuccess)
                     } else {
-                        SignInWithAppleButton(.continue, onRequest: { request in
-                            request.requestedScopes = [.email]
-                        }, onCompletion: { result in
+                        LocalizedAppleButton(
+                            title: locale.t("apple_continue"), scopes: [.email], height: 30, compact: true
+                        ) { result in
                             handleAppleLink(result)
-                        })
-                        .signInWithAppleButtonStyle(.black)
-                        .environment(\.locale, Locale(identifier: locale.code))
-                        .frame(width: 110, height: 30)
+                        }
                     }
                 }
                 HStack {
@@ -480,15 +477,9 @@ private struct AuthFormView: View {
             .frame(maxWidth: .infinity)
 
             // Apple talabi (4.8): Google bilan kirish bor ekan, Sign in with Apple ham bo'lishi shart.
-            SignInWithAppleButton(.signIn) { request in
-                request.requestedScopes = [.fullName, .email]
-            } onCompletion: { result in
+            LocalizedAppleButton(title: locale.t("apple_signin")) { result in
                 handleApple(result)
             }
-            .signInWithAppleButtonStyle(.black)
-            .environment(\.locale, Locale(identifier: locale.code))
-            .frame(height: 44)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .disabled(busy)
             .accessibilityIdentifier("authAppleButton")
 

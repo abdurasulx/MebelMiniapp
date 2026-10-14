@@ -196,6 +196,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                         fontWeight: FontWeight.w700,
                         height: 1.25),
                   ),
+                  const SizedBox(height: 4),
+                  _companyLine(context, p),
                   if (v != null) ...[
                     const SizedBox(height: AppSpacing.md),
                     _priceSection(v, loc),
@@ -209,8 +211,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   _specsSection(p, loc),
                   _descriptionSection(p, loc),
                   const SizedBox(height: AppSpacing.lg),
-                  _companyCard(context, p),
-                  const SizedBox(height: AppSpacing.md),
                   _deliveryCard(p, loc),
                 ],
               ),
@@ -696,89 +696,74 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
     );
   }
 
-  Widget _companyCard(BuildContext context, Product p) {
+  /// Mahsulot nomi ostidagi firma qatori (iOS bilan bir xil): 🏭 nom + tasdiq
+  /// belgisi + ›, tagida joylashuv.
+  Widget _companyLine(BuildContext context, Product p) {
     final location = [
       if (p.companyViloyatDisplay?.isNotEmpty == true) p.companyViloyatDisplay!,
       if (p.companyAddress?.isNotEmpty == true) p.companyAddress!,
     ].join(', ');
-    final card = Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.backgroundAlt,
-              borderRadius: BorderRadius.circular(AppRadius.sm + 2),
-            ),
-            child: const Icon(Icons.storefront_rounded,
-                size: 22, color: AppColors.brand),
+    final row = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            '🏭 ${p.companyName}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                fontSize: 14, color: AppColors.textSecondary),
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        if (p.companyIsVerified) ...[
+          const SizedBox(width: 4),
+          const VerifiedBadge(compact: true),
+        ],
+        if (p.companySlug != null) ...[
+          const SizedBox(width: 2),
+          const Icon(Icons.chevron_right_rounded,
+              size: 16, color: AppColors.textSecondary),
+        ],
+      ],
+    );
+    final tappable = p.companySlug == null
+        ? row
+        : InkWell(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    CompanyDetailScreen(companySlug: p.companySlug!),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: row,
+            ),
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        tappable,
+        if (location.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        p.companyName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 14.5),
-                      ),
-                    ),
-                    if (p.companyIsVerified) ...[
-                      const SizedBox(width: 4),
-                      const VerifiedBadge(compact: true),
-                    ],
-                  ],
-                ),
-                if (location.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined,
-                            size: 14, color: AppColors.textSecondary),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          child: Text(
-                            location,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppText.caption,
-                          ),
-                        ),
-                      ],
-                    ),
+                const Icon(Icons.location_on_outlined,
+                    size: 14, color: AppColors.textSecondary),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Text(
+                    location,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.caption,
                   ),
+                ),
               ],
             ),
           ),
-          if (p.companySlug != null)
-            const Icon(Icons.chevron_right_rounded,
-                size: 22, color: AppColors.textSecondary),
-        ],
-      ),
-    );
-    if (p.companySlug == null) return card;
-    return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CompanyDetailScreen(companySlug: p.companySlug!),
-        ),
-      ),
-      child: card,
+      ],
     );
   }
 
