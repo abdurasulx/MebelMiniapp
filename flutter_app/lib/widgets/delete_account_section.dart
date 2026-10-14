@@ -105,7 +105,7 @@ class _DeleteAccountFormState extends State<_DeleteAccountForm> {
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

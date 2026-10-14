@@ -97,7 +97,7 @@ struct WorkerOrdersView: View {
             if OfflineView.isOffline(error) {
                 isOffline = true
             } else {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
         }
         isLoading = false
@@ -171,7 +171,7 @@ private struct OrderCardView: View {
             let _: Order = try await APIClient.shared.post("/orders/\(order.id)/set_status/", body: Body(status: status))
             onChanged()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
         busy = false
     }
@@ -324,7 +324,7 @@ private struct OpenTaskDetailView: View {
             await onApplied()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
         busy = false
     }
@@ -425,7 +425,7 @@ private struct StepRowView: View {
             )
             onChanged()
         } catch {
-            actionError = error.localizedDescription
+            actionError = error.userMessage
         }
         releasing = false
     }
@@ -567,7 +567,7 @@ private struct StepUpdateSheet: View {
             onDone()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
         busy = false
     }

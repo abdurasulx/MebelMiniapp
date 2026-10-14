@@ -108,7 +108,7 @@ final class AuthStore: ObservableObject {
             persist(tokens)
             await loadMe()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 
@@ -123,7 +123,7 @@ final class AuthStore: ObservableObject {
             let resp: Resp = try await APIClient.shared.post("/auth/otp/request/", body: Body(phone: phone), auth: false)
             return OTPRequestResult(debugCode: resp.debugCode, resendAfter: resp.resendAfter ?? 60)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
             return nil
         }
     }
@@ -148,7 +148,7 @@ final class AuthStore: ObservableObject {
             await loadMe()
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
             return false
         }
     }
@@ -183,7 +183,7 @@ final class AuthStore: ObservableObject {
         } catch let error as GIDSignInError where error.code == .canceled {
             // foydalanuvchi bekor qildi — xato ko'rsatilmaydi
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 
@@ -212,7 +212,7 @@ final class AuthStore: ObservableObject {
             persist(tokens)
             await loadMe()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 
@@ -270,7 +270,7 @@ final class AuthStore: ObservableObject {
             }
             errorMessage = "Kutish vaqti tugadi. Qayta urinib ko'ring"
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 
@@ -300,7 +300,7 @@ final class AuthStore: ObservableObject {
         } catch let error as GIDSignInError where error.code == .canceled {
             return false // foydalanuvchi bekor qildi — xato ko'rsatilmaydi
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
             return false
         }
     }
@@ -319,7 +319,7 @@ final class AuthStore: ObservableObject {
             user = me
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
             return false
         }
     }
@@ -366,7 +366,7 @@ final class AuthStore: ObservableObject {
             errorMessage = "Kutish vaqti tugadi. Qayta urinib ko'ring"
             return false
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
             return false
         }
     }
@@ -398,7 +398,7 @@ final class AuthStore: ObservableObject {
             isNewUser = false
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
             return false
         }
     }

@@ -116,16 +116,16 @@ class _CartScreenState extends State<CartScreen> {
           try {
             await _placeOrders(cart);
           } catch (e2) {
-            setState(() => _error = e2.toString());
+            setState(() => _error = friendlyError(e2));
           } finally {
             if (mounted) setState(() => _busy = false);
           }
         }
         return;
       }
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

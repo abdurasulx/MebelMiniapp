@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:furniture_platform_mobile/api_client.dart';
 import 'package:furniture_platform_mobile/l10n/app_locale.dart';
 import 'package:furniture_platform_mobile/l10n/strings.dart';
 
@@ -10,7 +11,9 @@ void main() {
     'otp_err_unavailable', 'otp_err_send_failed', 'otp_err_busy',
     'otp_err_expired', 'otp_err_attempts', 'otp_err_wrong',
     'otp_country_note', 'otp_resend_in', 'welcome_language',
-    'welcome_nearby_title', 'welcome_delivery_title', 'welcome_ar_title',
+    'err_bad_request', 'err_login_required', 'err_forbidden', 'err_not_found',
+    'err_conflict', 'err_too_many', 'err_server', 'err_unknown', 'err_offline',
+    'err_decoding', 'welcome_nearby_title', 'welcome_delivery_title', 'welcome_ar_title',
   ];
   const withNumber = ['otp_err_cooldown', 'otp_err_wrong', 'otp_resend_in'];
 
@@ -26,4 +29,22 @@ void main() {
       }
     });
   }
+
+  test('xom xato matnlari foydalanuvchiga ko\'rsatilmaydi', () {
+    for (final raw in [
+      'Not found.', 'cancelled', 'Xatolik yuz berdi (404)', '404',
+      'SocketException: Failed host lookup', "type 'Null' is not a subtype",
+      'Ошибка 500',
+    ]) {
+      expect(isRawErrorText(raw), isTrue, reason: raw);
+    }
+    for (final ok in ["Kod noto'g'ri. 3 ta urinish qoldi", "Ma'lumot topilmadi"]) {
+      expect(isRawErrorText(ok), isFalse, reason: ok);
+    }
+    ApiClient.localeCode = 'en';
+    expect(friendlyError(ApiException('Not found.', statusCode: 404)),
+        'Something went wrong. Please try again');
+    expect(friendlyError(const FormatException('bad')), "Couldn't read the data. Please try again");
+    ApiClient.localeCode = 'uz';
+  });
 }

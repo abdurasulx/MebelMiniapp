@@ -141,7 +141,7 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
       });
       _startCountdown((resp['resend_after'] as int?) ?? 60);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
       if (e is ApiException && e.retryAfter != null && _codeSent) {
         _startCountdown(e.retryAfter!);
       }
@@ -163,7 +163,7 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

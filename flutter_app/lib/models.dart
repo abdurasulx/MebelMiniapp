@@ -1,3 +1,4 @@
+import 'api_client.dart';
 // Backend DRF javoblari snake_case — bu yerda shu ko'rinishda o'qiladi
 // (iOS'dagi `convertFromSnakeCase`ga mos vazifa, lekin Dart'da qo'lda).
 
@@ -64,7 +65,7 @@ class AppUser {
         company:
             j['company'] != null ? CompanyRef.fromJson(j['company']) : null,
         positions:
-            (j['positions'] as List?)?.map((e) => e.toString()).toList() ?? [],
+            (j['positions'] as List?)?.map((e) => friendlyError(e)).toList() ?? [],
         phoneVerified: j['phone_verified'] ?? true,
         hasGoogle: j['has_google'] ?? false,
         hasTelegram: j['has_telegram'] ?? false,
@@ -968,7 +969,7 @@ class EmployeeInvitation {
         id: j['id'],
         companyName: j['company_name'] ?? '',
         positions:
-            (j['positions'] as List? ?? []).map((e) => e.toString()).toList(),
+            (j['positions'] as List? ?? []).map((e) => friendlyError(e)).toList(),
         status: j['status'],
         statusDisplay: j['status_display'],
       );
@@ -988,7 +989,7 @@ class CareerEntry {
   factory CareerEntry.fromJson(Map<String, dynamic> j) => CareerEntry(
         companyName: j['company_name'] ?? '',
         positions:
-            (j['positions'] as List? ?? []).map((e) => e.toString()).toList(),
+            (j['positions'] as List? ?? []).map((e) => friendlyError(e)).toList(),
         isActive: j['is_active'] ?? false,
       );
 }

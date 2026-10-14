@@ -181,7 +181,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(friendlyError(e)),
             duration: const Duration(seconds: 6),
             behavior: SnackBarBehavior.floating,
           ),
@@ -211,7 +211,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(friendlyError(e)),
             duration: const Duration(seconds: 6),
             behavior: SnackBarBehavior.floating,
           ),
@@ -283,7 +283,7 @@ class _WorkerOrdersScreenState extends State<WorkerOrdersScreen> {
             } catch (e) {
               setDialogState(() {
                 submitting = false;
-                submitError = e.toString();
+                submitError = friendlyError(e);
               });
             }
           }
@@ -1094,7 +1094,7 @@ class _OpenTaskDetailScreenState extends State<_OpenTaskDetailScreen> {
       await widget.onApplied();
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -11,13 +11,68 @@ enum APIError: LocalizedError, Equatable {
     // bu holatda "oflayn" ekrani ko'rsatiladi (qarang Views/OfflineView.swift).
     case offline
 
-    var errorDescription: String? {
-        switch self {
-        case .server(let msg, _): return msg
-        case .decoding: return "Ma'lumotni o'qib bo'lmadi"
-        case .unauthorized: return "Avval tizimga kiring"
-        case .offline: return "Internetga ulanib bo'lmadi"
+    var errorDescription: String? { userMessage }
+}
+
+/// Foydalanuvchiga ko'rsatiladigan xato matnlari — tanlangan tilda, "404",
+/// "cancelled", "Not found." kabi xom/texnik matnlarsiz (production ko'rinish).
+enum FriendlyError {
+    static func text(_ key: String) -> String {
+        translate(UserDefaults.standard.string(forKey: "fp.locale") ?? defaultLocaleCode, key)
+    }
+
+    static func forStatus(_ status: Int) -> String {
+        switch status {
+        case 400: return text("err_bad_request")
+        case 401: return text("err_login_required")
+        case 403: return text("err_forbidden")
+        case 404: return text("err_not_found")
+        case 409: return text("err_conflict")
+        case 429: return text("err_too_many")
+        case 500...599: return text("err_server")
+        default: return text("err_unknown")
         }
+    }
+
+    private static let rawFragments = [
+        "not found", "authentication credentials", "you do not have permission", "invalid token",
+        "method \"", "bad request", "server error", "cancelled", "canceled", "forbidden", "unauthorized",
+        "throttled", "nsurlerrordomain", "the operation couldn", "error domain", "swift.", "cocoa",
+        "the internet connection", "the request timed out", "could not connect", "a server with the specified",
+        "<html", "<!doctype", "traceback",
+    ]
+
+    /// `true` — matn foydalanuvchiga ko'rsatishga yaroqsiz (tizim/DRF standart matni, HTTP kod, HTML).
+    static func isRaw(_ text: String) -> Bool {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if t.isEmpty { return true }
+        if rawFragments.contains(where: { t.contains($0) }) { return true }
+        if t.range(of: #"\(\s*[1-5]\d\d\s*\)"#, options: .regularExpression) != nil { return true }
+        if t.range(of: #"^[^\p{L}]*[1-5]\d\d[^\p{L}]*$"#, options: .regularExpression) != nil { return true }
+        // "Ошибка 500", "Hata 404" kabi qisqa "so'z + HTTP kod" matnlari.
+        if t.count < 30, t.range(of: #"\b[1-5]\d\d\b"#, options: .regularExpression) != nil { return true }
+        return false
+    }
+}
+
+extension Error {
+    /// Foydalanuvchiga ko'rsatish uchun xavfsiz matn. Bekor qilingan so'rov
+    /// (`cancelled`) xato emas — bo'sh qator qaytadi (`errorAlert` uni ko'rsatmaydi).
+    var userMessage: String {
+        if self is CancellationError { return "" }
+        if let e = self as? URLError {
+            return e.code == .cancelled ? "" : FriendlyError.text("err_offline")
+        }
+        if let e = self as? APIError {
+            switch e {
+            case .server(let msg, let status): return FriendlyError.isRaw(msg) ? FriendlyError.forStatus(status) : msg
+            case .decoding: return FriendlyError.text("err_decoding")
+            case .unauthorized: return FriendlyError.text("err_login_required")
+            case .offline: return FriendlyError.text("err_offline")
+            }
+        }
+        let d = (self as NSError).localizedDescription
+        return FriendlyError.isRaw(d) ? FriendlyError.text("err_unknown") : d
     }
 }
 
@@ -200,12 +255,13 @@ actor APIClient {
             }
         }
         guard let http = response as? HTTPURLResponse else {
-            throw APIError.server("Server bilan bog'lanib bo'lmadi", statusCode: 0)
+            throw APIError.server(FriendlyError.text("err_offline"), statusCode: 0)
         }
         handleUpdateRequired(data, status: http.statusCode)
         guard (200..<300).contains(http.statusCode) else {
-            let message = Self.localizedCodeMessage(from: data)
+            let raw = Self.localizedCodeMessage(from: data)
                 ?? ((try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil)
+            let message = raw.flatMap { FriendlyError.isRaw($0) ? nil : $0 }
             throw APIError.server(message ?? friendlyServerErrorMessage(status: http.statusCode), statusCode: http.statusCode)
         }
         do {
@@ -272,7 +328,7 @@ actor APIClient {
             throw APIError.decoding
         }
         guard http.statusCode == 200 else {
-            throw APIError.server("Xatolik (\(http.statusCode))", statusCode: http.statusCode)
+            throw APIError.server(FriendlyError.forStatus(http.statusCode), statusCode: http.statusCode)
         }
         do { return try decoder.decode(AppVersionPolicy.self, from: data) } catch { throw APIError.decoding }
     }
@@ -334,7 +390,7 @@ actor APIClient {
 
         let (data, response) = try await performRequest(request)
         guard let http = response as? HTTPURLResponse else {
-            throw APIError.server("Server bilan bog'lanib bo'lmadi", statusCode: 0)
+            throw APIError.server(FriendlyError.text("err_offline"), statusCode: 0)
         }
 
         if !signatureHeaders.isEmpty {
@@ -389,8 +445,9 @@ actor APIClient {
 
         handleUpdateRequired(data, status: http.statusCode)
         guard (200..<300).contains(http.statusCode) else {
-            let message = Self.localizedCodeMessage(from: data)
+            let raw = Self.localizedCodeMessage(from: data)
                 ?? ((try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil)
+            let message = raw.flatMap { FriendlyError.isRaw($0) ? nil : $0 }
             throw APIError.server(message ?? friendlyServerErrorMessage(status: http.statusCode), statusCode: http.statusCode)
         }
         return data
@@ -421,16 +478,7 @@ actor APIClient {
     }
 
     private func friendlyServerErrorMessage(status: Int) -> String {
-        switch status {
-        case 400: return "So'rov noto'g'ri yuborildi"
-        case 401: return "Avval tizimga kiring"
-        case 403: return "Ruxsat berilmagan"
-        case 404: return "Ma'lumot topilmadi"
-        case 409: return "Ma'lumotlar to'qnashuvi yuz berdi"
-        case 429: return "So'rovlar ko'payib ketdi. Birozdan so'ng qayta urining"
-        case 500...599: return "Serverda vaqtinchalik xatolik. Birozdan so'ng qayta urining"
-        default: return "Xatolik yuz berdi (\(status))"
-        }
+        FriendlyError.forStatus(status)
     }
 
     /// `true` — yangilandi. `false` — refresh tokeni haqiqatan ham yaroqsiz

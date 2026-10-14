@@ -92,7 +92,7 @@ struct MultiARPlacementView: View {
                     bridge.activeModelId = model.id
                 }
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
         }
     }

@@ -59,7 +59,7 @@ extension View {
     /// Xatolik yuz berganda qizil xom matn o'rniga chiroyli tizim modali (Alert) ko'rsatadi
     func errorAlert(message: Binding<String?>, title: String = "Xatolik") -> some View {
         self.alert(title, isPresented: Binding(
-            get: { message.wrappedValue != nil },
+            get: { message.wrappedValue?.isEmpty == false },
             set: { if !$0 { message.wrappedValue = nil } }
         )) {
             Button("OK", role: .cancel) {

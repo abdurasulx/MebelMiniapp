@@ -51,7 +51,7 @@ class _InvitationSheetState extends State<_InvitationSheet> {
       );
       setState(() => _pending = page.results.where((i) => i.status == 'pending').toList());
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       setState(() => _loading = false);
     }
@@ -70,7 +70,7 @@ class _InvitationSheetState extends State<_InvitationSheet> {
       await _load();
       if (mounted && _pending.isEmpty) Navigator.of(context).maybePop();
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _busyId = null);
     }

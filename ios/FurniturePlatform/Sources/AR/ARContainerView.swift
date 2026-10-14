@@ -435,7 +435,7 @@ final class ARPlacementViewController: UIViewController, ARSessionDelegate, ARCo
     }
 
     func session(_ session: ARSession, didFailWithError error: Error) {
-        showProblem("AR kamerasi ishga tushmadi:\n\(error.localizedDescription)", offerSettings: (error as? ARError)?.code == .cameraUnauthorized)
+        showProblem("AR kamerasi ishga tushmadi:\n\(error.userMessage)", offerSettings: (error as? ARError)?.code == .cameraUnauthorized)
     }
 
     func sessionWasInterrupted(_ session: ARSession) {

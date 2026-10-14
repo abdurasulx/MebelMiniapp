@@ -355,7 +355,7 @@ private func load() async {
                 depth = first.depth
             }
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 }

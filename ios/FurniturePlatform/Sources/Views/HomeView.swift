@@ -304,7 +304,7 @@ struct HomeView: View {
             )
             imageResults = results
         } catch {
-            imageSearchError = error.localizedDescription
+            imageSearchError = error.userMessage
         }
         isImageSearching = false
     }
@@ -500,7 +500,7 @@ struct HomeView: View {
             if OfflineView.isOffline(error) || products.isEmpty {
                 isOffline = true
             } else {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
         }
         isLoading = false

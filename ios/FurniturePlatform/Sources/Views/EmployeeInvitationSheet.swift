@@ -76,7 +76,7 @@ struct EmployeeInvitationSheet: View {
                 await load()
                 if pending.isEmpty { dismiss() }
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
         }
     }

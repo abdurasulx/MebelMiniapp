@@ -172,10 +172,10 @@ struct CartView: View {
                 if case .server(let msg, let statusCode) = error, statusCode == 403, msg.contains("tasdiqlang") {
                     showPhoneVerify = true
                 } else {
-                    errorMessage = error.localizedDescription
+                    errorMessage = error.userMessage
                 }
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
             busy = false
         }

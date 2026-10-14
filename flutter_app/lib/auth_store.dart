@@ -125,7 +125,7 @@ class AuthStore extends ChangeNotifier {
         resendAfter: resp['resend_after'] as int? ?? 60,
       );
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = friendlyError(e);
       notifyListeners();
       return null;
     }
@@ -152,7 +152,7 @@ class AuthStore extends ChangeNotifier {
       await _loadMe();
       ok = true;
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = friendlyError(e);
     }
     notifyListeners();
     return ok;
@@ -200,7 +200,7 @@ class AuthStore extends ChangeNotifier {
     } catch (e, stack) {
       print('=== GOOGLE SIGN IN EXCEPTION ===: $e');
       print('=== STACK ===: $stack');
-      final errStr = e.toString();
+      final errStr = friendlyError(e);
       errorDetails = errStr;
       if (errStr.contains('sign_in_failed') ||
           errStr.contains('ApiException') ||
@@ -275,7 +275,7 @@ class AuthStore extends ChangeNotifier {
       notifyListeners();
       return false;
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = friendlyError(e);
       notifyListeners();
       return false;
     }
@@ -309,7 +309,7 @@ class AuthStore extends ChangeNotifier {
     } catch (e, stack) {
       print('=== GOOGLE LINK EXCEPTION ===: $e');
       print('=== STACK ===: $stack');
-      final errStr = e.toString();
+      final errStr = friendlyError(e);
       errorDetails = errStr;
       if (errStr.contains('sign_in_failed') ||
           errStr.contains('ApiException') ||
@@ -375,7 +375,7 @@ class AuthStore extends ChangeNotifier {
       notifyListeners();
       return false;
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = friendlyError(e);
       notifyListeners();
       return false;
     }
@@ -417,7 +417,7 @@ class AuthStore extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      errorMessage = e.toString();
+      errorMessage = friendlyError(e);
       notifyListeners();
       return false;
     }

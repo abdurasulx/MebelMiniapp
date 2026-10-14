@@ -113,7 +113,7 @@ private struct DeleteAccountForm: View {
             onSubmitted()
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
         busy = false
     }

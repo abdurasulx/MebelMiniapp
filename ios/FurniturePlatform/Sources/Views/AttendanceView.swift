@@ -112,7 +112,7 @@ struct AttendanceView: View {
             )
             result = try await APIClient.shared.post("/attendance/records/\(endpoint)/", body: body, auth: true)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 }

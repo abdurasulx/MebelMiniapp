@@ -113,7 +113,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
       }
       _loadRecommended(p);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     }
   }
 

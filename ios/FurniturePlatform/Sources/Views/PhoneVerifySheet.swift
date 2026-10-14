@@ -188,7 +188,7 @@ struct PhoneVerifySheet: View {
                 codeSent = true
                 startCountdown(resp.resendAfter ?? 60)
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
             busy = false
         }
@@ -206,7 +206,7 @@ struct PhoneVerifySheet: View {
                 dismiss()
                 onVerified()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
             busy = false
         }

@@ -75,7 +75,7 @@ struct ARProductPickerView: View {
             )
             products = result.results
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
         isLoading = false
     }

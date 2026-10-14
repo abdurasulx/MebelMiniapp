@@ -101,7 +101,7 @@ struct WorkerHomeView: View {
             )
             products = page.results
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 }

@@ -75,7 +75,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
         _reviews = reviewsPage.results;
       });
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     }
   }
 
@@ -128,7 +128,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
       );
       _toast(loc.t('review_reported'));
     } catch (e) {
-      _toast(e.toString());
+      _toast(friendlyError(e));
     }
   }
 
@@ -163,7 +163,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
       }
       _toast(loc.t('review_blocked'));
     } catch (e) {
-      _toast(e.toString());
+      _toast(friendlyError(e));
     }
   }
 
@@ -190,7 +190,7 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
       _commentController.clear();
       await _load();
     } catch (e) {
-      setState(() => _submitMessage = e.toString());
+      setState(() => _submitMessage = friendlyError(e));
     } finally {
       setState(() => _submitBusy = false);
     }

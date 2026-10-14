@@ -522,23 +522,22 @@ class ApiClient {
   // o'zi shunday normallashtiradi). Shuni hisobga olmasa, xato matni
   // o'rniga "[xabar]" kabi qavsli chiqindi ko'rinardi.
   static String _friendlyStatus(int status) {
+    String t(String k) => tr(localeCode, k);
     switch (status) {
       case 400:
-        return "So'rov noto'g'ri yuborildi";
+        return t('err_bad_request');
       case 401:
-        return 'Avval tizimga kiring';
+        return t('err_login_required');
       case 403:
-        return 'Ruxsat berilmagan';
+        return t('err_forbidden');
       case 404:
-        return "Ma'lumot topilmadi";
+        return t('err_not_found');
       case 409:
-        return "Ma'lumotlar to'qnashuvi yuz berdi";
+        return t('err_conflict');
       case 429:
-        return "So'rovlar ko'payib ketdi. Birozdan so'ng qayta urining";
+        return t('err_too_many');
       default:
-        return status >= 500
-            ? "Serverda vaqtinchalik xatolik. Birozdan so'ng qayta urining"
-            : 'Xatolik yuz berdi ($status)';
+        return status >= 500 ? t('err_server') : t('err_unknown');
     }
   }
 
@@ -572,6 +571,11 @@ class ApiClient {
   }
 
   String _extractError(String body, int statusCode) {
+    final text = _extractErrorRaw(body, statusCode);
+    return isRawErrorText(text) ? _friendlyStatus(statusCode) : text;
+  }
+
+  String _extractErrorRaw(String body, int statusCode) {
     try {
       final decoded = jsonDecode(body);
       if (decoded is Map) {
@@ -643,4 +647,40 @@ class ApiClient {
       return false;
     }
   }
+}
+
+
+/// `true` — matn foydalanuvchiga ko'rsatishga yaroqsiz (DRF/tizim standart
+/// inglizcha matni, "cancelled", faqat HTTP kod, HTML, istisno nomi).
+bool isRawErrorText(String text) {
+  final t = text.trim().toLowerCase();
+  if (t.isEmpty) return true;
+  const fragments = [
+    'not found', 'authentication credentials', 'you do not have permission',
+    'invalid token', 'bad request', 'server error', 'cancelled', 'canceled',
+    'forbidden', 'unauthorized', 'throttled', '<html', '<!doctype',
+    'exception', 'socketexception', 'clientexception', 'handshake',
+    "type '", 'null check', 'is not a subtype', 'unexpected character',
+    'formatexception', 'failed host lookup', 'connection refused',
+    'connection closed', 'timed out', 'traceback',
+  ];
+  if (fragments.any(t.contains)) return true;
+  if (RegExp(r'\(\s*[1-5]\d\d\s*\)').hasMatch(t)) return true;
+  if (RegExp(r'^[^\p{L}]*[1-5]\d\d[^\p{L}]*$', unicode: true).hasMatch(t)) return true;
+  if (t.length < 30 && RegExp(r'\b[1-5]\d\d\b').hasMatch(t)) return true;
+  return false;
+}
+
+/// UI'da `e.toString()` o'rniga — har qanday istisnoni tanlangan tilda,
+/// texnik tafsilotsiz tushunarli matnga aylantiradi.
+String friendlyError(Object e) {
+  String t(String k) => tr(ApiClient.localeCode, k);
+  if (e is NetworkException) return t('err_offline');
+  if (e is ApiException) {
+    return isRawErrorText(e.message) ? t('err_unknown') : e.message;
+  }
+  if (e is FormatException || e is TypeError) return t('err_decoding');
+  if (e is TimeoutException) return t('err_offline');
+  final text = e.toString();
+  return isRawErrorText(text) ? t('err_unknown') : text;
 }

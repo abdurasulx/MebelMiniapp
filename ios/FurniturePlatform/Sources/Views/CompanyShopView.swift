@@ -219,7 +219,7 @@ struct CompanyShopView: View {
             let _: Resp = try await APIClient.shared.post("/reviews/\(r.id)/report/", body: Body(reason: reason), auth: true)
             ugcMessage = locale.t("review_reported")
         } catch {
-            ugcMessage = error.localizedDescription
+            ugcMessage = error.userMessage
         }
     }
 
@@ -232,7 +232,7 @@ struct CompanyShopView: View {
             reviews.removeAll { $0.authorId == author }
             ugcMessage = locale.t("review_blocked")
         } catch {
-            ugcMessage = error.localizedDescription
+            ugcMessage = error.userMessage
         }
     }
 
@@ -291,7 +291,7 @@ struct CompanyShopView: View {
             products = p.results
             reviews = r.results
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 
@@ -307,7 +307,7 @@ struct CompanyShopView: View {
             comment = ""
             await load()
         } catch {
-            submitMessage = error.localizedDescription
+            submitMessage = error.userMessage
         }
         submitBusy = false
     }

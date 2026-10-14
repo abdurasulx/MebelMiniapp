@@ -81,7 +81,7 @@ struct PayslipsView: View {
             if OfflineView.isOffline(error) {
                 isOffline = true
             } else {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
         }
         isLoading = false
@@ -176,7 +176,7 @@ private struct PayslipRow: View {
                 )
                 payments = list
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
             loading = false
         }

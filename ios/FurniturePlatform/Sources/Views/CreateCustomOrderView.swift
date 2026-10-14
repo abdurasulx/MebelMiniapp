@@ -116,7 +116,7 @@ struct CreateCustomOrderView: View {
             )
             products = page.results
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 
@@ -165,7 +165,7 @@ struct CreateCustomOrderView: View {
             )
             dismiss()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 }

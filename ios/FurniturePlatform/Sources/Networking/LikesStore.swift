@@ -81,7 +81,7 @@ final class LikesStore: ObservableObject {
             }
             return nil
         } catch {
-            return error.localizedDescription
+            return error.userMessage
         }
     }
 }

@@ -173,7 +173,7 @@ class _CreateCustomOrderScreenState extends State<CreateCustomOrderScreen> {
         Navigator.of(context).pop();
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       setState(() => _busy = false);
     }

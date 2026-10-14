@@ -1,3 +1,4 @@
+import '../../api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../attendance_store.dart';
@@ -29,7 +30,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       final result = await action();
       setState(() => _lastResult = result);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       setState(() => _busy = false);
     }

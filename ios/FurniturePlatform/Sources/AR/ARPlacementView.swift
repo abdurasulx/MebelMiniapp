@@ -99,7 +99,7 @@ struct ARPlacementView: View {
         do {
             localFileURL = try await downloader.download(from: usdzURL)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = error.userMessage
         }
     }
 }

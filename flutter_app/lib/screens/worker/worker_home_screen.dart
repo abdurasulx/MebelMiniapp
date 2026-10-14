@@ -49,7 +49,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       );
       setState(() => _products = page.results);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyError(e));
     } finally {
       setState(() => _loading = false);
     }

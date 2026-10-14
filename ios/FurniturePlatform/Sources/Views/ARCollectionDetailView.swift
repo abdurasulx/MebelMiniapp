@@ -138,7 +138,7 @@ struct ARCollectionDetailView: View {
             if OfflineView.isOffline(error) {
                 isOffline = true
             } else {
-                errorMessage = error.localizedDescription
+                errorMessage = error.userMessage
             }
         }
         isLoading = false
