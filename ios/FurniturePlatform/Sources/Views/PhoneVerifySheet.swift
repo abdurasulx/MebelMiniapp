@@ -46,6 +46,13 @@ struct PhoneVerifySheet: View {
     }
 
     private var phoneValid: Bool { country.isValid(phone) }
+    private var debugAccessibilityCode: String {
+        #if DEBUG
+        return debugCode ?? ""
+        #else
+        return ""
+        #endif
+    }
     private var fullPhone: String { "\(country.dialCode)\(phone)" }
 
     var body: some View {
@@ -78,15 +85,20 @@ struct PhoneVerifySheet: View {
                                 }
                         }
                         if !phone.isEmpty && !phoneValid {
-                            Text(locale.t("auth_phone_invalid")).font(.caption).foregroundStyle(Color.appError)
+                            Text("\(phone.count)/\(country.phoneLength)")
+                                .font(.caption).foregroundStyle(Color.textSecondary)
+                        }
+                        if !country.smsSupported {
+                            Label(locale.t("otp_country_note"), systemImage: "info.circle")
+                                .font(.footnote).foregroundStyle(Color.textSecondary)
                         }
                     }
                 } else {
                     Section {
-                        if let debugCode {
-                            Text("Dev rejim — kod: \(debugCode)")
-                                .font(.caption).foregroundStyle(Color.textSecondary)
-                        }
+                        Text(locale.t("auth_sms_sent"))
+                            .font(.caption).foregroundStyle(Color.textSecondary)
+                            .accessibilityIdentifier("authDebugCodeLabel")
+                            .accessibilityValue(debugAccessibilityCode)
                         OtpBoxInput(code: $code, length: Self.otpLength) { code in
                             if !busy { confirmCode(code) }
                         }
@@ -101,7 +113,7 @@ struct PhoneVerifySheet: View {
                         Button {
                             if resendSeconds == 0 { requestCode() }
                         } label: {
-                            Text(resendSeconds > 0 ? "Qayta yuborish (\(resendSeconds)s)" : "Qayta yuborish")
+                            Text(resendSeconds > 0 ? locale.tf("otp_resend_in", resendSeconds) : locale.t("auth_resend"))
                         }
                         .disabled(resendSeconds > 0 || busy)
                         Button(locale.t("auth_change_number")) { codeSent = false }
@@ -109,7 +121,7 @@ struct PhoneVerifySheet: View {
                     }
                 }
                 if let errorMessage {
-                    Section { Text(errorMessage).foregroundStyle(Color.appError) }
+                    Section { Text(errorMessage).foregroundStyle(Color.textSecondary) }
                 }
                 if !codeSent {
                     Section {
@@ -120,14 +132,14 @@ struct PhoneVerifySheet: View {
                                 Text(locale.t("auth_send_code")).bold()
                             }
                         }
-                        .disabled(busy || !phoneValid)
+                        .disabled(busy || !phoneValid || !country.smsSupported)
                         .frame(maxWidth: .infinity)
                         .listRowBackground(Color.brandDeep)
                         .foregroundStyle(Color.brandPrimary)
                     }
                 }
             }
-            .confirmationDialog("Davlatni tanlang", isPresented: $showCountryPicker) {
+            .confirmationDialog(locale.t("auth_select_country"), isPresented: $showCountryPicker) {
                 ForEach(cisCountries) { c in
                     Button("\(c.flag) \(c.name) (\(c.dialCode))") {
                         country = c

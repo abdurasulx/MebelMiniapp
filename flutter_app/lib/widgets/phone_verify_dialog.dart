@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -141,6 +142,9 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
       _startCountdown((resp['resend_after'] as int?) ?? 60);
     } catch (e) {
       setState(() => _error = e.toString());
+      if (e is ApiException && e.retryAfter != null && _codeSent) {
+        _startCountdown(e.retryAfter!);
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -225,24 +229,34 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
                 helperText: '${_phoneController.text.length}/${_country.phoneLength}',
               ),
             ),
+            if (!_country.smsSupported) ...[
+              const SizedBox(height: 10),
+              Text(
+                loc.t('otp_country_note'),
+                style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+              ),
+            ],
             const SizedBox(height: 14),
             if (_error != null) ...[
-              Text(_error!, style: const TextStyle(color: AppColors.error)),
+              Text(_error!, style: const TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 8),
             ],
             ElevatedButton(
-              onPressed: _busy || !_phoneValid ? null : _requestCode,
+              onPressed: _busy || !_phoneValid || !_country.smsSupported ? null : _requestCode,
               child: _busy ? const CircularProgressIndicator() : Text(loc.t('auth_send_code')),
             ),
           ] else ...[
-            if (_debugCode != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Semantics(
+                value: kDebugMode ? (_debugCode ?? '') : '',
+                identifier: 'authDebugCodeLabel',
                 child: Text(
-                  '${loc.t('phone_verify_dev_code')}$_debugCode',
+                  loc.t('auth_sms_sent'),
                   style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ),
+            ),
             OtpBoxInput(
               controller: _codeController,
               length: _otpLength,
@@ -263,13 +277,15 @@ class _PhoneVerifySheetState extends State<_PhoneVerifySheet> {
                 TextButton(
                   onPressed: _resendSeconds > 0 || _busy ? null : _requestCode,
                   child: Text(
-                    _resendSeconds > 0 ? '${loc.t('auth_resend')} (${_resendSeconds}s)' : loc.t('auth_resend'),
+                    _resendSeconds > 0
+                        ? loc.t('otp_resend_in').replaceAll('%d', '$_resendSeconds')
+                        : loc.t('auth_resend'),
                   ),
                 ),
               ],
             ),
             if (_error != null) ...[
-              Text(_error!, style: const TextStyle(color: AppColors.error)),
+              Text(_error!, style: const TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 8),
             ],
           ],

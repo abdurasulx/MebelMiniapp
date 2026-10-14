@@ -197,15 +197,15 @@ class _AuthScreenState extends State<AuthScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.errorSurface,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.errorBorder),
+                  border: Border.all(color: AppColors.cardBorder),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.error_outline_rounded,
-                        color: AppColors.error, size: 20),
+                    const Icon(Icons.info_outline_rounded,
+                        color: AppColors.textSecondary, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -214,19 +214,18 @@ class _AuthScreenState extends State<AuthScreen> {
                           Text(
                             loc.t(auth.errorMessage!),
                             style: const TextStyle(
-                              color: AppColors.errorDark,
+                              color: AppColors.textPrimary,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               height: 1.35,
                             ),
                           ),
-                          if (auth.errorDetails != null) ...[
+                          if (kDebugMode && auth.errorDetails != null) ...[
                             const SizedBox(height: 4),
                             Text(
                               auth.errorDetails!,
                               style: TextStyle(
-                                color:
-                                    AppColors.errorDark.withValues(alpha: 0.75),
+                                color: AppColors.textSecondary,
                                 fontSize: 11,
                                 fontFamily: 'monospace',
                               ),
@@ -478,14 +477,31 @@ class _AuthScreenState extends State<AuthScreen> {
             border: const OutlineInputBorder(),
             helperText:
                 '${_phoneController.text.length}/${_country.phoneLength}',
-            errorText: _phoneController.text.isNotEmpty && !_phoneValid
-                ? loc.t('auth_phone_invalid')
-                : null,
           ),
         ),
+        if (!_country.smsSupported) ...[
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline_rounded,
+                  size: 18, color: AppColors.textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  loc.t('otp_country_note'),
+                  style: const TextStyle(
+                      fontSize: 12.5, color: AppColors.textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 16),
         ElevatedButton(
-          onPressed: _busy || !_phoneValid ? null : _sendCode,
+          onPressed: _busy || !_phoneValid || !_country.smsSupported
+              ? null
+              : _sendCode,
           child: _busyAction == _BusyAction.otp
               ? const CircularProgressIndicator()
               : Text(loc.t('auth_send_code')),
@@ -536,13 +552,16 @@ class _AuthScreenState extends State<AuthScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // SMS provayder hali ulanmagan — dev rejimda kod shu yerda ko'rsatiladi.
-        Text(
-          (kDebugMode && _debugCode != null)
-              ? '${loc.t('auth_sms_sent')} ($_debugCode)'
-              : loc.t('auth_sms_sent'),
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
+        // Kod ekranda HECH QACHON ko'rsatilmaydi (faqat SMS orqali keladi).
+        Semantics(
+          // Debug build'da UI-testlar uchun ko'rinmas qiymat sifatida beriladi.
+          value: kDebugMode ? (_debugCode ?? '') : '',
+          identifier: 'authDebugCodeLabel',
+          child: Text(
+            loc.t('auth_sms_sent'),
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ),
         const SizedBox(height: 16),
         OtpBoxInput(
@@ -560,7 +579,7 @@ class _AuthScreenState extends State<AuthScreen> {
             onPressed: _resendSeconds > 0 || _busy ? null : _sendCode,
             child: Text(
               _resendSeconds > 0
-                  ? '${loc.t('auth_resend')} (${_resendSeconds}s)'
+                  ? loc.t('otp_resend_in').replaceAll('%d', '$_resendSeconds')
                   : loc.t('auth_resend'),
             ),
           ),

@@ -313,7 +313,7 @@ private struct ProfileView: View {
             DeleteAccountSection()
 
         }
-        .errorAlert(message: $auth.errorMessage)
+        .errorAlert(message: $auth.errorMessage, title: locale.t("error_title"))
         .task {
             // `TabView`da bu ekran har safar tab qayta faol bo'lganda emas,
             // faqat BIR MARTA (birinchi ochilganda) yuklanishi kerak — aks
@@ -381,12 +381,15 @@ private struct AuthFormView: View {
 
     private var phoneValid: Bool { country.isValid(phone) }
 
-    /// "Kod yuborildi" matni. Test kodi (debug_code) faqat DEBUG build'da ko'rsatiladi.
-    private var smsSentText: String {
+    /// "Kod yuborildi" matni. Test kodi (debug_code) ekranda HECH QACHON ko'rsatilmaydi —
+    /// faqat DEBUG build'da UI-testlar uchun ko'rinmas `accessibilityValue` sifatida beriladi.
+    private var smsSentText: String { locale.t("auth_sms_sent") }
+    private var debugAccessibilityCode: String {
         #if DEBUG
-        if let debugCode { return "\(locale.t("auth_sms_sent")) (\(debugCode))" }
+        return debugCode ?? ""
+        #else
+        return ""
         #endif
-        return locale.t("auth_sms_sent")
     }
 
     var body: some View {
@@ -448,8 +451,15 @@ private struct AuthFormView: View {
                         phone = String(digits.prefix(country.phoneLength))
                     }
             }
+            // To'liq kiritilmagan raqam uchun qizil "xato" o'rniga tinch hisoblagich.
             if !phone.isEmpty && !phoneValid {
-                Text(locale.t("auth_phone_invalid")).font(.caption).foregroundStyle(Color.appError)
+                Text("\(phone.count)/\(country.phoneLength)")
+                    .font(.caption).foregroundStyle(Color.textSecondary)
+            }
+            if !country.smsSupported {
+                Label(locale.t("otp_country_note"), systemImage: "info.circle")
+                    .font(.footnote).foregroundStyle(Color.textSecondary)
+                    .accessibilityIdentifier("authCountryUnsupportedNote")
             }
         }
         Section {
@@ -457,7 +467,7 @@ private struct AuthFormView: View {
                 if busyAction == .otp { ProgressView() } else { Text(locale.t("auth_send_code")).bold() }
             }
             .accessibilityIdentifier("authSendCodeButton")
-            .disabled(!phoneValid || busy)
+            .disabled(!phoneValid || !country.smsSupported || busy)
             .frame(maxWidth: .infinity)
             .listRowBackground(Color.brand)
             .foregroundStyle(Color.onBrand)
@@ -501,10 +511,10 @@ private struct AuthFormView: View {
     @ViewBuilder
     private var codeSection: some View {
         Section {
-            // SMS provayder hali ulanmagan — dev rejimda kod shu yerda ko'rsatiladi.
             Text(smsSentText)
                 .font(.caption).foregroundStyle(Color.textSecondary)
                 .accessibilityIdentifier("authDebugCodeLabel")
+                .accessibilityValue(debugAccessibilityCode)
             OtpBoxInput(code: $otpCode, length: Self.otpLength) { code in
                 if !busy { verifyOTP(code) }
             }
@@ -519,7 +529,7 @@ private struct AuthFormView: View {
             Button {
                 if resendSeconds == 0 { sendOTP() }
             } label: {
-                Text(resendSeconds > 0 ? "\(locale.t("auth_resend")) (\(resendSeconds)s)" : locale.t("auth_resend"))
+                Text(resendSeconds > 0 ? locale.tf("otp_resend_in", resendSeconds) : locale.t("auth_resend"))
             }
             .disabled(resendSeconds > 0 || busy)
             Button(locale.t("auth_change_number")) { step = .phone }

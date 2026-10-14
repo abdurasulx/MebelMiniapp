@@ -26,7 +26,18 @@ enum APIError: LocalizedError, Equatable {
 /// tarmog'i qurilma tarmog'idan farqli bo'lgani uchun), endi hojati yo'q —
 /// domen qayerdan bo'lmasin (Wi-Fi, mobil tarmoq) barqaror ishlaydi.
 enum APIConfig {
+    #if DEBUG
+    /// Faqat DEBUG build: UI-testlar lokal backend'ga ulanishi uchun
+    /// `-apiBaseURL http://127.0.0.1:8000/api/v1` launch argumenti (Release'da yo'q).
+    static let baseURL: URL = {
+        if let override = UserDefaults.standard.string(forKey: "apiBaseURL"), let url = URL(string: override) {
+            return url
+        }
+        return URL(string: "https://api.vidamarket.uz/api/v1")!
+    }()
+    #else
     static let baseURL = URL(string: "https://api.vidamarket.uz/api/v1")!
+    #endif
 
     /// `baseURL.appendingPathComponent(path)` ishlatilmaydi — u `path`ni
     /// fayl-yo'li segmenti deb hisoblab, `?`/`&` kabi so'rov-satr belgilarini
@@ -193,7 +204,8 @@ actor APIClient {
         }
         handleUpdateRequired(data, status: http.statusCode)
         guard (200..<300).contains(http.statusCode) else {
-            let message = (try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil
+            let message = Self.localizedCodeMessage(from: data)
+                ?? ((try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil)
             throw APIError.server(message ?? friendlyServerErrorMessage(status: http.statusCode), statusCode: http.statusCode)
         }
         do {
@@ -377,10 +389,35 @@ actor APIClient {
 
         handleUpdateRequired(data, status: http.statusCode)
         guard (200..<300).contains(http.statusCode) else {
-            let message = (try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil
+            let message = Self.localizedCodeMessage(from: data)
+                ?? ((try? decoder.decode(APIErrorPayload.self, from: data).detail) ?? nil)
             throw APIError.server(message ?? friendlyServerErrorMessage(status: http.statusCode), statusCode: http.statusCode)
         }
         return data
+    }
+
+    /// Backend ba'zi xatolarga mashina o'qiy oladigan `code` (+ `retry_after`/`remaining`)
+    /// qo'shadi (masalan OTP cooldown/limit). Mos tarjima kaliti (`otp_err_<code>`)
+    /// bo'lsa — xabar foydalanuvchi TANLAGAN TILDA ko'rsatiladi; bo'lmasa `nil`
+    /// (chaqiruvchi serverdagi `detail` matniga qaytadi).
+    nonisolated static func localizedCodeMessage(from data: Data) -> String? {
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              var code = obj["code"] as? String, code.hasPrefix("otp_") else { return nil }
+        code.removeFirst(4)
+        let locale = UserDefaults.standard.string(forKey: "fp.locale") ?? defaultLocaleCode
+        let key = "otp_err_\(code)"
+        let template = translate(locale, key)
+        if template == key { return nil }
+        // DRF qiymatlarni satr qilib yuboradi ("59") — Int/String ikkalasini qabul qilamiz.
+        func intValue(_ name: String) -> Int? {
+            if let n = obj[name] as? Int { return n }
+            if let s = obj[name] as? String { return Int(s) }
+            return nil
+        }
+        if let n = intValue("retry_after") ?? intValue("remaining") {
+            return String(format: template, n)
+        }
+        return template
     }
 
     private func friendlyServerErrorMessage(status: Int) -> String {

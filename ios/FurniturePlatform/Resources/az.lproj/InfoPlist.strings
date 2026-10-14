@@ -1,0 +1,4 @@
+/* az InfoPlist.strings */
+"NSLocationWhenInUseUsageDescription" = "Bölgənizdəki mebeli və çatdırılma şərtlərini göstərmək üçün məkanınız lazımdır.";
+"NSCameraUsageDescription" = "3D mebel modellərini otağınızda artırılmış reallıq (AR) ilə görmək üçün kameraya icazə lazımdır.";
+"NSMicrophoneUsageDescription" = "Təqdimatlar üçün səsli video yazmaq üçün mikrofona icazə lazımdır.";

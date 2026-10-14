@@ -961,6 +961,13 @@ def _client_ip(request) -> str:
     return (fwd.split(",")[0].strip() if fwd else request.META.get("REMOTE_ADDR", "")) or ""
 
 
+def _otp_error(code: str, message: str, **extra) -> ValidationError:
+    """Mashina o'qiy oladigan `code` (+ `retry_after`/`remaining`) bilan xato —
+    mobil ilovalar shu kod bo'yicha xabarni FOYDALANUVCHI TILIDA ko'rsatadi,
+    `detail` esa eski mijozlar uchun o'zbekcha zaxira matn."""
+    return ValidationError({"detail": message, "code": code, **extra})
+
+
 def _request_otp(phone: str, request=None) -> dict:
     """SMS kod yaratadi va suiiste'moldan himoya qiladi (rate-limit) — OTP
     orqali kirish (OTPRequestView) va allaqachon autentifikatsiyalangan
@@ -979,13 +986,17 @@ def _request_otp(phone: str, request=None) -> dict:
         elapsed = (timezone.now() - last.created_at).total_seconds()
         if elapsed < PhoneOTP.RESEND_COOLDOWN_SECONDS:
             wait = round(PhoneOTP.RESEND_COOLDOWN_SECONDS - elapsed)
-            raise ValidationError(f"Biroz kuting, {wait} soniyadan so'ng qayta urining")
+            raise _otp_error(
+                "otp_cooldown",
+                f"Biroz kuting, {wait} soniyadan so'ng qayta urining",
+                retry_after=wait,
+            )
 
     recent_count = PhoneOTP.objects.filter(
         phone=phone, created_at__gte=timezone.now() - timedelta(hours=1)
     ).count()
     if recent_count >= MAX_OTP_PER_HOUR:
-        raise ValidationError("Juda ko'p urinish. Bir soatdan so'ng qayta urinib ko'ring")
+        raise _otp_error("otp_hourly_limit", "Juda ko'p urinish. Bir soatdan so'ng qayta urinib ko'ring")
 
     response = {"detail": "SMS yuborildi", "resend_after": PhoneOTP.RESEND_COOLDOWN_SECONDS}
 
@@ -995,25 +1006,34 @@ def _request_otp(phone: str, request=None) -> dict:
         PhoneOTP.objects.create(phone=phone, code=settings.APP_REVIEW_OTP)
         return response
 
+    # Hozircha SMS-OTP faqat ruxsat etilgan davlat prefikslari uchun (default: O'zbekiston).
+    # Provayder sozlanganmi-yo'qmi, farqi yo'q — boshqa davlat raqamlariga kod berilmaydi.
+    prefixes = [p.strip() for p in settings.SMS_ALLOWED_PREFIXES if p.strip()]
+    if prefixes and not sms.normalize_phone(phone).startswith(tuple(prefixes)):
+        raise _otp_error(
+            "otp_country_unsupported",
+            "Hozircha bu davlat raqamlariga SMS-kod yuborilmaydi. Boshqa kirish usulidan foydalaning",
+        )
+
     if sms.is_configured():
-        # Haqiqiy SMS xarajati: davlat prefiksi, IP va kunlik chegara.
-        prefixes = [p.strip() for p in settings.SMS_ALLOWED_PREFIXES if p.strip()]
-        if prefixes and not sms.normalize_phone(phone).startswith(tuple(prefixes)):
-            raise ValidationError("Bu raqamga SMS yuborib bo'lmaydi. Boshqa kirish usulidan foydalaning")
+        # Haqiqiy SMS xarajati: IP va kunlik chegara.
         ip = _client_ip(request)
         if ip:
             ip_key = f"otp_ip:{ip}"
             count = cache.get(ip_key, 0)
             if count >= settings.SMS_IP_HOURLY_LIMIT:
-                raise ValidationError("Juda ko'p urinish. Birozdan so'ng qayta urinib ko'ring")
+                raise _otp_error("otp_hourly_limit", "Juda ko'p urinish. Birozdan so'ng qayta urinib ko'ring")
             cache.set(ip_key, count + 1, 3600)
         day_ago = timezone.now() - timedelta(hours=24)
         if PhoneOTP.objects.filter(created_at__gte=day_ago).count() >= settings.SMS_DAILY_LIMIT:
             logger.warning("SMS kunlik chegarasiga yetildi (%s)", settings.SMS_DAILY_LIMIT)
-            raise ValidationError("Xizmat vaqtincha band. Keyinroq qayta urinib ko'ring")
+            raise _otp_error("otp_busy", "Xizmat vaqtincha band. Keyinroq qayta urinib ko'ring")
     elif not (settings.DEBUG or settings.OTP_DEBUG_RETURN):
         # SMS provayder yo'q va debug ruxsat etilmagan — kodni HECH QACHON ochiq qaytarmaymiz.
-        raise ValidationError("SMS xizmati hozircha mavjud emas. Boshqa kirish usulidan foydalaning")
+        raise _otp_error(
+            "otp_unavailable",
+            "SMS xizmati hozircha mavjud emas. Boshqa kirish usulidan foydalaning",
+        )
 
     code = "".join(random.choices("0123456789", k=6))
     otp = PhoneOTP.objects.create(phone=phone, code=code)
@@ -1022,7 +1042,7 @@ def _request_otp(phone: str, request=None) -> dict:
             sms.send_otp(phone, code)
         except sms.SMSError:
             otp.delete()  # yuborilmagan kod cooldown/limitga hisoblanmasin
-            raise ValidationError("SMS yuborib bo'lmadi. Birozdan so'ng qayta urinib ko'ring")
+            raise _otp_error("otp_send_failed", "SMS yuborib bo'lmadi. Birozdan so'ng qayta urinib ko'ring")
     else:
         response["debug_code"] = code  # SMS provayder sozlanmagan (dev)
     return response
@@ -1040,16 +1060,18 @@ def _consume_otp(phone: str, code: str) -> None:
         .first()
     )
     if not otp or timezone.now() - otp.created_at >= timedelta(minutes=5):
-        raise ValidationError("Kod muddati o'tgan. Yangi kod so'rang")
+        raise _otp_error("otp_expired", "Kod muddati o'tgan. Yangi kod so'rang")
     if otp.attempts >= PhoneOTP.MAX_ATTEMPTS:
         otp.is_used = True
         otp.save(update_fields=["is_used"])
-        raise ValidationError("Juda ko'p urinish. Yangi kod so'rang")
+        raise _otp_error("otp_attempts", "Juda ko'p urinish. Yangi kod so'rang")
     if otp.code != code:
         otp.attempts += 1
         otp.save(update_fields=["attempts"])
         remaining = PhoneOTP.MAX_ATTEMPTS - otp.attempts
-        raise ValidationError(f"Kod noto'g'ri. {remaining} ta urinish qoldi")
+        raise _otp_error(
+            "otp_wrong", f"Kod noto'g'ri. {remaining} ta urinish qoldi", remaining=remaining
+        )
 
     otp.is_used = True
     otp.save(update_fields=["is_used"])

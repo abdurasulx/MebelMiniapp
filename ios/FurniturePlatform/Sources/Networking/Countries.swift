@@ -9,6 +9,11 @@ struct CountryInfo: Identifiable, Equatable {
     let phoneLength: Int
     var id: String { name }
 
+    /// Hozircha SMS-OTP faqat O'zbekiston raqamlari uchun ishlaydi (backend
+    /// `SMS_ALLOWED_PREFIXES` bilan mos). Boshqa davlatlar tanlansa kod
+    /// yuborilmaydi — foydalanuvchiga Google/Apple/Telegram taklif qilinadi.
+    var smsSupported: Bool { dialCode == "+998" }
+
     func isValid(_ localNumber: String) -> Bool {
         localNumber.count == phoneLength && localNumber.allSatisfy(\.isNumber)
     }

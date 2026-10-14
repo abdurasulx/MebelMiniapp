@@ -28,11 +28,14 @@ final class SmokeUITests: XCTestCase {
 
         app.buttons["authSendCodeButton"].tap()
 
+        // Kod ekranda ko'rsatilmaydi — DEBUG build'da ko'rinmas accessibilityValue orqali beriladi.
         let debugLabel = app.staticTexts["authDebugCodeLabel"]
-        XCTAssertTrue(debugLabel.waitForExistence(timeout: 10), "Debug kod ko'rsatilmadi")
-        let match = debugLabel.label.range(of: #"\d{6}"#, options: .regularExpression)
-        XCTAssertNotNil(match, "SMS matnida 6 xonali kod topilmadi: \(debugLabel.label)")
-        let code = String(debugLabel.label[match!])
+        XCTAssertTrue(debugLabel.waitForExistence(timeout: 10), "Kod bosqichi ochilmadi")
+        XCTAssertFalse(debugLabel.label.contains(where: \.isNumber), "Kod ekranda ko'rinmasligi kerak: \(debugLabel.label)")
+        let value = (debugLabel.value as? String) ?? ""
+        let match = value.range(of: #"\d{6}"#, options: .regularExpression)
+        XCTAssertNotNil(match, "Debug kod accessibilityValue'da topilmadi: \(value)")
+        let code = String(value[match!])
 
         let codeField = app.textFields["otpCodeField"]
         XCTAssertTrue(codeField.waitForExistence(timeout: 5), "Kod maydoni yo'q")

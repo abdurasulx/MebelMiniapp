@@ -982,6 +982,25 @@ class EskizSMSTests(TestCase):
         self.assertEqual(resp.status_code, 400)
         send.assert_not_called()
 
+    def test_foreign_numbers_rejected_even_in_debug_mode_with_code(self):
+        with self.settings(OTP_DEBUG_RETURN=True, SMS_ALLOWED_PREFIXES=["998"]):
+            resp = self._request("+79991234567")
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        self.assertEqual(body["code"], "otp_country_unsupported")
+        self.assertNotIn("debug_code", body)
+        self.assertFalse(PhoneOTP.objects.filter(phone="+79991234567").exists())
+
+    def test_resend_cooldown_returns_machine_code_and_retry_after(self):
+        with self.settings(OTP_DEBUG_RETURN=True):
+            first = self._request()
+            second = self._request()
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 400)
+        body = second.json()
+        self.assertEqual(body["code"], "otp_cooldown")
+        self.assertGreater(int(body["retry_after"]), 0)  # DRF qiymatlarni satrga aylantiradi
+
     def test_daily_limit_blocks_sms(self):
         for i in range(3):
             PhoneOTP.objects.create(phone=f"+99890000000{i}", code="111111")

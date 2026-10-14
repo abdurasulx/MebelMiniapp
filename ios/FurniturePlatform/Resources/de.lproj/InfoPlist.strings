@@ -1,0 +1,4 @@
+/* de InfoPlist.strings */
+"NSLocationWhenInUseUsageDescription" = "Ihr Standort wird benötigt, um verfügbare Möbel und Lieferoptionen in Ihrer Region anzuzeigen.";
+"NSCameraUsageDescription" = "Der Kamerazugriff ist erforderlich, um 3D-Möbelmodelle per Augmented Reality (AR) in Ihrem Raum zu sehen.";
+"NSMicrophoneUsageDescription" = "Der Mikrofonzugriff ist erforderlich, um Videos mit Ton für Produktvorstellungen aufzunehmen.";

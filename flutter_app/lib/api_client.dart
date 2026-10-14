@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
@@ -12,7 +13,11 @@ import 'response_cache.dart';
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
-  ApiException(this.message, {this.statusCode});
+
+  /// Backend OTP cooldown/limit xatosida qancha soniya kutish kerakligi
+  /// (`retry_after`) — UI countdown'ni shundan boshlaydi.
+  final int? retryAfter;
+  ApiException(this.message, {this.statusCode, this.retryAfter});
   @override
   String toString() => message;
 }
@@ -370,7 +375,7 @@ class ApiClient {
     }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException(_extractError(resp.body, resp.statusCode),
-          statusCode: resp.statusCode);
+          statusCode: resp.statusCode, retryAfter: _retryAfter(resp.body));
     }
     return fromJson(jsonDecode(resp.body));
   }
@@ -506,7 +511,7 @@ class ApiClient {
 
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw ApiException(_extractError(resp.body, resp.statusCode),
-          statusCode: resp.statusCode);
+          statusCode: resp.statusCode, retryAfter: _retryAfter(resp.body));
     }
     if (resp.body.isEmpty) return fromJson(null);
     return fromJson(jsonDecode(resp.body));
@@ -537,9 +542,42 @@ class ApiClient {
     }
   }
 
+  /// Foydalanuvchi tanlagan til — `LocaleStore` yangilab turadi; xato
+  /// matnlarini (OTP cooldown/limit va h.k.) shu tilda ko'rsatish uchun.
+  static String localeCode = 'uz';
+
+  static int? _retryAfter(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final v = decoded['retry_after'];
+        if (v is int) return v;
+        if (v is String) return int.tryParse(v);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// `{"code": "otp_*", "retry_after"/"remaining": n}` — mos tarjima bo'lsa
+  /// xabar tanlangan tilda; aks holda `null` (serverdagi `detail`ga qaytiladi).
+  static String? _localizedCodeMessage(Map decoded) {
+    final code = decoded['code'];
+    if (code is! String || !code.startsWith('otp_')) return null;
+    final key = 'otp_err_${code.substring(4)}';
+    final template = tr(localeCode, key);
+    if (template == key) return null;
+    final n = _retryAfter(jsonEncode({'retry_after': decoded['retry_after']})) ??
+        _retryAfter(jsonEncode({'retry_after': decoded['remaining']}));
+    return n == null ? template : template.replaceAll('%d', '$n');
+  }
+
   String _extractError(String body, int statusCode) {
     try {
       final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final localized = _localizedCodeMessage(decoded);
+        if (localized != null) return localized;
+      }
       if (decoded is Map) {
         for (final k in const ['message', 'error']) {
           if (decoded[k] is String && (decoded[k] as String).isNotEmpty) {

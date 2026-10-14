@@ -89,7 +89,7 @@ export default function PhoneVerifyModal({ initialPhone, onVerified, onClose }) 
               required
               autoFocus
             />
-            {debugCode && (
+            {import.meta.env.DEV && debugCode && (
               <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
                 Dev rejim — kod: {debugCode}
               </p>

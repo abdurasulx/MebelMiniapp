@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_client.dart';
 import 'l10n/app_locale.dart';
 import 'l10n/strings.dart';
 
@@ -17,6 +18,7 @@ class LocaleStore extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_prefKey);
     _code = saved ?? _detectDeviceLocale();
+    ApiClient.localeCode = _code;
     notifyListeners();
   }
 
@@ -31,6 +33,7 @@ class LocaleStore extends ChangeNotifier {
 
   Future<void> setLocale(String code) async {
     _code = code;
+    ApiClient.localeCode = code;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKey, code);

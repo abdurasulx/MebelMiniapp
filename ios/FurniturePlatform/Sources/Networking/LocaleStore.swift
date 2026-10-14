@@ -27,6 +27,11 @@ final class LocaleStore: ObservableObject {
     func setLocale(_ code: String) {
         self.code = code
         UserDefaults.standard.set(code, forKey: Self.prefKey)
+        // Tizim ruxsat oynalari (joylashuv/kamera/mikrofon) matni iOS tomonidan
+        // `AppleLanguages` bo'yicha tanlanadi — ilova tili bilan bir xil bo'lsin
+        // (InfoPlist.strings'dagi tarjimalar 9 tilda mavjud; kuchga kirishi
+        // ilovaning keyingi ochilishidan boshlanadi — bu iOS cheklovi).
+        UserDefaults.standard.set([code], forKey: "AppleLanguages")
     }
 
     func t(_ key: String) -> String { translate(code, key) }

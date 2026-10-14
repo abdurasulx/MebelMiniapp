@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_locale.dart';
 import '../locale_store.dart';
 import '../location_store.dart';
 import '../theme.dart';
@@ -66,7 +67,11 @@ class _WelcomeLocationScreenState extends State<WelcomeLocationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 24),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _languageMenu(loc),
+          ),
+          const SizedBox(height: 8),
           Container(
             width: 56,
             height: 56,
@@ -85,6 +90,9 @@ class _WelcomeLocationScreenState extends State<WelcomeLocationScreen> {
               style: const TextStyle(
                   fontSize: 16, color: AppColors.textSecondary)),
           const SizedBox(height: 24),
+          benefit(Icons.storefront_rounded, loc.t('welcome_nearby_title')),
+          benefit(Icons.local_shipping_rounded, loc.t('welcome_delivery_title')),
+          benefit(Icons.view_in_ar_rounded, loc.t('welcome_ar_title')),
           benefit(Icons.location_on_rounded, loc.t('welcome_privacy')),
           const Spacer(),
           SizedBox(
@@ -111,6 +119,32 @@ class _WelcomeLocationScreenState extends State<WelcomeLocationScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Barcha 9 til — tanlov darhol butun ekranga (va keyingi tizim ruxsat
+  /// matnlari uchun saqlangan tilga) qo'llanadi.
+  Widget _languageMenu(LocaleStore loc) {
+    return PopupMenuButton<String>(
+      tooltip: loc.t('welcome_language'),
+      onSelected: (code) => loc.setLocale(code),
+      itemBuilder: (_) => [
+        for (final l in supportedLocales)
+          CheckedPopupMenuItem<String>(
+            value: l.code,
+            checked: l.code == loc.code,
+            child: Text('${l.flag} ${l.nativeName}'),
+          ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.language_rounded, size: 20),
+          const SizedBox(width: 6),
+          Text(loc.code.toUpperCase(),
+              style: const TextStyle(fontWeight: FontWeight.w700)),
+        ]),
       ),
     );
   }

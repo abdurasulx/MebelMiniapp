@@ -10,6 +10,10 @@ class CountryInfo {
   final int phoneLength;
   const CountryInfo(this.name, this.dialCode, this.flag, this.phoneLength);
 
+  /// Hozircha SMS-OTP faqat O'zbekiston raqamlari uchun ishlaydi (backend
+  /// `SMS_ALLOWED_PREFIXES` bilan mos).
+  bool get smsSupported => dialCode == '+998';
+
   bool isValid(String localNumber) =>
       RegExp(r'^\d+$').hasMatch(localNumber) &&
       localNumber.length == phoneLength;

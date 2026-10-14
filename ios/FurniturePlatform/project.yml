@@ -25,6 +25,12 @@ targets:
       - path: Resources/en.lproj
       - path: Resources/uz.lproj
       - path: Resources/ru.lproj
+      - path: Resources/tg.lproj
+      - path: Resources/tr.lproj
+      - path: Resources/ky.lproj
+      - path: Resources/kk.lproj
+      - path: Resources/de.lproj
+      - path: Resources/az.lproj
     dependencies:
       - package: GoogleSignIn
         product: GoogleSignIn
@@ -46,6 +52,7 @@ targets:
         NSLocationWhenInUseUsageDescription: "Joylashuvingiz yaqin mebel takliflari va yetkazib berish imkoniyatlarini ko‘rsatish uchun ishlatiladi."
         NSMicrophoneUsageDescription: "Microphone access is required to record video with audio for product showcases and workshops."
         CFBundleDisplayName: "VIDA Market"
+        CFBundleLocalizations: [uz, en, ru, tg, tr, ky, kk, de, az]
         CFBundleShortVersionString: "1.0"
         CFBundleVersion: "20261014"
         ITSAppUsesNonExemptEncryption: false

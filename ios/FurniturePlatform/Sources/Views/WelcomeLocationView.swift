@@ -15,7 +15,9 @@ struct WelcomeLocationView: View {
     @State private var isRequestingLocation = false
     @State private var showLocationError = false
 
-    private var copy: Copy { locale.code == "en" ? .english : .uzbek }
+    /// Matnlar tanlangan tilga qarab Strings.swift lug'atidan olinadi (9 til) —
+    /// til menyusi o'zgarganda ekran darhol qayta chiziladi.
+    private var copy: Copy { Copy(locale) }
 
     var body: some View {
         NavigationStack {
@@ -201,17 +203,23 @@ struct WelcomeLocationView: View {
 
     private var languageMenu: some View {
         Menu {
-            Button { locale.setLocale("uz") } label: {
-                Label("O'zbekcha", systemImage: locale.code == "uz" ? "checkmark" : "")
-            }
-            Button { locale.setLocale("en") } label: {
-                Label("English", systemImage: locale.code == "en" ? "checkmark" : "")
+            ForEach(appLocales, id: \.code) { l in
+                Button {
+                    locale.setLocale(l.code)
+                } label: {
+                    if locale.code == l.code {
+                        Label("\(l.flag) \(l.nativeName)", systemImage: "checkmark")
+                    } else {
+                        Text("\(l.flag) \(l.nativeName)")
+                    }
+                }
             }
         } label: {
-            Text(locale.code == "en" ? "EN" : "UZ")
+            Label(locale.code.uppercased(), systemImage: "globe")
                 .font(.subheadline.weight(.semibold))
         }
-        .accessibilityLabel("Language")
+        .accessibilityIdentifier("welcomeLanguageMenu")
+        .accessibilityLabel(locale.t("welcome_language"))
     }
 
     private func requestLocation() {
@@ -226,56 +234,23 @@ struct WelcomeLocationView: View {
 }
 
 private struct Copy {
-    let title: String
-    let subtitle: String
-    let marketplace: String
-    let nearbyTitle: String
-    let nearbyDetail: String
-    let deliveryTitle: String
-    let deliveryDetail: String
-    let arTitle: String
-    let arDetail: String
-    let privacyNote: String
-    let useLocation: String
-    let locating: String
-    let chooseRegion: String
-    let regionTitle: String
-    let allRegions: String
-    let regionFooter: String
-    let back: String
-    let locationUnavailableTitle: String
-    let locationUnavailableMessage: String
-    let tryAgain: String
+    let title, subtitle, marketplace: String
+    let nearbyTitle, nearbyDetail, deliveryTitle, deliveryDetail, arTitle, arDetail: String
+    let privacyNote, useLocation, locating, chooseRegion, regionTitle, allRegions: String
+    let regionFooter, back, locationUnavailableTitle, locationUnavailableMessage, tryAgain: String
 
-    static let uzbek = Copy(
-        title: "Uyingiz uchun to‘g‘ri tanlov",
-        subtitle: "Mebel, interyer va ustalarni bir joyda toping.",
-        marketplace: "Mebel va interyer bozori",
-        nearbyTitle: "Yaqindagi do‘konlar", nearbyDetail: "Hududingizdagi salon va ustalarni ko‘ring.",
-        deliveryTitle: "Aniq yetkazib berish", deliveryDetail: "Manzilingizga mos takliflarni oling.",
-        arTitle: "Uyda sinab ko‘ring", arDetail: "Mebelni AR orqali xonangizda ko‘ring.",
-        privacyNote: "Joylashuvingiz faqat yaqin takliflarni ko‘rsatish uchun ishlatiladi.",
-        useLocation: "Joylashuvimdan foydalanish", locating: "Aniqlanmoqda…", chooseRegion: "Viloyatni tanlash",
-        regionTitle: "Viloyatni tanlang", allRegions: "Barcha viloyatlar",
-        regionFooter: "Bu tanlov keyin Profil bo‘limidan o‘zgartiriladi.", back: "Orqaga",
-        locationUnavailableTitle: "Joylashuv aniqlanmadi",
-        locationUnavailableMessage: "GPS signali yoki xizmatlari mavjud emas. Qayta urinib ko‘ring yoki viloyatni qo‘lda tanlang.",
-        tryAgain: "Qayta urinish"
-    )
-
-    static let english = Copy(
-        title: "The right choice for your home",
-        subtitle: "Find furniture, interiors, and makers in one place.",
-        marketplace: "Furniture & interior marketplace",
-        nearbyTitle: "Nearby stores", nearbyDetail: "See salons and makers in your area.",
-        deliveryTitle: "Relevant delivery", deliveryDetail: "Get options tailored to your location.",
-        arTitle: "Try it at home", arDetail: "Preview furniture in your room with AR.",
-        privacyNote: "Your location is only used to show relevant nearby offers.",
-        useLocation: "Use my location", locating: "Locating…", chooseRegion: "Choose a region",
-        regionTitle: "Choose your region", allRegions: "All regions",
-        regionFooter: "You can change this later from your profile.", back: "Back",
-        locationUnavailableTitle: "Location unavailable",
-        locationUnavailableMessage: "GPS signal or services are unavailable. Try again or choose a region manually.",
-        tryAgain: "Try again"
-    )
+    @MainActor
+    init(_ l: LocaleStore) {
+        title = l.t("welcome_title"); subtitle = l.t("welcome_subtitle"); marketplace = l.t("welcome_marketplace")
+        nearbyTitle = l.t("welcome_nearby_title"); nearbyDetail = l.t("welcome_nearby_detail")
+        deliveryTitle = l.t("welcome_delivery_title"); deliveryDetail = l.t("welcome_delivery_detail")
+        arTitle = l.t("welcome_ar_title"); arDetail = l.t("welcome_ar_detail")
+        privacyNote = l.t("welcome_privacy_note"); useLocation = l.t("welcome_use_location")
+        locating = l.t("welcome_locating"); chooseRegion = l.t("welcome_choose_region")
+        regionTitle = l.t("welcome_region_title"); allRegions = l.t("welcome_all_regions")
+        regionFooter = l.t("welcome_region_footer"); back = l.t("welcome_back")
+        locationUnavailableTitle = l.t("welcome_loc_unavailable_title")
+        locationUnavailableMessage = l.t("welcome_loc_unavailable_msg")
+        tryAgain = l.t("welcome_try_again")
+    }
 }
