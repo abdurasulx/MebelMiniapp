@@ -23,6 +23,7 @@ import CompleteRegistration from "./pages/CompleteRegistration";
 import DeleteAccount from "./pages/DeleteAccount";
 import Liked from "./pages/Liked";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import Support from "./pages/Support";
 import Employees from "./pages/Employees";
 import FirmaDashboard from "./pages/firma/FirmaDashboard";
 import FirmaOrders from "./pages/firma/FirmaOrders";
@@ -376,6 +377,7 @@ export default function App() {
         <Route path="/" element={<Catalog />} />
         <Route path="/demo" element={<Showcase />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/support" element={<Support />} />
         <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="/complete-registration" element={<CompleteRegistration />} />
         <Route path="/products/:id" element={<ProductDetail />} />
