@@ -97,6 +97,14 @@ struct HomeView: View {
             || isImageSearching
     }
 
+    /// Faqat kategoriya tanlangan (qidiruv/rasm/AR filtri yo'q) — bunda
+    /// kategoriya qatori ko'rinib turadi va tanlangani faol (toggle) bo'ladi.
+    private var isCategoryOnly: Bool {
+        selectedCategory != nil
+            && query.trimmingCharacters(in: .whitespaces).isEmpty
+            && !onlyWithAR && imageResults == nil && !isImageSearching
+    }
+
     var body: some View {
         NavigationStack {
             if isOffline && products.isEmpty && !isLoading {
@@ -119,11 +127,13 @@ struct HomeView: View {
                                 action: { showShowcase = true }
                             )
                         } else {
-                            if !isFiltering {
+                            if !isFiltering || isCategoryOnly {
                                 if !categories.isEmpty {
                                     sectionHeader(locale.t("home_collections"), subtitle: locale.t("home_collections_subtitle"))
                                     collectionsRow
                                 }
+                            }
+                            if !isFiltering {
                                 if !products.isEmpty {
                                     sectionHeader(locale.t("home_featured"), subtitle: locale.t("home_featured_subtitle"))
                                     featuredRow
@@ -391,12 +401,14 @@ struct HomeView: View {
             ProgressView().frame(maxWidth: .infinity).padding(.top, 30)
         } else if isFiltering {
             HStack(spacing: 8) {
-                Button {
-                    backToHome()
-                } label: {
-                    Image(systemName: "arrow.left").foregroundStyle(Color.brandDeep)
+                if !isCategoryOnly {
+                    Button {
+                        backToHome()
+                    } label: {
+                        Image(systemName: "arrow.left").foregroundStyle(Color.brandDeep)
+                    }
+                    .accessibilityLabel(locale.t("home_back_tooltip"))
                 }
-                .accessibilityLabel(locale.t("home_back_tooltip"))
                 Text(
                     imageResults != nil
                         ? "\(filtered.count)\(locale.t("home_similar_suffix"))"

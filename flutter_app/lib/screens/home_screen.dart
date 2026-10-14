@@ -177,6 +177,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return items;
   }
 
+  bool get _isCategoryOnly =>
+      _selectedCategorySlug != null &&
+      _query.isEmpty &&
+      _imageResults == null &&
+      !_imageSearching;
+
   bool get _isFiltering =>
       _query.isNotEmpty ||
       _selectedCategorySlug != null ||
@@ -388,7 +394,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               if (_loading)
                 const _HomeSkeleton()
               else ...[
-                if (!_isFiltering && _categories.isNotEmpty) ...[
+                if ((!_isFiltering || _isCategoryOnly) && _categories.isNotEmpty) ...[
                   _sectionHeader(loc.t('home_collections'),
                       loc.t('home_collections_subtitle')),
                   _collectionsRow(),
@@ -637,12 +643,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 AppSpacing.sm, 0, AppSpacing.lg, AppSpacing.md),
             child: Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded,
-                      color: AppColors.brand),
-                  onPressed: _backToHome,
-                  tooltip: loc.t('home_back_tooltip'),
-                ),
+                if (!_isCategoryOnly)
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded,
+                        color: AppColors.brand),
+                    onPressed: _backToHome,
+                    tooltip: loc.t('home_back_tooltip'),
+                  )
+                else
+                  const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
