@@ -1,0 +1,646 @@
+=====================================================================
+  VIDA MARKET / VIDA ERP — LOYIHANING TO'LIQ TAVSIFI
+  (2026-yil oktyabr holatiga; kod bazasi va ish jarayonidan olingan)
+=====================================================================
+
+MUNDARIJA
+  1. Loyiha nima? (qisqacha)
+  2. Brendlar, portallar va domenlar
+  3. Foydalanuvchi rollari
+  4. Umumiy arxitektura va texnologiyalar
+  5. Backend (Django) — ilovalar va ma'lumotlar modeli
+  6. Asosiy biznes oqimlari
+  7. 3D model va AR tizimi
+  8. Kirish (autentifikatsiya), OTP, rate-limit
+  9. Ko'p tillilik (9 til)
+ 10. Xavfsizlik va do'kon (App Store / Play) talablari
+ 11. Veb-sayt (React): market, firma (ERP), admin
+ 12. iOS ilova (SwiftUI)
+ 13. Android ilova (Flutter)
+ 14. Server, deploy va tez-tez ishlatiladigan buyruqlar
+ 15. Test va sifat nazorati
+ 16. Andijon mebelchilarini ulash jarayoni (biznes oqimi)
+ 17. Ma'lum cheklovlar va keyingi ishlar
+ 18. Muhim fayllar xaritasi
+
+
+---------------------------------------------------------------------
+1. LOYIHA NIMA? (QISQACHA)
+---------------------------------------------------------------------
+Vida — mebel sanoati uchun yagona raqamli ekotizim. U uchta narsani
+bitta tizimda birlashtiradi:
+
+  a) MARKETPLACE (Vida Market): xaridorlar mebel firmalari va ustalarini
+     o'z hududida topadi, mahsulotni 3D da aylantirib ko'radi, AR orqali
+     o'z xonasida sinab ko'radi va buyurtma beradi.
+  b) ERP (Vida ERP): mebel firmasi (ishlab chiqaruvchi) uchun boshqaruv
+     tizimi — mahsulotlar, buyurtmalar, ishlab chiqarish bosqichlari,
+     ombor va materiallar, xodimlar, davomat, ish haqi, ta'minotchilar.
+  c) AR / 3D: mahsulotning 3D modeli (GLB) orqali veb-da 3D ko'rish,
+     telefonda AR (kengaytirilgan reallik), xona kompozitori (loyiha).
+
+G'oya: "Ishlab chiqarish -> ERP boshqaruvi -> Marketplace -> AR tajriba ->
+buyurtma bajarilishi" — hammasi bitta oqimda.
+
+Brend nomi: VIDA ("virtual interier design architect" ma'nosida tanlangan).
+Dizayn tizimi: "Forest + Lime" — to'q yashil (#1D3A2F), lime (#D4F06B),
+och bej fon (#EEECE6). Shrift: Manrope (veb). Logo: 3D lenta shaklidagi
+"V" belgisi (yashil-lime gradient).
+
+
+---------------------------------------------------------------------
+2. BRENDLAR, PORTALLAR VA DOMENLAR
+---------------------------------------------------------------------
+Bitta React ilova subdomen bo'yicha uch xil portal sifatida ishlaydi
+(frontend/src/portal.js):
+
+  - vidamarket.uz            -> "Vida Market"  (mijozlar marketplace'i)
+  - firma.vidamarket.uz      -> "Vida ERP"     (firma egasi + xodimlar)
+  - admin.vidamarket.uz      -> "Vida Admin"   (platforma boshqaruvi)
+  - api.vidamarket.uz        -> backend API (/api/v1/...)
+
+Lokal ishlab chiqishda: lvh.me domeni ishlatiladi
+(masalan http://firma.lvh.me:5173 — port yozilishi SHART), yoki
+?portal=firma / ?portal=admin parametri (faqat dev rejimda).
+
+Mustaqil 3D-ko'rish havolalari (portal chrome'siz):
+  /viewer/<token>            — bitta modelni ko'rish
+  /viewer/project/<token>    — xona loyihasini ko'rish
+
+Statik sahifalar: /privacy (maxfiylik siyosati, 9 tilda),
+/delete-account (hisobni o'chirish), /support (qo'llab-quvvatlash —
+App Store Support URL).
+
+Eslatma: eski domen qrbite.uz va eski server hali ham mavjud (nginx
+konfiguratsiyalari deploy/nginx da), yangi asosiy domen vidamarket.uz.
+
+
+---------------------------------------------------------------------
+3. FOYDALANUVCHI ROLLARI
+---------------------------------------------------------------------
+Tizim darajasidagi rollar (User.role):
+  - platform_admin  — platforma administratori (butun tizim)
+  - company_owner   — firma egasi (bitta kompaniya tenanti)
+  - employee        — firma xodimi (kasb(lar)iga qarab ishlaydi)
+  - customer        — oddiy xaridor
+
+Xodim kasblari (Employee.Position; bitta xodimda bir nechtasi bo'lishi
+mumkin, kirgach "rol tanlash" ekrani chiqadi):
+  usta (ishlab chiqarish), sotuvchi, o'rnatuvchi (montaj), dizayner,
+  omborchi, yetkazib beruvchi (haydovchi), menejer.
+
+Ish nomlari (masalan "stanokchi") yangi Position emas, balki WorkType
+katalogiga qo'shiladi (loyiha qoidasi).
+
+Firma "darajasi" (tier): yakunlangan buyurtmalar soniga qarab —
+  Yangi firma (0) / Faol firma (bronza) / Ishonchli firma (10+, kumush) /
+  Premium firma (100+, oltin). O'rtacha reyting 3 dan past bo'lsa rang
+  ogohlantiruvchi (qizil) bo'ladi.
+
+Qo'shimcha: foydalanuvchilarni bloklash (UGC talabi), sharhga shikoyat
+(report), 3 ta shikoyatdan keyin sharh avtomatik yashiriladi.
+
+
+---------------------------------------------------------------------
+4. UMUMIY ARXITEKTURA VA TEXNOLOGIYALAR
+---------------------------------------------------------------------
+Monorepo (papkalar):
+  backend/      Django + DRF (REST API), Channels (WebSocket)
+  frontend/     React 19 + Vite + Tailwind 4 + three.js (veb)
+  ios/FurniturePlatform/   SwiftUI ilova (XcodeGen: project.yml)
+  flutter_app/  Flutter ilova (Android uchun)
+  deploy/       nginx, systemd, env namunalari, backup/restore skriptlari
+  docs/, techdocs/   loyiha hujjatlari (45 + 8 ta md fayl, o'zbekcha)
+
+BACKEND:
+  - Python 3.12, Django, Django REST Framework, SimpleJWT (JWT tokenlar)
+  - Ma'lumotlar bazasi: prod'da MySQL; lokal ishlab chiqishda PostgreSQL
+    ham ishlatilgan (DATABASE_URL orqali sozlanadi)
+  - Channels + Redis + Daphne/Uvicorn: real vaqt bildirishnomalari (WS)
+  - Gunicorn (Uvicorn worker) — systemd xizmati: vida-backend
+    (eski serverda: qrbite-backend)
+  - Vizual qidiruv: CLIP (open_clip_torch, CPU) + Qdrant vektor bazasi
+  - Push: Firebase Cloud Messaging (firebase-admin)
+  - SMS: Eskiz.uz (O'zbekiston raqamlari uchun)
+  - 3D konvertatsiya: Blender (headless) + unar + assimp (.dae uchun)
+  - Fayl saqlash: STORAGE_MODE=local (yoki bulut rejimi)
+
+FRONTEND (veb): React Router 7, three.js (3D ko'rish va xona
+kompozitori), lucide-react ikonkalari, tema: yorug'/qorong'i.
+
+iOS: SwiftUI, RealityKit/ARKit (AR), Firebase Messaging, Google Sign-In,
+Sign in with Apple, App Attest (qurilma imzosi), Jailbreak aniqlash.
+
+Android: Flutter (Dart), provider, shared_preferences, http.
+(Flutter loyihasida iOS platformasi sozlanmagan — iOS alohida native.)
+
+Versiya/majburiy yangilash: backend "AppVersion" (admin boshqaradi);
+eski ilova 426 javob olsa — majburiy yangilash ekrani chiqadi.
+
+
+---------------------------------------------------------------------
+5. BACKEND — ILOVALAR VA MA'LUMOTLAR MODELI
+---------------------------------------------------------------------
+Barcha modellar umumiy BaseModel (UUID id, created_at/updated_at,
+SOFT-DELETE: is_deleted). MUHIM QOIDA: o'chirilgan (is_deleted=True)
+yozuvlar ro'yxatlarda ko'rsatilmasligi kerak; ichma-ich serializerlarda
+(masalan variants, branches, items) filtr qo'lda qo'shiladi.
+
+users
+  User (email-login, telefon, phone_verified, role), PhoneOTP (SMS kod,
+  urinishlar), GoogleAccount / AppleAccount / TelegramAccount
+  (bog'langan hisoblar), TelegramLoginSession,
+  AccountDeletionRequest (hisobni o'chirish so'rovi).
+
+companies
+  Company (firma: nom, slug, logo, viloyat, manzil, GPS, xizmat
+  rejimi: radius yoki viloyat, ijtimoiy tarmoqlar, tarif rejasi),
+  Branch (filiallar), TariffPlan (xodim va 3D-mahsulot soniga qarab
+  oylik narx; faqat admin yaratadi), Employee, EmployeeInvitation
+  (egasi xodimni taklif qiladi, xodim qabul qiladi/rad etadi),
+  CompanyDeliverySettings (yetkazib berish shartlari), Review,
+  ReviewReport, UserBlock.
+
+products
+  Category (kategoriyalar), Product (mahsulot: nom, tavsif, rasm,
+  kategoriya, o'lchamlar sm, e'lon qilingan/qilinmagan, moderatsiya),
+  Variant (rang/material varianti; HAR VARIANT UCHUN 3D FAYL MAJBURIY),
+  ProductImage (galereya; "asosiy rasm" qilish), RenderedImage
+  (server render qilgan rasmlar), ShowcaseProduct + ShowcaseImage
+  (Vitrina/demo mahsulotlar — firma bo'lmagan hududlar uchun; nomi va
+  tavsifi 9 tilda JSON; buyurtma berib bo'lmaydi).
+  Product'dan video va ruscha nom maydonlari olib tashlangan.
+
+assets
+  Model3D — mahsulot yoki VARIANT bilan bog'langan 3D model
+  (GLB, status: processing/ready/failed). Yuklangan fayl avtomatik
+  tekshiriladi (zip ichida obj/fbx/dae/glb/teksturalar) va GLB ga
+  aylantiriladi (7-bo'limga qarang).
+
+orders
+  Order (turi: READY_PRODUCT — tayyor mahsulot, CUSTOM_PROJECT —
+  individual loyiha), OrderItem. Holatlar: Kutilmoqda -> Qabul
+  qilindi -> (Loyihalashtirilmoqda) -> Ishlab chiqarilmoqda -> Tayyor
+  -> Yetkazilmoqda -> Yakunlandi / Bekor qilindi.
+  Buyurtma berish uchun telefon tasdiqlangan bo'lishi shart.
+
+custom_orders
+  Design, DesignVersion (individual buyurtma uchun dizayner tayyorlagan
+  3D loyiha versiyalari va mijoz tasdig'i), AuditLogEntry.
+
+workflow  (ishlab chiqarish jarayoni)
+  WorkType (ish turlari katalogi), WorkflowStep (mahsulot uchun
+  bosqichlar shabloni), WorkflowStepInstance (buyurtmaga tushgan aniq
+  bosqich), StepApplication (ustalarning bosqichga arizasi),
+  ProgressUpdate (rasm/izoh bilan jarayon yangilanishi).
+
+inventory  (ombor)
+  Warehouse (material yoki tayyor mahsulot ombori), Supplier,
+  Material (+ birlik, narx, standart uzunlik), MaterialStock,
+  MaterialMovement (kirim/chiqim), BillOfMaterial (mahsulot uchun
+  material sarfi, "BOM"), MaterialRemnant (qoldiq/obrezok — kesish
+  qoldiqlarini hisobga olish), ManufacturedUnit, ProductStock,
+  ProductMovement, PurchaseOrder + PurchaseOrderItem (ta'minotchiga
+  buyurtma). "Produce" amali: tayyor mahsulot ishlab chiqarilganda
+  materiallar BOM bo'yicha sarflanadi, tayyor mahsulot omborga kiradi.
+
+production
+  Payslip, PayslipPayment — oylik hisob-kitob: bazaviy oylik + bajarilgan
+  vazifalar bonusi + workflow bosqichlaridan daromad; to'langan oylar
+  qayta hisoblanganda o'zgarmaydi.
+
+attendance
+  Workplace (ish joyi: GPS + radius), AttendanceRecord (keldi/ketdi,
+  geolokatsiya tekshiruvi), AttendanceEditLog (tahrir tarixi).
+
+projects
+  Project, ProjectItem, DetailAsset — mijozning xona loyihasi: 3D xonada
+  mebellarni joylashtirish (veb "kompozitor"), umumiy havola bilan
+  ulashish. ar_collections — AR kolleksiyalar (bir nechta mahsulotni
+  bir vaqtda AR da qo'yish).
+
+cart, likes
+  CartItem, Like — savat va sevimlilar.
+
+notifications
+  Notification (ilova ichidagi), PushDevice (FCM tokenlar),
+  BroadcastNotification (admin ommaviy xabari); WebSocket orqali real vaqt.
+
+app_versions
+  AppVersion, PlatformLink — minimal versiya, do'kon havolalari.
+
+crm
+  Hozirgi kodda faol model yo'q (migratsiyalar qolgan); lead/CRM
+  sahifasi veb-firma menyusida hozir ko'rinmaydi.
+
+
+---------------------------------------------------------------------
+6. ASOSIY BIZNES OQIMLARI
+---------------------------------------------------------------------
+6.1 MIJOZ (xaridor)
+  1) Ilova ochiladi -> brend ekrani -> birinchi marta: "Joylashuvdan
+     foydalanish" yoki viloyatni tanlash (til ham shu yerda
+     tanlanadi, 9 til).
+  2) Bosh sahifa: kolleksiyalar (kategoriyalar), ommabop mahsulotlar,
+     barcha mahsulotlar, qidiruv (matn + RASM bo'yicha qidiruv),
+     saralash/filtr.
+  3) Mahsulot sahifasi: 3D model (aylantirish), galereya, variantlar
+     (rang/material), o'lchamlar sxemasi, tavsif, firma (reyting,
+     darajasi, manzil), "AR'da sinash", yetkazib berish shartlari,
+     taxminiy narx, "Buyurtma berish", "Savatga qo'shish", sevimli.
+  4) Hududga bog'liqlik: mahsulotlar faqat foydalanuvchi xizmat
+     hududidagi firmalardan ko'rinadi (radius rejimi: GPS + radius km;
+     viloyat rejimi: tanlangan viloyatlar). Faol firma bo'lmagan
+     hududda "Vitrina (demo)" taklif qilinadi.
+  5) Buyurtma: telefon SMS bilan tasdiqlangan bo'lishi kerak, so'ng
+     buyurtma firmaga tushadi; holatlar bildirishnoma (push + WS) bilan
+     yetkaziladi. "Individual loyiha" — mijoz o'z loyihasini yuboradi,
+     firma dizayneri 3D loyiha tayyorlaydi, mijoz tasdiqlaydi.
+  6) Loyihalarim (veb): 3D xonada mebellarni joylashtirish, ulashish.
+  7) Profil: bog'langan hisoblar (Google/Apple/Telegram), til, buyurtmalar,
+     hisobni o'chirish, chiqish.
+
+6.2 FIRMA EGASI (Vida ERP)
+  - Dashboard (ko'rsatkichlar), Mahsulotlar (yaratish, tahrirlash, tabs:
+    Umumiy / Variantlar / Ishlab chiqarish / Ulashish), har variantga
+    3D fayl yuklash, rasmlar galereyasi, "asosiy rasm" tanlash,
+    BOM (material sarfi), ishlab chiqarish bosqichlari.
+  - Buyurtmalar (ro'yxat, tafsilot, holatni o'zgartirish).
+  - Ishlab chiqarish (usta/menejer ko'rinishi), bosqichlarga arizalar.
+  - Omborlar: material va mahsulot omborlari, materiallarni
+    qo'shish/tahrirlash/o'chirish, kirim-chiqim, qoldiqlar,
+    ta'minotchilar va xarid buyurtmalari.
+  - Xodimlar: taklif yuborish (kasblar bilan), kutilayotgan taklifni
+    bekor qilish, bazaviy oylik/bonus stavkalari.
+  - Ish haqi: oylik hisoblash, "to'landi" belgilash.
+  - Davomat: ish joyi (GPS), xodim belgilanishi.
+  - Sozlamalar: firma ma'lumotlari, logotip, viloyat, xizmat hududi,
+    filiallar (qo'shish/tahrirlash/o'chirish), ijtimoiy tarmoqlar.
+  - Ro'yxatlarda "Yana yuklash" (sahifalash).
+  - Interfeys: mustaqil scroll qilinadigan yon menyu va kontent.
+
+6.3 XODIM (kasbiga qarab)
+  Mobil ilovalarda "Xodim rejimi": o'z vazifalari/buyurtmalari,
+  ish haqi (payslip), davomat, ombor (omborchi), individual buyurtma
+  yaratish (sotuvchi/dizayner).
+
+6.4 PLATFORMA ADMINI
+  Dashboard/statistika, Kompaniyalar (yangi firma + egasi akkauntini
+  yaratish), Foydalanuvchilar, Hisob o'chirish so'rovlari,
+  Kategoriyalar, Vitrina (demo) mahsulotlari, Tarif rejalari, Moliya,
+  Versiya nazorati (majburiy yangilash), ommaviy bildirishnoma.
+
+
+---------------------------------------------------------------------
+7. 3D MODEL VA AR TIZIMI
+---------------------------------------------------------------------
+7.1 Yuklash (bitta "aqlli" maydon)
+  Foydalanuvchi bitta fayl yuklaydi: .glb/.gltf, .obj, .fbx, .dae yoki
+  .zip/.rar (ichida model + teksturalar). Tizim o'zi zip ichini
+  tekshiradi: modelni va teksturalarni topadi.
+  USDZ uchun alohida yuklash maydoni olib tashlangan.
+
+7.2 Konvertatsiya (backend/apps/assets/management/commands/
+    process_model3d.py + backend/scripts/to_glb.py)
+  - Fayl ochiladi (zip/rar -> unar), model topiladi.
+  - Blender (headless) bilan GLB ga aylantiriladi.
+  - .dae uchun avval assimp orqali GLB, keyin Blender.
+  - OBJ + MTL kodirovka muammolari (Windows-1251 kirill nomlar) avtomatik
+    tuzatiladi; Windows yo'l belgilari (\) bilan yozilgan tekstura
+    yo'llari qayta bog'lanadi; teksturalar GLB ichiga joylanadi.
+  - Status: processing -> ready (yoki failed). Veb 3 soniyada bir
+    marta statusni tekshiradi.
+  - Variant uchun 3D fayl MAJBURIY va o'chirib bo'lmaydi (faqat
+    almashtiriladi) — API darajasida ham himoyalangan.
+
+7.2.1 Eslatma — animatsiya
+  Mavjud pipeline statik modellar uchun. Eshik ochilishi kabi
+  animatsiya faqat manba faylda animatsiya bo'lsa mumkin; tekshirilgan
+  namunalarda (obj, dae) animatsiya YO'Q edi.
+
+7.3 Ko'rish
+  - Veb: three.js "viewer" (aylantirish, variant almashtirish).
+  - iOS AR: RealityKit — mebelni xonada joylashtirish, joystik bilan
+    surish (kamera yo'nalishiga nisbatan), aylantirish, masshtab;
+    bir vaqtda bitta yoki bir nechta mahsulot (AR kolleksiya).
+  - Obyektning "oyoq" nuqtasi haqiqiy dunyo chegarasidan o'lchanib,
+    polga to'g'ri o'rnatiladi.
+
+7.4 Rasm bo'yicha qidiruv
+  Foydalanuvchi rasm yuklaydi -> CLIP embedding -> Qdrant orqali o'xshash
+  mahsulotlar (backend/apps/products/embedding.py).
+
+7.5 AI bilan rasmdan 3D (tashqi jarayon, loyiha ichida emas)
+  Mebelchilar rasm beradi, jamoa Astra/Tripo/Rodin kabi vositalarda 3D
+  qiladi va tizimga GLB/zip sifatida yuklaydi. Tavsiya: old/yon/orqa
+  rasmlar, haqiqiy o'lchamlarni (sm) kiritish, GLB format, taxminan 100K
+  uchburchakdan kam, 2K tekstura, tijoriy foydalanish huquqini tekshirish.
+
+
+---------------------------------------------------------------------
+8. KIRISH (AUTENTIFIKATSIYA), OTP, RATE-LIMIT
+---------------------------------------------------------------------
+Kirish usullari (mijozlar): telefon + SMS-OTP (6 xonali), Google,
+Apple ("Sign in with Apple"), Telegram (bot orqali, @Vida_robot).
+Firma/admin: email + parol (JWT; alohida token endpointlari).
+Tokenlar: access + refresh (SimpleJWT, refresh rotatsiyasi).
+
+SMS-OTP (apps/users/views.py: _request_otp / _consume_otp):
+  - Kod muddati 5 daqiqa; noto'g'ri urinishlar cheklangan
+    (PhoneOTP.MAX_ATTEMPTS), undan oshsa kod bekor.
+  - Qayta yuborish cooldown'i (standart 60 soniya) va soatiga 5 ta
+    so'rov chegarasi (raqam bo'yicha), IP bo'yicha soatlik va umumiy
+    kunlik SMS chegaralari (SMS_IP_HOURLY_LIMIT, SMS_DAILY_LIMIT).
+  - FAQAT O'zbekiston (+998) raqamlariga SMS yuboriladi
+    (SMS_ALLOWED_PREFIXES). Boshqa davlat tanlansa ilova "hozircha SMS
+    kod faqat O'zbekiston raqamlari uchun ishlaydi" deb ko'rsatadi va
+    Google/Apple/Telegram ni taklif qiladi.
+  - Xatolar mashina o'qiydigan kod bilan qaytadi: otp_cooldown (+
+    retry_after), otp_hourly_limit, otp_country_unsupported,
+    otp_unavailable, otp_send_failed, otp_busy, otp_expired,
+    otp_attempts, otp_wrong (+ remaining). Ilovalar xabarni
+    foydalanuvchi tilida ko'rsatadi.
+  - Kod HECH QACHON ekranda ko'rsatilmaydi. Provayder sozlanmagan (dev)
+    muhitda server kodni javobda "debug_code" qaytarishi mumkin
+    (faqat DEBUG yoki OTP_DEBUG_RETURN yoqilganda); ilovalarda u faqat
+    DEBUG build'da UI-testlar uchun ko'rinmas qiymat sifatida bor.
+  - App Store/Play REVIEW demo raqami: APP_REVIEW_PHONE +
+    APP_REVIEW_OTP (.env) — shu raqamga SMS yuborilmaydi, kod doim bir
+    xil. (Qiymatlar maxfiy, .env da saqlanadi.)
+  - SMS yoqish: .env da ESKIZ_ENABLED=true (+ ESKIZ_EMAIL/PASSWORD),
+    so'ng xizmatni restart qilish.
+
+Hisob o'chirish: ilova ichida va /delete-account sahifasida so'rov;
+admin ko'rib chiqadi; qonun talab qilgan hisobot yozuvlaridan tashqari
+shaxsiy ma'lumot o'chiriladi.
+
+
+---------------------------------------------------------------------
+9. KO'P TILLILIK (9 TIL)
+---------------------------------------------------------------------
+Tillar: O'zbekcha (uz, asosiy), English (en), Русский (ru), Тоҷикӣ (tg),
+Türkçe (tr), Кыргызча (ky), Қазақша (kk), Deutsch (de), Azərbaycan (az).
+
+Lug'atlar bir xil kalitlar bilan 3 joyda yuritiladi:
+  iOS:     ios/FurniturePlatform/Sources/Networking/Strings.swift
+  Android: flutter_app/lib/l10n/strings.dart
+  Veb:     frontend/src/l10n/strings.js
+Maxfiylik siyosati: frontend/src/l10n/privacy.js (9 tilda to'liq matn;
+til tanlagich bor; mobil ilovadan ?lang=<til> bilan ochiladi).
+
+Yangi qo'shilgan funksiyalar uchun tarjimalar: OTP xatolari, davlat
+ogohlantirishi, "Qayta yuborish (N s)", birinchi ochilish ekrani,
+umumiy xato matnlari (404, server xatosi, tarmoq yo'q va h.k.).
+
+Xato matnlari: "404", "cancelled", "Not found." kabi xom matnlar
+foydalanuvchiga ko'rsatilmaydi — markaziy qatlam (iOS: FriendlyError +
+Error.userMessage; Android: friendlyError()) ularni tanlangan tildagi
+tushunarli xabarga aylantiradi. Bekor qilingan so'rov xato emas.
+
+Tizim ruxsat oynalari (joylashuv, kamera, mikrofon) matni iOS'da
+InfoPlist.strings orqali 9 tilda; iOS ularni ilovaning keyingi
+ochilishidan boshlab tanlangan tilga moslaydi (iOS cheklovi).
+
+Vitrina mahsulotlari tarjimasi: ShowcaseProduct.name/description JSON.
+Management buyrug'i: python manage.py showcase_translations export|apply.
+Tarjimalar sifati: ru/en yuqori; tg/ky/kk/tr/az/de mashina darajasida —
+ona tilli tekshiruvchi tavsiya etiladi.
+
+Davlatlar ro'yxati (telefon kodi uchun): O'zbekiston, Rossiya,
+Qozog'iston, Qirg'iziston, Tojikiston, Turkmaniston, Ozarbayjon,
+Armaniston, Belarus, Moldova (hozircha nomlari faqat o'zbekcha).
+
+
+---------------------------------------------------------------------
+10. XAVFSIZLIK VA DO'KON (APP STORE / PLAY) TALABLARI
+---------------------------------------------------------------------
+  - JWT + refresh rotatsiyasi; rol asosidagi ruxsatlar; firma tenanti
+    bo'yicha ma'lumotlar ajratilgan (egasi faqat o'z firmasini ko'radi).
+  - Qurilma imzosi (DeviceSignature + App Attest) — qo'shimcha qatlam;
+    rad etilsa sessiya chiqarilmaydi.
+  - Jailbreak aniqlash (iOS), majburiy yangilash (426).
+  - OTP: urinish limiti, cooldown, IP va kunlik limit, kod ochiq
+    qaytarilmaydi (prod'da).
+  - UGC: sharhlar, shikoyat (report), foydalanuvchini bloklash,
+    avtomatik yashirish.
+  - Sign in with Apple (App Store 4.8), hisobni ilova ichida o'chirish
+    (5.1.1(v)), maxfiylik siyosati (9 tilda), Support sahifasi.
+  - iOS: bundle id uz.vida.burchaksoft, versiya 1.0 (build 20261014),
+    deployment target iOS 18; hozir faqat iPhone
+    (TARGETED_DEVICE_FAMILY=1). iPad skrinshotlari kerak bo'lsa binary
+    iPad'ni qo'llab-quvvatlashi shart.
+  - Maxfiylik yorliqlari: docs/store_privacy_labels.md.
+  - Arxivlarda build raqami bir xil bo'lsa, App Store Connect rad
+    etadi — yuklashdan oldin CURRENT_PROJECT_VERSION oshiriladi.
+
+
+---------------------------------------------------------------------
+11. VEB-SAYT (REACT)
+---------------------------------------------------------------------
+Market (frontend/src/pages): Catalog, Shop (firma sahifasi),
+ProductDetail, Cart, Liked, MyOrders, MyProjects, ProjectComposer
+(3D xona kompozitori), ProjectViewer/Viewer (mustaqil 3D ko'rish),
+Showcase, Login, CompleteRegistration, Profile, PrivacyPolicy,
+DeleteAccount, Support.
+
+Firma (pages/firma): FirmaDashboard, FirmaProducts, FirmaProductDetail,
+FirmaOrders, FirmaOrderDetail, FirmaProduction, FirmaWarehouses,
+FirmaWarehouseDetail, FirmaSuppliers, FirmaPayroll, Employees,
+FirmaSettings, RolePicker, BazisSetup/MaterialPicker (konstruktor
+yordamchilari).
+
+Admin (pages/admin): AdminDashboard, AdminCompanies, AdminUsers,
+AdminDeletionRequests, AdminCategories, AdminShowcase,
+AdminTariffPlans, AdminFinance, AdminAppVersions.
+
+Dizayn va UX qoidalari:
+  - Forest+Lime tokenlar, qorong'i tema (barcha sahifalarda, shu
+    jumladan mahsulot sahifasi — CSS o'zgaruvchilari orqali).
+  - Firma/admin: mustaqil scroll (yon menyu va kontent alohida).
+  - Ro'yxatlarda DRF sahifalash + "Yana yuklash" tugmasi.
+
+
+---------------------------------------------------------------------
+12. iOS ILOVA (SwiftUI)
+---------------------------------------------------------------------
+Joylashuv: ios/FurniturePlatform (XcodeGen: project.yml -> VidaMarket.xcodeproj)
+Asosiy ekranlar (Sources/Views): HomeView, ProductDetailView,
+CompanyShopView, CartView, OrderCheckoutView, LikesView, AccountView
+(kirish/profil/OTP), PhoneVerifySheet, NotificationsView,
+LoyihalarimView, ARCollectionDetailView, ARProductPickerView,
+ShowcaseView, WelcomeLocationView (birinchi ochilish), SplashScreenView,
+OfflineView, ForceUpdateView, DeleteAccountView;
+xodim rejimi: WorkerHomeView, WorkerOrdersView, AttendanceView,
+PayslipsView, WarehousesView, CreateCustomOrderView, RolePickerSheet,
+EmployeeInvitationSheet.
+AR (Sources/AR): ARContainerView/ARPlacementView (bitta mahsulot),
+MultiARContainerView/MultiARPlacementView (bir nechta).
+Tarmoq (Sources/Networking): APIClient (xatolarni tilga moslash),
+AuthStore, LocaleStore, LocationStore, PushManager, NotificationSocket
+(WS), ResponseCache, AppAttestService, DeviceSignature,
+JailbreakDetector, Strings.swift (9 til).
+Test: ios/FurniturePlatform/UITests (Smoke + OtpAndWelcomeUITests).
+Qurish: xcodegen generate; xcodebuild ... (Debug). DEBUG build'da
+-apiBaseURL launch argumenti bilan lokal backend'ga ulanish mumkin.
+
+
+---------------------------------------------------------------------
+13. ANDROID ILOVA (FLUTTER)
+---------------------------------------------------------------------
+Joylashuv: flutter_app/ (lib/screens, lib/widgets, lib/l10n).
+Ekranlar: splash, welcome_location (til tanlash bilan), auth (telefon
++ OTP, Google, Telegram), home, product_detail, company_detail, cart,
+likes, notifications, order_detail, profile, showcase, update;
+worker/: worker_home, worker_orders, attendance, warehouses,
+worker_payslips, create_custom_order.
+Muhim fayllar: api_client.dart (xatolarni tilga moslash, friendlyError),
+auth_store.dart, locale_store.dart, l10n/strings.dart, countries.dart.
+Android ikonkalari: android/app/src/main/res/mipmap-* (adaptive icon).
+Test: flutter test (test/ papkasi), flutter analyze.
+API manzili: --dart-define=API_BASE_URL=... bilan almashtiriladi.
+
+
+---------------------------------------------------------------------
+14. SERVER, DEPLOY VA TEZ-TEZ ISHLATILADIGAN BUYRUQLAR
+---------------------------------------------------------------------
+Yangi server (vidamarket.uz):
+  Kod: /www/wwwroot/vidamarket.uz/MebelMiniapp
+  Backend xizmati: vida-backend (systemd; deploy/systemd/vida-backend.service)
+  nginx: deploy/nginx/vidamarket.uz.conf, vida-frontend.conf
+  Env namunasi: deploy/env/backend.env.example
+  Hujjat: deploy/MIGRATION.md (eski serverdan ko'chish, rollback)
+
+Backend yangilash:
+  cd /www/wwwroot/vidamarket.uz/MebelMiniapp && git pull
+  cd backend && source venv/bin/activate
+  pip install -r requirements.txt
+  python manage.py migrate        (serverda makemigrations ISHLATILMAYDI)
+  sudo systemctl restart vida-backend
+Frontend yangilash:
+  cd ../frontend && npm ci && npm run build
+Holatni tekshirish:
+  sudo systemctl status vida-backend --no-pager | head -8
+  sudo journalctl -u vida-backend -n 50 --no-pager
+  deploy/scripts/smoke_test.sh
+
+Foydali management buyruqlari:
+  python manage.py showcase_translations export > showcase.json
+  python manage.py showcase_translations apply <fayl.json> [--dry-run]
+  python manage.py process_model3d ...      (3D konvertatsiya)
+  python manage.py backfill_embeddings / backfill_image_signatures
+  python manage.py backfill_model3d_bbox     (3D model o'lchamlarini to'ldirish)
+  python manage.py seed_showcase_from_company ...
+
+Muhim .env kalitlari (qiymatlarni YOZMANG, faqat nomlari):
+  DATABASE_URL, STORAGE_MODE, FRONTEND_URL, BACKEND_URL,
+  GOOGLE_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, APPLE_* , TELEGRAM_BOT_TOKEN,
+  TELEGRAM_BOT_USERNAME, ESKIZ_ENABLED/EMAIL/PASSWORD/FROM,
+  OTP_DEBUG_RETURN, SMS_IP_HOURLY_LIMIT, SMS_DAILY_LIMIT,
+  SMS_ALLOWED_PREFIXES, APP_REVIEW_PHONE, APP_REVIEW_OTP,
+  SUPPORT_EMAIL, REVIEW_AUTOHIDE_REPORTS, Firebase kalitlari.
+
+Lokal ishga tushirish:
+  Backend: backend/.venv/bin/python backend/manage.py runserver
+  Frontend: npm --prefix frontend run dev (http://firma.lvh.me:5173)
+  3D konvertatsiya uchun: Blender, unar, assimp (brew install assimp).
+
+Git qoidasi (loyiha odati): har o'zgarishdan keyin commit + push
+origin main; commit xabari oxirida muallif belgisi.
+
+
+---------------------------------------------------------------------
+15. TEST VA SIFAT NAZORATI
+---------------------------------------------------------------------
+Backend: python manage.py test (apps.users, apps.orders, apps.companies,
+apps.products ... — jumladan OTP/rate-limit, Eskiz, vitrina testlari).
+iOS: xcodebuild test (UITests): til menyusi (9 til), boshqa davlat
+bloklanishi, OTP kod ekranda yo'qligi + countdown, cooldown xabari
+tanlangan tilda. Kod/cooldown testlari lokal backend'ga ulanadi.
+Android: flutter test (jumladan OTP/xato matnlari 9 tilda to'liqligi),
+flutter analyze.
+Qo'lda tekshiruvlar: simulyatorda haqiqiy ma'lumot bilan (Andijon
+hududi), reviewer akkaunti bilan kirish.
+DIQQAT: Android'ni emulyator/qurilmada ko'rib chiqish hali qilinmagan
+(bu mashinada Android emulyatori yo'q).
+
+
+---------------------------------------------------------------------
+16. ANDIJON MEBELCHILARINI ULASH JARAYONI (BIZNES OQIMI)
+---------------------------------------------------------------------
+Reja (Andijon mebel markazida kelishilgan):
+  1) Mebelchi mebel rasmlarini yuboradi (tavsiya: old/yon/orqa +
+     haqiqiy o'lchamlar, narx, material/rang).
+  2) Jamoa rasmdan AI vositada (Astra/Tripo/Rodin) 3D fayl yaratadi.
+  3) Admin panelda "Yangi kompaniya" orqali firma + egasi akkaunti
+     yaratiladi (email, parol, ism, telefon).
+  4) Firma profili to'liq sozlanadi: logo, viloyat, manzil, xizmat
+     hududi (radius yoki viloyat — bu bo'lmasa mahsulotlar ilovada
+     ko'rinmaydi!), filial, ijtimoiy tarmoqlar.
+  5) Har mahsulot: nom, tavsif (imkon qadar 9 tilda), narx, o'lchamlar,
+     kategoriya, rasmlar galereyasi, variantlar, HAR VARIANTGA 3D FAYL.
+  6) Tekshiruv: mahsulot veb va ilovada ko'rinadimi, 3D/AR ishlaydimi.
+  7) Egasiga kirish ma'lumotlari topshiriladi (parolni almashtirish
+     tavsiya etiladi).
+Tarif: TariffPlan — xodim soni va 3D-modelli mahsulot soniga qarab oylik.
+Taklif etilgan yaxshilanishlar: ommaviy yuklash buyrug'i, admin
+nomidan firma sifatida kirish, "profil tayyorlik" ro'yxati (checklist),
+egasiga birinchi kirishda parol almashtirish.
+
+
+---------------------------------------------------------------------
+17. MA'LUM CHEKLOVLAR VA KEYINGI ISHLAR
+---------------------------------------------------------------------
+  - Profilda telefon bilan kirganlarga texnik email ko'rinadi
+    (<raqam>@phone.local) — telefon raqamiga almashtirish kerak.
+  - Tizim "bildirishnoma ruxsati" oynasi kirishdan keyin darhol chiqadi
+    va qurilma tilida (iOS cheklovi).
+  - iOS ilova hozir faqat iPhone; iPad uchun TARGETED_DEVICE_FAMILY=1,2
+    va iPad layout tekshiruvi kerak.
+  - Android emulyatorda ko'rib chiqilmagan.
+  - Davlat nomlari va xato oynasi "OK" tugmasi to'liq tarjima emas.
+  - 3D pipeline: animatsiya (eshik ochilishi) qo'llab-quvvatlanmaydi.
+  - Prod'dagi ba'zi mahsulotlarda firma nomi "test" va test narxlar;
+    haqiqiy ma'lumotga almashtirish kerak.
+  - Vitrina: "stol" tavsifi test matn ("shunde"), "Zamonaviy 3 kishilik
+    divan" tavsifi bo'sh.
+  - CRM/lead moduli hozir faol emas.
+  - Tarjimalar (tg/ky/kk/tr/az/de) ona tilli tekshiruvini kutadi.
+  - Kutilayotgan: buyurtma cheki, material tannarxi va sof foyda
+    hisob-kitobi (keyinroq hal qilinadi).
+
+
+---------------------------------------------------------------------
+18. MUHIM FAYLLAR XARITASI
+---------------------------------------------------------------------
+Backend
+  backend/config/settings/base.py       — barcha sozlamalar (.env orqali)
+  backend/api/v1/urls.py                — API marshrutlari
+  backend/apps/users/views.py           — kirish, OTP, Apple/Google/Telegram
+  backend/apps/users/sms.py             — Eskiz SMS
+  backend/apps/products/                — mahsulot, variant, vitrina, qidiruv
+  backend/apps/assets/                  — Model3D (3D yuklash/konvertatsiya)
+  backend/scripts/to_glb.py             — Blender skripti (GLB eksport)
+  backend/apps/companies/               — firma, xodim, tarif, sharh
+  backend/apps/orders/, custom_orders/  — buyurtmalar, individual loyiha
+  backend/apps/workflow/, production/   — ishlab chiqarish, ish haqi
+  backend/apps/inventory/               — ombor, material, BOM, qoldiq
+  backend/apps/attendance/              — davomat
+Frontend
+  frontend/src/App.jsx, portal.js       — marshrutlar, portal/brend
+  frontend/src/layouts/PortalLayout.jsx — firma/admin umumiy maket
+  frontend/src/l10n/strings.js, privacy.js — tarjimalar
+  frontend/src/pages/...                — sahifalar
+iOS
+  ios/FurniturePlatform/project.yml     — loyiha sozlamasi
+  ios/FurniturePlatform/Sources/...     — kod
+  ios/FurniturePlatform/Resources/...   — ikonka, InfoPlist (9 til), rasmlar
+Android
+  flutter_app/lib/...                   — kod
+  flutter_app/android/app/src/main/res  — ikonkalar, splash
+Hujjatlar
+  docs/ (45 ta), techdocs/ (8 ta), deploy/MIGRATION.md,
+  docs/design_tokens.md, docs/store_privacy_labels.md
+
+=====================================================================
+  Hujjat oxiri. Yangilanganda shu faylni ham yangilab boring.
+=====================================================================
