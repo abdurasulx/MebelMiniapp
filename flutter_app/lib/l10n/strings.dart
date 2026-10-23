@@ -180,7 +180,7 @@ const Map<String, Map<String, String>> _strings = {
     'product_recommended': 'Sizga yoqishi mumkin',
     'product_view_3d': "3D ko'rish",
     'product_try_ar': 'AR’da sinab ko‘rish',
-    'product_ar_coming_soon': 'Yaqinda',
+    'product_ar_coming_soon': 'Tez kunda',
     'product_loading_3d': "3D model yuklanmoqda...",
     'product_added_to_cart_suffix': " savatga qo'shildi",
     'product_add_to_cart': "Savatga qo'shish",

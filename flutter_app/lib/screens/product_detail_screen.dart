@@ -183,6 +183,21 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           padding: EdgeInsets.zero,
           children: [
             _gallery(p, loc),
+            if (_activeModel3d?.glbUrl != null ||
+                _activeModel3d?.usdzUrl != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
+                child: Row(
+                  children: [
+                    Expanded(child: _arComingSoonButton(loc)),
+                    if (_activeModel3d?.glbUrl != null) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      _view3dButton(p, loc),
+                    ],
+                  ],
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, 0),
@@ -210,33 +225,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   ],
                   _specsSection(p, loc),
                   _descriptionSection(p, loc),
-                  if (_activeModel3d?.glbUrl != null ||
-                      _activeModel3d?.usdzUrl != null) ...[
-                    const SizedBox(height: AppSpacing.lg),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: null,
-                        icon: const Icon(Icons.view_in_ar_rounded),
-                        label: Text(loc.t('product_try_ar')),
-                        style: OutlinedButton.styleFrom(
-                          disabledForegroundColor: AppColors.textSecondary,
-                          side: const BorderSide(color: AppColors.border),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Center(
-                      child: Text(
-                        loc.t('product_ar_coming_soon'),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: AppSpacing.lg),
                   _deliveryCard(p, loc),
                 ],
@@ -634,11 +622,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             ),
           ),
         ],
-        if (_activeModel3d?.glbUrl != null)
-          Positioned(
-              bottom: AppSpacing.md,
-              right: AppSpacing.md,
-              child: _view3dButton(p, loc)),
       ],
     );
   }
@@ -658,6 +641,56 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
             border: Border.all(color: AppColors.border),
           ),
           child: Icon(icon, size: 20, color: AppColors.brand),
+        ),
+      ),
+    );
+  }
+
+  Widget _arComingSoonButton(LocaleStore loc) {
+    return Semantics(
+      button: true,
+      enabled: false,
+      label: '${loc.t('product_try_ar')}. ${loc.t('product_ar_coming_soon')}',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.brand.withValues(alpha: 0.86),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.view_in_ar_rounded,
+                    size: 18, color: AppColors.onBrand),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    loc.t('product_try_ar'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.onBrand,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              '${loc.t('product_ar_coming_soon')} ✨',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.onBrand.withValues(alpha: 0.85),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
