@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../auth_store.dart';
@@ -71,7 +72,6 @@ class _AuthScreenState extends State<AuthScreen> {
   String get _fullPhone =>
       '${_country.dialCode}${_phoneController.text.trim()}';
 
-  // ignore: unused_element
   bool get _phoneValid => _country.isValid(_phoneController.text.trim());
 
   void _startCountdown(int seconds) {
@@ -126,7 +126,6 @@ class _AuthScreenState extends State<AuthScreen> {
     if (ok && mounted && !widget.isTab) Navigator.of(context).maybePop();
   }
 
-  // ignore: unused_element
   Future<void> _pickCountry() async {
     final selected = await showModalBottomSheet<CountryInfo>(
       context: context,
@@ -429,8 +428,6 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           ],
         ),
-        /*
-        // SMS provayder ulanganda ochiladi:
         const SizedBox(height: 20),
         Text(
           loc.t('auth_select_country'),
@@ -506,7 +503,6 @@ class _AuthScreenState extends State<AuthScreen> {
               ? const CircularProgressIndicator()
               : Text(loc.t('auth_send_code')),
         ),
-        */
       ],
     );
   }

@@ -210,6 +210,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   ],
                   _specsSection(p, loc),
                   _descriptionSection(p, loc),
+                  if (_activeModel3d?.glbUrl != null ||
+                      _activeModel3d?.usdzUrl != null) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: null,
+                        icon: const Icon(Icons.view_in_ar_rounded),
+                        label: Text(loc.t('product_try_ar')),
+                        style: OutlinedButton.styleFrom(
+                          disabledForegroundColor: AppColors.textSecondary,
+                          side: const BorderSide(color: AppColors.border),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Center(
+                      child: Text(
+                        loc.t('product_ar_coming_soon'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.lg),
                   _deliveryCard(p, loc),
                 ],

@@ -97,7 +97,6 @@ private struct ProfileView: View {
                             )
                     }
                     .buttonStyle(.plain)
-                    .disabled(user.phoneVerified ?? true)
                     VStack(alignment: .leading) {
                         Text(user.firstName?.isEmpty == false ? user.firstName! : user.email).bold()
                         Text(user.email).font(.caption).foregroundStyle(Color.textSecondary)

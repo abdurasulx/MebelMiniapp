@@ -1119,6 +1119,11 @@ class OTPVerifyView(APIView):
             user.save()
         elif not user.is_active:
             raise _inactive_account_error(user)
+        elif not user.phone_verified:
+            # A successful login OTP proves ownership for existing accounts too
+            # (including accounts originally created through social login).
+            user.phone_verified = True
+            user.save(update_fields=["phone_verified"])
 
         refresh = RefreshToken.for_user(user)
         return Response(

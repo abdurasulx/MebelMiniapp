@@ -42,6 +42,33 @@ class OTPFlowTests(TestCase):
         self.assertTrue(resp.json()["is_new_user"])
         user = User.objects.get(phone="+998901234567")
         self.assertTrue(user.phone_verified)
+        profile = self.client.get(
+            reverse("me"), HTTP_AUTHORIZATION=f"Bearer {resp.json()['access']}"
+        )
+        self.assertEqual(profile.status_code, 200)
+        self.assertTrue(profile.json()["phone_verified"])
+
+    def test_otp_login_verifies_existing_unverified_phone(self):
+        user = User.objects.create(
+            phone="+998901234567", email="social-otp@example.com",
+            role=User.Role.CUSTOMER, phone_verified=False,
+        )
+        self._request_otp()
+        otp = self._latest_code()
+        resp = self.client.post(
+            reverse("otp-verify"),
+            {"phone": user.phone, "code": otp.code},
+            content_type="application/json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(resp.json()["is_new_user"])
+        user.refresh_from_db()
+        self.assertTrue(user.phone_verified)
+        profile = self.client.get(
+            reverse("me"), HTTP_AUTHORIZATION=f"Bearer {resp.json()['access']}"
+        )
+        self.assertEqual(profile.status_code, 200)
+        self.assertTrue(profile.json()["phone_verified"])
 
     def test_wrong_code_increments_attempts_and_eventually_locks(self):
         self._request_otp()
