@@ -20,10 +20,34 @@ The sofa supplier lists 105 × 95 × 83 cm: outer volume 0.827925 m³. This refe
 [Sofa source and dimensions](https://pascalfurniture.com/products/euro-single-seater-couch)
 [Chair image source](https://cozylant.com/products/thor-oak-wood-chair)
 
-## GLB generation — blocked, not tested in this run
+## Live GPU converter tests after Tailscale recovery
 
-GET /v1/models with the supplied key returned HTTP 200. The AI Gateway returns analysis JSON; actual GLB generation belongs to the separate GPU converter at 100.90.116.106:5000. No public /v1 GLB generation endpoint was established by this test.
+The four original jobs finished without resubmission. An additional request used the iOS multipart format: one JPEG, 105 cm width, 83 cm height, 95 cm depth, ai_prepare=1, remove_bg=1, fit_dimensions=0, textured=1. All other jobs were textured=0.
 
-Ubuntu TCP 22 and 5000 timed out. Local Windows Tailscale is Running as a service but CLI reports NoState. Restart-Service failed due to insufficient service privileges. The fallback SSH proxy port 2222 also timed out; domain port 22 belongs to the VPS, not Ubuntu. No new GPU generation jobs were submitted, and no new GLB files were produced or validated in this run.
+| Case | Server state | GLB size | Actual GLB width × height × depth, cm | Viewer loaded |
+|---|---|---:|---|---|
+| chair | done | 3.61 MB | 116.0 × 85.0 × 113.4 | Yes |
+| sofa | done | 18.10 MB | 117.6 × 85.0 × 103.8 | Yes |
+| editor-armchair | done | 7.72 MB | 122.1 × 85.0 × 129.9 | Yes |
+| sofa-multiview | done | 20.06 MB | 114.2 × 85.0 × 109.1 | Yes |
+| ios-textured-flow | done | 2.82 MB | 115.1 × 83.0 × 94.4 | Yes |
 
-To finish: restore Tailscale, submit each original image set to /api/convert (multi-view roles front,right,back), monitor /api/jobs, download result GLB, and independently verify glTF header, scene extents, floor placement and viewer loading. Supply measured dimensions if physical size matters.
+Structural checks: HTTP 200 download, glTF magic, nonzero finite scene extents, Y floor placement, GLB extents matching server metadata within its 0.1 cm rounding precision. Sampled progress was monotonic; some polling was paused during the user-requested restart, so this is not a complete per-frame trace. Viewer tests use bundled model-viewer in Chromium, not an iPhone WKWebView build.
+
+### Quality findings
+
+File validity is not reconstruction accuracy. The wooden chair lost visible leg geometry; the editor screenshot also produced incomplete geometry. The sofa shapes were recognizable, but output dimensions differ from AI estimates. Uniform fitting matches only height and preserves generated aspect ratio; width/depth discrepancies are reported by the converter. These models are not validated for manufacturing measurements. All volumes here are outer bounding-box volumes, not material volumes.
+
+### iOS-format textured request
+
+Server state: done; stage: Tayyor.
+
+Result note: AI: kreslo
+
+### iOS button fix
+
+The scan screen now captures a camera image before adding the marker. Create 3D immediately submits that image and scan dimensions, opens the new job detail, and prevents duplicate taps. Progress polling stays active when the detail destination is open. Swift syntax passed parser checks; native Xcode/device build remains unverified. API contract testing does not establish that LiDAR measurements are accurate.
+
+Textured output verification: 2 embedded images, 2 textures, 1 material, baseColorTexture present. The rendered preview has visible texture artifacts on one armrest; file/viewer success is not production-quality acceptance.
+
+Automatic scan submission fix pushed as fcac684. No native iOS build was available in this Windows environment.

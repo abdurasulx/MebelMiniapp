@@ -63,3 +63,5 @@ Haqiqiy iPhone’da tekshirish:
 - Server restartidan keyin yo‘qolgan ishning noaniq holatda ko‘rinishi.
 
 Bundled viewer brauzer sinovi: test GLB blob muvaffaqiyatli ochildi, JavaScript xatosi yo‘q. Bu Chromium headless sinovi; iOS WKWebView qurilma sinovi hali kerak.
+
+Keyingi jonli tekshiruvda Tailscale tiklandi: to‘rtta GPU so‘rovi GLB bilan yakunlandi va viewer’da ochildi. Batafsil natija: ../../docs/testing/furniture-ai-2026-10-24.md. Bu iPhone LiDAR aniqligini yoki native Xcode build’ni tasdiqlamaydi.
