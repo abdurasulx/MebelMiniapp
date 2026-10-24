@@ -8,6 +8,11 @@ struct ContentView: View {
     @State private var measurement: FurnitureMeasurement?
     @State private var resetID = UUID()
     @State private var status = "Kamera ruxsatini tekshiryapmiz…"
+    @AppStorage("converterServer") private var server = "http://100.90.116.106:5000"
+    @State private var scanJPEG: Data?
+    @State private var submittingScan = false
+    @State private var submissionAttempted = false
+    @State private var submissionError: String?
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -16,6 +21,12 @@ struct ContentView: View {
             ConversionsView(store: conversions, measurement: measurement)
                 .tabItem { Label("3D so‘rovlar", systemImage: "cube") }.tag(1)
         }
+        .alert("So‘rov yuborish", isPresented: Binding(
+            get: { submissionError != nil },
+            set: { if !$0 { submissionError = nil } }
+        )) {
+            Button("Tushunarli", role: .cancel) { submissionError = nil }
+        } message: { Text(submissionError ?? "") }
     }
 
     private var cameraContent: some View {
@@ -41,6 +52,11 @@ struct ContentView: View {
             ARMeasurementView(
                 onMeasurement: { measurement = $0 },
                 onTrackingStatus: { status = $0 },
+                onSnapshot: {
+                    scanJPEG = $0
+                    measurement = nil
+                    submissionAttempted = false
+                },
                 resetID: resetID
             )
             .ignoresSafeArea()
@@ -53,12 +69,40 @@ struct ContentView: View {
                     Text(status).font(.subheadline).foregroundStyle(.secondary)
                     measurementGrid
                     HStack {
-                        Button("Qayta skan", systemImage: "arrow.counterclockwise") { measurement = nil; resetID = UUID() }
+                        Button("Qayta skan", systemImage: "arrow.counterclockwise") {
+                            measurement = nil
+                            scanJPEG = nil
+                            submissionAttempted = false
+                            resetID = UUID()
+                        }
                             .buttonStyle(.bordered)
+                            .disabled(submittingScan)
                         Spacer()
-                        Button("3D yaratish", systemImage: "cube") { selectedTab = 1 }
+                        Button(submittingScan ? "Yuborilmoqda…" : submissionAttempted ? "Tarixni tekshiring" : "3D yaratish", systemImage: "cube") {
+                            // Set the guard synchronously to prevent two rapid taps
+                            // creating duplicate GPU jobs before the Task starts.
+                            guard let measurement, let jpeg = scanJPEG,
+                                  !submittingScan, !submissionAttempted else { return }
+                            submittingScan = true
+                            submissionAttempted = true
+                            selectedTab = 1
+                            Task {
+                                defer { submittingScan = false }
+                                do {
+                                    try await conversions.submit(
+                                        jpeg: jpeg, server: server,
+                                        dimensions: ["width_cm": measurement.widthCentimeters,
+                                                     "height_cm": measurement.heightCentimeters,
+                                                     "depth_cm": measurement.depthCentimeters],
+                                        textured: true
+                                    )
+                                } catch {
+                                    submissionError = error.localizedDescription
+                                }
+                            }
+                        }
                             .buttonStyle(.borderedProminent)
-                            .disabled(measurement == nil)
+                            .disabled(measurement == nil || scanJPEG == nil || submittingScan || submissionAttempted)
                     }
                     Text("Skan o‘lchamlari taxminiy. Atrofdagi pol va devor natijaga ta’sir qilishi mumkin; ruletka bilan tekshiring.")
                         .font(.caption).foregroundStyle(.secondary)

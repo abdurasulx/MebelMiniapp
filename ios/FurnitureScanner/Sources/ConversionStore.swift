@@ -53,6 +53,7 @@ private struct RemoteJob: Decodable {
     @Published private(set) var jobs: [ConversionJob] = []
     @Published var connectionError: String?
     @Published var storageError: String?
+    @Published var presentedJobID: UUID?
     private let history: URL
     private var refreshing = false
 
@@ -93,6 +94,7 @@ private struct RemoteJob: Decodable {
         let job = ConversionJob(server: base.absoluteString, client: client, inputDimensions: dimensions)
         jobs.insert(job, at: 0)
         save()
+        presentedJobID = job.id
         let boundary = UUID().uuidString
         var body = Data()
         func field(_ key: String, _ value: String) {

@@ -2,6 +2,10 @@
 
 Xcode’da FurnitureScanner.xcodeproj’ni oching. project.yml orqali xcodegen generate bilan qayta yaratish ham mumkin. iOS 17+, haqiqiy iPhone/iPad kerak.
 
+## Skan ekranidan avtomatik yuborish
+
+Mebel tanlanganda kamera rasmi interfeys va sariq marker qo‘shilmasdan olinadi. Skan tugagach **3D yaratish** tugmasi shu rasm va o‘lchamlarni darhol konvertorga yuboradi; qaytadan galereyadan rasm tanlash talab qilinmaydi. So‘rovning progress oynasi avtomatik ochiladi. Ketma-ket ikki bosishdan himoya bor. Javob uzilsa xuddi shu skan avtomatik qayta yuborilmaydi; tarixdan tekshiriladi. Yangi skan uchun **Qayta skan** ishlatiladi.
+
 ## 3D so‘rovlar
 
 1. Telefonda ruxsat berilgan Tailscale hisobiga kiring va tarmoqni yoqing.

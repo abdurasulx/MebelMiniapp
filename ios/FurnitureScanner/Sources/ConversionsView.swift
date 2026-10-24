@@ -85,14 +85,15 @@ struct ConversionsView: View {
                 }
             }
             .navigationTitle("3D so‘rovlar")
-            .refreshable { await store.refresh() }
-            .task(id: scenePhase) {
-                guard scenePhase == .active else { return }
-                while !Task.isCancelled {
-                    await store.refresh()
-                    do { try await Task.sleep(for: .seconds(4)) } catch { return }
+            .navigationDestination(isPresented: Binding(
+                get: { store.presentedJobID != nil },
+                set: { if !$0 { store.presentedJobID = nil } }
+            )) {
+                if let id = store.presentedJobID {
+                    ConversionDetailView(store: store, id: id)
                 }
             }
+            .refreshable { await store.refresh() }
             .onChange(of: photo) { _, item in
                 jpeg = nil; loadingPhoto = true
                 Task {
@@ -114,6 +115,14 @@ struct ConversionsView: View {
                         jpeg = output; error = nil
                     } catch { self.error = error.localizedDescription }
                 }
+            }
+        }
+        .task(id: scenePhase) {
+            // Keep polling while the detail destination is visible as well.
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                await store.refresh()
+                do { try await Task.sleep(for: .seconds(4)) } catch { return }
             }
         }
     }
