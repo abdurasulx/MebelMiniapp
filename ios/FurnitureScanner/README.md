@@ -1,17 +1,61 @@
-# Mebel Scanner
+# FurnitureScanner — o‘lchash va rasm → GLB
 
-Mustaqil iOS AR o‘lchash ilovasi. Kamera oynasida mebelning eni, bo‘yi va chuqurligi uchun ikki nuqta belgilanadi; masofa santimetrda hisoblanadi.
+Xcode’da FurnitureScanner.xcodeproj’ni oching. project.yml orqali xcodegen generate bilan qayta yaratish ham mumkin. iOS 17+, haqiqiy iPhone/iPad kerak.
 
-## Ishga tushirish
+## 3D so‘rovlar
 
-```sh
-cd ios/FurnitureScanner
-xcodegen generate
-open FurnitureScanner.xcodeproj
-```
+1. Telefonda ruxsat berilgan Tailscale hisobiga kiring va tarmoqni yoqing.
+2. **3D so‘rovlar** bo‘limida serverni tekshiring: http://100.90.116.106:5000.
+3. Mebel rasmini tanlang. O‘lchamlarni sm’da kiriting yoki skandan olib tekshiring. Bo‘sh maydonlarni AI taxmin qiladi.
+4. **3D yaratish** orqali yuboring. Tarixda sana, holat, navbat o‘rni, bosqich va progress ko‘rinadi. Bo‘lim faol bo‘lsa har 4 soniyada yangilanadi; pastga tortib qo‘lda yangilash ham bor.
+5. So‘rov tafsilotida natija o‘lchamlari, ogohlantirish va xatolarni ko‘ring. **GLB modelni ochish** orqali modelni yuklash, aylantirish, yaqinlashtirish va faylni ulashish mumkin.
 
-ARKit haqiqiy qurilmada sinalishi kerak. LiDAR’li iPhone/iPad Pro qurilmalarida sirt chuqurligi aniqroq aniqlanadi.
+Tarix Application Support/Conversions/history.json’da atomik saqlanadi, ilova qayta ochilganda tiklanadi. GLB fayllari Caches’da; iOS ularni tozalasa serverdan qayta yuklanadi. Ilova o‘chirilsa tarix ham o‘chadi. Hisoblararo/qurilmalararo sinxronlash yo‘q.
 
-## Keyingi qadam
+Har yuborishga alohida client UUID beriladi. Yuklash javobi uzilsa avtomatik qayta POST qilinmaydi: noaniq holat saqlanib, GET orqali qabul qilingan ish qidiriladi. Konvertorda idempotency yo‘q; foydalanuvchi yana **3D yaratish** bossa yangi ish yaratiladi. Server va client har yozuvda saqlanadi; server sozlamasi almashtirilsa eski ishlar o‘z serveridan yangilanadi.
 
-API berilgach, `FurnitureMeasurement` obyektini `POST` orqali yuborish, skan fotosi va mebel identifikatorini biriktirish qo‘shiladi.
+Fon rejimida doimiy polling yo‘q. Server ishni davom ettiradi, ilova ochilganda holat qayta olinadi.
+
+## Integratsiya
+
+Mavjud Flask API: POST /api/convert, GET /api/jobs?client=…, GET /files/…. Yuklash multipart: image, roles, collection, client, height_cm/width_cm/depth_cm, ai_prepare, remove_bg, textured, fit_dimensions.
+
+Mobil ilovada AI kaliti yo‘q; u Ubuntu’da saqlanadi. Konvertor Tailscale egasini tekshiradi. Bu public internet uchun foydalanuvchi autentifikatsiyasi emas. Kelajakdagi VIDA JWT arxitekturasi ../../img3dconverter.md’da.
+
+Skan o‘lchamlari taxminiy bo‘lgani uchun fit_dimensions=0: balandlik bo‘yicha proporsional masshtablash, en/chuqurlik farq qilishi mumkin. Yakuniy GLB o‘lchamlari tafsilotda ko‘rsatiladi. USDZ talab qilinmaydi; native AR viewer qo‘shilmagan.
+
+model-viewer 4.1.0 skripti ilovaga biriktirilgan, viewer skriptini yuklash uchun CDN kerak emas. Ayrim siqilgan GLB’lar qo‘shimcha decoder talab qilishi mumkin. Litsenziya: Resources/model-viewer.LICENSE. Rasm tanlash PhotosPicker orqali, skan o‘lchamlarini alohida tugma bilan olish mumkin.
+
+## LiDAR hujjati bilan solishtirish — 2026-10-24
+
+| Talab | Hozirgi holat |
+|---|---|
+| AR kamera, raycast, mesh | Kod bor; qurilmada tekshirish kerak |
+| Mebelni fondan ajratish | Yo‘q; bosilgan nuqtadan 0.95 m radiusdagi mesh olinadi |
+| Haqiqiy qirra/tekisliklarni aniqlash | Yo‘q |
+| Burilgan mebelning mahalliy koordinatalari | Yo‘q; global X/Y/Z min/max |
+| Shovqinni filtrlash, nuqtalarni deduplikatsiya qilish | Yo‘q |
+| Qamrov/noaniqlik/takroriy o‘lchovlar bo‘yicha sifat | Yo‘q; nuqtalar soni va minimal o‘lcham tekshiruvi bor |
+| Qirralarni qo‘lda tuzatish | Yo‘q |
+| 20–30 mebelda nazorat o‘lchovi | Dalil yo‘q |
+| Flutter native channel | Yo‘q; mustaqil iOS ilova |
+| Rasm → GLB, lokal tarix, progress, viewer | Ushbu o‘zgarishda qo‘shildi; iPhone sinovi kerak |
+
+Hozirgi o‘lchov pol/devorni qo‘shib olishi, burilganda kattalashishi, katta mebelni to‘liq qamramasligi mumkin. Ishlab chiqarish aniqligidagi o‘lchov hali emas.
+
+Konvertor navbati RAM’da. Server restartida tugallanmagan ishlar yo‘qolishi mumkin; ilova bunday ishni tayyor deb ko‘rsatmaydi, noaniq holatni bildiradi. Lokal tarix serverning doimiy navbati o‘rnini bosmaydi.
+
+## Tekshirish
+
+Windows’da Swift sintaksisi parser orqali, plist/YAML transport sozlamalari va Xcode source/resource bog‘lanishlari tekshirildi. Bu Xcode build o‘rnini bosmaydi. Ubuntu SSH ulanishi timeout berdi; ushbu o‘zgarishning jonli server/iPhone sinovi bajarilmadi.
+
+Haqiqiy iPhone’da tekshirish:
+
+- Rasm yuborish → navbat → progress → GLB; teksturali va teksturasiz.
+- Ilovani yopib ochib faol so‘rovni qayta topish.
+- Tailscale uzilganda saqlangan holat va aloqa xatosi ko‘rinishi.
+- Yuklash javobi uzilganda yangi POSTsiz mavjud ishni topish.
+- GLB aylantirish, zoom, ulashish va keshdan ochish.
+- Server restartidan keyin yo‘qolgan ishning noaniq holatda ko‘rinishi.
+
+Bundled viewer brauzer sinovi: test GLB blob muvaffaqiyatli ochildi, JavaScript xatosi yo‘q. Bu Chromium headless sinovi; iOS WKWebView qurilma sinovi hali kerak.

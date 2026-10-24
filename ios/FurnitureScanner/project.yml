@@ -12,12 +12,23 @@ targets:
     platform: iOS
     sources:
       - path: Sources
+      - path: Resources/model-viewer.min.js
+        buildPhase: resources
+      - path: Resources/model-viewer.LICENSE
+        buildPhase: resources
     info:
       path: Resources/Info.plist
       properties:
         CFBundleDisplayName: "Mebel Scanner"
         NSCameraUsageDescription: "Mebel o‘lchamlarini AR orqali aniqlash uchun kamera kerak."
         NSPhotoLibraryAddUsageDescription: "Skan natijasini saqlash uchun rasmlar kutubxonasiga ruxsat kerak."
+        NSLocalNetworkUsageDescription: "Tailscale orqali 3D konvertorga ulanish uchun tarmoq kerak."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSExceptionDomains:
+            "100.90.116.106":
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: false
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
