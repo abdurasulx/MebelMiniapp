@@ -1,0 +1,12 @@
+{
+  "profile": "product",
+  "seed": 1234,
+  "shape_steps": 50,
+  "shape_guidance": 5.0,
+  "shape_resolution": 512,
+  "shape_chunks": 8000,
+  "texture_views": 6,
+  "texture_resolution": 512,
+  "texture_size": 4096,
+  "texture_face_limit": 200000
+}
