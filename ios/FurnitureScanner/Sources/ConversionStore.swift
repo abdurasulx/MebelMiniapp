@@ -16,13 +16,14 @@ struct ConversionJob: Codable, Identifiable {
     var resultURL: URL?
     var inputDimensions: [String: Double] = [:]
     var resultDimensions: [String: Double]?
+    var reconstructionScope: String?
     var isActive: Bool { ["uploading", "queued", "running"].contains(status) }
     var title: String {
         switch status {
         case "uploading": "Yuborilmoqda"
         case "queued": "Navbatda"
         case "running": "Tayyorlanmoqda"
-        case "done": "Tayyor"
+        case "done": "Yaratildi"
         case "uncertain": "Qabul qilinganini tekshiring"
         default: "Xatolik"
         }
@@ -78,7 +79,10 @@ private struct RemoteJob: Decodable {
         catch { storageError = "Tarixni saqlab bo‘lmadi: \(error.localizedDescription)" }
     }
 
-    func submit(jpeg: Data, server: String, dimensions: [String: Double], textured: Bool) async throws {
+    func submit(jpeg: Data, server: String, dimensions: [String: Double], textured: Bool, reconstructionScope: String = "single") async throws {
+        guard ["single", "set"].contains(reconstructionScope) else {
+            throw ConversionError.message("Mebel yoki komplekt turini tanlang.")
+        }
         guard let base = URL(string: server.trimmingCharacters(in: .whitespacesAndNewlines)),
               (base.scheme == "http" || base.scheme == "https"), base.host != nil,
               base.user == nil, base.password == nil, base.query == nil, base.fragment == nil,
@@ -91,7 +95,8 @@ private struct RemoteJob: Decodable {
         }
         // A distinct client per submission permits recovery after an ambiguous upload failure.
         let client = UUID().uuidString
-        let job = ConversionJob(server: base.absoluteString, client: client, inputDimensions: dimensions)
+        let job = ConversionJob(server: base.absoluteString, client: client, inputDimensions: dimensions,
+                                reconstructionScope: reconstructionScope)
         jobs.insert(job, at: 0)
         save()
         presentedJobID = job.id
@@ -102,6 +107,7 @@ private struct RemoteJob: Decodable {
         }
         field("client", client); field("collection", "FurnitureScanner")
         field("roles", "front"); field("remove_bg", "1"); field("ai_prepare", "1")
+        field("reconstruction_scope", reconstructionScope)
         field("textured", textured ? "1" : "0")
         // Mesh estimates must not force an anisotropic deformation of the model.
         field("fit_dimensions", "0")

@@ -8,5 +8,6 @@
   "texture_views": 6,
   "texture_resolution": 512,
   "texture_size": 4096,
-  "texture_face_limit": 200000
+  "texture_face_limit": 200000,
+  "background_model": "birefnet-general-lite"
 }

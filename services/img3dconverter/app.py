@@ -44,7 +44,7 @@ except Exception as e:
     print("torchvision fix qo'llanmadi:", e)
 
 from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
-from hy3dshape.rembg import BackgroundRemover
+from foreground import ForegroundExtractor
 from estimate_height import estimate as estimate_height
 from scale_model import scale_glb
 from hy3dpaint.convert_utils import create_glb_with_pbr_materials
@@ -55,7 +55,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 print("Shape modeli yuklanmoqda...", flush=True)
 shape_pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained("tencent/Hunyuan3D-2.1")
-rembg = BackgroundRemover()
+rembg = ForegroundExtractor()
 mv_pipe = None  # ko'p rasmli model: birinchi ishlatilganda yuklanadi, bo'sh turganda CPU da
 ROLES = ["front", "back", "left", "right"]
 paint_pipe = None  # 12 GB VRAM ga sig'ishi uchun kerak bo'lganda yuklanadi
@@ -207,6 +207,7 @@ def public(job):
         error=job["error"],
         result=job["result"],
         ai_analysis=job.get("ai_analysis"),
+        reconstruction_scope=job.get("reconstruction_scope", "single"),
     )
 
 
@@ -249,7 +250,8 @@ def process(job):
             if job.get("ai_prepare"):
                 set_stage(job, "AI mebelni aniqlamoqda va o‘lchamlarni tavsiya qilmoqda", 0, 3, expected=30)
                 loaded, analysis = furniture_ai.analyze_and_prepare(loaded, {
-                    "height": job.get("height_cm"), "width": job.get("width_cm"), "depth": job.get("depth_cm")})
+                    "height": job.get("height_cm"), "width": job.get("width_cm"), "depth": job.get("depth_cm")},
+                    reconstruction_scope=job.get("reconstruction_scope", "single"))
                 job["ai_analysis"] = analysis
                 for axis in ("height", "width", "depth"):
                     if not job.get(axis + "_cm"):
@@ -265,10 +267,14 @@ def process(job):
                     note += "; " + "; ".join(analysis["warnings"])
             if job["remove_bg"]:
                 set_stage(job, "Orqa fon olib tashlanmoqda", 0, lo_shape - (4 if multi else 0), expected=8 * len(job["images"]))
-            for role, im in loaded:
-                has_alpha = im.getchannel("A").getextrema()[0] < 255
-                imgs[role] = rembg(im.convert("RGB")) if job["remove_bg"] and not has_alpha else im
-                imgs[role].save(workspace / (role + "-mask.png"))
+            try:
+                for role, im in loaded:
+                    has_alpha = im.getchannel("A").getextrema()[0] < 255
+                    imgs[role] = rembg(im, model=cfg.get("background_model", "u2net")) if job["remove_bg"] and not has_alpha else im
+                    imgs[role].save(workspace / (role + "-mask.png"))
+            finally:
+                # Foreground ONNX arenas must not compete with the paint model.
+                rembg.release()
             img = imgs["front"]
             img_path = os.path.join(tmp, "input.png")
             img.save(img_path)
@@ -442,6 +448,9 @@ def convert():
         if request.form.get(axis + "_cm", "").strip() and value is None:
             return jsonify(error="O‘lchamlar 0 dan katta, 5000 sm dan oshmagan son bo‘lishi kerak"), 400
     ai_prepare = request.form.get("ai_prepare", "1" if furniture_ai.enabled() else "0") == "1"
+    reconstruction_scope = request.form.get("reconstruction_scope", "single")
+    if reconstruction_scope not in ("single", "set"):
+        return jsonify(error="Rekonstruksiya turi single yoki set bo‘lishi kerak"), 400
     if ai_prepare and not furniture_ai.enabled():
         return jsonify(error="AI tahlili serverda sozlanmagan"), 503
     images = []
@@ -467,6 +476,7 @@ def convert():
         id=job_id,
         input_dir=str(workspace),
         ai_prepare=ai_prepare,
+        reconstruction_scope=reconstruction_scope,
         ai_analysis=None,
         fit_dimensions=request.form.get("fit_dimensions", "1") == "1" and all(dimensions.values()),
         name=safe(os.path.splitext(front_name or "")[0]) or "model",
@@ -539,6 +549,8 @@ model-viewer{width:100%;height:360px;border-radius:8px;background:var(--bg)}
   <input id="file" type="file" accept="image/*" multiple hidden>
   <label for="col">Kolleksiya</label>
   <select id="col"></select>
+  <label for="scope">Nimani yaratish kerak?</label>
+  <select id="scope"><option value="single">Bitta mebel</option><option value="set">Butun mebel komplekti — bitta GLB</option></select>
   <input id="newcol" type="text" placeholder="Yangi kolleksiya nomi" style="display:none;margin-top:8px">
   <div class="row"><label style="margin:0">Haqiqiy o'lcham, sm (bo'sh qoldirsangiz, avtomatik taxmin qilinadi):</label>
     <input id="hh" type="number" min="1" placeholder="Bo'yi" style="width:90px"> <input id="hw" type="number" min="1" placeholder="Eni" style="width:90px"> <input id="hd" type="number" min="1" placeholder="Chuqurligi" style="width:100px"></div>
@@ -608,7 +620,7 @@ $('go').onclick=async()=>{
     const fd=new FormData();
     files.forEach(f=>fd.append('image',f));
     fd.append('roles',files.length>1?roles.join(','):'front');
-    fd.append('client',CID);fd.append('collection',col);fd.append('ai_prepare',$('ai').checked?'1':'0');fd.append('fit_dimensions',$('fit').checked?'1':'0');fd.append('height_cm',$('hh').value);fd.append('width_cm',$('hw').value);fd.append('depth_cm',$('hd').value);fd.append('textured',$('tx').checked?'1':'0');fd.append('remove_bg',$('rb').checked?'1':'0');
+    fd.append('client',CID);fd.append('collection',col);fd.append('reconstruction_scope',$('scope').value);fd.append('ai_prepare',$('ai').checked?'1':'0');fd.append('fit_dimensions',$('fit').checked?'1':'0');fd.append('height_cm',$('hh').value);fd.append('width_cm',$('hw').value);fd.append('depth_cm',$('hd').value);fd.append('textured',$('tx').checked?'1':'0');fd.append('remove_bg',$('rb').checked?'1':'0');
     const r=await fetch('/api/convert',{method:'POST',body:fd});
     const j=await r.json();
     if(!r.ok)throw new Error(j.error||'Xatolik');

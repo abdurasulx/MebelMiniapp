@@ -18,6 +18,8 @@ def settings():
         value = cfg.get(key)
         if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
             raise ValueError("Invalid product setting: " + key)
+    if cfg.get("background_model", "u2net") not in ("u2net", "birefnet-general-lite"):
+        raise ValueError("Invalid foreground model")
     if not 1 <= cfg["shape_guidance"] <= 10:
         raise ValueError("Invalid shape guidance")
     return cfg

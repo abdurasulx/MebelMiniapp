@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var resetID = UUID()
     @State private var status = "Kamera ruxsatini tekshiryapmiz…"
     @AppStorage("converterServer") private var server = "http://100.90.116.106:5000"
+    @AppStorage("reconstructionScope") private var reconstructionScope = "single"
     @State private var scanJPEG: Data?
     @State private var submittingScan = false
     @State private var submissionAttempted = false
@@ -67,6 +68,12 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Mebelning o‘ziga bir marta bosing").font(.headline)
                     Text(status).font(.subheadline).foregroundStyle(.secondary)
+                    Picker("Nimani yaratish kerak?", selection: $reconstructionScope) {
+                        Text("Bitta mebel").tag("single")
+                        Text("Butun komplekt").tag("set")
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(submittingScan)
                     measurementGrid
                     HStack {
                         Button("Qayta skan", systemImage: "arrow.counterclockwise") {
@@ -94,7 +101,8 @@ struct ContentView: View {
                                         dimensions: ["width_cm": measurement.widthCentimeters,
                                                      "height_cm": measurement.heightCentimeters,
                                                      "depth_cm": measurement.depthCentimeters],
-                                        textured: true
+                                        textured: true,
+                                        reconstructionScope: reconstructionScope
                                     )
                                 } catch {
                                     submissionError = error.localizedDescription

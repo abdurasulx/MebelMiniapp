@@ -6,6 +6,7 @@ struct ConversionsView: View {
     @ObservedObject var store: ConversionStore
     var measurement: FurnitureMeasurement?
     @AppStorage("converterServer") private var server = "http://100.90.116.106:5000"
+    @AppStorage("reconstructionScope") private var reconstructionScope = "single"
     @State private var photo: PhotosPickerItem?
     @State private var jpeg: Data?
     @State private var width = ""
@@ -21,6 +22,10 @@ struct ConversionsView: View {
         NavigationStack {
             List {
                 Section("Yangi 3D model") {
+                    Picker("Maqsad", selection: $reconstructionScope) {
+                        Text("Bitta mebel").tag("single")
+                        Text("Butun komplekt — bitta GLB").tag("set")
+                    }.disabled(submitting)
                     TextField("Konvertor serveri", text: $server)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .keyboardType(.URL).disabled(submitting)
@@ -148,7 +153,8 @@ struct ConversionsView: View {
                     dimensions[key] = number
                 }
             }
-            try await store.submit(jpeg: jpeg, server: server, dimensions: dimensions, textured: textured)
+            try await store.submit(jpeg: jpeg, server: server, dimensions: dimensions, textured: textured,
+                                   reconstructionScope: reconstructionScope)
         } catch { self.error = error.localizedDescription }
     }
 }
@@ -166,6 +172,9 @@ private struct ConversionDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(job.title).font(.title2.bold())
                     Text(job.created.formatted())
+                    if let scope = job.reconstructionScope {
+                        Text(scope == "set" ? "Butun mebel komplekti" : "Bitta mebel").font(.callout)
+                    }
                     Text(job.stage)
                     ProgressView(value: job.percent, total: 100)
                     Text("\(Int(job.percent))% — bosqich progressi taxminiy bo‘lishi mumkin.").font(.caption)

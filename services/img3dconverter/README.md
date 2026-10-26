@@ -86,7 +86,7 @@ cd /home/banda/Desktop/imageto3d
   test_scale_model.py test_furniture_ai.py test_product_quality.py
 ```
 
-35 tests passed on the actual Ubuntu environment. Live comparisons use the same
+44 tests passed on the actual Ubuntu environment. Live comparisons use the same
 raw office-chair mesh before/after cleanup, so the support-loss finding is not
 based on two unrelated random generations. See the audit report in
 `../../docs/testing/hunyuan-product-quality-2026-10-24.md` for live results.
@@ -99,3 +99,23 @@ and `3dfiles/` results. The service starts with:
 ```sh
 /home/banda/miniconda3/envs/hunyuan/bin/python -u app.py >> app.log 2>&1
 ```
+
+## Showroom/set update — 2026-10-26
+
+`POST /api/convert` now accepts `reconstruction_scope=single|set` (default single).
+The web and iOS source provide that explicit selection. Set mode requests all
+matching furniture pieces and preserves the complete frame before foreground
+extraction. It is not a guarantee of a faithful multi-object reconstruction.
+
+`hunyuan_product.json` selects `background_model=birefnet-general-lite`. The
+214 MB ONNX model is downloaded by rembg on first use, so prewarm it before a
+first production request. It runs on CPU and its session is released before
+shape/paint. It fixed the tested headboard loss, but can retain plants/decor.
+
+The private AI settings may specify `set_model` separately from `model`; this
+installation uses sable-3.7 for sets. Both secrets and this private file remain
+outside Git. Native `box_2d` coordinates are explicitly YXYX / 0–1000; legacy
+normalized XYXY `bbox` is still supported. Unlabelled or conflicting coordinate
+formats are rejected. See
+`../../docs/testing/showroom-furniture-sets-2026-10-26.md` for six GLB tests and
+remaining fidelity failures. New tests here were untextured geometry tests.

@@ -111,3 +111,80 @@ def test_rejects_two_conflicting_complete_gateway_objects():
     second = dict(first, object_type="table")
     with pytest.raises(AnalysisError, match="JSON"):
         parse_analysis(json.dumps(first) + json.dumps(second), ["front"])
+
+
+def test_native_grounding_coordinates_have_explicit_order_and_units():
+    from furniture_ai import parse_analysis
+    result = {"is_furniture": True, "views": [
+        {"role": "front", "box_2d": [210, 90, 680, 880], "confidence": .9}]}
+    parsed = parse_analysis(json.dumps(result), ["front"])
+    assert parsed["views"][0]["bbox"] == [.09, .21, .88, .68]
+
+
+@pytest.mark.parametrize("box", [[-1, 0, 800, 900], [0, 0, 1001, 1000],
+                                 [False, 0, 800, 900], [800, 0, 200, 900]])
+def test_rejects_invalid_native_grounding(box):
+    from furniture_ai import AnalysisError, parse_analysis
+    result = {"is_furniture": True, "views": [{"role": "front", "box_2d": box}]}
+    with pytest.raises(AnalysisError, match="box_2d"):
+        parse_analysis(json.dumps(result), ["front"])
+
+
+def test_does_not_guess_units_of_unlabelled_box():
+    from furniture_ai import AnalysisError, parse_analysis
+    result = {"is_furniture": True, "views": [{"role": "front", "bbox": [210, 90, 680, 880]}]}
+    with pytest.raises(AnalysisError):
+        parse_analysis(json.dumps(result), ["front"])
+
+
+def test_rejects_conflicting_coordinate_fields():
+    from furniture_ai import AnalysisError, parse_analysis
+    result = {"is_furniture": True, "views": [{"role": "front",
+              "box_2d": [210, 90, 680, 880], "bbox": [.1, .1, .9, .9]}]}
+    with pytest.raises(AnalysisError, match="zid"):
+        parse_analysis(json.dumps(result), ["front"])
+
+
+def test_set_scope_reaches_provider_and_does_not_clip_outer_set_pieces(monkeypatch):
+    from PIL import Image
+    import furniture_ai
+    monkeypatch.setattr(furniture_ai, "settings", lambda: {
+        "enabled": True, "api_key": "test-only", "model": "test-model", "set_model": "set-test-model",
+        "base_url": "https://invalid.example/v1", "timeout": 10})
+    captured = {}
+    class Reply:
+        status_code = 200
+        def json(self):
+            content = {"is_furniture": True, "reconstruction_ready": True,
+                       "views": [{"role": "front", "box_2d": [300, 300, 700, 700], "confidence": .9}]}
+            return {"choices": [{"message": {"content": json.dumps(content)}}]}
+    def post(*args, **kwargs):
+        captured.update(kwargs["json"])
+        return Reply()
+    monkeypatch.setattr(furniture_ai.requests, "post", post)
+    images, analysis = furniture_ai.analyze_and_prepare(
+        [("front", Image.new("RGB", (400, 300)))], reconstruction_scope="set")
+    task = json.loads(captured["messages"][1]["content"][0]["text"])
+    assert task["reconstruction_scope"] == "set"
+    assert captured["model"] == "set-test-model"
+    assert images[0][1].size == (400, 300)
+    assert analysis["views"][0]["crop_policy"] == "preserve_complete_set"
+
+
+def test_foreground_preserves_multiple_pieces_and_removes_alpha_noise(monkeypatch):
+    from PIL import Image
+    import foreground
+    calls = []
+    monkeypatch.setattr(foreground, "new_session", lambda name, **kwargs: calls.append((name, kwargs)) or object())
+    image = Image.new("RGBA", (8, 8), (255, 255, 255, 0))
+    image.putpixel((1, 1), (50, 50, 50, 255))
+    image.putpixel((6, 6), (50, 50, 50, 255))
+    image.putpixel((0, 0), (255, 255, 255, 2))
+    monkeypatch.setattr(foreground, "remove", lambda *a, **kw: image.copy())
+    extractor = foreground.ForegroundExtractor()
+    result = extractor(image)
+    assert calls[0][1]["providers"] == ["CPUExecutionProvider"]
+    assert result.getchannel("A").getbbox() == (1, 1, 7, 7)
+    assert result.getpixel((6, 6))[3] == 255
+    extractor.release()
+    assert extractor.session is None

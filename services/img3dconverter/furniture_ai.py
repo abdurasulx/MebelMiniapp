@@ -29,6 +29,7 @@ def settings():
         "base_url": data.get("base_url", "https://api.burchaksoft.uz/v1").rstrip("/"),
         "api_key": os.environ.get("FURNITURE_AI_API_KEY") or data.get("api_key", ""),
         "model": data.get("model", "sable-3.5"),
+        "set_model": data.get("set_model", data.get("model", "sable-3.5")),
         "timeout": min(180, max(10, int(data.get("timeout", 150)))),
     }
 
@@ -84,7 +85,7 @@ def parse_analysis(content, roles):
     if isinstance(result, dict) and recovered:
         result["response_format_recovered"] = True
     if not isinstance(result, dict) or result.get("is_furniture") is not True:
-        raise AnalysisError("AI bitta aniq mebelni ajrata olmadi; yaqinroq rasm yuboring")
+        raise AnalysisError("AI kerakli mebelni aniq ajrata olmadi; yaqinroq rasm yuboring")
     if result.get("reconstruction_ready") is False:
         raise AnalysisError("Mebelning to‘liq tuzilishi ko‘rinmayapti. Mebelni oyoqlari va suyanchig‘i bilan to‘liq, old yoki yon tomondan qayta suratga oling")
     if "reconstruction_ready" in result and not isinstance(result["reconstruction_ready"], bool):
@@ -97,6 +98,20 @@ def parse_analysis(content, roles):
         if not isinstance(view, dict) or view.get("role") not in roles or view["role"] in seen:
             raise AnalysisError("AI rasm rollarini noto'g'ri qaytardi")
         seen.add(view["role"])
+        # Gemini's documented grounding format is YXYX / 0..1000. Accept
+        # that explicit field, never guess units/order from an unlabeled bbox.
+        native = view.get("box_2d")
+        if native is not None:
+            if (not isinstance(native, list) or len(native) != 4
+                    or any(isinstance(v, bool) or not isinstance(v, (int, float))
+                           or not math.isfinite(v) or not 0 <= v <= 1000 for v in native)
+                    or not native[0] < native[2] or not native[1] < native[3]):
+                raise AnalysisError("AI box_2d chegaralari noto'g'ri")
+            canonical = [native[1] / 1000, native[0] / 1000,
+                         native[3] / 1000, native[2] / 1000]
+            if view.get("bbox") is not None and view["bbox"] != canonical:
+                raise AnalysisError("AI kesish koordinatalari bir-biriga zid")
+            view["bbox"] = canonical
         box = view.get("bbox")
         if box is not None:
             if (not isinstance(box, list) or len(box) != 4
@@ -138,14 +153,19 @@ def crop_view(image, view):
     return image.crop(pixels), True
 
 
-def analyze_and_prepare(images, user_dimensions=None):
+def analyze_and_prepare(images, user_dimensions=None, reconstruction_scope="single"):
+    if reconstruction_scope not in ("single", "set"):
+        raise AnalysisError("Rekonstruksiya turi noto'g'ri")
     cfg = settings()
     if not cfg["enabled"] or not cfg["api_key"]:
         raise AnalysisError("AI tahlili serverda sozlanmagan")
+    if reconstruction_scope == "set":
+        cfg = dict(cfg, model=cfg.get("set_model", cfg["model"]))
     user_dimensions = user_dimensions or {}
     roles = [role for role, _ in images]
     content = [{"type": "text", "text": json.dumps({
-        "task": "Locate the primary furniture, suggest dimensions and prepare crop coordinates.",
+        "task": "Locate the requested furniture, suggest dimensions and prepare crop coordinates.",
+        "reconstruction_scope": reconstruction_scope,
         "view_roles": roles, "user_target_dimensions_cm": user_dimensions,
     })}]
     originals = []
@@ -177,13 +197,20 @@ def analyze_and_prepare(images, user_dimensions=None):
     except (ValueError, KeyError, IndexError, TypeError):
         raise AnalysisError("AI javobida tahlil natijasi yo'q") from None
     analysis = parse_analysis(raw, roles)
+    analysis["reconstruction_scope"] = reconstruction_scope
     views = {v["role"]: v for v in analysis["views"]}
     prepared = []
     for role, image in originals:
-        cropped, applied = crop_view(image, views[role])
+        if reconstruction_scope == "set":
+            # A group box can omit a foreground bench/stool. Preserve the
+            # whole frame until foreground extraction; never clip set pieces.
+            cropped, applied = image.copy(), False
+            views[role]["crop_policy"] = "preserve_complete_set"
+        else:
+            cropped, applied = crop_view(image, views[role])
         views[role]["crop_applied"] = applied
         prepared.append((role, cropped))
-        if not applied:
+        if not applied and reconstruction_scope == "single":
             analysis["warnings"].append(role + ": ishonchli kesish aniqlanmadi, asl rasm saqlandi")
     analysis["effective_dimensions_cm"], analysis["dimension_sources"] = effective_dimensions(
         user_dimensions, analysis["estimated_dimensions_cm"])

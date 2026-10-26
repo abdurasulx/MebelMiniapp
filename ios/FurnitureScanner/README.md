@@ -65,3 +65,9 @@ Haqiqiy iPhone’da tekshirish:
 Bundled viewer brauzer sinovi: test GLB blob muvaffaqiyatli ochildi, JavaScript xatosi yo‘q. Bu Chromium headless sinovi; iOS WKWebView qurilma sinovi hali kerak.
 
 Keyingi jonli tekshiruvda Tailscale tiklandi: to‘rtta GPU so‘rovi GLB bilan yakunlandi va viewer’da ochildi. Batafsil natija: ../../docs/testing/furniture-ai-2026-10-24.md. Bu iPhone LiDAR aniqligini yoki native Xcode build’ni tasdiqlamaydi.
+
+2026-10-26: O‘lchash va 3D so‘rovlar ekranlarida “Bitta mebel / Butun komplekt”
+tanlovi qo‘shildi. Qiymat reconstruction_scope bilan yuboriladi. Komplekt
+rejimida barcha mos mebel qismlari bitta GLB uchun tahlil qilinadi, ammo bir
+rasmdan tuzilishning aniq tiklanishi kafolatlanmaydi. Bu yangi iOS build talab
+qiladi; ushbu Windows muhitida native build tekshirilmagan.
