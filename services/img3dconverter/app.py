@@ -53,8 +53,7 @@ from textureGenPipeline import Hunyuan3DPaintConfig, Hunyuan3DPaintPipeline
 OUT_DIR = os.path.join(BASE, "3dfiles")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-print("Shape modeli yuklanmoqda...", flush=True)
-shape_pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained("tencent/Hunyuan3D-2.1")
+shape_pipe = None  # Load only the model required by this job.
 rembg = ForegroundExtractor()
 mv_pipe = None  # ko'p rasmli model: birinchi ishlatilganda yuklanadi, bo'sh turganda CPU da
 ROLES = ["front", "back", "left", "right"]
@@ -212,6 +211,7 @@ def public(job):
 
 
 def process(job):
+    global shape_pipe, mv_pipe
     collection, name = job["collection"], job["name"]
     textured = job["textured"]
     folder = os.path.join(OUT_DIR, collection)
@@ -288,12 +288,16 @@ def process(job):
 
             if multi:
                 set_stage(job, "Ko'p rasmli model yuklanmoqda", lo_shape - 4, lo_shape, expected=45)
-                shape_pipe.to("cpu")
+                shape_pipe = None
                 free_gpu()
                 pipe = get_mv_pipe()
                 pipe.to("cuda")
                 shape_input = imgs
             else:
+                mv_pipe = None
+                free_gpu()
+                if shape_pipe is None:
+                    shape_pipe = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained("tencent/Hunyuan3D-2.1")
                 pipe = shape_pipe
                 shape_input = img
             set_stage(job, "Geometriya yaratilmoqda" + (f" ({len(imgs)} rasm)" if multi else ""), lo_shape, hi_shape, frac=0)
@@ -313,6 +317,11 @@ def process(job):
             shape_path = os.path.join(tmp, "shape.glb")
             mesh.export(shape_path)
             pipe.to("cpu")
+            # CPU offload alone still retains both large checkpoints in RAM.
+            # Release all references before loading the paint pipeline.
+            pipe = None
+            shape_pipe = None
+            mv_pipe = None
             free_gpu()
 
             if textured:
@@ -390,10 +399,10 @@ def process(job):
             except Exception:
                 traceback.print_exc()
             try:
-                if mv_pipe is not None:
-                    mv_pipe.to("cpu")
+                pipe = None
+                shape_pipe = None
+                mv_pipe = None
                 free_gpu()
-                shape_pipe.to("cuda")
             except Exception:
                 traceback.print_exc()
 

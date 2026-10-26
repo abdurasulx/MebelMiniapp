@@ -119,3 +119,9 @@ normalized XYXY `bbox` is still supported. Unlabelled or conflicting coordinate
 formats are rejected. See
 `../../docs/testing/showroom-furniture-sets-2026-10-26.md` for six GLB tests and
 remaining fidelity failures. New tests here were untextured geometry tests.
+
+Shape pipelines now load lazily and are released before paint, including all
+local and global references. Keeping the 2.1 and 2mv checkpoints offloaded on
+CPU together caused a confirmed Linux OOM kill during paint initialization on
+the 32 GB host. CPU offload frees VRAM but does not free system RAM. Each job
+reloads its required shape checkpoint; this trades loading latency for memory.
