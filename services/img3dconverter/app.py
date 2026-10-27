@@ -35,6 +35,7 @@ from flask import Flask, jsonify, render_template_string, request, send_from_dir
 from PIL import Image, ImageOps
 import furniture_ai
 import product_quality
+from input_policy import image_roles
 
 try:
     from torchvision_fix import apply_fix
@@ -438,13 +439,10 @@ def convert():
         return jsonify(error="Rasm va kolleksiya nomi kerak"), 400
     if len(fs) > len(ROLES):
         return jsonify(error=f"Eng ko'pi bilan {len(ROLES)} ta rasm"), 400
-    roles = [r.strip() for r in request.form.get("roles", "").split(",") if r.strip()]
-    if len(fs) == 1:
-        roles = ["front"]
-    elif len(roles) != len(fs):
-        roles = ROLES[: len(fs)]
-    if any(r not in ROLES for r in roles) or len(set(roles)) != len(roles) or "front" not in roles:
-        return jsonify(error="Rollar noto'g'ri: har biri bir marta, 'Old' majburiy"), 400
+    try:
+        roles = image_roles(len(fs), request.form.get("roles", ""))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
     def num(k):
         try:
             v = float(request.form.get(k, "") or 0)
@@ -595,7 +593,7 @@ const ROLES=[['front',"Old"],['back','Orqa'],['left','Chap'],['right',"O'ng"]];
 let roles=[];
 function drawThumbs(){
   $('thumbs').innerHTML=files.map((f,i)=>`<div class="th"><img src="${URL.createObjectURL(f)}"><button class="x" type="button" data-rm="${i}">×</button>${
-    files.length>1?`<select data-role="${i}">${ROLES.map(r=>`<option value="${r[0]}"${roles[i]===r[0]?' selected':''}>${r[1]}</option>`).join('')}</select>`:''}</div>`).join('');
+    files.length>1?`<select data-role="${i}"><option value=""${!roles[i]?' selected':''}>Rakursni tanlang</option>${ROLES.map(r=>`<option value="${r[0]}"${roles[i]===r[0]?' selected':''}>${r[1]}</option>`).join('')}</select>`:''}</div>`).join('');
   $('hint').textContent=files.length?files.length+" ta rasm tanlandi, yana qo'shish mumkin (4 tagacha)":"Rasm(lar)ni shu yerga tashlang yoki bosib tanlang";
   $('mvnote').style.display=files.length>1?'block':'none';
   $('clr').style.display=files.length?'inline':'none';
@@ -604,7 +602,7 @@ function setFiles(list){
   const fs=[...list].filter(f=>f.type.startsWith('image/'));
   if(!fs.length)return;
   files=[...files,...fs].slice(0,4);
-  roles=files.map((_,i)=>roles[i]||ROLES[i][0]);
+  roles=files.map((_,i)=>roles[i]||'');
   drawThumbs();
 }
 $('thumbs').addEventListener('change',e=>{const i=e.target.dataset&&e.target.dataset.role;if(i!==undefined)roles[+i]=e.target.value});
@@ -621,6 +619,7 @@ $('go').onclick=async()=>{
   if(!files.length)return $('status').textContent='Avval rasm tanlang';
   if(!col)return $('status').textContent='Kolleksiya nomini kiriting';
   if(files.length>1){
+    if(roles.some(r=>!r))return $('status').textContent='Har rasm uchun rakursni tanlang';
     if(new Set(roles).size!==roles.length)return $('status').textContent='Har rol faqat bir marta tanlanishi mumkin';
     if(!roles.includes('front'))return $('status').textContent="Rollardan biri 'Old' bo'lishi kerak";
   }

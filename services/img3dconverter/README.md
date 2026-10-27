@@ -125,3 +125,13 @@ local and global references. Keeping the 2.1 and 2mv checkpoints offloaded on
 CPU together caused a confirmed Linux OOM kill during paint initialization on
 the 32 GB host. CPU offload frees VRAM but does not free system RAM. Each job
 reloads its required shape checkpoint; this trades loading latency for memory.
+
+Multiple-image requests must now specify one explicit role per image, without
+duplicates and including `front`. Missing/partial roles return HTTP 400 instead
+of being guessed from upload order. Single-image scanner requests still use
+`front`. The web UI starts each multi-image selector at an empty choice.
+
+See `../../docs/furniture-photo-submission.md` for the provisional capture
+protocol and `../../docs/testing/hunyuan-config-ab-2026-10-26.md` for paired
+configuration tests. The benchmark scripts run outside the production queue:
+use only on an idle GPU. Failed high-memory settings are not production defaults.
