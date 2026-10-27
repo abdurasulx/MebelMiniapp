@@ -35,16 +35,7 @@ struct User: Codable {
     // xodimlar uchun ko'rsatiladi (qarang WorkerHomeView.swift).
     let payType: String?
 
-    /// Phone sign-in uses an internal email alias; never display its domain.
-    var profileContact: String {
-        let address = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        let suffix = "@phone.local"
-        guard address.lowercased().hasSuffix(suffix) else { return address }
-        if let number = phone?.trimmingCharacters(in: .whitespacesAndNewlines), !number.isEmpty {
-            return number
-        }
-        return String(address.dropLast(suffix.count))
-    }
+
 }
 
 struct EmployeeInvitation: Codable, Identifiable {
