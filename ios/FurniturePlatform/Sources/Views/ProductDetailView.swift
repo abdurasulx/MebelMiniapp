@@ -252,7 +252,6 @@ private var arScaleFactors: SIMD3<Float> {
         }
     }
 
-    @ViewBuilder
     /// Keep the AR action next to the gallery, matching the Android layout.
     @ViewBuilder
     private var arGalleryAction: some View {
@@ -300,6 +299,7 @@ private var arScaleFactors: SIMD3<Float> {
         }
     }
 
+    @ViewBuilder
     private func gallery(_ product: Product) -> some View {
         let urls = product.galleryUrls(for: selectedVariant)
         Group {
