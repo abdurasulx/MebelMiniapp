@@ -83,6 +83,9 @@ private var arScaleFactors: SIMD3<Float> {
                     }
                     .padding(.horizontal)
 
+                    arGalleryAction
+                        .padding(.horizontal)
+
                     VStack(alignment: .leading, spacing: 4) {
                         Text(product.nameUz).font(.title2).bold()
                         if let companySlug = product.companySlug {
@@ -143,30 +146,6 @@ private var arScaleFactors: SIMD3<Float> {
 
                             if let description = product.description, !description.isEmpty {
                                 Text(description).font(.subheadline)
-                            }
-
-                            // 2) Bitta model butun mahsulotga tegishli — faqat rang/naqsh
-                            // tanlangan variantga qarab AR'da runtime'da almashadi. Tugma
-                            // matni ATAYIN variant nomini o'z ichiga olmaydi (sodda va
-                            // barqaror matn) — variant almashgani `.id()` orqali sahna
-                            // qayta yaratilishida aks etadi.
-                            if let usdz = activeModel3d?.usdzUrl {
-                                Button {
-                                    showAR = true
-                                } label: {
-                                    Label(locale.t("product_try_ar"), systemImage: "arkit")
-                                        .frame(maxWidth: .infinity)
-                                        .padding()
-                                        .background(Color.brandDeep)
-                                        .foregroundStyle(Color.brandPrimary)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                                }
-                                .accessibilityIdentifier("arButton-\(selectedVariant?.id ?? "")")
-                                .id("\(usdz)-\(selectedVariant?.id ?? "")") // variant almashsa tugma qayta yaratiladi
-                            } else if activeModel3d?.glbUrl != nil {
-                                Text("🧊 \(locale.t("product_3d_ios_note"))")
-                                    .font(.caption)
-                                    .foregroundStyle(Color.textSecondary)
                             }
 
                             Stepper("\(locale.t("product_qty_label")): \(quantity)", value: $quantity, in: 1...50)
@@ -274,6 +253,53 @@ private var arScaleFactors: SIMD3<Float> {
     }
 
     @ViewBuilder
+    /// Keep the AR action next to the gallery, matching the Android layout.
+    @ViewBuilder
+    private var arGalleryAction: some View {
+        if let usdz = activeModel3d?.usdzUrl {
+            Button {
+                showAR = true
+            } label: {
+                HStack(spacing: 12) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white.opacity(0.12))
+                        Image(systemName: "viewfinder")
+                            .font(.system(size: 28, weight: .light))
+                        Image(systemName: "cube.fill")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .frame(width: 44, height: 44)
+                    .accessibilityHidden(true)
+
+                    Text(locale.t("product_try_ar"))
+                        .font(.subheadline.weight(.semibold))
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 8)
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .accessibilityHidden(true)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundStyle(Color.onBrand)
+                .background(Color.brand.gradient, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("arButton-\(selectedVariant?.id ?? "")")
+            .id("\(usdz)-\(selectedVariant?.id ?? "")")
+        } else if activeModel3d?.glbUrl != nil {
+            Label(locale.t("product_3d_ios_note"), systemImage: "cube")
+                .font(.caption)
+                .foregroundStyle(Color.textSecondary)
+        }
+    }
+
     private func gallery(_ product: Product) -> some View {
         let urls = product.galleryUrls(for: selectedVariant)
         Group {
