@@ -8,6 +8,33 @@ final class OtpAndWelcomeUITests: XCTestCase {
     /// kod bosqichi/cooldown testlari shu manzilga ulanadi (faqat DEBUG build'da ishlaydi).
     private static let localAPI = "http://127.0.0.1:8000/api/v1"
 
+    func testLocationExplanationPrecedesPermissionAndRegionPickerIsRemoved() throws {
+        let app = XCUIApplication()
+        app.resetAuthorizationStatus(for: .location)
+        app.launchArguments = ["-uiTestingResetState", "-hasCompletedLocationOnboarding", "NO", "-fp.locale", "en"]
+        app.launch()
+        let useLocation = app.buttons["welcomeUseLocation"]
+        XCTAssertTrue(useLocation.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["welcomeLocationExplanation"].exists)
+        XCTAssertFalse(app.buttons["Choose a region"].exists)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        XCTAssertFalse(springboard.alerts.firstMatch.waitForExistence(timeout: 2))
+        useLocation.tap()
+        XCTAssertTrue(springboard.alerts.firstMatch.waitForExistence(timeout: 5))
+    }
+
+    func testContinueWithoutLocationOpensCatalogueWithoutPermissionPrompt() throws {
+        let app = XCUIApplication()
+        app.resetAuthorizationStatus(for: .location)
+        app.launchArguments = ["-uiTestingResetState", "-hasCompletedLocationOnboarding", "NO", "-fp.locale", "en"]
+        app.launch()
+        let skip = app.buttons["welcomeContinueWithoutLocation"]
+        XCTAssertTrue(skip.waitForExistence(timeout: 20))
+        skip.tap()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.firstMatch.waitForExistence(timeout: 2))
+    }
+
     private func launch(onboarded: Bool, locale: String, localAPI: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [

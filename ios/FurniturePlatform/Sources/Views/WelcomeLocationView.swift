@@ -2,16 +2,13 @@ import CoreLocation
 import SwiftUI
 
 /// First-launch onboarding. Location is optional: the user can always continue
-/// by choosing a region instead of granting system location permission.
+/// without granting system location permission.
 struct WelcomeLocationView: View {
     @EnvironmentObject private var location: LocationStore
     @EnvironmentObject private var locale: LocaleStore
 
     let onComplete: () -> Void
 
-    private enum Step { case welcome, region }
-
-    @State private var step: Step = .welcome
     @State private var isRequestingLocation = false
     @State private var showLocationError = false
 
@@ -21,39 +18,18 @@ struct WelcomeLocationView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                switch step {
-                case .welcome: welcome
-                case .region: regionList
-                }
-            }
-            .animation(.snappy, value: step)
-            .toolbar {
-                if step == .welcome {
+            welcome
+                .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { languageMenu }
                 }
-            }
         }
         .tint(Color.brand)
         .onChange(of: location.status) { _, status in
-            guard isRequestingLocation else { return }
-            switch status {
-            case .granted where location.hasFix:
-                isRequestingLocation = false
-                onComplete()
-            case .denied:
-                isRequestingLocation = false
-                step = .region
-            case .unavailable:
-                isRequestingLocation = false
-                showLocationError = true
-            default:
-                break
-            }
+            handleLocationStatus(status)
         }
         .alert(copy.locationUnavailableTitle, isPresented: $showLocationError) {
             Button(copy.tryAgain) { requestLocation() }
-            Button(copy.chooseRegion, role: .cancel) { step = .region }
+            Button(copy.continueWithoutLocation, role: .cancel) { continueWithoutLocation() }
         } message: {
             Text(copy.locationUnavailableMessage)
         }
@@ -87,10 +63,7 @@ struct WelcomeLocationView: View {
                         .padding(.vertical, 4)
                         .background(.background, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-                        Label(copy.privacyNote, systemImage: "hand.raised.fill")
-                            .font(.footnote)
-                            .foregroundStyle(Color.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
+
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
@@ -98,6 +71,12 @@ struct WelcomeLocationView: View {
                 }
 
                 VStack(spacing: 10) {
+                    Label(copy.privacyNote, systemImage: "hand.raised.fill")
+                        .font(.footnote)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("welcomeLocationExplanation")
+
                     Button(action: requestLocation) {
                         HStack(spacing: 8) {
                             if isRequestingLocation {
@@ -114,8 +93,10 @@ struct WelcomeLocationView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Color.brand)
                     .disabled(isRequestingLocation)
+                    .accessibilityIdentifier("welcomeUseLocation")
 
-                    Button(copy.chooseRegion) { step = .region }
+                    Button(copy.continueWithoutLocation) { continueWithoutLocation() }
+                        .accessibilityIdentifier("welcomeContinueWithoutLocation")
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -162,46 +143,6 @@ struct WelcomeLocationView: View {
         .padding(.vertical, 14)
     }
 
-    private var regionList: some View {
-        List {
-            Section {
-                Button { finish(with: nil) } label: {
-                    regionRow(title: copy.allRegions, icon: "globe", highlighted: true)
-                }
-
-                ForEach(viloyatlar) { region in
-                    Button { finish(with: region.code) } label: {
-                        regionRow(title: region.label, icon: "mappin", highlighted: false)
-                    }
-                }
-            } footer: {
-                Text(copy.regionFooter)
-            }
-        }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Color.appBackground)
-        .navigationTitle(copy.regionTitle)
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(copy.back) { step = .welcome }
-            }
-        }
-    }
-
-    private func regionRow(title: String, icon: String, highlighted: Bool) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundStyle(highlighted ? Color.brand : Color.textSecondary)
-                .frame(width: 24)
-            Text(title).foregroundStyle(Color.textPrimary)
-            Spacer()
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-        }
-        .contentShape(Rectangle())
-    }
-
     private var languageMenu: some View {
         Menu {
             ForEach(appLocales, id: \.code) { l in
@@ -225,11 +166,31 @@ struct WelcomeLocationView: View {
 
     private func requestLocation() {
         isRequestingLocation = true
-        location.detectFromGps()
+        location.detectFromGps(requestPermission: true)
+        // Denied/unavailable can already be the current status, so onChange
+        // alone would leave the button spinning forever on a retry.
+        handleLocationStatus(location.status)
     }
 
-    private func finish(with regionCode: String?) {
-        location.setViloyat(regionCode)
+    private func handleLocationStatus(_ status: LocationStatus) {
+        guard isRequestingLocation else { return }
+        switch status {
+        case .granted where location.hasFix:
+            isRequestingLocation = false
+            onComplete()
+        case .denied:
+            continueWithoutLocation()
+        case .unavailable:
+            isRequestingLocation = false
+            showLocationError = true
+        default:
+            break
+        }
+    }
+
+    private func continueWithoutLocation() {
+        isRequestingLocation = false
+        location.setViloyat(nil)
         onComplete()
     }
 }
@@ -237,8 +198,8 @@ struct WelcomeLocationView: View {
 private struct Copy {
     let title, subtitle, marketplace: String
     let nearbyTitle, nearbyDetail, deliveryTitle, deliveryDetail, arTitle, arDetail: String
-    let privacyNote, useLocation, locating, chooseRegion, regionTitle, allRegions: String
-    let regionFooter, back, locationUnavailableTitle, locationUnavailableMessage, tryAgain: String
+    let privacyNote, useLocation, locating, continueWithoutLocation: String
+    let locationUnavailableTitle, locationUnavailableMessage, tryAgain: String
 
     @MainActor
     init(_ l: LocaleStore) {
@@ -247,9 +208,7 @@ private struct Copy {
         deliveryTitle = l.t("welcome_delivery_title"); deliveryDetail = l.t("welcome_delivery_detail")
         arTitle = l.t("welcome_ar_title"); arDetail = l.t("welcome_ar_detail")
         privacyNote = l.t("welcome_privacy_note"); useLocation = l.t("welcome_use_location")
-        locating = l.t("welcome_locating"); chooseRegion = l.t("welcome_choose_region")
-        regionTitle = l.t("welcome_region_title"); allRegions = l.t("welcome_all_regions")
-        regionFooter = l.t("welcome_region_footer"); back = l.t("welcome_back")
+        locating = l.t("welcome_locating"); continueWithoutLocation = l.t("welcome_continue_without_location")
         locationUnavailableTitle = l.t("welcome_loc_unavailable_title")
         locationUnavailableMessage = l.t("welcome_loc_unavailable_msg")
         tryAgain = l.t("welcome_try_again")
