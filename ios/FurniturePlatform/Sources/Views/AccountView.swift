@@ -91,15 +91,15 @@ private struct ProfileView: View {
                         Circle()
                             .fill(Color.brandPrimary)
                             .frame(width: 48, height: 48)
-                            .overlay(Text(String((user.firstName?.first ?? user.email.first) ?? "?")).bold().foregroundColor(.brandDeep))
+                            .overlay(Text(String((user.firstName?.first ?? user.profileContact.first) ?? "?")).bold().foregroundColor(.brandDeep))
                             .overlay(
                                 Circle().strokeBorder((user.phoneVerified ?? true) ? .green : .orange, lineWidth: 2.5)
                             )
                     }
                     .buttonStyle(.plain)
                     VStack(alignment: .leading) {
-                        Text(user.firstName?.isEmpty == false ? user.firstName! : user.email).bold()
-                        Text(user.email).font(.caption).foregroundStyle(Color.textSecondary)
+                        Text(user.firstName?.isEmpty == false ? user.firstName! : user.profileContact).bold()
+                        Text(user.profileContact).font(.caption).foregroundStyle(Color.textSecondary)
                         if let workerId = user.workerId {
                             HStack(spacing: 4) {
                                 Text("ID: \(workerId)").font(.caption).foregroundStyle(Color.textSecondary)
