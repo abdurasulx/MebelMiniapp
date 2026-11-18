@@ -21,7 +21,6 @@ struct WelcomeLocationView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { LanguageSettingsButton() }
                 }
-                }
         }
         .tint(Color.brand)
         .onChange(of: location.status) { _, status in
