@@ -75,15 +75,14 @@ private struct ProfileView: View {
                         Circle()
                             .fill(Color.brandPrimary)
                             .frame(width: 48, height: 48)
-                            .overlay(Text(String((user.firstName?.first ?? user.email.first) ?? "?")).bold().foregroundColor(.brandDeep))
+                            .overlay(Text(String(user.firstName?.first ?? "?")).bold().foregroundColor(.brandDeep))
                             .overlay(
                                 Circle().strokeBorder((user.phoneVerified ?? true) ? .green : .orange, lineWidth: 2.5)
                             )
                     }
                     .buttonStyle(.plain)
                     VStack(alignment: .leading) {
-                        Text(user.firstName?.isEmpty == false ? user.firstName! : user.email).bold()
-                        Text(user.email).font(.caption).foregroundStyle(Color.textSecondary)
+                        Text(user.firstName?.isEmpty == false ? user.firstName! : locale.t("nav_profile")).bold()
                         if let workerId = user.workerId {
                             HStack(spacing: 4) {
                                 Text("ID: \(workerId)").font(.caption).foregroundStyle(Color.textSecondary)

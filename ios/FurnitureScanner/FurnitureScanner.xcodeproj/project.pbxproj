@@ -12,6 +12,10 @@
 		80E3141F5469826BA2865D87 /* ConverterAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D8BD025AB758B91AD31F2CD /* ConverterAPI.swift */; };
 		BE41222F763A87C4FF93CB48 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8454DE5E0725AD81E5C4A7B7 /* ContentView.swift */; };
 		E87A6F11C8D18CD2785AA789 /* ARMeasurementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0AD6C5C09269CA6E0B7A3B /* ARMeasurementView.swift */; };
+		B11111111111111111111111 /* ConversionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11111111111111111111111 /* ConversionStore.swift */; };
+		B22222222222222222222222 /* ConversionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A22222222222222222222222 /* ConversionsView.swift */; };
+		B33333333333333333333333 /* model-viewer.min.js in Resources */ = {isa = PBXBuildFile; fileRef = A33333333333333333333333; };
+		B44444444444444444444444 /* model-viewer.LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = A44444444444444444444444; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -21,6 +25,10 @@
 		8454DE5E0725AD81E5C4A7B7 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		8D8BD025AB758B91AD31F2CD /* ConverterAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConverterAPI.swift; sourceTree = "<group>"; };
 		F0F44E9D55EF7BB4BA06E948 /* Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Measurement.swift; sourceTree = "<group>"; };
+		A11111111111111111111111 /* ConversionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversionStore.swift; sourceTree = "<group>"; };
+		A22222222222222222222222 /* ConversionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversionsView.swift; sourceTree = "<group>"; };
+		A33333333333333333333333 /* model-viewer.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Resources/model-viewer.min.js; sourceTree = "<group>"; };
+		A44444444444444444444444 /* model-viewer.LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = Resources/model-viewer.LICENSE; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -36,6 +44,8 @@
 			isa = PBXGroup;
 			children = (
 				DB096C617C54ACAEEF268FC4 /* Sources */,
+				A33333333333333333333333 /* model-viewer.min.js */,
+				A44444444444444444444444 /* model-viewer.LICENSE */,
 				7DBD5BCE88F7EDDE8B588656 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -44,6 +54,8 @@
 			isa = PBXGroup;
 			children = (
 				6C0AD6C5C09269CA6E0B7A3B /* ARMeasurementView.swift */,
+				A22222222222222222222222 /* ConversionsView.swift */,
+				A11111111111111111111111 /* ConversionStore.swift */,
 				8454DE5E0725AD81E5C4A7B7 /* ContentView.swift */,
 				8D8BD025AB758B91AD31F2CD /* ConverterAPI.swift */,
 				48FEDD01DEFDD87C2BAE1218 /* FurnitureScannerApp.swift */,
@@ -60,6 +72,7 @@
 			buildConfigurationList = D45B776878E9F4695DA7CB64 /* Build configuration list for PBXNativeTarget "FurnitureScanner" */;
 			buildPhases = (
 				069F40B47752319EB14A1D21 /* Sources */,
+				C33333333333333333333333 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -106,12 +119,18 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		C33333333333333333333333 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (B33333333333333333333333 /* model-viewer.min.js in Resources */,B44444444444444444444444 /* model-viewer.LICENSE in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		069F40B47752319EB14A1D21 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				E87A6F11C8D18CD2785AA789 /* ARMeasurementView.swift in Sources */,
+				B22222222222222222222222 /* ConversionsView.swift in Sources */,
+				B11111111111111111111111 /* ConversionStore.swift in Sources */,
 				BE41222F763A87C4FF93CB48 /* ContentView.swift in Sources */,
 				80E3141F5469826BA2865D87 /* ConverterAPI.swift in Sources */,
 				40CFD9AF10D38CB017D8B705 /* FurnitureScannerApp.swift in Sources */,

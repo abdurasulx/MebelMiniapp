@@ -34,6 +34,8 @@ struct User: Codable {
     // piecework) — Davomat (check-in/check-out) faqat "hourly" (soatbay)
     // xodimlar uchun ko'rsatiladi (qarang WorkerHomeView.swift).
     let payType: String?
+
+
 }
 
 struct EmployeeInvitation: Codable, Identifiable {

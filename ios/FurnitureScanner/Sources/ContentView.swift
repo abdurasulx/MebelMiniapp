@@ -2,15 +2,35 @@ import AVFoundation
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var conversions = ConversionStore()
+    @State private var selectedTab = 0
     @State private var cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
     @State private var measurement: FurnitureMeasurement?
-    @State private var snapshot: UIImage?
-    @State private var isUploading = false
-    @State private var uploadMessage: String?
     @State private var resetID = UUID()
     @State private var status = "Kamera ruxsatini tekshiryapmiz…"
+    @AppStorage("converterServer") private var server = "http://100.90.116.106:5000"
+    @AppStorage("reconstructionScope") private var reconstructionScope = "single"
+    @State private var scanJPEG: Data?
+    @State private var submittingScan = false
+    @State private var submissionAttempted = false
+    @State private var submissionError: String?
 
     var body: some View {
+        TabView(selection: $selectedTab) {
+            cameraContent
+                .tabItem { Label("O‘lchash", systemImage: "ruler") }.tag(0)
+            ConversionsView(store: conversions, measurement: measurement)
+                .tabItem { Label("3D so‘rovlar", systemImage: "cube") }.tag(1)
+        }
+        .alert("So‘rov yuborish", isPresented: Binding(
+            get: { submissionError != nil },
+            set: { if !$0 { submissionError = nil } }
+        )) {
+            Button("Tushunarli", role: .cancel) { submissionError = nil }
+        } message: { Text(submissionError ?? "") }
+    }
+
+    private var cameraContent: some View {
         Group {
             switch cameraStatus {
             case .authorized:
@@ -32,8 +52,12 @@ struct ContentView: View {
         ZStack {
             ARMeasurementView(
                 onMeasurement: { measurement = $0 },
-                onSnapshot: { snapshot = $0 },
                 onTrackingStatus: { status = $0 },
+                onSnapshot: {
+                    scanJPEG = $0
+                    measurement = nil
+                    submissionAttempted = false
+                },
                 resetID: resetID
             )
             .ignoresSafeArea()
@@ -44,15 +68,52 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Mebelning o‘ziga bir marta bosing").font(.headline)
                     Text(status).font(.subheadline).foregroundStyle(.secondary)
+                    Picker("Nimani yaratish kerak?", selection: $reconstructionScope) {
+                        Text("Bitta mebel").tag("single")
+                        Text("Butun komplekt").tag("set")
+                    }
+                    .pickerStyle(.segmented)
+                    .disabled(submittingScan)
                     measurementGrid
                     HStack {
-                        Button("Qayta skan", systemImage: "arrow.counterclockwise") { measurement = nil; snapshot = nil; resetID = UUID() }
+                        Button("Qayta skan", systemImage: "arrow.counterclockwise") {
+                            measurement = nil
+                            scanJPEG = nil
+                            submissionAttempted = false
+                            resetID = UUID()
+                        }
                             .buttonStyle(.bordered)
+                            .disabled(submittingScan)
                         Spacer()
-                        Button(isUploading ? "Yuborilmoqda…" : "3D ga yuborish", systemImage: "arrow.up.circle.fill") { Task { await submitToConverter() } }
+                        Button(submittingScan ? "Yuborilmoqda…" : submissionAttempted ? "Tarixni tekshiring" : "3D yaratish", systemImage: "cube") {
+                            // Set the guard synchronously to prevent two rapid taps
+                            // creating duplicate GPU jobs before the Task starts.
+                            guard let measurement, let jpeg = scanJPEG,
+                                  !submittingScan, !submissionAttempted else { return }
+                            submittingScan = true
+                            submissionAttempted = true
+                            selectedTab = 1
+                            Task {
+                                defer { submittingScan = false }
+                                do {
+                                    try await conversions.submit(
+                                        jpeg: jpeg, server: server,
+                                        dimensions: ["width_cm": measurement.widthCentimeters,
+                                                     "height_cm": measurement.heightCentimeters,
+                                                     "depth_cm": measurement.depthCentimeters],
+                                        textured: true,
+                                        reconstructionScope: reconstructionScope
+                                    )
+                                } catch {
+                                    submissionError = error.localizedDescription
+                                }
+                            }
+                        }
                             .buttonStyle(.borderedProminent)
-                            .disabled(measurement == nil || snapshot == nil || isUploading)
+                            .disabled(measurement == nil || scanJPEG == nil || submittingScan || submissionAttempted)
                     }
+                    Text("Skan o‘lchamlari taxminiy. Atrofdagi pol va devor natijaga ta’sir qilishi mumkin; ruletka bilan tekshiring.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 .padding()
                 .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -60,7 +121,6 @@ struct ContentView: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .alert("3D konvertor", isPresented: Binding(get: { uploadMessage != nil }, set: { if !$0 { uploadMessage = nil } })) { Button("OK") {} } message: { Text(uploadMessage ?? "") }
     }
 
     private var measurementGrid: some View {
@@ -81,18 +141,6 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(.background.opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-
-    private func submitToConverter() async {
-        guard let measurement, let snapshot else { return }
-        isUploading = true
-        defer { isUploading = false }
-        do {
-            let id = try await ConverterAPI.submit(image: snapshot, measurement: measurement, collection: "scanner")
-            uploadMessage = "3D yaratish navbatiga yuborildi. Job: \(id)"
-        } catch {
-            uploadMessage = "Yuborib bo‘lmadi. Telefon converter tarmog‘iga ulanganini tekshiring."
-        }
     }
 
     private func requestCamera() async {

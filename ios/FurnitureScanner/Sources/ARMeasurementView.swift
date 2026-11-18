@@ -4,12 +4,12 @@ import SwiftUI
 
 struct ARMeasurementView: UIViewRepresentable {
     let onMeasurement: (FurnitureMeasurement) -> Void
-    let onSnapshot: (UIImage) -> Void
     let onTrackingStatus: (String) -> Void
+    let onSnapshot: (Data) -> Void
     let resetID: UUID
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onMeasurement: onMeasurement, onSnapshot: onSnapshot, onTrackingStatus: onTrackingStatus)
+        Coordinator(onMeasurement: onMeasurement, onTrackingStatus: onTrackingStatus, onSnapshot: onSnapshot)
     }
 
     func makeUIView(context: Context) -> ARSCNView {
@@ -40,13 +40,13 @@ struct ARMeasurementView: UIViewRepresentable {
         var isScanning = false
         var resetID = UUID()
         let onMeasurement: (FurnitureMeasurement) -> Void
-        let onSnapshot: (UIImage) -> Void
         let onTrackingStatus: (String) -> Void
+        let onSnapshot: (Data) -> Void
 
-        init(onMeasurement: @escaping (FurnitureMeasurement) -> Void, onSnapshot: @escaping (UIImage) -> Void, onTrackingStatus: @escaping (String) -> Void) {
+        init(onMeasurement: @escaping (FurnitureMeasurement) -> Void, onTrackingStatus: @escaping (String) -> Void, onSnapshot: @escaping (Data) -> Void) {
             self.onMeasurement = onMeasurement
-            self.onSnapshot = onSnapshot
             self.onTrackingStatus = onTrackingStatus
+            self.onSnapshot = onSnapshot
         }
 
         func startSession() {
@@ -85,6 +85,23 @@ struct ARMeasurementView: UIViewRepresentable {
             }
 
             guard !isScanning else { return }
+            // Capture the selected view before adding the yellow marker. SwiftUI
+            // controls are outside ARSCNView and are not included in this image.
+            view.scene.rootNode.childNodes.forEach { $0.removeFromParentNode() }
+            let image = view.snapshot()
+            let ratio = min(1, 2048 / max(image.size.width, image.size.height))
+            let size = CGSize(width: image.size.width * ratio, height: image.size.height * ratio)
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            format.opaque = true
+            let normalized = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+                image.draw(in: CGRect(origin: .zero, size: size))
+            }
+            guard let jpeg = normalized.jpegData(compressionQuality: 0.9) else {
+                onTrackingStatus("Kamera rasmini olib bo‘lmadi. Qayta urinib ko‘ring.")
+                return
+            }
+            onSnapshot(jpeg)
             targetPoint = point
             meshPoints = []
             isScanning = true
@@ -138,7 +155,6 @@ struct ARMeasurementView: UIViewRepresentable {
                 return
             }
             onMeasurement(FurnitureMeasurement(widthCentimeters: width, heightCentimeters: height, depthCentimeters: depth, sampledPoints: meshPoints.count))
-            if let snapshot = sceneView?.snapshot() { onSnapshot(snapshot) }
             onTrackingStatus("Skan tayyor. Natijani tekshiring.")
         }
 

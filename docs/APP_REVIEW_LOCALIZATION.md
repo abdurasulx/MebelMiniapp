@@ -16,7 +16,7 @@ joylashuv ruxsatining izohi o‘zbekcha chiqqan.
   Til shu yerdan almashtiriladi; iOS ilovani yangi tilda qayta ochadi.
   Ishlayotgan jarayonda `AppleLanguages`ni yozib, faqat interfeys tilini
   darhol almashtirish olib tashlangan.
-- Qayta yuborish uchun versiya 1.1.0, build 20261114 qilib belgilangan.
+- Qayta yuborish uchun versiya 1.1.0, build 20261118 qilib belgilangan.
 
 ## Yuborishdan oldin
 

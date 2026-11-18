@@ -52,7 +52,8 @@ final class LocationStore: NSObject, ObservableObject, CLLocationManagerDelegate
         }
     }
 
-    func detectFromGps() {
+    /// Only an explicit, explained user action may open the system prompt.
+    func detectFromGps(requestPermission: Bool = false) {
         guard CLLocationManager.locationServicesEnabled() else {
             status = .unavailable
             return
@@ -63,6 +64,10 @@ final class LocationStore: NSObject, ObservableObject, CLLocationManagerDelegate
         let authStatus = manager.authorizationStatus
         switch authStatus {
         case .notDetermined:
+            guard requestPermission else {
+                status = .idle
+                return
+            }
             manager.requestWhenInUseAuthorization()
         case .denied, .restricted:
             status = .denied
