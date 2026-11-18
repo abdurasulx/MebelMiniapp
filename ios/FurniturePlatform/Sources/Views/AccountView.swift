@@ -29,22 +29,7 @@ struct AccountView: View {
                     // Kirmagan foydalanuvchi ham tilni almashtira olishi kerak —
                     // til tanlash avval faqat kirgandan keyingi profilda edi.
                     ToolbarItem(placement: .navigationBarTrailing) {
-                        Menu {
-                            ForEach(appLocales, id: \.code) { l in
-                                Button {
-                                    locale.setLocale(l.code)
-                                } label: {
-                                    if l.code == locale.code {
-                                        Label("\(l.flag) \(l.nativeName)", systemImage: "checkmark")
-                                    } else {
-                                        Text("\(l.flag) \(l.nativeName)")
-                                    }
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "globe")
-                        }
-                        .accessibilityLabel(locale.t("profile_language"))
+                        LanguageSettingsButton()
                     }
                 }
             }
@@ -60,7 +45,6 @@ private struct ProfileView: View {
     @State private var career: [CareerEntry] = []
     @State private var isLoading = false
     @State private var didLoadOnce = false
-    @State private var showLanguagePicker = false
     @State private var showRolePicker = false
     @State private var showPhoneVerify = false
     // Google/Telegram bog'lash tugmalari alohida-alohida holat kuzatadi —
@@ -181,25 +165,10 @@ private struct ProfileView: View {
             }
 
             Section {
-                Button {
-                    showLanguagePicker = true
-                } label: {
-                    HStack {
-                        Label(locale.t("profile_language"), systemImage: "globe")
-                        Spacer()
-                        Text({
-                            let current = appLocales.first { $0.code == locale.code }
-                            return current.map { "\($0.flag) \($0.nativeName)" } ?? ""
-                        }())
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                }
-                .foregroundStyle(.primary)
-            }
-            .confirmationDialog(locale.t("profile_language"), isPresented: $showLanguagePicker) {
-                ForEach(appLocales, id: \.code) { l in
-                    Button("\(l.flag) \(l.nativeName)") { locale.setLocale(l.code) }
-                }
+                LanguageSettingsButton(showsLanguageName: true)
+                    .foregroundStyle(.primary)
+            } footer: {
+                Text(locale.t("language_settings_hint"))
             }
 
             // Faqat hozir kasbi bor xodimda ko'rinadi. Ikkinchi tugma matni —

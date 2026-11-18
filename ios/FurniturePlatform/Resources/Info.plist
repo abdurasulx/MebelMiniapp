@@ -29,7 +29,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -40,7 +40,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>20261014</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GIDClientID</key>
 	<string>857603145763-dorj27murelh0gkl5kgrkv579p9ftdfa.apps.googleusercontent.com</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -48,7 +48,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to view 3D furniture models in your room using Augmented Reality.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Joylashuvingiz yaqin mebel takliflari va yetkazib berish imkoniyatlarini ko‘rsatish uchun ishlatiladi.</string>
+	<string>We need your location to show available furniture products and delivery options in your region.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone access is required to record video with audio for product showcases and workshops.</string>
 	<key>UIBackgroundModes</key>

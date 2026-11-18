@@ -2,42 +2,146 @@ import XCTest
 
 /// Birinchi ochilish ekranidagi til tanlash va OTP kirish oqimining yangi
 /// xatti-harakatlari: debug kod ekranda ko'rinmasligi, O'zbekistondan boshqa
-/// davlatda SMS-OTP "qo'llanilmaydi" ogohlantirishi, 9 tilda dinamik matn.
+/// davlatda SMS-OTP "qo'llanilmaydi" ogohlantirishi va tizimga mos til.
 final class OtpAndWelcomeUITests: XCTestCase {
     /// Lokal backend (OTP_DEBUG_RETURN=True) — prod serverda SMS o'chirilgan, shuning
     /// kod bosqichi/cooldown testlari shu manzilga ulanadi (faqat DEBUG build'da ishlaydi).
     private static let localAPI = "http://127.0.0.1:8000/api/v1"
 
-    private func launch(onboarded: Bool, locale: String, localAPI: Bool = false) -> XCUIApplication {
+    private func launch(onboarded: Bool, locale: String, localAPI: Bool = false, resetLocation: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = [
             "-uiTestingResetState",
             "-hasCompletedLocationOnboarding", onboarded ? "YES" : "NO",
-            "-fp.locale", locale,
+            "-AppleLanguages", "(\(locale))",
+            "-AppleLocale", locale,
+            // A preference saved by an older release must not override iOS.
+            "-fp.locale", locale == "en" ? "uz" : "en",
         ] + (localAPI ? ["-apiBaseURL", Self.localAPI] : [])
+        if resetLocation { app.resetAuthorizationStatus(for: .location) }
         app.launch()
         return app
     }
 
-    func testWelcomeLanguageMenuSwitchesEveryLanguage() throws {
-        let app = launch(onboarded: false, locale: "uz")
-        let menu = app.buttons["welcomeLanguageMenu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 15), "Til menyusi yo'q")
-        XCTAssertTrue(app.staticTexts["Uyingiz uchun to‘g‘ri tanlov"].exists, "Boshlang'ich til o'zbekcha emas")
-
+    func testWelcomeFollowsSystemAppLanguage() throws {
         let expectations: [(String, String)] = [
-            ("🇩🇪 Deutsch", "Die richtige Wahl für Ihr Zuhause"),
-            ("🇷🇺 Русский", "Правильный выбор для вашего дома"),
-            ("🇹🇷 Türkçe", "Eviniz için doğru seçim"),
-            ("🇬🇧 English", "The right choice for your home"),
+            ("uz", "Uyingiz uchun to‘g‘ri tanlov"),
+            ("de", "Die richtige Wahl für Ihr Zuhause"),
+            ("ru", "Правильный выбор для вашего дома"),
+            ("tr", "Eviniz için doğru seçim"),
+            ("en", "The right choice for your home"),
+            // Unsupported languages use the English development localization.
+            ("fr", "The right choice for your home"),
         ]
-        for (label, title) in expectations {
-            menu.tap()
-            let item = app.buttons[label]
-            XCTAssertTrue(item.waitForExistence(timeout: 5), "\(label) menyuda yo'q")
-            item.tap()
-            XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 5), "\(label): sarlavha o'zgarmadi")
+        for (language, title) in expectations {
+            let app = launch(onboarded: false, locale: language)
+            XCTAssertTrue(app.staticTexts[title].waitForExistence(timeout: 15), "\(language): noto'g'ri til")
+            XCTAssertTrue(app.buttons["appLanguageSettingsButton"].exists)
+            app.terminate()
         }
+    }
+
+    func testEnglishLocationPermissionMatchesWelcome() throws {
+        assertLocationPermission(
+            language: "en",
+            welcome: "The right choice for your home",
+            action: "Use my location",
+            purpose: "We need your location to show available furniture products and delivery options in your region."
+        )
+    }
+
+    func testLanguageButtonOpensSystemSettings() throws {
+        let app = launch(onboarded: false, locale: "en")
+        let button = app.buttons["appLanguageSettingsButton"]
+        XCTAssertTrue(button.waitForExistence(timeout: 15))
+        button.tap()
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
+    }
+
+    func testRussianLocationPermissionMatchesWelcome() throws {
+        assertLocationPermission(
+            language: "ru",
+            welcome: "Правильный выбор для вашего дома",
+            action: "Использовать мою геолокацию",
+            purpose: "Ваше местоположение необходимо для показа доступной мебели и условий доставки в вашем регионе."
+        )
+    }
+
+    private func assertLocationPermission(language: String, welcome: String, action: String, purpose: String) {
+        let app = launch(onboarded: false, locale: language, resetLocation: true)
+        // Launch arguments affect Bundle in the app process, but permission
+        // dialogs use iOS's persisted per-app language. Change that in Settings.
+        if Locale.preferredLanguages.first?.hasPrefix(language) != true {
+            guard selectSystemAppLanguage(app, language: language) else { return }
+        }
+        app.resetAuthorizationStatus(for: .location)
+        app.launch()
+        XCTAssertTrue(app.staticTexts[welcome].waitForExistence(timeout: 15))
+        app.buttons[action].tap()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let message = springboard.staticTexts[purpose]
+        XCTAssertTrue(message.waitForExistence(timeout: 10), "Permission text must match the app language")
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "\(language)-location-permission"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        let alert = springboard.alerts.firstMatch
+        if alert.exists, alert.buttons.count > 0 {
+            // Complete the request so locationd doesn't retain a pending dialog
+            // across tests. The last action in the location prompt is Deny.
+            alert.buttons.element(boundBy: alert.buttons.count - 1).tap()
+        }
+        app.terminate()
+    }
+
+    private func selectSystemAppLanguage(_ app: XCUIApplication, language: String) -> Bool {
+        let button = app.buttons["appLanguageSettingsButton"]
+        guard button.waitForExistence(timeout: 15) else {
+            XCTFail("Language settings button is missing")
+            return false
+        }
+        button.tap()
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
+
+        // Some simulator versions open the Settings root for app-settings:.
+        if !settings.staticTexts["Language"].exists {
+            let apps = settings.staticTexts["Apps"]
+            for _ in 0..<8 where !apps.isHittable { settings.swipeUp() }
+            if apps.isHittable { apps.tap() }
+            let search = settings.searchFields.firstMatch
+            if search.waitForExistence(timeout: 5) {
+                search.tap()
+                search.typeText("VIDA Market")
+            }
+            let appRow = settings.staticTexts["VIDA Market"].firstMatch
+            if appRow.waitForExistence(timeout: 5) { appRow.tap() }
+        }
+
+        let languageRow = settings.staticTexts["Language"]
+        guard languageRow.waitForExistence(timeout: 5) else {
+            let details = XCTAttachment(string: settings.debugDescription)
+            details.name = "language-settings-hierarchy"
+            details.lifetime = .keepAlways
+            add(details)
+            XCTFail("The app's Language setting is missing")
+            return false
+        }
+        languageRow.tap()
+        let name = language == "ru" ? "Русский" : "English"
+        let option = settings.staticTexts[name].firstMatch
+        guard option.waitForExistence(timeout: 5) else {
+            let details = XCTAttachment(string: settings.debugDescription)
+            details.name = "language-options-hierarchy"
+            details.lifetime = .keepAlways
+            add(details)
+            XCTFail("The system language option is missing: \(name)")
+            return false
+        }
+        option.tap()
+        app.terminate()
+        return true
     }
 
     func testForeignCountryShowsUnsupportedNoticeAndBlocksSend() throws {

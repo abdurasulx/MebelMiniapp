@@ -4,11 +4,12 @@ import SwiftUI
 
 struct ARMeasurementView: UIViewRepresentable {
     let onMeasurement: (FurnitureMeasurement) -> Void
+    let onSnapshot: (UIImage) -> Void
     let onTrackingStatus: (String) -> Void
     let resetID: UUID
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onMeasurement: onMeasurement, onTrackingStatus: onTrackingStatus)
+        Coordinator(onMeasurement: onMeasurement, onSnapshot: onSnapshot, onTrackingStatus: onTrackingStatus)
     }
 
     func makeUIView(context: Context) -> ARSCNView {
@@ -39,10 +40,12 @@ struct ARMeasurementView: UIViewRepresentable {
         var isScanning = false
         var resetID = UUID()
         let onMeasurement: (FurnitureMeasurement) -> Void
+        let onSnapshot: (UIImage) -> Void
         let onTrackingStatus: (String) -> Void
 
-        init(onMeasurement: @escaping (FurnitureMeasurement) -> Void, onTrackingStatus: @escaping (String) -> Void) {
+        init(onMeasurement: @escaping (FurnitureMeasurement) -> Void, onSnapshot: @escaping (UIImage) -> Void, onTrackingStatus: @escaping (String) -> Void) {
             self.onMeasurement = onMeasurement
+            self.onSnapshot = onSnapshot
             self.onTrackingStatus = onTrackingStatus
         }
 
@@ -135,6 +138,7 @@ struct ARMeasurementView: UIViewRepresentable {
                 return
             }
             onMeasurement(FurnitureMeasurement(widthCentimeters: width, heightCentimeters: height, depthCentimeters: depth, sampledPoints: meshPoints.count))
+            if let snapshot = sceneView?.snapshot() { onSnapshot(snapshot) }
             onTrackingStatus("Skan tayyor. Natijani tekshiring.")
         }
 

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		40CFD9AF10D38CB017D8B705 /* FurnitureScannerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48FEDD01DEFDD87C2BAE1218 /* FurnitureScannerApp.swift */; };
 		71226D4A66248ECCA23E9C92 /* Measurement.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F44E9D55EF7BB4BA06E948 /* Measurement.swift */; };
+		80E3141F5469826BA2865D87 /* ConverterAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D8BD025AB758B91AD31F2CD /* ConverterAPI.swift */; };
 		BE41222F763A87C4FF93CB48 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8454DE5E0725AD81E5C4A7B7 /* ContentView.swift */; };
 		E87A6F11C8D18CD2785AA789 /* ARMeasurementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0AD6C5C09269CA6E0B7A3B /* ARMeasurementView.swift */; };
 /* End PBXBuildFile section */
@@ -18,6 +19,7 @@
 		57F63C08950F5F18CF1CF0A1 /* FurnitureScanner.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = FurnitureScanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6C0AD6C5C09269CA6E0B7A3B /* ARMeasurementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARMeasurementView.swift; sourceTree = "<group>"; };
 		8454DE5E0725AD81E5C4A7B7 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		8D8BD025AB758B91AD31F2CD /* ConverterAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConverterAPI.swift; sourceTree = "<group>"; };
 		F0F44E9D55EF7BB4BA06E948 /* Measurement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Measurement.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -43,6 +45,7 @@
 			children = (
 				6C0AD6C5C09269CA6E0B7A3B /* ARMeasurementView.swift */,
 				8454DE5E0725AD81E5C4A7B7 /* ContentView.swift */,
+				8D8BD025AB758B91AD31F2CD /* ConverterAPI.swift */,
 				48FEDD01DEFDD87C2BAE1218 /* FurnitureScannerApp.swift */,
 				F0F44E9D55EF7BB4BA06E948 /* Measurement.swift */,
 			);
@@ -110,6 +113,7 @@
 			files = (
 				E87A6F11C8D18CD2785AA789 /* ARMeasurementView.swift in Sources */,
 				BE41222F763A87C4FF93CB48 /* ContentView.swift in Sources */,
+				80E3141F5469826BA2865D87 /* ConverterAPI.swift in Sources */,
 				40CFD9AF10D38CB017D8B705 /* FurnitureScannerApp.swift in Sources */,
 				71226D4A66248ECCA23E9C92 /* Measurement.swift in Sources */,
 			);

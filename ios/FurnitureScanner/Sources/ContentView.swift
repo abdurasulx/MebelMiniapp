@@ -4,6 +4,9 @@ import SwiftUI
 struct ContentView: View {
     @State private var cameraStatus = AVCaptureDevice.authorizationStatus(for: .video)
     @State private var measurement: FurnitureMeasurement?
+    @State private var snapshot: UIImage?
+    @State private var isUploading = false
+    @State private var uploadMessage: String?
     @State private var resetID = UUID()
     @State private var status = "Kamera ruxsatini tekshiryapmiz…"
 
@@ -29,6 +32,7 @@ struct ContentView: View {
         ZStack {
             ARMeasurementView(
                 onMeasurement: { measurement = $0 },
+                onSnapshot: { snapshot = $0 },
                 onTrackingStatus: { status = $0 },
                 resetID: resetID
             )
@@ -42,12 +46,12 @@ struct ContentView: View {
                     Text(status).font(.subheadline).foregroundStyle(.secondary)
                     measurementGrid
                     HStack {
-                        Button("Qayta skan", systemImage: "arrow.counterclockwise") { measurement = nil; resetID = UUID() }
+                        Button("Qayta skan", systemImage: "arrow.counterclockwise") { measurement = nil; snapshot = nil; resetID = UUID() }
                             .buttonStyle(.bordered)
                         Spacer()
-                        Button("Tayyor", systemImage: "checkmark") { }
+                        Button(isUploading ? "Yuborilmoqda…" : "3D ga yuborish", systemImage: "arrow.up.circle.fill") { Task { await submitToConverter() } }
                             .buttonStyle(.borderedProminent)
-                            .disabled(measurement == nil)
+                            .disabled(measurement == nil || snapshot == nil || isUploading)
                     }
                 }
                 .padding()
@@ -56,6 +60,7 @@ struct ContentView: View {
             }
         }
         .accessibilityElement(children: .contain)
+        .alert("3D konvertor", isPresented: Binding(get: { uploadMessage != nil }, set: { if !$0 { uploadMessage = nil } })) { Button("OK") {} } message: { Text(uploadMessage ?? "") }
     }
 
     private var measurementGrid: some View {
@@ -76,6 +81,18 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(.background.opacity(0.7), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func submitToConverter() async {
+        guard let measurement, let snapshot else { return }
+        isUploading = true
+        defer { isUploading = false }
+        do {
+            let id = try await ConverterAPI.submit(image: snapshot, measurement: measurement, collection: "scanner")
+            uploadMessage = "3D yaratish navbatiga yuborildi. Job: \(id)"
+        } catch {
+            uploadMessage = "Yuborib bo‘lmadi. Telefon converter tarmog‘iga ulanganini tekshiring."
+        }
     }
 
     private func requestCamera() async {

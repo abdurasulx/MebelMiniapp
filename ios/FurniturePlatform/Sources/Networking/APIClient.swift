@@ -18,7 +18,7 @@ enum APIError: LocalizedError, Equatable {
 /// "cancelled", "Not found." kabi xom/texnik matnlarsiz (production ko'rinish).
 enum FriendlyError {
     static func text(_ key: String) -> String {
-        translate(UserDefaults.standard.string(forKey: "fp.locale") ?? defaultLocaleCode, key)
+        translate(systemAppLocaleCode(), key)
     }
 
     static func forStatus(_ status: Int) -> String {
@@ -461,7 +461,7 @@ actor APIClient {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               var code = obj["code"] as? String, code.hasPrefix("otp_") else { return nil }
         code.removeFirst(4)
-        let locale = UserDefaults.standard.string(forKey: "fp.locale") ?? defaultLocaleCode
+        let locale = systemAppLocaleCode()
         let key = "otp_err_\(code)"
         let template = translate(locale, key)
         if template == key { return nil }

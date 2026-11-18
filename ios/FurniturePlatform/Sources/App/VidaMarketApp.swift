@@ -36,6 +36,7 @@ struct VidaMarketApp: App {
                 .environmentObject(locale)
                 .environmentObject(connectivity)
                 .environmentObject(appVersion)
+                .environment(\.locale, Locale(identifier: locale.code))
                 .task {
                     location.bootstrap()
                     cart.load()

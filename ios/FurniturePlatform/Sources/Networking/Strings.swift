@@ -19,6 +19,13 @@ let appLocales: [(code: String, nativeName: String, flag: String)] = [
 
 let defaultLocaleCode = "uz"
 
+/// Share iOS's selected bundle language across UI and networking error messages.
+func systemAppLocaleCode() -> String {
+    let preferred = Bundle.main.preferredLocalizations.first ?? "en"
+    let code = Locale(identifier: preferred).language.languageCode?.identifier ?? "en"
+    return appLocales.contains(where: { $0.code == code }) ? code : "en"
+}
+
 private let stringsTable: [String: [String: String]] = [
     "uz": [
         "err_bad_request": "So'rov noto'g'ri yuborildi",
@@ -63,6 +70,7 @@ private let stringsTable: [String: [String: String]] = [
         "welcome_loc_unavailable_msg": "GPS signali yoki xizmatlari mavjud emas. Qayta urinib ko‘ring yoki viloyatni qo‘lda tanlang.",
         "welcome_try_again": "Qayta urinish",
         "welcome_language": "Til",
+        "language_settings_hint": "Tilni iOS Sozlamalarida o‘zgartiring.",
         "privacy_policy": "Maxfiylik siyosati",
         "showcase_prompt_title": "Hududingizda faol firmalar topilmadi",
         "showcase_prompt_body": "Ilovaning imkoniyatlarini ko'rish uchun test mahsulotlarni sinab ko'rasizmi?",
@@ -453,6 +461,7 @@ private let stringsTable: [String: [String: String]] = [
         "welcome_loc_unavailable_msg": "GPS signal or services are unavailable. Try again or choose a region manually.",
         "welcome_try_again": "Try again",
         "welcome_language": "Language",
+        "language_settings_hint": "Change the app language in iOS Settings.",
         "privacy_policy": "Privacy Policy",
         "showcase_prompt_title": "No active firms found in your area",
         "showcase_prompt_body": "Would you like to try test products to see what the app can do?",
@@ -892,6 +901,7 @@ private let stringsTable: [String: [String: String]] = [
         "welcome_loc_unavailable_msg": "GPS-сигнал или службы недоступны. Повторите попытку или выберите регион вручную.",
         "welcome_try_again": "Повторить",
         "welcome_language": "Язык",
+        "language_settings_hint": "Измените язык приложения в настройках iOS.",
         "privacy_policy": "Политика конфиденциальности",
         "showcase_prompt_title": "В вашем регионе не найдено активных фирм",
         "showcase_prompt_body": "Хотите попробовать тестовые товары, чтобы увидеть возможности приложения?",
@@ -1331,6 +1341,7 @@ private let stringsTable: [String: [String: String]] = [
         "welcome_loc_unavailable_msg": "Сигнали GPS ё хидматҳо дастнорасанд. Дубора кӯшиш кунед ё минтақаро дастӣ интихоб кунед.",
         "welcome_try_again": "Дубора кӯшиш кардан",
         "welcome_language": "Забон",
+        "language_settings_hint": "Забони барномаро дар Танзимоти iOS иваз кунед.",
         "privacy_policy": "Сиёсати махфият",
         "showcase_prompt_title": "Дар минтақаи шумо ширкатҳои фаъол ёфт нашуд",
         "showcase_prompt_body": "Мехоҳед маҳсулоти таҷрибавиро барои дидани имкониятҳои барнома санҷед?",
@@ -1770,6 +1781,7 @@ private let stringsTable: [String: [String: String]] = [
         "welcome_loc_unavailable_msg": "GPS sinyali veya hizmetleri kullanılamıyor. Tekrar deneyin veya bölgeyi elle seçin.",
         "welcome_try_again": "Tekrar dene",
         "welcome_language": "Dil",
+        "language_settings_hint": "Uygulama dilini iOS Ayarları’ndan değiştirin.",
         "privacy_policy": "Gizlilik politikası",
         "showcase_prompt_title": "Bölgenizde aktif firma bulunamadı",
         "showcase_prompt_body": "Uygulamanın özelliklerini görmek için test ürünlerini denemek ister misiniz?",
@@ -2209,6 +2221,7 @@ private let stringsTable: [String: [String: String]] = [
         "welcome_loc_unavailable_msg": "GPS сигналы же кызматтары жеткиликсиз. Кайра аракет кылыңыз же аймакты кол менен тандаңыз.",
         "welcome_try_again": "Кайра аракет кылуу",
         "welcome_language": "Тил",
+        "language_settings_hint": "Колдонмонун тилин iOS жөндөөлөрүнөн өзгөртүңүз.",
         "privacy_policy": "Купуялык саясаты",
         "showcase_prompt_title": "Аймагыңызда активдүү фирмалар табылган жок",
         "showcase_prompt_body": "Тиркеменин мүмкүнчүлүктөрүн көрүү үчүн сыноо товарларын байкап көрөсүзбү?",
@@ -2648,6 +2661,7 @@ private let stringsTable: [String: [String: String]] = [
         "welcome_loc_unavailable_msg": "GPS сигналы немесе қызметтері қолжетімсіз. Қайта әрекет етіңіз немесе аймақты қолмен таңдаңыз.",
         "welcome_try_again": "Қайта әрекет ету",
         "welcome_language": "Тіл",
+        "language_settings_hint": "Қолданба тілін iOS параметрлерінде өзгертіңіз.",
         "privacy_policy": "Құпиялылық саясаты",
         "showcase_prompt_title": "Аймағыңызда белсенді фирмалар табылмады",
         "showcase_prompt_body": "Қосымшаның мүмкіндіктерін көру үшін сынақ тауарларын байқап көресіз бе?",
@@ -3087,6 +3101,7 @@ private let stringsTable: [String: [String: String]] = [
         "welcome_loc_unavailable_msg": "GPS-Signal oder -Dienste sind nicht verfügbar. Versuchen Sie es erneut oder wählen Sie die Region manuell.",
         "welcome_try_again": "Erneut versuchen",
         "welcome_language": "Sprache",
+        "language_settings_hint": "Ändern Sie die App-Sprache in den iOS-Einstellungen.",
         "privacy_policy": "Datenschutzerklärung",
         "showcase_prompt_title": "In Ihrer Region wurden keine aktiven Firmen gefunden",
         "showcase_prompt_body": "Möchten Sie Testprodukte ausprobieren, um die Funktionen der App zu sehen?",
@@ -3526,6 +3541,7 @@ private let stringsTable: [String: [String: String]] = [
         "welcome_loc_unavailable_msg": "GPS siqnalı və ya xidmətləri əlçatan deyil. Yenidən cəhd edin və ya bölgəni əl ilə seçin.",
         "welcome_try_again": "Yenidən cəhd et",
         "welcome_language": "Dil",
+        "language_settings_hint": "Tətbiqin dilini iOS Ayarlarında dəyişin.",
         "privacy_policy": "Məxfilik siyasəti",
         "showcase_prompt_title": "Bölgənizdə aktiv firma tapılmadı",
         "showcase_prompt_body": "Tətbiqin imkanlarını görmək üçün test məhsullarını sınamaq istərdinizmi?",

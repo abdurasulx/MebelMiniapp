@@ -18,6 +18,8 @@ targets:
         CFBundleDisplayName: "Mebel Scanner"
         NSCameraUsageDescription: "Mebel o‘lchamlarini AR orqali aniqlash uchun kamera kerak."
         NSPhotoLibraryAddUsageDescription: "Skan natijasini saqlash uchun rasmlar kutubxonasiga ruxsat kerak."
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

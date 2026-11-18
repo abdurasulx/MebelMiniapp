@@ -15,8 +15,7 @@ struct WelcomeLocationView: View {
     @State private var isRequestingLocation = false
     @State private var showLocationError = false
 
-    /// Matnlar tanlangan tilga qarab Strings.swift lug'atidan olinadi (9 til) —
-    /// til menyusi o'zgarganda ekran darhol qayta chiziladi.
+    /// App copy follows the same bundle language as native permission prompts.
     private var copy: Copy { Copy(locale) }
 
     var body: some View {
@@ -30,7 +29,7 @@ struct WelcomeLocationView: View {
             .animation(.snappy, value: step)
             .toolbar {
                 if step == .welcome {
-                    ToolbarItem(placement: .topBarTrailing) { languageMenu }
+                    ToolbarItem(placement: .topBarTrailing) { LanguageSettingsButton() }
                 }
             }
         }
@@ -200,27 +199,6 @@ struct WelcomeLocationView: View {
             Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
         }
         .contentShape(Rectangle())
-    }
-
-    private var languageMenu: some View {
-        Menu {
-            ForEach(appLocales, id: \.code) { l in
-                Button {
-                    locale.setLocale(l.code)
-                } label: {
-                    if locale.code == l.code {
-                        Label("\(l.flag) \(l.nativeName)", systemImage: "checkmark")
-                    } else {
-                        Text("\(l.flag) \(l.nativeName)")
-                    }
-                }
-            }
-        } label: {
-            Label(locale.code.uppercased(), systemImage: "globe")
-                .font(.subheadline.weight(.semibold))
-        }
-        .accessibilityIdentifier("welcomeLanguageMenu")
-        .accessibilityLabel(locale.t("welcome_language"))
     }
 
     private func requestLocation() {
